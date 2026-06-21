@@ -1,7 +1,7 @@
 """Download Scryfall bulk data + Comprehensive Rules for the web backend.
 
-Run once during deployment (or as a Render build step) to populate the data directory.
-Uses the existing mtg_utils download_bulk module if available, otherwise downloads directly.
+Downloads oracle_cards and strips it to only the fields the app uses,
+cutting memory from ~200MB to ~60MB when loaded — fits in 512MB free tier.
 """
 import json
 import os
@@ -15,14 +15,43 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 BULK_PATH = DATA_DIR / "default-cards.json"
 RULES_GLOB = "comprehensive-rules*.txt"
 
+# Only keep fields the app actually uses — everything else is discarded
+_KEEP_FIELDS = {
+    "name", "oracle_text", "mana_cost", "cmc", "type_line", "keywords",
+    "colors", "color_identity", "produced_mana", "power", "toughness",
+    "rarity", "prices", "legalities", "image_uris", "card_faces",
+    "oracle_id", "layout",
+}
+
+
+def _strip_card(card):
+    """Keep only the fields we use, strip image_uris to just normal + small."""
+    out = {k: card[k] for k in _KEEP_FIELDS if k in card}
+    # Only keep 2 image sizes instead of 6
+    if "image_uris" in out and out["image_uris"]:
+        out["image_uris"] = {
+            k: out["image_uris"][k]
+            for k in ("normal", "small")
+            if k in out["image_uris"]
+        }
+    # For DFCs, strip card_faces images too
+    if "card_faces" in out and out["card_faces"]:
+        for face in out["card_faces"]:
+            if "image_uris" in face and face["image_uris"]:
+                face["image_uris"] = {
+                    k: face["image_uris"][k]
+                    for k in ("normal", "small")
+                    if k in face["image_uris"]
+                }
+    return out
+
 
 def download_bulk():
-    """Download Scryfall oracle-cards bulk data (~30MB)."""
-    # Remove old oversized default-cards.json if present (from prior deploys)
+    """Download Scryfall oracle-cards and strip to essential fields."""
     if BULK_PATH.exists():
         size_mb = BULK_PATH.stat().st_size / 1_000_000
         if size_mb > 100:
-            print(f"Removing oversized bulk file ({size_mb:.0f} MB) — switching to oracle_cards.")
+            print(f"Removing oversized bulk file ({size_mb:.0f} MB).")
             BULK_PATH.unlink()
         else:
             print(f"Bulk data already exists ({size_mb:.0f} MB): {BULK_PATH}")
@@ -36,28 +65,29 @@ def download_bulk():
     with urlopen(req) as resp:
         catalog = json.loads(resp.read())
 
-    # Use oracle_cards (~30MB) instead of default_cards (~550MB) to fit in
-    # free-tier memory limits. One entry per unique card — we only need one
-    # record per card name anyway (prices, oracle text, images all present).
     uri = None
-    for preferred in ("oracle_cards", "default_cards"):
-        for entry in catalog.get("data", []):
-            if entry.get("type") == preferred:
-                uri = entry["download_uri"]
-                break
-        if uri:
+    for entry in catalog.get("data", []):
+        if entry.get("type") == "oracle_cards":
+            uri = entry["download_uri"]
             break
-
     if not uri:
-        print("ERROR: Could not find oracle_cards or default_cards in Scryfall bulk catalog.")
+        print("ERROR: Could not find oracle_cards in Scryfall bulk catalog.")
         sys.exit(1)
 
     print(f"Downloading {uri} ...")
     req = Request(uri, headers={"User-Agent": "MTGWorkshop/1.0", "Accept": "*/*"})
     with urlopen(req) as resp:
-        data = resp.read()
-    BULK_PATH.write_bytes(data)
-    print(f"Saved {len(data) / 1_000_000:.0f} MB to {BULK_PATH}")
+        raw = resp.read()
+
+    print(f"Downloaded {len(raw) / 1_000_000:.0f} MB. Stripping to essential fields...")
+    cards = json.loads(raw)
+    del raw  # free the raw bytes immediately
+    stripped = [_strip_card(c) for c in cards]
+    del cards
+
+    output = json.dumps(stripped, separators=(",", ":"))
+    BULK_PATH.write_text(output)
+    print(f"Saved {len(output) / 1_000_000:.0f} MB stripped data ({len(stripped)} cards) to {BULK_PATH}")
 
 
 def download_rules():
@@ -67,17 +97,7 @@ def download_rules():
         print(f"Rules already exist: {existing[-1].name}")
         return
 
-    print("Downloading Comprehensive Rules from Wizards...")
-    # Scryfall mirrors the rules
-    try:
-        req = Request("https://api.scryfall.com/bulk-data", headers={"User-Agent": "MTGWorkshop/1.0"})
-        with urlopen(req) as resp:
-            catalog = json.loads(resp.read())
-        # The rulings file has a permalink we can use to find the CR date
-    except Exception:
-        pass
-
-    # Direct download from Wizards' known URL pattern
+    print("Downloading Comprehensive Rules...")
     urls = [
         "https://media.wizards.com/2026/downloads/MagicCompRules_20260417.txt",
         "https://media.wizards.com/2025/downloads/MagicCompRules_20250404.txt",
@@ -87,7 +107,6 @@ def download_rules():
             req = Request(url, headers={"User-Agent": "MTGWorkshop/1.0"})
             with urlopen(req) as resp:
                 text = resp.read()
-            # Extract date from URL for filename
             date_part = url.split("_")[-1].replace(".txt", "")
             out = DATA_DIR / f"comprehensive-rules-{date_part}.txt"
             out.write_bytes(text)
@@ -97,7 +116,7 @@ def download_rules():
             print(f"  Failed {url}: {e}")
             continue
 
-    print("WARNING: Could not download Comprehensive Rules. Rules lookup will be unavailable.")
+    print("WARNING: Could not download Comprehensive Rules.")
 
 
 if __name__ == "__main__":
