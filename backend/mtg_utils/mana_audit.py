@@ -1,0 +1,581 @@
+"""Mana base audit: land count and color balance analysis."""
+
+from __future__ import annotations
+
+import json
+import math
+import re
+from collections.abc import Mapping
+from pathlib import Path
+
+import click
+
+from mtg_utils._sidecar import atomic_write_json, sha_keyed_path
+from mtg_utils.card_classify import (
+    color_sources,
+    is_land,
+    is_ramp,
+)
+from mtg_utils.format_config import get_format_config
+from mtg_utils.hydrated_deck import HydratedDeck
+
+_PIP_PATTERN = re.compile(r"\{([WUBRG])\}")
+
+# Constructed mana base constants (60-card formats)
+_CONSTRUCTED_BASELINE_LANDS = 24
+_CONSTRUCTED_NEUTRAL_CMC = 3.0
+_CONSTRUCTED_MAX_CURVE_ADJ = 2
+_CONSTRUCTED_MIN_LANDS = 20
+_CONSTRUCTED_MAX_LANDS = 27
+_CONSTRUCTED_FAIL_TOLERANCE = 2
+
+
+def burgess_formula(*, colors: int, commander_cmc: int, deck_size: int = 100) -> int:
+    """Return Burgess recommended land count, scaled to deck size."""
+    base = 31 + colors + commander_cmc
+    return round(base * deck_size / 100)
+
+
+def karsten_adjustment(*, ramp_count: int, deck_size: int = 100) -> int:
+    """Return Karsten-adjusted land count, scaled to deck size."""
+    base = max(36, 42 - math.floor(ramp_count / 2.5))
+    return round(base * deck_size / 100)
+
+
+def constructed_land_target(
+    *,
+    ramp_count: int,
+    avg_cmc: float,
+    deck_size: int = 60,
+) -> int:
+    """Return recommended land count for 60-card constructed formats.
+
+    Baseline is 24 lands (for a 60-card deck), adjusted down by ramp
+    and by curve profile. Aggressive decks (avg CMC < 2.5) can go lower;
+    control decks (avg CMC > 3.5) want more. Result is clamped to [20, 27]
+    and scaled proportionally if deck_size differs from 60.
+    """
+    base = _CONSTRUCTED_BASELINE_LANDS - math.floor(ramp_count / 2)
+    if avg_cmc > 0:
+        curve_adj = round(avg_cmc - _CONSTRUCTED_NEUTRAL_CMC)
+        cap = _CONSTRUCTED_MAX_CURVE_ADJ
+        base += max(-cap, min(cap, curve_adj))
+    base = max(_CONSTRUCTED_MIN_LANDS, min(_CONSTRUCTED_MAX_LANDS, base))
+    return round(base * deck_size / 60)
+
+
+def land_count_status(
+    *,
+    land_count: int,
+    recommended: int,
+    burgess: int,
+) -> str:
+    """Return PASS/WARN/FAIL status for land count.
+
+    The absolute floor is the Burgess formula result (which accounts for
+    commander CMC and color count).  Falling below Burgess is FAIL.
+    Meeting Burgess but below the recommended (max of Burgess, Karsten)
+    is WARN.  Meeting or exceeding recommended is PASS.
+
+    Previous behavior used a fixed floor of 36 (scaled to deck size),
+    which penalised low-curve mono-color decks whose Burgess target was
+    legitimately 35 or lower.
+    """
+    if land_count < burgess:
+        return "FAIL"
+    if land_count < recommended:
+        return "WARN"
+    return "PASS"
+
+
+def pip_demand(cards: list[dict]) -> dict[str, int]:
+    """Count colored pips (W, U, B, R, G) across all card mana costs."""
+    counts: dict[str, int] = {}
+    for card in cards:
+        mana_cost = card.get("mana_cost") or ""
+        for match in _PIP_PATTERN.finditer(mana_cost):
+            color = match.group(1)
+            counts[color] = counts.get(color, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def color_balance(
+    pips: dict[str, int], land_colors: dict[str, int], total_lands: int
+) -> dict:
+    """Evaluate whether land color production matches pip demand."""
+    if not pips or total_lands == 0:
+        return {"status": "PASS", "flags": []}
+
+    total_pips = sum(pips.values())
+    flags: list[str] = []
+    worst_deficit = 0.0
+
+    for color, pip_count in pips.items():
+        pip_pct = pip_count / total_pips * 100
+        land_count = land_colors.get(color, 0)
+        land_pct = land_count / total_lands * 100
+        deficit = pip_pct - land_pct
+        worst_deficit = max(worst_deficit, deficit)
+        if deficit > 5:
+            flags.append(
+                f"{color}: needs {pip_pct:.1f}% but only {land_pct:.1f}%"
+                f" of lands produce it (deficit {deficit:.1f}pp)"
+            )
+
+    if worst_deficit > 10:
+        status = "FAIL"
+    elif worst_deficit > 5:
+        status = "WARN"
+    else:
+        status = "PASS"
+        flags = []
+
+    return {"status": status, "flags": flags}
+
+
+# Color → its basic land. "C" (colorless) → Wastes, for an Eldrazi/colorless deck.
+_BASIC_FOR_COLOR = {
+    "W": "Plains",
+    "U": "Island",
+    "B": "Swamp",
+    "R": "Mountain",
+    "G": "Forest",
+    "C": "Wastes",
+}
+
+
+def allocate_basic_lands(
+    shortfall: int,
+    recommended: int,
+    pips: dict[str, int],
+    production: dict[str, int],
+    fallback_colors: list[str] | None = None,
+) -> dict[str, int]:
+    """Distribute ``shortfall`` basic lands across colors to best pass the mana gate.
+
+    Water-fills toward the deck's pip demand against what existing lands already
+    produce: each color's target production is ``recommended * pip%``; the shortfall is
+    allocated proportional to each color's remaining deficit (so an over-produced color
+    gets nothing), with largest-remainder rounding so the counts sum exactly to
+    ``shortfall``. Falls back to pip demand if the base is already balanced, to the
+    commander's color identity when there are no pips yet, and to Wastes for a truly
+    colorless deck. Returns {basic-land name: count to add}."""
+    if shortfall <= 0:
+        return {}
+    weights_base = dict(pips) if pips else dict.fromkeys(fallback_colors or [], 1)
+    colors = [c for c in weights_base if c in _BASIC_FOR_COLOR]
+    if not colors:
+        return {_BASIC_FOR_COLOR["C"]: shortfall}
+
+    total = sum(weights_base[c] for c in colors)
+    target = {c: recommended * weights_base[c] / total for c in colors}
+    deficit = {c: max(0.0, target[c] - production.get(c, 0)) for c in colors}
+    balanced = sum(deficit.values()) <= 1e-9
+    weights = {c: weights_base[c] for c in colors} if balanced else deficit
+    wsum = sum(weights.values()) or 1.0
+
+    raw = {c: shortfall * weights[c] / wsum for c in colors}
+    alloc = {c: int(raw[c]) for c in colors}
+    remainder = shortfall - sum(alloc.values())
+    for c in sorted(colors, key=lambda c: raw[c] - alloc[c], reverse=True)[:remainder]:
+        alloc[c] += 1
+    return {_BASIC_FOR_COLOR[c]: alloc[c] for c in colors if alloc[c] > 0}
+
+
+_BASIC_NAMES = frozenset(_BASIC_FOR_COLOR.values())
+_COLOR_FOR_BASIC = {name: color for color, name in _BASIC_FOR_COLOR.items()}
+
+
+def reconcile_basic_lands(
+    hd: HydratedDeck, *, target_total: int | None = None
+) -> dict[str, dict[str, int]]:
+    """Plan the basic-land changes that move the mana base to a target land count,
+    returning ``{"add": {name: qty}, "remove": {name: qty}}``.
+
+    With ``target_total=None`` (default) the target is the FAIL FLOOR clamped to never
+    drop below the current count — so it tops a short deck up to the floor AND
+    rebalances the basics of a deck already at/above it (swapping over- for
+    under-produced colors, net-zero count). Pass an explicit ``target_total`` to aim
+    elsewhere: the 'Trim lands' FLOOD remedy passes the *recommended* count, below the
+    current one, so the same color-demand allocation removes the over-produced basics
+    down to target. Only the standard basics are managed; nonbasic lands (duals, fixing,
+    snow basics) are treated as fixed production the basics fill in around — so a deck
+    whose nonbasics alone exceed the target trims every basic and stops there."""
+    audit = mana_audit(hd)
+    land_count = audit["land_count"]
+    if target_total is None:
+        target_total = max(land_count, audit["land_count_floor"])
+
+    current: dict[str, int] = {}
+    for entry in hd.cards:
+        color = _COLOR_FOR_BASIC.get(entry["name"])
+        if color:
+            current[color] = current.get(color, 0) + entry["quantity"]
+
+    nonbasic_count = land_count - sum(current.values())
+    desired_basic_total = max(0, target_total - nonbasic_count)
+    production = audit["land_color_production"]
+    nonbasic_prod = {
+        c: production.get(c, 0) - current.get(c, 0)
+        for c in set(production) | set(current)
+    }
+
+    ci: set[str] = set()
+    for entry in hd.commanders:
+        cmd_name = entry.get("name")
+        record = hd.by_name.get(cmd_name) if isinstance(cmd_name, str) else None
+        if record:
+            ci.update(record.get("color_identity") or [])
+
+    desired_named = allocate_basic_lands(
+        desired_basic_total,
+        target_total,
+        audit["pip_demand"],
+        nonbasic_prod,
+        fallback_colors=sorted(ci),
+    )
+    desired = {_COLOR_FOR_BASIC[name]: qty for name, qty in desired_named.items()}
+
+    add: dict[str, int] = {}
+    remove: dict[str, int] = {}
+    for color in set(current) | set(desired):
+        delta = desired.get(color, 0) - current.get(color, 0)
+        name = _BASIC_FOR_COLOR[color]
+        if delta > 0:
+            add[name] = delta
+        elif delta < 0:
+            remove[name] = -delta
+    return {"add": add, "remove": remove}
+
+
+def _add_color_sources(
+    colors_dict: dict[str, int], card_color_srcs: set[str], qty: int
+) -> None:
+    """Add qty to each color in colors_dict based on card_color_srcs."""
+    if "any" in card_color_srcs:
+        for c in "WUBRG":
+            colors_dict[c] = colors_dict.get(c, 0) + qty
+    else:
+        for c in card_color_srcs:
+            if c != "C":
+                colors_dict[c] = colors_dict.get(c, 0) + qty
+
+
+def _commander_stats(
+    commanders: list[dict], card_lookup: Mapping[str, dict]
+) -> tuple[int, int]:
+    """Return (commander_cmc, color_count) from commander list."""
+    cmd_cmcs: list[float] = []
+    color_identity: set[str] = set()
+    for cmd_entry in commanders:
+        card = card_lookup.get(cmd_entry["name"])
+        if card is not None:
+            cmd_cmcs.append(card.get("cmc", 0.0))
+            color_identity.update(card.get("color_identity", []))
+    return (int(max(cmd_cmcs)) if cmd_cmcs else 0, len(color_identity))
+
+
+def _scan_entries(
+    all_entries: list[dict], card_lookup: Mapping[str, dict]
+) -> tuple[int, int, list[float], list[dict], dict[str, int], dict[str, int]]:
+    """Scan all entries and return (land_count, ramp_count, nonland_cmcs,
+    pip_cards, land_color_production, rock_colors)."""
+    land_count = 0
+    ramp_count = 0
+    nonland_cmcs: list[float] = []
+    pip_cards: list[dict] = []
+    land_color_production: dict[str, int] = {}
+    rock_colors: dict[str, int] = {}
+
+    for entry in all_entries:
+        qty = entry.get("quantity", 1)
+        card = card_lookup.get(entry["name"])
+        if card is None:
+            continue
+
+        if is_land(card):
+            land_count += qty
+            _add_color_sources(land_color_production, color_sources(card), qty)
+        else:
+            nonland_cmcs.extend([card.get("cmc", 0.0)] * qty)
+            pip_cards.extend([card] * qty)
+
+        if is_ramp(card):
+            ramp_count += qty
+            if not is_land(card):
+                _add_color_sources(rock_colors, color_sources(card), qty)
+
+    return (
+        land_count,
+        ramp_count,
+        nonland_cmcs,
+        pip_cards,
+        land_color_production,
+        rock_colors,
+    )
+
+
+def _pct_dict(counts: dict[str, int], total: int) -> dict[str, float]:
+    """Convert a counts dict to percentage dict (sorted)."""
+    if not total:
+        return {}
+    return {c: round(v / total * 100, 1) for c, v in sorted(counts.items())}
+
+
+def _overall_status(statuses: list[str]) -> str:
+    """Return worst status from a list of PASS/WARN/FAIL values."""
+    if "FAIL" in statuses:
+        return "FAIL"
+    if "WARN" in statuses:
+        return "WARN"
+    return "PASS"
+
+
+def mana_audit(hd: HydratedDeck) -> dict:
+    """Run a full mana base audit on the deck."""
+    card_lookup = hd.by_name
+
+    config = get_format_config(hd.deck)
+    # Honor an explicit deck-size on the deck (e.g. a 60-card paper Historic Brawl, or
+    # an 80-card Yorion deck) so the Burgess/Karsten/constructed land math scales to the
+    # real size — falling back to the format default when the deck doesn't declare one.
+    deck_size = hd.deck.get("deck_size") or config["deck_size"]
+    has_commander = config.get("has_commander", True)
+
+    commanders = hd.commanders
+    # Only analyze mainboard cards (sideboard doesn't affect mana base)
+    all_entries = list(commanders) + list(hd.cards)
+
+    commander_cmc, colors = _commander_stats(commanders, card_lookup)
+    (
+        land_count,
+        ramp_count,
+        nonland_cmcs,
+        pip_cards,
+        land_color_production,
+        rock_colors,
+    ) = _scan_entries(all_entries, card_lookup)
+
+    avg_cmc = round(sum(nonland_cmcs) / len(nonland_cmcs), 2) if nonland_cmcs else 0.0
+
+    if has_commander:
+        burgess_result = burgess_formula(
+            colors=colors, commander_cmc=commander_cmc, deck_size=deck_size
+        )
+        karsten_result = karsten_adjustment(ramp_count=ramp_count, deck_size=deck_size)
+        recommended = max(burgess_result, karsten_result)
+        floor = burgess_result  # the FAIL threshold (below this can't finalize)
+        lc_status = land_count_status(
+            land_count=land_count,
+            recommended=recommended,
+            burgess=burgess_result,
+        )
+        formula_info = {
+            "burgess_formula": {
+                "colors": colors,
+                "commander_cmc": commander_cmc,
+                "result": burgess_result,
+            },
+            "karsten_adjustment": {"ramp_count": ramp_count, "result": karsten_result},
+        }
+    else:
+        constructed_target = constructed_land_target(
+            ramp_count=ramp_count,
+            avg_cmc=avg_cmc,
+            deck_size=deck_size,
+        )
+        recommended = constructed_target
+        floor = max(_CONSTRUCTED_MIN_LANDS, recommended - _CONSTRUCTED_FAIL_TOLERANCE)
+        lc_status = land_count_status(
+            land_count=land_count,
+            recommended=recommended,
+            burgess=floor,
+        )
+        formula_info = {
+            "constructed_land_target": {
+                "ramp_count": ramp_count,
+                "avg_cmc": avg_cmc,
+                "result": constructed_target,
+            },
+        }
+
+    pips = pip_demand(pip_cards)
+    total_pips = sum(pips.values())
+    pip_demand_pct = (
+        {c: round(v / total_pips * 100, 1) for c, v in pips.items()}
+        if total_pips
+        else {}
+    )
+
+    cb = color_balance(pips, land_color_production, land_count)
+
+    return {
+        "land_count": land_count,
+        "recommended_land_count": recommended,
+        "land_count_floor": floor,
+        **formula_info,
+        "land_count_status": lc_status,
+        "ramp_count": ramp_count,
+        "avg_cmc": avg_cmc,
+        "pip_demand": pips,
+        "pip_demand_pct": pip_demand_pct,
+        "land_color_production": dict(sorted(land_color_production.items())),
+        "land_color_pct": _pct_dict(land_color_production, land_count),
+        "rock_color_pct": _pct_dict(rock_colors, sum(rock_colors.values())),
+        "color_balance_status": cb["status"],
+        "color_balance_flags": cb["flags"],
+        "overall_status": _overall_status([lc_status, cb["status"]]),
+    }
+
+
+def _render_single_audit(audit: dict) -> list[str]:
+    lines: list[str] = []
+    status = audit.get("overall_status", "?")
+    land_count = audit.get("land_count", 0)
+    colors = set(audit.get("pip_demand") or {})
+    colors_str = "".join(sorted(colors)) if colors else "C"
+    lines.append(f"mana-audit: {status} — {land_count} lands ({colors_str} deck)")
+    lines.append("")
+
+    constructed = audit.get("constructed_land_target")
+    burgess = audit.get("burgess_formula") or {}
+    if constructed:
+        lines.append(
+            f"Land count: {land_count} "
+            f"(target: {constructed.get('result', '?')}, "
+            f"status: {audit.get('land_count_status', '?')})"
+        )
+    else:
+        lines.append(
+            f"Land count: {land_count} "
+            f"(Burgess target: {burgess.get('result', '?')}, "
+            f"Karsten adj: {audit.get('karsten_adjustment', {}).get('result', '?')}, "
+            f"status: {audit.get('land_count_status', '?')})"
+        )
+    lines.append(f"Ramp count: {audit.get('ramp_count', 0)}")
+    lines.append(f"Avg CMC: {audit.get('avg_cmc', 0)}")
+
+    pip_demand_pct = audit.get("pip_demand_pct") or {}
+    land_color_pct = audit.get("land_color_pct") or {}
+    rock_color_pct = audit.get("rock_color_pct") or {}
+    all_colors = sorted(set(pip_demand_pct) | set(land_color_pct) | set(rock_color_pct))
+    if all_colors:
+        lines.append("Color balance:")
+        for c in all_colors:
+            pd = pip_demand_pct.get(c, 0)
+            lp = land_color_pct.get(c, 0)
+            rp = rock_color_pct.get(c, 0)
+            lines.append(
+                f"  {c}: pip demand={pd}%, land production={lp}%, rock production={rp}%"
+            )
+    cb_status = audit.get("color_balance_status", "?")
+    cb_flags = audit.get("color_balance_flags") or []
+    lines.append(f"Color balance status: {cb_status}")
+    if cb_flags:
+        lines.extend(f"  ! {flag}" for flag in cb_flags)
+    return lines
+
+
+def render_text_report(result: dict) -> str:
+    """Render mana_audit() output as a human-readable text report."""
+    if "primary" in result and "comparison" in result:
+        # --compare mode
+        primary = result["primary"]
+        comparison = result["comparison"]
+        delta = result.get("delta", {})
+        lines: list[str] = []
+        lines.append(
+            f"mana-audit --compare: {primary.get('source', 'primary')} "
+            f"vs {comparison.get('source', 'comparison')}"
+        )
+        lines.append("")
+        lines.append("--- Primary ---")
+        lines.extend(_render_single_audit(primary))
+        lines.append("")
+        lines.append("--- Comparison ---")
+        lines.extend(_render_single_audit(comparison))
+        lines.append("")
+        lines.append(
+            f"Delta: land_count={delta.get('land_count', 0):+d}, "
+            f"avg_cmc={delta.get('avg_cmc', 0):+.2f}, "
+            f"ramp_count={delta.get('ramp_count', 0):+d}"
+        )
+        return "\n".join(lines) + "\n"
+
+    return "\n".join(_render_single_audit(result)) + "\n"
+
+
+def _default_output_path(*args: object) -> Path:
+    return sha_keyed_path("mana-audit", *args)
+
+
+@click.command()
+@click.argument("deck_path", type=click.Path(exists=True, path_type=Path))
+@click.argument("hydrated_path", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--compare",
+    nargs=2,
+    type=click.Path(exists=True, path_type=Path),
+    metavar="<new-deck-json> <new-hydrated-json>",
+    default=None,
+    help="Compare against another deck version.",
+)
+@click.option(
+    "--output",
+    "output_path",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Override the default sha-keyed path for the full JSON output.",
+)
+def main(
+    deck_path: Path,
+    hydrated_path: Path,
+    compare: tuple[Path, Path] | None,
+    output_path: Path | None,
+) -> None:
+    """Audit a deck's mana base for land count and color balance."""
+    deck_content = deck_path.read_text(encoding="utf-8")
+    hydrated_content = hydrated_path.read_text(encoding="utf-8")
+    deck = json.loads(deck_content)
+    hydrated = json.loads(hydrated_content)
+
+    if compare:
+        new_deck_path, new_hydrated_path = compare
+        new_deck_content = new_deck_path.read_text(encoding="utf-8")
+        new_hydrated_content = new_hydrated_path.read_text(encoding="utf-8")
+        new_deck = json.loads(new_deck_content)
+        new_hydrated = json.loads(new_hydrated_content)
+
+        primary = mana_audit(HydratedDeck.from_parsed(deck, records=hydrated))
+        primary["source"] = deck_path.name
+        comparison = mana_audit(
+            HydratedDeck.from_parsed(new_deck, records=new_hydrated)
+        )
+        comparison["source"] = new_deck_path.name
+
+        result = {
+            "primary": primary,
+            "comparison": comparison,
+            "delta": {
+                "land_count": comparison["land_count"] - primary["land_count"],
+                "avg_cmc": round(comparison["avg_cmc"] - primary["avg_cmc"], 2),
+                "ramp_count": comparison["ramp_count"] - primary["ramp_count"],
+            },
+        }
+        if output_path is None:
+            output_path = _default_output_path(
+                deck_content,
+                hydrated_content,
+                new_deck_content,
+                new_hydrated_content,
+            )
+    else:
+        result = mana_audit(HydratedDeck.from_parsed(deck, records=hydrated))
+        if output_path is None:
+            output_path = _default_output_path(deck_content, hydrated_content)
+
+    output_path = output_path.resolve()
+    atomic_write_json(output_path, result)
+
+    click.echo(render_text_report(result), nl=False)
+    click.echo(f"\nFull JSON: {output_path}")

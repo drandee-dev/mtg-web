@@ -15,9 +15,9 @@ import os
 import sys
 from pathlib import Path
 
-# This file is .../mtg-web/backend/app/config.py — climb to the repo root that holds
-# both mtg-web/ and mtg-deck-builder/.
-_REPO_ROOT = Path(__file__).resolve().parents[3]
+# This file is .../mtg-web/backend/app/config.py
+_BACKEND = Path(__file__).resolve().parents[1]  # .../mtg-web/backend/
+_REPO_ROOT = _BACKEND.parents[1]                # .../Claude/ (parent of mtg-web/)
 _MTG = _REPO_ROOT / "mtg-deck-builder"
 
 
@@ -27,12 +27,15 @@ def _env_path(var: str, default: Path) -> Path:
 
 
 # Directory containing the `mtg_utils` package (its parent is on sys.path).
-MTG_UTILS_SRC = _env_path(
-    "MTG_UTILS_SRC",
-    _MTG / ".agents" / "skills" / "deck-forge" / "src",
-)
+# Priority: env var > bundled copy in backend/ > sibling mtg-deck-builder repo
+_BUNDLED_SRC = _BACKEND  # mtg_utils/ lives directly in backend/
+_SIBLING_SRC = _MTG / ".agents" / "skills" / "deck-forge" / "src"
+_DEFAULT_SRC = _BUNDLED_SRC if (_BUNDLED_SRC / "mtg_utils").is_dir() else _SIBLING_SRC
+
+MTG_UTILS_SRC = _env_path("MTG_UTILS_SRC", _DEFAULT_SRC)
 
 # Shared Scryfall bulk data + Comprehensive Rules text.
+# On Render: set MTG_DATA_DIR to the persistent disk mount (e.g. /data).
 DATA_DIR = _env_path("MTG_DATA_DIR", _MTG / "data")
 BULK_PATH = _env_path("MTG_BULK_PATH", DATA_DIR / "default-cards.json")
 

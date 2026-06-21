@@ -1,0 +1,362 @@
+"""Wrapper around the phase-rs MTG rules engine.
+
+Phase is invoked as a subprocess. We pin the upstream tag, build once into
+a per-user cache, and shell out for every duel/commander run.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+import tempfile
+from functools import lru_cache
+from pathlib import Path
+
+PHASE_TAG = "v0.1.19"
+PHASE_REPO = "https://github.com/phase-rs/phase"
+
+KNOWN_BINARIES = ("ai-duel", "ai-commander")
+
+
+class PhaseNotInstalledError(RuntimeError):
+    """Raised when the phase binary cannot be located."""
+
+
+class PhasePrereqError(RuntimeError):
+    """Raised when system prereqs (cargo, git) are missing."""
+
+
+class PhaseRuntimeError(RuntimeError):
+    """Raised when phase exits non-zero. ``stderr`` carries the engine output."""
+
+    def __init__(self, message: str, stderr: str) -> None:
+        super().__init__(message)
+        self.stderr = stderr
+
+
+def cache_dir() -> Path:
+    """Return the phase cache root: ``$MTG_SKILLS_CACHE_DIR/phase``
+    or ``$HOME/.cache/mtg-skills/phase``.
+    """
+    base = os.environ.get("MTG_SKILLS_CACHE_DIR")
+    if base:
+        return Path(base) / "phase"
+    return Path(os.environ["HOME"]) / ".cache" / "mtg-skills" / "phase"
+
+
+def _repo_dir() -> Path:
+    return cache_dir() / "phase.git"
+
+
+def _release_dir() -> Path:
+    return _repo_dir() / "target" / "release"
+
+
+def find_binary(name: str) -> Path:
+    """Locate a phase binary. Honors ``MTG_SKILLS_PHASE_BIN`` for ai-duel.
+
+    For non-default binaries the env override is treated as the directory
+    containing them. When the env override is set, the cache path is NOT
+    consulted as a fallback — set the env, you're on your own.
+    """
+    env_override = os.environ.get("MTG_SKILLS_PHASE_BIN")
+    if env_override:
+        env_path = Path(env_override)
+        if env_path.is_dir():
+            candidate = env_path / name
+        elif env_path.name == name:
+            candidate = env_path
+        else:
+            candidate = env_path.parent / name
+        if candidate.exists():
+            return candidate
+        raise PhaseNotInstalledError(
+            f"Phase binary '{name}' not found at {candidate} "
+            f"(resolved from MTG_SKILLS_PHASE_BIN={env_override}).\n"
+            f"Run `playtest-install-phase` to build phase {PHASE_TAG}, or "
+            f"unset MTG_SKILLS_PHASE_BIN to use the default cache path."
+        )
+
+    candidate = _release_dir() / name
+    if candidate.exists():
+        return candidate
+
+    raise PhaseNotInstalledError(
+        f"Phase binary '{name}' not found at {candidate}.\n"
+        f"Run `playtest-install-phase` to build phase {PHASE_TAG} (~5-10 min)."
+    )
+
+
+def _ensure_prereqs() -> None:
+    """Verify cargo and git are on PATH; raise with a clear message otherwise."""
+    for tool in ("cargo", "git"):
+        if shutil.which(tool) is None:
+            raise PhasePrereqError(
+                f"`{tool}` not found on PATH. "
+                f"Install prereqs: cargo (rustup.rs) and git."
+            )
+
+
+def install_phase() -> None:
+    """Clone, generate card data, and build the phase binaries we use."""
+    _ensure_prereqs()
+    repo = _repo_dir()
+    repo.parent.mkdir(parents=True, exist_ok=True)
+
+    if not repo.exists():
+        subprocess.run(
+            ["git", "clone", "--depth=1", "--branch", PHASE_TAG, PHASE_REPO, str(repo)],
+            check=True,
+        )
+
+    subprocess.run(
+        ["bash", "./scripts/setup.sh"],
+        cwd=str(repo),
+        check=True,
+    )
+
+    subprocess.run(
+        ["cargo", "build", "--release", "--bin", "ai-duel", "--bin", "ai-commander"],
+        cwd=str(repo),
+        check=True,
+    )
+
+    version_file = cache_dir() / "version.txt"
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=str(repo),
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    version_file.write_text(head + "\n")
+
+
+DEFAULT_COVERAGE_THRESHOLD = 0.9
+
+
+def _card_data_path() -> Path:
+    return _repo_dir() / "client" / "public" / "card-data.json"
+
+
+@lru_cache(maxsize=1)
+def load_supported_card_names() -> frozenset[str]:
+    """Load the set of card names phase implements (cached)."""
+    path = _card_data_path()
+    if not path.exists():
+        raise PhaseNotInstalledError(
+            f"phase card-data.json not found at {path}. Run `playtest-install-phase`.",
+        )
+    data = json.loads(path.read_text())
+    return frozenset(c["name"] for c in data.get("cards", []))
+
+
+def coverage_report(
+    card_names: list[str],
+    *,
+    threshold: float = DEFAULT_COVERAGE_THRESHOLD,
+) -> dict:
+    """Classify a deck's phase coverage as full / warn / blocked.
+
+    - ``full`` (100% supported): run silently.
+    - ``warn`` (>= threshold but < 100%): run with a warning naming missing.
+    - ``blocked`` (< threshold): refuse to run.
+    """
+    supported = load_supported_card_names()
+    requested_set = set(card_names)
+    missing = sorted(requested_set - supported)
+    matched = len(requested_set) - len(missing)
+    pct = matched / len(requested_set) if requested_set else 1.0
+
+    if not missing:
+        status = "full"
+    elif pct >= threshold:
+        status = "warn"
+    else:
+        status = "blocked"
+
+    return {
+        "status": status,
+        "supported_pct": pct,
+        "missing": missing,
+        "requested": len(requested_set),
+        "supported": matched,
+    }
+
+
+def to_phase_deck(deck: dict, *, label: str) -> dict:
+    """Convert our deck JSON into phase's ``{name, format, main, commander}``
+    shape.
+
+    If ``deck`` is already in phase shape (``main`` present, no ``cards``
+    key), return a shallow copy with the requested ``label``. This lets
+    callers pass the phase repo's bundled duel decks directly.
+    """
+    if "main" in deck and "cards" not in deck:
+        # Already phase-native; just relabel and pass through.
+        out: dict = {
+            "name": label,
+            "format": deck.get("format") or "modern",
+            "main": list(deck["main"]),
+        }
+        if "commander" in deck:
+            out["commander"] = list(deck["commander"])
+        return out
+
+    main_entries: dict[str, int] = {}
+
+    def add(name: str, count: int) -> None:
+        main_entries[name] = main_entries.get(name, 0) + count
+
+    for entry in deck.get("commanders") or []:
+        add(entry["name"], int(entry.get("quantity", 1)))
+    for entry in deck.get("cards") or []:
+        add(entry["name"], int(entry.get("quantity", 1)))
+
+    payload: dict = {
+        "name": label,
+        "format": deck.get("format") or "modern",
+        "main": [{"name": n, "count": c} for n, c in main_entries.items()],
+    }
+    commanders = [e["name"] for e in (deck.get("commanders") or [])]
+    if commanders:
+        payload["commander"] = commanders
+    return payload
+
+
+def run_duel(
+    deck_a_path: Path,
+    deck_b_path: Path,
+    *,
+    games: int,
+    seed: int | None,
+    format_: str,  # noqa: ARG001 — phase infers format from deck JSON; kept for call-site symmetry
+    difficulty: str = "Medium",
+    timeout_s: int,
+) -> dict:
+    """Run an ``ai-duel`` batch and return parsed results.
+
+    Returned dict contains: ``wins_p0``, ``wins_p1``, ``draws``,
+    ``avg_turns``, ``avg_duration_ms``, ``games``, ``status`` (``ok`` or
+    ``timeout``).
+
+    NOTE: assumes phase's ``ai-duel`` accepts ``--matchup-files <a> <b>``
+    for inline-deck files. Phase v0.1.19's actual flag may differ (e.g.,
+    ``--matchup`` for built-in pair names). Adjust when wiring the real
+    binary; tests mock subprocess so the flag name is irrelevant here.
+
+    The ``format_`` parameter is not forwarded to the command — phase's
+    ``ai-duel`` infers the format from the deck JSON's ``"format"`` field.
+    The parameter is retained for the gauntlet caller in Task 14.
+    """
+    binary = find_binary("ai-duel")
+    with tempfile.TemporaryDirectory() as td:
+        out_path = Path(td) / "duel.json"
+        cmd = [
+            str(binary),
+            "--matchup-files",
+            str(deck_a_path),
+            str(deck_b_path),
+            "--batch",
+            str(games),
+            "--difficulty",
+            difficulty,
+            "--output",
+            str(out_path),
+        ]
+        if seed is not None:
+            cmd += ["--seed", str(seed)]
+        try:
+            subprocess.run(
+                cmd, check=True, timeout=timeout_s, capture_output=True, text=True
+            )
+        except subprocess.TimeoutExpired:
+            return {
+                "status": "timeout",
+                "wins_p0": 0,
+                "wins_p1": 0,
+                "draws": 0,
+                "games": 0,
+                "avg_turns": 0.0,
+                "avg_duration_ms": 0,
+            }
+        except subprocess.CalledProcessError as exc:
+            raise PhaseRuntimeError(
+                f"phase ai-duel exited with code {exc.returncode}",
+                stderr=exc.stderr or "",
+            ) from exc
+
+        data = json.loads(out_path.read_text())
+
+    return {
+        "status": "ok",
+        "wins_p0": data.get("p0_wins", 0),
+        "wins_p1": data.get("p1_wins", 0),
+        "draws": data.get("draws", 0),
+        "games": data.get("games", games),
+        "avg_turns": data.get("avg_turns", 0.0),
+        "avg_duration_ms": data.get("avg_duration_ms", 0),
+    }
+
+
+def run_commander(
+    deck_paths: list[Path],
+    *,
+    games: int,
+    seed: int | None,
+    difficulty: str = "Medium",
+    timeout_s: int,
+) -> dict:
+    """Run `ai-commander` for a 4-player FFA. Returns per-seat win counts.
+
+    ``deck_paths`` must have length 4 (phase requires 4 seats). Each is a
+    phase-compatible deck JSON (see :func:`to_phase_deck`).
+    """
+    if len(deck_paths) != 4:
+        raise ValueError(
+            f"ai-commander requires exactly 4 decks, got {len(deck_paths)}",
+        )
+    binary = find_binary("ai-commander")
+    with tempfile.TemporaryDirectory() as td:
+        out_path = Path(td) / "commander.json"
+        cmd = [
+            str(binary),
+            "--decks",
+            *[str(p) for p in deck_paths],
+            "--games",
+            str(games),
+            "--difficulty",
+            difficulty,
+            "--output",
+            str(out_path),
+        ]
+        if seed is not None:
+            cmd += ["--seed", str(seed)]
+        try:
+            subprocess.run(
+                cmd, check=True, timeout=timeout_s, capture_output=True, text=True
+            )
+        except subprocess.TimeoutExpired:
+            return {
+                "status": "timeout",
+                "winners_by_seat": [0, 0, 0, 0],
+                "games": 0,
+                "draws": 0,
+                "avg_turns": 0.0,
+            }
+        except subprocess.CalledProcessError as exc:
+            raise PhaseRuntimeError(
+                f"phase ai-commander exited with code {exc.returncode}",
+                stderr=exc.stderr or "",
+            ) from exc
+        data = json.loads(out_path.read_text())
+
+    return {
+        "status": "ok",
+        "winners_by_seat": data.get("winners_by_seat", [0, 0, 0, 0]),
+        "games": data.get("games", games),
+        "draws": data.get("draws", 0),
+        "avg_turns": data.get("avg_turns", 0.0),
+    }

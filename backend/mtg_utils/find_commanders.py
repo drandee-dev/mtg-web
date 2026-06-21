@@ -1,0 +1,317 @@
+"""Find commander-eligible cards from a parsed deck/collection JSON."""
+
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+
+import click
+
+from mtg_utils._name_index import NameIndex, build_name_index
+from mtg_utils._sidecar import atomic_write_json, sha_keyed_path
+from mtg_utils.bulk_loader import load_bulk_cards
+from mtg_utils.card_classify import (
+    SKIP_LAYOUTS,
+    color_identity_subset,
+    get_oracle_text,
+    is_commander,
+)
+from mtg_utils.format_config import FORMAT_CONFIGS
+from mtg_utils.names import normalize_card_name
+
+CARD_FIELDS = (
+    "name",
+    "color_identity",
+    "type_line",
+    "mana_cost",
+    "cmc",
+    "edhrec_rank",
+    "game_changer",
+)
+
+
+# Anchor "Partner with" to start-of-string or after newline so flavor text or
+# embedded "partner with" inside other rules text can't match. Capture stops at
+# end-of-line or reminder text in parens.
+# Normalization lives in mtg_utils.names so find_commanders and
+# mark_owned cannot drift on what counts as "the same card".
+_normalize_name = normalize_card_name
+
+
+_PARTNER_WITH_RE = re.compile(r"(?:^|\n)Partner with ([^\n(]+?)\s*(?=\(|\n|$)")
+
+
+def _is_partner(oracle: str) -> bool:
+    """Check whether oracle text grants a partner-style pairing ability.
+
+    Matches "Partner" (standalone keyword), "Partner with" (named pair),
+    "Friends forever", and "Doctor's companion". Excludes "Choose a Background"
+    which is reported separately via has_background_clause.
+    """
+    lowered = oracle.lower()
+    if "friends forever" in lowered or "doctor's companion" in lowered:
+        return True
+    # "Partner" appears in many flavor strings; require it as a standalone
+    # keyword (start of line or after a newline, followed by end-of-line,
+    # comma, period, or " with").
+    return bool(re.search(r"(?:^|\n)Partner(?:\s+with\b|[\s.,\n]|$)", oracle))
+
+
+def _partner_with_target(oracle: str) -> str | None:
+    """Extract the named partner from "Partner with X" oracle text."""
+    match = _PARTNER_WITH_RE.search(oracle)
+    if not match:
+        return None
+    return match.group(1).strip()
+
+
+def _has_background_clause(oracle: str) -> bool:
+    return "choose a background" in oracle.lower()
+
+
+def _build_owned_index(parsed_deck: dict, min_quantity: int) -> dict[str, int]:
+    """Map normalized card name -> owned quantity for entries meeting min_quantity.
+
+    Considers both the cards list and the commanders list — a user might have
+    a parsed deck where the legendary creature they want to evaluate as
+    commander currently lives in the cards list, or vice versa. When a card
+    appears in BOTH sections, takes the max rather than the sum: the two
+    sections describe the same physical pile from the user's perspective,
+    and parse-deck can emit a card in commanders AND cards if the user
+    listed their commander in the mainboard for any reason.
+    """
+    owned: dict[str, int] = {}
+    for section in ("commanders", "cards"):
+        for entry in parsed_deck.get(section, []) or []:
+            name = entry.get("name")
+            if name is None:
+                continue
+            # Coerce quantity defensively: parse-deck normalizes to int, but
+            # hand-crafted parsed JSON may have strings or omit the field.
+            try:
+                qty = int(entry.get("quantity", 1))
+            except (TypeError, ValueError):
+                qty = 1
+            if qty < min_quantity:
+                continue
+            key = _normalize_name(name)
+            owned[key] = max(owned.get(key, 0), qty)
+    return owned
+
+
+def _load_bulk_index(bulk_path: Path) -> NameIndex:
+    """Build a folding name -> card index from Scryfall bulk data.
+
+    Keyed by canonical name, every face (card_faces[], handling MDFC / transform / flip
+    / adventure / meld), and Arena printed_name / flavor_name aliases — all NFKD-folded
+    via the shared name-index core, so a collection listing a front face ("Bruna, the
+    Fading Light"), an Arena display name, or ASCII spelling still matches. First-seen
+    wins among printings (bulk lists the canonical printing first and find-commanders
+    surfaces no prices). Tokens / memorabilia / non-game layouts are skipped. Preserves
+    the full Scryfall record (find-commanders needs edhrec_rank and other fields).
+    """
+    return build_name_index(
+        load_bulk_cards(bulk_path),
+        prefilter=lambda card: (
+            card.get("layout") not in SKIP_LAYOUTS
+            and card.get("set_type") not in ("token", "memorabilia")
+        ),
+    )
+
+
+def _build_candidate(card: dict, owned_quantity: int) -> dict:
+    oracle = get_oracle_text(card)
+    result = {field: card.get(field) for field in CARD_FIELDS}
+    result["oracle_text"] = oracle or None
+    result["is_partner"] = _is_partner(oracle)
+    result["partner_with"] = _partner_with_target(oracle)
+    result["has_background_clause"] = _has_background_clause(oracle)
+    result["owned_quantity"] = owned_quantity
+    # game_changer collapses to bool because the agent only cares about
+    # presence; edhrec_rank deliberately stays None when missing so the
+    # agent can distinguish "no EDHREC data" from "rank 0".
+    result["game_changer"] = bool(result.get("game_changer"))
+    return result
+
+
+def find_commanders(
+    parsed_deck: dict,
+    bulk_index: NameIndex,
+    *,
+    format: str = "commander",  # noqa: A002
+    color_identity: str | None = None,
+    min_quantity: int = 1,
+) -> list[dict]:
+    """Return commander-eligible cards owned in the parsed deck/collection.
+
+    Filters by:
+      - owned quantity >= min_quantity
+      - format legality (FORMAT_CONFIGS[format]["legality_key"])
+      - commander eligibility (card_classify.is_commander)
+      - optional color-identity subset
+    """
+    if format not in FORMAT_CONFIGS:
+        msg = f"Unknown format: {format!r}. Valid: {', '.join(FORMAT_CONFIGS)}"
+        raise ValueError(msg)
+    legality_key = FORMAT_CONFIGS[format]["legality_key"]
+    allowed_colors = set(color_identity.upper()) if color_identity else None
+
+    owned = _build_owned_index(parsed_deck, min_quantity)
+
+    candidates: list[dict] = []
+    for name_key, qty in owned.items():
+        card = bulk_index.get(name_key)
+        if card is None:
+            continue
+        legalities = card.get("legalities") or {}
+        if legalities.get(legality_key) not in ("legal", "restricted"):
+            continue
+        if not is_commander(card, format=format)["eligible"]:
+            continue
+        if allowed_colors is not None and not color_identity_subset(
+            card.get("color_identity") or [],
+            allowed_colors,
+        ):
+            continue
+        candidates.append(_build_candidate(card, qty))
+
+    candidates.sort(key=lambda c: c["name"])
+    return candidates
+
+
+def _default_output_path(
+    parsed_deck_content: str,
+    fmt: str,
+    color_identity: str | None,
+    min_quantity: int,
+    bulk_path: Path,
+) -> Path:
+    """Compute a deterministic sha-keyed output path under $TMPDIR.
+
+    Hashes the parsed-deck content, the filter arguments, AND the bulk data
+    file (by mtime+size) so the same query against the same collection lands
+    at the same file, but different queries OR a refreshed bulk data file
+    get their own files. Without hashing bulk_path, a `download-bulk` refresh
+    would silently return stale recommendations.
+    """
+    return sha_keyed_path(
+        "find-commanders",
+        parsed_deck_content,
+        fmt,
+        color_identity or "",
+        min_quantity,
+        bulk_path,
+    )
+
+
+def _render_text_table(candidates: list[dict], *, format: str) -> str:  # noqa: A002
+    """Render the candidate list as a compact human-readable table.
+
+    Column set is chosen for decision-making: EDHREC rank, color identity, CMC,
+    name, truncated type_line, and a flags column that surfaces PARTNER /
+    BACKGROUND / GC (game_changer) signals in a single glance.
+    """
+    if not candidates:
+        return f"find-commanders: 0 candidates (format={format})\n"
+
+    lines: list[str] = []
+    lines.append(
+        f"find-commanders: {len(candidates)} candidates (format={format})",
+    )
+    lines.append("")
+    header = f"  {'EDHREC':>6}  {'CI':<5} {'CMC':>4}  {'Name':<36}  {'Type':<36}  Flags"
+    divider = "  " + "-" * (len(header) - 2)
+    lines.append(header)
+    lines.append(divider)
+
+    for c in candidates:
+        rank = c.get("edhrec_rank")
+        rank_str = f"{rank:>6}" if rank is not None else "  ----"
+        ci = "".join(c.get("color_identity") or []) or "C"
+        cmc_val = c.get("cmc")
+        cmc_str = f"{int(cmc_val):>4}" if cmc_val is not None else "   -"
+        name = (c.get("name") or "")[:36]
+        type_line = (c.get("type_line") or "")[:36]
+        flags: list[str] = []
+        if c.get("is_partner"):
+            flags.append("PARTNER")
+        if c.get("has_background_clause"):
+            flags.append("BACKGROUND")
+        flags.append("GC=yes" if c.get("game_changer") else "GC=no")
+        flag_str = " ".join(flags)
+        lines.append(
+            f"  {rank_str}  {ci:<5} {cmc_str}  {name:<36}  {type_line:<36}  {flag_str}",
+        )
+
+    return "\n".join(lines) + "\n"
+
+
+@click.command()
+@click.argument(
+    "parsed_deck_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+)
+@click.option(
+    "--bulk-data",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    required=True,
+    help="Path to Scryfall bulk data JSON.",
+)
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(sorted(FORMAT_CONFIGS)),
+    default="commander",
+    help="Target format (default: commander).",
+)
+@click.option(
+    "--color-identity",
+    default=None,
+    help="Filter to commanders whose color identity is a subset of these colors "
+    "(e.g. BG, WUBRG). Optional.",
+)
+@click.option(
+    "--min-quantity",
+    type=int,
+    default=1,
+    help="Minimum owned quantity to consider a card (default: 1). "
+    "Use 0 to include wishlist/binder rows.",
+)
+@click.option(
+    "--output",
+    "output_path",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Override the default sha-keyed path for the full JSON output.",
+)
+def main(
+    parsed_deck_path: Path,
+    bulk_data: Path,
+    fmt: str,
+    color_identity: str | None,
+    min_quantity: int,
+    output_path: Path | None,
+) -> None:
+    """Find commander-eligible cards in a parsed deck/collection JSON."""
+    parsed_deck_content = parsed_deck_path.read_text(encoding="utf-8")
+    parsed_deck = json.loads(parsed_deck_content)
+    bulk_index = _load_bulk_index(bulk_data)
+    candidates = find_commanders(
+        parsed_deck,
+        bulk_index,
+        format=fmt,
+        color_identity=color_identity,
+        min_quantity=min_quantity,
+    )
+
+    if output_path is None:
+        output_path = _default_output_path(
+            parsed_deck_content, fmt, color_identity, min_quantity, bulk_data
+        )
+    else:
+        output_path = output_path.resolve()
+    atomic_write_json(output_path, candidates)
+
+    click.echo(_render_text_table(candidates, format=fmt), nl=False)
+    click.echo(f"\nFull JSON: {output_path}")
