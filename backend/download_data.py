@@ -31,14 +31,20 @@ def download_bulk():
     with urlopen(req) as resp:
         catalog = json.loads(resp.read())
 
+    # Use oracle_cards (~30MB) instead of default_cards (~550MB) to fit in
+    # free-tier memory limits. One entry per unique card — we only need one
+    # record per card name anyway (prices, oracle text, images all present).
     uri = None
-    for entry in catalog.get("data", []):
-        if entry.get("type") == "default_cards":
-            uri = entry["download_uri"]
+    for preferred in ("oracle_cards", "default_cards"):
+        for entry in catalog.get("data", []):
+            if entry.get("type") == preferred:
+                uri = entry["download_uri"]
+                break
+        if uri:
             break
 
     if not uri:
-        print("ERROR: Could not find default_cards in Scryfall bulk catalog.")
+        print("ERROR: Could not find oracle_cards or default_cards in Scryfall bulk catalog.")
         sys.exit(1)
 
     print(f"Downloading {uri} ...")
