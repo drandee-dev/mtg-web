@@ -17,11 +17,16 @@ RULES_GLOB = "comprehensive-rules*.txt"
 
 
 def download_bulk():
-    """Download Scryfall default-cards bulk data."""
+    """Download Scryfall oracle-cards bulk data (~30MB)."""
+    # Remove old oversized default-cards.json if present (from prior deploys)
     if BULK_PATH.exists():
         size_mb = BULK_PATH.stat().st_size / 1_000_000
-        print(f"Bulk data already exists ({size_mb:.0f} MB): {BULK_PATH}")
-        return
+        if size_mb > 100:
+            print(f"Removing oversized bulk file ({size_mb:.0f} MB) — switching to oracle_cards.")
+            BULK_PATH.unlink()
+        else:
+            print(f"Bulk data already exists ({size_mb:.0f} MB): {BULK_PATH}")
+            return
 
     print("Fetching Scryfall bulk data catalog...")
     req = Request("https://api.scryfall.com/bulk-data", headers={
