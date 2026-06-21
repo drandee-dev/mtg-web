@@ -24,7 +24,10 @@ def download_bulk():
         return
 
     print("Fetching Scryfall bulk data catalog...")
-    req = Request("https://api.scryfall.com/bulk-data", headers={"User-Agent": "MTGWorkshop/1.0"})
+    req = Request("https://api.scryfall.com/bulk-data", headers={
+        "User-Agent": "MTGWorkshop/1.0",
+        "Accept": "application/json",
+    })
     with urlopen(req) as resp:
         catalog = json.loads(resp.read())
 
@@ -39,7 +42,7 @@ def download_bulk():
         sys.exit(1)
 
     print(f"Downloading {uri} ...")
-    req = Request(uri, headers={"User-Agent": "MTGWorkshop/1.0"})
+    req = Request(uri, headers={"User-Agent": "MTGWorkshop/1.0", "Accept": "*/*"})
     with urlopen(req) as resp:
         data = resp.read()
     BULK_PATH.write_bytes(data)
