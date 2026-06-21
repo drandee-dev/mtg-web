@@ -83,31 +83,37 @@ def _get_user_role(request: Request) -> tuple[str, str]:
 
 def _check_ai_access(request: Request, visitor_key: str | None = None) -> None:
     """Gate AI endpoints: check role, daily rate limit, and monthly budget.
-    Raises HTTPException if access is denied. Visitor API keys bypass role checks.
+    Visitor API keys bypass all checks. Anonymous users are allowed when
+    the server has ANTHROPIC_API_KEY set, rate-limited by IP.
     """
     if visitor_key:
         return
 
+    # Must have a server-side key for AI to work at all
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        raise HTTPException(503, "AI features are not configured on this server.")
+
     role, email = _get_user_role(request)
 
-    if role == "anonymous":
-        raise HTTPException(403, "Sign in to use AI features.")
-
-    # Monthly budget check (applies to everyone for visibility)
+    # Monthly budget check (applies to everyone)
     usage = _load_monthly_usage()
     if usage.get("total_cents", 0) >= _AI_MONTHLY_BUDGET_CENTS:
         raise HTTPException(429, "AI budget reached for this month. Deterministic features still work.")
 
-    # Daily rate limit (admin bypasses)
-    if role != "admin":
-        today = datetime.date.today().isoformat()
-        user_usage = _daily_usage.get(email, {})
-        if user_usage.get("date") != today:
-            user_usage = {"date": today, "count": 0}
-        if user_usage["count"] >= _AI_RATE_LIMIT:
-            raise HTTPException(429, f"Daily AI limit reached ({_AI_RATE_LIMIT} calls/day). Try again tomorrow.")
-        user_usage["count"] += 1
-        _daily_usage[email] = user_usage
+    # Admin bypasses daily limit
+    if role == "admin":
+        return
+
+    # Rate limit by email (signed in) or IP (anonymous)
+    limit_key = email if email else (request.client.host if request.client else "unknown")
+    today = datetime.date.today().isoformat()
+    user_usage = _daily_usage.get(limit_key, {})
+    if user_usage.get("date") != today:
+        user_usage = {"date": today, "count": 0}
+    if user_usage["count"] >= _AI_RATE_LIMIT:
+        raise HTTPException(429, f"Daily AI limit reached ({_AI_RATE_LIMIT} calls/day). Try again tomorrow.")
+    user_usage["count"] += 1
+    _daily_usage[limit_key] = user_usage
 
 
 @asynccontextmanager

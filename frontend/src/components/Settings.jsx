@@ -3,10 +3,10 @@ import { supabase, supabaseEnabled } from "../lib/supabase";
 
 const KEY_STORE = "mtgweb:anthropicKey";
 
-// Account (magic-link sign in/out) + optional personal Anthropic API key (Phase 2).
 export default function Settings({ session, notify }) {
   const [email, setEmail] = useState("");
   const [apiKey, setApiKey] = useState(localStorage.getItem(KEY_STORE) || "");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function sendLink() {
@@ -43,8 +43,8 @@ export default function Settings({ session, notify }) {
         <h2>Account</h2>
         {!supabaseEnabled && (
           <p className="muted small">
-            Cloud accounts aren’t configured for this site. Decks save to this device; use
-            Export/Import to move them. (The owner can enable sync by adding Supabase keys.)
+            Cloud accounts aren't configured for this site. Decks save to this device; use
+            Export/Import to move them.
           </p>
         )}
         {supabaseEnabled && session && (
@@ -55,7 +55,7 @@ export default function Settings({ session, notify }) {
         )}
         {supabaseEnabled && !session && (
           <>
-            <p className="muted small">Enter your email — we’ll send a one-tap sign-in link. Same account works on phone and desktop.</p>
+            <p className="muted small">Enter your email — we'll send a one-tap sign-in link. Same account works on phone and desktop.</p>
             <label>Email</label>
             <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@example.com" />
             <div className="row" style={{ marginTop: ".5rem" }}>
@@ -66,17 +66,30 @@ export default function Settings({ session, notify }) {
       </div>
 
       <div className="panel">
-        <h2>AI features (optional)</h2>
+        <h2>AI features</h2>
         <p className="muted small">
-          Paste your own Anthropic API key to power AI deck suggestions with your own account.
-          It’s stored only in this browser and never saved on the server. Leave blank to use the
-          site owner’s key (if enabled). Note: a Claude subscription can’t be used here — only an API key.
+          AI-powered features (suggested cuts, composition fills, rules Q&A, combo guidance) are
+          included — no setup needed. Usage is limited to {25} calls per day.
         </p>
-        <label>Anthropic API key</label>
-        <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} type="password" placeholder="sk-ant-…" />
-        <div className="row" style={{ marginTop: ".5rem" }}>
-          <button className="primary" onClick={saveKey}>Save</button>
-        </div>
+        <p className="muted small" style={{ marginTop: ".3rem" }}>
+          <button className="ghost small" onClick={() => setShowAdvanced(!showAdvanced)}>
+            {showAdvanced ? "Hide advanced" : "Use your own API key (advanced)"}
+          </button>
+        </p>
+        {showAdvanced && (
+          <div style={{ marginTop: ".5rem" }}>
+            <p className="muted small">
+              Paste your own Anthropic API key to bypass the daily limit and use your own account.
+              Stored only in this browser, never sent to the server for storage.
+            </p>
+            <label>Anthropic API key</label>
+            <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} type="password" placeholder="sk-ant-…" />
+            <div className="row" style={{ marginTop: ".5rem" }}>
+              <button className="primary" onClick={saveKey}>Save</button>
+              {apiKey && <button onClick={() => { setApiKey(""); localStorage.removeItem(KEY_STORE); notify("Key removed."); }}>Clear</button>}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
