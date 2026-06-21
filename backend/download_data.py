@@ -20,7 +20,7 @@ _KEEP_FIELDS = {
     "name", "oracle_text", "mana_cost", "cmc", "type_line", "keywords",
     "colors", "color_identity", "produced_mana", "power", "toughness",
     "rarity", "prices", "legalities", "image_uris", "card_faces",
-    "oracle_id", "layout",
+    "oracle_id", "layout", "game_changer", "printed_name", "flavor_name",
 }
 
 
