@@ -23,13 +23,24 @@ async function get(path, params) {
 }
 
 async function post(path, body) {
-  const res = await fetch(BASE + path, {
-    method: "POST",
-    headers: _headers(),
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
-  return res.json();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(BASE + path, {
+        method: "POST",
+        headers: _headers(),
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+      return res.json();
+    } catch (e) {
+      if (attempt === 0 && (e.message === "Failed to fetch" || e.name === "TypeError")) {
+        // Server might be waking from cold start — wait and retry once
+        await new Promise((r) => setTimeout(r, 5000));
+        continue;
+      }
+      throw e;
+    }
+  }
 }
 
 export async function postStream(path, body, onChunk) {

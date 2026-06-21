@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase, supabaseEnabled } from "./lib/supabase";
-import { assembleDecklist, setUserEmail } from "./lib/api";
+import { api, assembleDecklist, setUserEmail } from "./lib/api";
 import { makeStore } from "./lib/store";
 import Analyze from "./components/Analyze";
 import Build from "./components/Build";
@@ -24,6 +24,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [decks, setDecks] = useState([]);
   const [toast, setToast] = useState("");
+  const [serverStatus, setServerStatus] = useState("checking"); // checking | ready | waking
   // Shared deck input so Analyze and Build operate on the same list.
   const [deckText, setDeckText] = useState("");
   const [format, setFormat] = useState("commander");
@@ -32,6 +33,28 @@ export default function App() {
   const notify = useCallback((msg) => {
     setToast(msg);
     setTimeout(() => setToast(""), 3500);
+  }, []);
+
+  // Check if the backend is awake on load
+  useEffect(() => {
+    let cancelled = false;
+    async function check() {
+      try {
+        await api.health();
+        if (!cancelled) setServerStatus("ready");
+      } catch {
+        if (!cancelled) {
+          setServerStatus("waking");
+          // Retry after a delay
+          setTimeout(async () => {
+            try { await api.health(); if (!cancelled) setServerStatus("ready"); }
+            catch { if (!cancelled) setServerStatus("ready"); } // give up gracefully
+          }, 10000);
+        }
+      }
+    }
+    check();
+    return () => { cancelled = true; };
   }, []);
 
   // Track Supabase auth session (no-op when Supabase isn't configured).
@@ -80,6 +103,11 @@ export default function App() {
 
   return (
     <div className="app">
+      {serverStatus === "waking" && (
+        <div style={{ background: "var(--accent)", color: "var(--bg)", textAlign: "center", padding: ".4rem", fontSize: ".85rem" }}>
+          Server is waking up — first load takes ~30 seconds. Hang tight!
+        </div>
+      )}
       <header className="app-header">
         <div className="brand"><span className="dot" /> MTG Workshop</div>
         <span className="badge small">{cloud ? session.user.email : supabaseEnabled ? "Not signed in" : "Local mode"}</span>
