@@ -1,0 +1,32 @@
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+
+# Env (never commit secrets)
+.env
+.env.local
+frontend/.env
+frontend/.env.local
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Local test artifacts
+.e2e-*.png
+.e2e-shots/
+e2e-*.mjs
+e2e-*.py
+test_models.py
+
+# Scryfall bulk data (too large for git)
+*.json.parsed.pkl
+default-cards.json
+default-cards.sidecar.json
+ai_usage.json
