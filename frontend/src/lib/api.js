@@ -17,9 +17,19 @@ async function get(path, params) {
   Object.entries(params || {}).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
   });
-  const res = await fetch(url, { headers: _userEmail ? { "X-User-Email": _userEmail } : {} });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
-  return res.json();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(url, { headers: _userEmail ? { "X-User-Email": _userEmail } : {} });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+      return res.json();
+    } catch (e) {
+      if (attempt === 0 && (e.message === "Failed to fetch" || e.name === "TypeError")) {
+        await new Promise((r) => setTimeout(r, 5000));
+        continue;
+      }
+      throw e;
+    }
+  }
 }
 
 async function post(path, body) {
