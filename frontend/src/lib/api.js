@@ -108,6 +108,8 @@ export const api = {
     post("/api/deck/ai/explain", { decklist, format, card_names, ...(bracket != null ? { bracket } : {}) }),
   aiCombos: (decklist, format, combos, near_misses, bracket) =>
     post("/api/deck/ai/combos", { decklist, format, combos, near_misses, ...(bracket != null ? { bracket } : {}) }),
+  planeswalkerChat: (messages, decklist, format, commander, bracket) =>
+    post("/api/planeswalker/chat", { messages, decklist, format, commander, ...(bracket != null ? { bracket } : {}) }),
 };
 
 // Lazy, cached card-image lookup by name. Each distinct card is fetched at most once

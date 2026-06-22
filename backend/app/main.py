@@ -379,6 +379,67 @@ def wizard_chat(request: Request, payload: Annotated[dict, Body()]) -> dict:
     )
 
 
+@app.post("/api/planeswalker/chat")
+def planeswalker_chat(request: Request, payload: Annotated[dict, Body()]) -> dict:
+    """Unified Planeswalker bot — conversational AI for deck building, rules, and strategy."""
+    _check_ai_access(request)
+    messages = payload.get("messages") or []
+    if not messages:
+        raise HTTPException(400, "Provide 'messages'.")
+    decklist = (payload.get("decklist") or "").strip()
+    fmt = payload.get("format") or "commander"
+    commander = (payload.get("commander") or "").strip()
+    bracket = _target_bracket(payload)
+
+    # Build deck context if a deck is loaded
+    ctx_summary = ""
+    if decklist:
+        try:
+            ctx = mtg._deck_context_cached(decklist, fmt, bracket=bracket)
+            ctx_summary = ctx["summary"]
+        except Exception:
+            ctx_summary = f"Deck: {len(decklist)} chars, format={fmt}"
+
+    system = (
+        "You are the Planeswalker — an expert Magic: The Gathering deck-building assistant. "
+        "You help players analyze decks, suggest cuts and additions, answer rules questions, "
+        "evaluate combos, and provide strategy advice. Be conversational, knowledgeable, and concise. "
+        "When suggesting cards, explain WHY they fit. When answering rules questions, cite rule numbers. "
+        "Keep responses to 3-5 sentences unless the user asks for detail."
+    )
+    if ctx_summary:
+        system += f"\n\nCurrent deck context:\n{ctx_summary}"
+
+    resp = mtg._ai_call(system, messages[-1]["content"] if len(messages) == 1 else None,
+                         max_tokens=2000, cache_user_msg=bool(ctx_summary))
+    if len(messages) > 1:
+        import anthropic
+        key = os.environ.get("ANTHROPIC_API_KEY")
+        if key:
+            try:
+                client = anthropic.Anthropic(api_key=key)
+                response = client.messages.create(
+                    model=mtg._AI_MODEL,
+                    max_tokens=2000,
+                    system=system,
+                    messages=messages,
+                )
+                usage = response.usage
+                if mtg.on_ai_usage and callable(mtg.on_ai_usage):
+                    mtg.on_ai_usage(usage.input_tokens, usage.output_tokens)
+                return {
+                    "error": False,
+                    "response": response.content[0].text,
+                    "model": mtg._AI_MODEL,
+                }
+            except Exception as exc:
+                return {"error": True, "response": f"AI request failed: {exc}"}
+    else:
+        if resp["error"]:
+            return {"error": True, "response": resp["result"]}
+        return {"error": False, "response": resp["result"], "model": resp.get("model")}
+
+
 @app.get("/api/cards/image")
 def card_image(
     name: Annotated[str | None, Query(description="Single card name")] = None,

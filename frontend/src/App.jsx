@@ -9,6 +9,7 @@ import Rules from "./components/Rules";
 import CardSearch from "./components/CardSearch";
 import Settings from "./components/Settings";
 import Feedback from "./components/Feedback";
+import Planeswalker from "./components/Planeswalker";
 
 const TABS = [
   ["analyze", "Analyze"],
@@ -188,6 +189,14 @@ export default function App() {
       </main>
 
       {toast && <div className="toast">{toast}</div>}
+      <Planeswalker
+        decklist={deckText}
+        commander={commander}
+        format={format}
+        aiAvailable={aiAvailable}
+        addCard={addCardToDecklist}
+        notify={notify}
+      />
       <Feedback notify={notify} />
     </div>
   );
