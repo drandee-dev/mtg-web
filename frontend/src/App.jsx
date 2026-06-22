@@ -69,7 +69,7 @@ export default function App() {
       } catch {
         if (cancelled) return;
         if (attempt === 0) setServerStatus("waking");
-        if (attempt < 7) {
+        if (attempt < 15) {
           setTimeout(() => check(attempt + 1), 10000);
         } else {
           setServerStatus("offline");
