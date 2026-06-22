@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, assembleDecklist } from "../lib/api";
 
-export default function Planeswalker({ decklist, commander, format, bracket, aiAvailable, addCard, removeCard, notify }) {
+export default function Planeswalker({ decklist, commander, format, bracket, aiAvailable, serverStatus, addCard, removeCard, notify }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -119,16 +119,22 @@ export default function Planeswalker({ decklist, commander, format, bracket, aiA
           </div>
 
           <div className="planeswalker-input">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && send()}
-              placeholder="Ask about cuts, fills, rules, combos..."
-              disabled={busy}
-            />
-            <button className="primary" onClick={send} disabled={busy || !input.trim()}>
-              Send
-            </button>
+            {serverStatus && serverStatus !== "ready" ? (
+              <div className="pw-waking">Server is waking up — hang tight...</div>
+            ) : (
+              <>
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && send()}
+                  placeholder="Ask about cuts, fills, rules, combos..."
+                  disabled={busy}
+                />
+                <button className="primary" onClick={send} disabled={busy || !input.trim()}>
+                  Send
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

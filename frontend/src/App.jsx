@@ -229,6 +229,7 @@ export default function App() {
         commander={commander}
         format={format}
         aiAvailable={aiAvailable}
+        serverStatus={serverStatus}
         addCard={addCardToDecklist}
         notify={notify}
       />

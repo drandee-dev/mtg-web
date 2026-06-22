@@ -17,14 +17,14 @@ async function get(path, params) {
   Object.entries(params || {}).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
   });
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const res = await fetch(url, { headers: _accessToken ? { "Authorization": `Bearer ${_accessToken}` } : {} });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
       return res.json();
     } catch (e) {
-      if (attempt === 0 && (e.message === "Failed to fetch" || e.name === "TypeError")) {
-        await new Promise((r) => setTimeout(r, 5000));
+      if (attempt < 3 && (e.message === "Failed to fetch" || e.name === "TypeError")) {
+        await new Promise((r) => setTimeout(r, 8000));
         continue;
       }
       throw e;
@@ -33,7 +33,7 @@ async function get(path, params) {
 }
 
 async function post(path, body) {
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const res = await fetch(BASE + path, {
         method: "POST",
@@ -43,9 +43,8 @@ async function post(path, body) {
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
       return res.json();
     } catch (e) {
-      if (attempt === 0 && (e.message === "Failed to fetch" || e.name === "TypeError")) {
-        // Server might be waking from cold start — wait and retry once
-        await new Promise((r) => setTimeout(r, 5000));
+      if (attempt < 3 && (e.message === "Failed to fetch" || e.name === "TypeError")) {
+        await new Promise((r) => setTimeout(r, 8000));
         continue;
       }
       throw e;

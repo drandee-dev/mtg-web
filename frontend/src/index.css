@@ -255,6 +255,9 @@ nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent);
   display: flex; gap: .4rem; padding: .5rem .6rem; border-top: 1px solid var(--border);
 }
 .planeswalker-input input { flex: 1; }
+.pw-waking {
+  flex: 1; text-align: center; color: var(--muted); font-size: .85rem; padding: .3rem 0;
+}
 
 @media (max-width: 500px) {
   .planeswalker-panel {
