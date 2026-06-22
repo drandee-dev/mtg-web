@@ -4,16 +4,30 @@ import { api } from "../lib/api";
 export default function CommanderInput({ commander, setCommander }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
+  const [error, setError] = useState("");   // inline feedback when the lookup fails
+  const [loading, setLoading] = useState(false);
   const debounce = useRef();
+  const seq = useRef(0);                     // guard against out-of-order responses
 
   useEffect(() => {
     clearTimeout(debounce.current);
-    if (query.trim().length < 2) { setResults([]); return; }
+    const q = query.trim();
+    if (q.length < 2) { setResults([]); setError(""); setLoading(false); return; }
+    setLoading(true);
+    const myseq = ++seq.current;
     debounce.current = setTimeout(async () => {
       try {
-        const r = await api.commanders(query.trim());
+        const r = await api.commanders(q);
+        if (myseq !== seq.current) return;   // a newer query superseded this one
         setResults(r.results || []);
-      } catch { /* transient */ }
+        setError("");
+      } catch (e) {
+        if (myseq !== seq.current) return;
+        setResults([]);
+        setError(e.message === "Failed to fetch" ? "Server waking up — try again in a moment." : "Couldn't load suggestions.");
+      } finally {
+        if (myseq === seq.current) setLoading(false);
+      }
     }, 250);
     return () => clearTimeout(debounce.current);
   }, [query]);
@@ -58,6 +72,9 @@ export default function CommanderInput({ commander, setCommander }) {
             </button>
           ))}
         </div>
+      )}
+      {error && !loading && results.length === 0 && (
+        <p className="muted small" style={{ marginTop: ".2rem" }}>{error}</p>
       )}
     </div>
   );

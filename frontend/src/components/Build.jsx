@@ -35,7 +35,7 @@ const countCards = (txt) =>
     .filter((l) => /^\s*\d+\s+\S/.test(l))
     .reduce((n, l) => n + (parseInt(l, 10) || 1), 0);
 
-export default function Build({ decklist, setDecklist, format, setFormat, commander, setCommander, notify }) {
+export default function Build({ decklist, setDecklist, format, setFormat, commander, setCommander, aiAvailable: aiProp, notify }) {
   const [mode, setMode] = useState("manual"); // "manual" | "wizard"
   const [recs, setRecs] = useState(null);
   const [combos, setCombos] = useState(null);
@@ -68,7 +68,8 @@ export default function Build({ decklist, setDecklist, format, setFormat, comman
   }
 
   const isCommanderFmt = format === "commander" || format === "paupercommander";
-  const aiAvailable = hasApiKey();
+  // AI available when the server has a key (prop from App health check) or a personal key is set.
+  const aiAvailable = aiProp || hasApiKey();
 
   function handleWizardFinish(dl, cmd) {
     setDecklist(dl.split("\n").filter((l) => !/^\s*(Commander|Deck)\s*$/i.test(l)).join("\n"));

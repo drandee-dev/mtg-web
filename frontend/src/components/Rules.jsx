@@ -6,7 +6,9 @@ import LoadingIndicator from "./LoadingIndicator";
 const hasApiKey = () =>
   Boolean(localStorage.getItem("mtgweb:anthropicKey"));
 
-export default function Rules({ notify }) {
+export default function Rules({ aiAvailable: aiProp, notify }) {
+  // AI Q&A available when the server has a key (prop) or a personal key is set.
+  const aiAvailable = aiProp || hasApiKey();
   const [mode, setMode] = useState("term");
   const [q, setQ] = useState("");
   const [res, setRes] = useState(null);
@@ -79,7 +81,7 @@ export default function Rules({ notify }) {
             <option value="term">Glossary term</option>
             <option value="rule">Rule number</option>
             <option value="grep">Search text</option>
-            {hasApiKey() && <option value="ask">Ask a question ✨</option>}
+            {aiAvailable && <option value="ask">Ask a question ✨</option>}
           </select>
           <input
             value={q}
@@ -99,7 +101,7 @@ export default function Rules({ notify }) {
         </div>
         {mode === "ask" && (
           <p className="muted small" style={{ marginTop: ".4rem" }}>
-            Ask any rules question in plain English. Powered by Claude — uses your API key from Settings.
+            Ask any rules question in plain English — powered by Claude, with the relevant rules cited underneath.
           </p>
         )}
       </div>

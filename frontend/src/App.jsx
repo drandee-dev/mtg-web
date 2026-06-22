@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase, supabaseEnabled } from "./lib/supabase";
-import { api, assembleDecklist, setUserEmail } from "./lib/api";
+import { api, assembleDecklist, disassembleDecklist, setUserEmail } from "./lib/api";
 import { makeStore } from "./lib/store";
 import Analyze from "./components/Analyze";
 import Build from "./components/Build";
@@ -25,30 +25,38 @@ export default function App() {
   const [decks, setDecks] = useState([]);
   const [toast, setToast] = useState("");
   const [serverStatus, setServerStatus] = useState("checking"); // checking | ready | waking
+  const [serverAi, setServerAi] = useState(false); // ai_available from /api/health
   // Shared deck input so Analyze and Build operate on the same list.
   const [deckText, setDeckText] = useState("");
   const [format, setFormat] = useState("commander");
   const [commander, setCommander] = useState("");
+
+  // AI is usable if the server has a key (ai_available) OR the visitor set a personal key.
+  const aiAvailable = serverAi || Boolean(localStorage.getItem("mtgweb:anthropicKey"));
 
   const notify = useCallback((msg) => {
     setToast(msg);
     setTimeout(() => setToast(""), 3500);
   }, []);
 
-  // Check if the backend is awake on load
+  // Check if the backend is awake on load, and capture AI availability.
   useEffect(() => {
     let cancelled = false;
     async function check() {
       try {
-        await api.health();
-        if (!cancelled) setServerStatus("ready");
+        const h = await api.health();
+        if (!cancelled) { setServerStatus("ready"); setServerAi(Boolean(h?.ai_available)); }
       } catch {
         if (!cancelled) {
           setServerStatus("waking");
-          // Retry after a delay
+          // Retry after a delay (cold start)
           setTimeout(async () => {
-            try { await api.health(); if (!cancelled) setServerStatus("ready"); }
-            catch { if (!cancelled) setServerStatus("ready"); } // give up gracefully
+            try {
+              const h = await api.health();
+              if (!cancelled) { setServerStatus("ready"); setServerAi(Boolean(h?.ai_available)); }
+            } catch {
+              if (!cancelled) setServerStatus("ready"); // give up gracefully
+            }
           }, 10000);
         }
       }
@@ -101,6 +109,17 @@ export default function App() {
     setTab("decks");
   }, [saveDeck, commander]);
 
+  // Open a saved deck: load it into the shared state (split commander from the list)
+  // and jump to Analyze, where it can be viewed, edited, and analyzed.
+  const openDeck = useCallback((deck) => {
+    const { commander: c, deckText: t } = disassembleDecklist(deck.decklist_text);
+    setFormat(deck.format || "commander");
+    setCommander(c);
+    setDeckText(t);
+    setTab("analyze");
+    notify(`Opened "${deck.name}".`);
+  }, [notify]);
+
   return (
     <div className="app">
       {serverStatus === "waking" && (
@@ -140,6 +159,7 @@ export default function App() {
             setFormat={setFormat}
             commander={commander}
             setCommander={setCommander}
+            aiAvailable={aiAvailable}
             notify={notify}
           />
         )}
@@ -150,11 +170,12 @@ export default function App() {
             cloud={cloud}
             onSave={saveDeck}
             onDelete={deleteDeck}
+            onOpen={openDeck}
             notify={notify}
             refresh={refresh}
           />
         )}
-        {tab === "rules" && <Rules notify={notify} />}
+        {tab === "rules" && <Rules aiAvailable={aiAvailable} notify={notify} />}
         {tab === "cards" && <CardSearch notify={notify} />}
         {tab === "settings" && <Settings session={session} notify={notify} />}
       </main>

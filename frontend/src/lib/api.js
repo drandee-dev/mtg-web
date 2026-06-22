@@ -152,6 +152,17 @@ export function assembleDecklist(rawText, commander) {
   return `Commander\n1 ${commander}\nDeck\n${text}`;
 }
 
+// Reverse of assembleDecklist: split a saved decklist that may carry
+// "Commander\n1 Name\nDeck\n<rest>" headers back into { commander, deckText }.
+// Falls back to { commander: "", deckText: text } when no commander header is present.
+const _CMD_BLOCK = /^\s*commander\s*\r?\n\s*\d+\s+(.+?)\s*\r?\n\s*deck\s*\r?\n([\s\S]*)$/i;
+export function disassembleDecklist(text) {
+  const raw = (text || "").trim();
+  const m = raw.match(_CMD_BLOCK);
+  if (m) return { commander: m[1].trim(), deckText: m[2].trim() };
+  return { commander: "", deckText: raw };
+}
+
 // Formats offered in the UI (trimmed per request). Value is the backend format key.
 export const FORMATS = [
   ["commander", "Commander"],
