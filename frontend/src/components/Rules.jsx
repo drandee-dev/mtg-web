@@ -3,12 +3,7 @@ import { api } from "../lib/api";
 import { postStream } from "../lib/api";
 import LoadingIndicator from "./LoadingIndicator";
 
-const hasApiKey = () =>
-  Boolean(localStorage.getItem("mtgweb:anthropicKey"));
-
-export default function Rules({ aiAvailable: aiProp, notify }) {
-  // AI Q&A available when the server has a key (prop) or a personal key is set.
-  const aiAvailable = aiProp || hasApiKey();
+export default function Rules({ aiAvailable, notify }) {
   const [mode, setMode] = useState("term");
   const [q, setQ] = useState("");
   const [res, setRes] = useState(null);

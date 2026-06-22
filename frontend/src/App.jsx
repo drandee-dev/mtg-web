@@ -207,7 +207,6 @@ export default function App() {
             setFormat={setFormat}
             commander={commander}
             setCommander={setCommander}
-            aiAvailable={aiAvailable}
             onGoAnalyze={() => setTab("analyze")}
             onPlaytest={() => setPlaytesting(true)}
             notify={notify}
