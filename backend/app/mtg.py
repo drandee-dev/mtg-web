@@ -19,7 +19,7 @@ config.bootstrap_mtg_utils()
 # Imports below resolve through the bootstrapped sys.path entry.
 from mtg_utils._name_index import build_name_index, keep_cheaper  # noqa: E402
 from mtg_utils.bulk_loader import bulk_mtime, load_bulk_cards  # noqa: E402
-from mtg_utils.card_classify import extract_price  # noqa: E402
+from mtg_utils.card_classify import extract_price, partner_ability, valid_partner_search  # noqa: E402
 from mtg_utils.card_search import search_cards as _search_cards  # noqa: E402
 from mtg_utils.combo_search import combo_search  # noqa: E402
 from mtg_utils.deck_stats import deck_stats, detect_bracket  # noqa: E402
@@ -369,10 +369,21 @@ def deck_combos(text: str, *, fmt: str = "commander") -> dict[str, Any]:
     return combo_search(hd)
 
 
-def commander_search(query: str, *, limit: int = 12) -> list[dict]:
+def commander_search(query: str, *, limit: int = 12, partner_of: str | None = None) -> list[dict]:
     """Resolve a typed (possibly partial) name to commander-eligible cards, so
     "nethroi" finds "Nethroi, Apex of Death". Reuses card_search's commander filter.
+    When *partner_of* is given, results are filtered to legal partners for that card.
     """
+    extra: dict[str, Any] = {}
+    if partner_of:
+        first_card = _bulk_index().get(partner_of)
+        if not first_card:
+            return []
+        pfilter = valid_partner_search(first_card)
+        if not pfilter:
+            return []
+        extra = dict(pfilter)
+
     results = _search_cards(
         config.BULK_PATH,
         name=query,
@@ -380,16 +391,20 @@ def commander_search(query: str, *, limit: int = 12) -> list[dict]:
         format="commander",
         sort="name-asc",
         limit=limit,
+        **extra,
     )
-    return [
-        {
+    out = []
+    for c in results:
+        entry = {
             "name": c.get("name", ""),
             "type_line": c.get("type_line", ""),
             "color_identity": c.get("color_identity", []),
             "mana_cost": c.get("mana_cost", ""),
         }
-        for c in results
-    ]
+        if not partner_of:
+            entry["partner_kind"] = partner_ability(c)["kind"]
+        out.append(entry)
+    return out
 
 
 # Deterministic "what's my deck made of / missing" view. Each category counts deck cards

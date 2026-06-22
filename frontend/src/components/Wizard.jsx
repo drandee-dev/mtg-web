@@ -69,7 +69,8 @@ export default function Wizard({ onFinish, notify }) {
   const [viewTab, setViewTab] = useState("suggest"); // suggest | deck (mobile toggle)
 
   const pickedCount = Object.keys(picked).length;
-  const remaining = 99 - pickedCount;
+  const cmdCount = (commander || "").split(" && ").filter(Boolean).length;
+  const remaining = (100 - cmdCount) - pickedCount;
 
   const availableCats = CAT_ORDER.filter(([key]) => skeleton?.skeleton?.[key]?.length);
   const currentCat = availableCats[catIdx];
@@ -80,7 +81,8 @@ export default function Wizard({ onFinish, notify }) {
     if (!commander) return notify("Pick a commander first.");
     setBusy("skeleton");
     try {
-      const r = await api.wizardSkeleton(commander, format, bracket);
+      const primaryCmd = commander.split(" && ")[0];
+      const r = await api.wizardSkeleton(primaryCmd, format, bracket);
       if (r.error) return notify(r.message);
       setSkeleton(r);
       const auto = {};
@@ -128,7 +130,8 @@ export default function Wizard({ onFinish, notify }) {
   }
 
   function buildDecklist() {
-    const lines = [`Commander`, `1 ${commander}`, `Deck`];
+    const cmds = commander.split(" && ").filter(Boolean);
+    const lines = ["Commander", ...cmds.map((c) => `1 ${c}`), "Deck"];
     Object.keys(picked).forEach((name) => lines.push(`1 ${name}`));
     return lines.join("\n");
   }

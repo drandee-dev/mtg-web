@@ -18,7 +18,7 @@ export default function Planeswalker({ decklist, commander, format, bracket, aiA
       setMessages([{
         role: "assistant",
         content: commander
-          ? `I'm the Planeswalker — your deck-building companion. I can see your ${commander} deck. Ask me anything: suggest cuts, fill gaps, answer rules questions, or evaluate combos.`
+          ? `I'm the Planeswalker — your deck-building companion. I can see your ${commander.replace(" && ", " + ")} deck. Ask me anything: suggest cuts, fill gaps, answer rules questions, or evaluate combos.`
           : "I'm the Planeswalker — your deck-building companion. Load a deck and I can help you with cuts, fills, rules questions, combo guidance, and strategy. Or just ask me anything about MTG!",
       }]);
     }
@@ -81,7 +81,7 @@ export default function Planeswalker({ decklist, commander, format, bracket, aiA
           <div className="planeswalker-header">
             <div>
               <strong>Planeswalker</strong>
-              {commander && <span className="muted small" style={{ marginLeft: ".4rem" }}>{commander}</span>}
+              {commander && <span className="muted small" style={{ marginLeft: ".4rem" }}>{commander.replace(" && ", " + ")}</span>}
             </div>
             <div className="row" style={{ gap: ".3rem" }}>
               <button className="ghost small" onClick={clearChat}>Clear</button>

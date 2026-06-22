@@ -94,7 +94,7 @@ export const api = {
   budgetSwaps: (decklist, format, threshold) => post("/api/deck/budget-swaps", { decklist, format, threshold }),
   combos: (decklist, format) => post("/api/deck/combos", { decklist, format }),
   composition: (decklist, format) => post("/api/deck/composition", { decklist, format }),
-  commanders: (q) => get("/api/commanders/search", { q }),
+  commanders: (q, partnerOf) => get("/api/commanders/search", { q, partner_of: partnerOf }),
   cardImage: (name) => get("/api/cards/image", { name }),
   wizardSkeleton: (commander, format, bracket) =>
     post("/api/deck/wizard/skeleton", { commander, format, ...(bracket != null ? { bracket } : {}) }),
@@ -139,17 +139,24 @@ const _HAS_CMD_HEADER = /^\s*commander\s*$/im;
 export function assembleDecklist(rawText, commander) {
   const text = (rawText || "").trim();
   if (!commander || _HAS_CMD_HEADER.test(text)) return text;
-  return `Commander\n1 ${commander}\nDeck\n${text}`;
+  const cmds = commander.split(" && ").filter(Boolean);
+  const cmdLines = cmds.map((c) => `1 ${c}`).join("\n");
+  return `Commander\n${cmdLines}\nDeck\n${text}`;
 }
 
 // Reverse of assembleDecklist: split a saved decklist that may carry
 // "Commander\n1 Name\nDeck\n<rest>" headers back into { commander, deckText }.
 // Falls back to { commander: "", deckText: text } when no commander header is present.
-const _CMD_BLOCK = /^\s*commander\s*\r?\n\s*\d+\s+(.+?)\s*\r?\n\s*deck\s*\r?\n([\s\S]*)$/i;
+const _CMD_BLOCK = /^\s*commander\s*\r?\n((?:\s*\d+\s+.+\r?\n)+)\s*deck\s*\r?\n([\s\S]*)$/i;
 export function disassembleDecklist(text) {
   const raw = (text || "").trim();
   const m = raw.match(_CMD_BLOCK);
-  if (m) return { commander: m[1].trim(), deckText: m[2].trim() };
+  if (m) {
+    const cmds = m[1].trim().split(/\r?\n/)
+      .map((l) => l.trim().replace(/^\d+\s+/, "").trim())
+      .filter(Boolean);
+    return { commander: cmds.join(" && "), deckText: m[2].trim() };
+  }
   return { commander: "", deckText: raw };
 }
 

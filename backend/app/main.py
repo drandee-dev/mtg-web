@@ -512,9 +512,10 @@ def rules_ask_stream(
 def commanders_search(
     q: Annotated[str, Query(min_length=2, description="Partial commander name")],
     limit: Annotated[int, Query(ge=1, le=25)] = 12,
+    partner_of: Annotated[str | None, Query(description="First commander name — filters to legal partners")] = None,
 ) -> dict:
     """Resolve a typed name to commander-eligible cards (e.g. 'nethroi')."""
     try:
-        return {"results": mtg.commander_search(q, limit=limit)}
+        return {"results": mtg.commander_search(q, limit=limit, partner_of=partner_of or None)}
     except Exception as e:  # noqa: BLE001
         raise HTTPException(400, str(e)) from e
