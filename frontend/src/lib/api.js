@@ -3,12 +3,12 @@
 
 const BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 
-let _userEmail = "";
-export function setUserEmail(email) { _userEmail = email || ""; }
+let _accessToken = "";
+export function setAccessToken(token) { _accessToken = token || ""; }
 
 function _headers() {
   const h = { "Content-Type": "application/json" };
-  if (_userEmail) h["X-User-Email"] = _userEmail;
+  if (_accessToken) h["Authorization"] = `Bearer ${_accessToken}`;
   return h;
 }
 
@@ -19,7 +19,7 @@ async function get(path, params) {
   });
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const res = await fetch(url, { headers: _userEmail ? { "X-User-Email": _userEmail } : {} });
+      const res = await fetch(url, { headers: _accessToken ? { "Authorization": `Bearer ${_accessToken}` } : {} });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
       return res.json();
     } catch (e) {
@@ -90,42 +90,24 @@ export const api = {
   composition: (decklist, format) => post("/api/deck/composition", { decklist, format }),
   commanders: (q) => get("/api/commanders/search", { q }),
   cardImage: (name) => get("/api/cards/image", { name }),
-  wizardSkeleton: (commander, format, bracket) => {
-    const key = localStorage.getItem("mtgweb:anthropicKey") || "";
-    return post("/api/deck/wizard/skeleton", { commander, format, ...(bracket != null ? { bracket } : {}), ...(key ? { api_key: key } : {}) });
-  },
-  wizardNarrate: (commander, category, card_names, decklist) => {
-    const key = localStorage.getItem("mtgweb:anthropicKey") || "";
-    return post("/api/deck/wizard/narrate", { commander, category, card_names, decklist, ...(key ? { api_key: key } : {}) });
-  },
-  wizardChat: (commander, messages, decklist, format, bracket) => {
-    const key = localStorage.getItem("mtgweb:anthropicKey") || "";
-    return post("/api/deck/wizard/chat", { commander, messages, decklist, format, ...(bracket != null ? { bracket } : {}), ...(key ? { api_key: key } : {}) });
-  },
-  rulesAsk: (question) => {
-    const key = localStorage.getItem("mtgweb:anthropicKey") || "";
-    return post("/api/rules/ask", { question, ...(key ? { api_key: key } : {}) });
-  },
-  rulesAskStream: (question, onChunk) => {
-    const key = localStorage.getItem("mtgweb:anthropicKey") || "";
-    return postStream("/api/rules/ask/stream", { question, ...(key ? { api_key: key } : {}) }, onChunk);
-  },
-  aiCuts: (decklist, format, bracket) => {
-    const key = localStorage.getItem("mtgweb:anthropicKey") || "";
-    return post("/api/deck/ai/cuts", { decklist, format, ...(bracket != null ? { bracket } : {}), ...(key ? { api_key: key } : {}) });
-  },
-  aiFills: (decklist, format, bracket) => {
-    const key = localStorage.getItem("mtgweb:anthropicKey") || "";
-    return post("/api/deck/ai/fills", { decklist, format, ...(bracket != null ? { bracket } : {}), ...(key ? { api_key: key } : {}) });
-  },
-  aiExplain: (decklist, format, card_names, bracket) => {
-    const key = localStorage.getItem("mtgweb:anthropicKey") || "";
-    return post("/api/deck/ai/explain", { decklist, format, card_names, ...(bracket != null ? { bracket } : {}), ...(key ? { api_key: key } : {}) });
-  },
-  aiCombos: (decklist, format, combos, near_misses, bracket) => {
-    const key = localStorage.getItem("mtgweb:anthropicKey") || "";
-    return post("/api/deck/ai/combos", { decklist, format, combos, near_misses, ...(bracket != null ? { bracket } : {}), ...(key ? { api_key: key } : {}) });
-  },
+  wizardSkeleton: (commander, format, bracket) =>
+    post("/api/deck/wizard/skeleton", { commander, format, ...(bracket != null ? { bracket } : {}) }),
+  wizardNarrate: (commander, category, card_names, decklist) =>
+    post("/api/deck/wizard/narrate", { commander, category, card_names, decklist }),
+  wizardChat: (commander, messages, decklist, format, bracket) =>
+    post("/api/deck/wizard/chat", { commander, messages, decklist, format, ...(bracket != null ? { bracket } : {}) }),
+  rulesAsk: (question) =>
+    post("/api/rules/ask", { question }),
+  rulesAskStream: (question, onChunk) =>
+    postStream("/api/rules/ask/stream", { question }, onChunk),
+  aiCuts: (decklist, format, bracket) =>
+    post("/api/deck/ai/cuts", { decklist, format, ...(bracket != null ? { bracket } : {}) }),
+  aiFills: (decklist, format, bracket) =>
+    post("/api/deck/ai/fills", { decklist, format, ...(bracket != null ? { bracket } : {}) }),
+  aiExplain: (decklist, format, card_names, bracket) =>
+    post("/api/deck/ai/explain", { decklist, format, card_names, ...(bracket != null ? { bracket } : {}) }),
+  aiCombos: (decklist, format, combos, near_misses, bracket) =>
+    post("/api/deck/ai/combos", { decklist, format, combos, near_misses, ...(bracket != null ? { bracket } : {}) }),
 };
 
 // Lazy, cached card-image lookup by name. Each distinct card is fetched at most once

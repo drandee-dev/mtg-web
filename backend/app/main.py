@@ -30,21 +30,29 @@ log = logging.getLogger("mtg-web")
 _warmed = False
 
 # ---------------------------------------------------------------------------
-# Role-based AI rate limiting
+# Auth + rate limiting (JWT-verified, not header-spoofable)
 # ---------------------------------------------------------------------------
-_ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "ANDRES.J.MARTINEZ@outlook.com").lower()
+import jwt as _pyjwt
+
+_ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "andres.j.martinez@outlook.com").lower()
 _AI_RATE_LIMIT = int(os.environ.get("AI_RATE_LIMIT_PER_DAY", "25"))
 _AI_MONTHLY_BUDGET_CENTS = int(os.environ.get("AI_MONTHLY_BUDGET_CENTS", "1000"))
+_SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
 
-_daily_usage: dict[str, dict] = {}   # email -> {count, date}
 _USAGE_FILE = Path(os.environ.get("AI_USAGE_FILE", "ai_usage.json"))
 
-# Sonnet pricing per 1M tokens (cents)
-_INPUT_COST_CENTS_PER_M = 300    # $3/M input
-_OUTPUT_COST_CENTS_PER_M = 1500  # $15/M output
+_INPUT_COST_CENTS_PER_M = 300
+_OUTPUT_COST_CENTS_PER_M = 1500
+
+# Max input lengths for validation
+_MAX_DECKLIST_LEN = 50_000
+_MAX_QUESTION_LEN = 1_000
+_MAX_CARD_NAMES = 20
+_MAX_CARD_NAME_LEN = 100
 
 
-def _load_monthly_usage() -> dict:
+def _load_usage() -> dict:
+    """Load both monthly budget and daily per-user counts from disk."""
     try:
         if _USAGE_FILE.exists():
             data = json.loads(_USAGE_FILE.read_text())
@@ -52,10 +60,11 @@ def _load_monthly_usage() -> dict:
                 return data
     except Exception:
         pass
-    return {"month": datetime.date.today().strftime("%Y-%m"), "total_cents": 0.0, "calls": 0}
+    return {"month": datetime.date.today().strftime("%Y-%m"), "total_cents": 0.0,
+            "calls": 0, "daily": {}}
 
 
-def _save_monthly_usage(data: dict) -> None:
+def _save_usage(data: dict) -> None:
     try:
         _USAGE_FILE.write_text(json.dumps(data))
     except Exception:
@@ -63,40 +72,52 @@ def _save_monthly_usage(data: dict) -> None:
 
 
 def _record_ai_usage(input_tokens: int, output_tokens: int) -> None:
-    data = _load_monthly_usage()
+    data = _load_usage()
     cost = (input_tokens / 1_000_000 * _INPUT_COST_CENTS_PER_M
             + output_tokens / 1_000_000 * _OUTPUT_COST_CENTS_PER_M)
     data["total_cents"] = data.get("total_cents", 0) + cost
     data["calls"] = data.get("calls", 0) + 1
-    _save_monthly_usage(data)
+    _save_usage(data)
 
 
-def _get_user_role(request: Request) -> tuple[str, str]:
-    """Returns (role, email). Role is 'admin', 'member', or 'anonymous'."""
-    email = (request.headers.get("X-User-Email") or "").strip().lower()
-    if not email:
-        return "anonymous", ""
-    if email == _ADMIN_EMAIL:
-        return "admin", email
-    return "member", email
-
-
-def _check_ai_access(request: Request, visitor_key: str | None = None) -> None:
-    """Gate AI endpoints: check role, daily rate limit, and monthly budget.
-    Visitor API keys bypass all checks. Anonymous users are allowed when
-    the server has ANTHROPIC_API_KEY set, rate-limited by IP.
+def _get_user_from_jwt(request: Request) -> tuple[str, str]:
+    """Verify the Supabase JWT from the Authorization header.
+    Returns (role, email). Falls back to anonymous if no token or invalid.
     """
-    if visitor_key:
-        return
+    auth = (request.headers.get("Authorization") or "").strip()
+    if not auth.startswith("Bearer ") or not _SUPABASE_JWT_SECRET:
+        return "anonymous", ""
 
-    # Must have a server-side key for AI to work at all
+    token = auth[7:]
+    try:
+        payload = _pyjwt.decode(
+            token, _SUPABASE_JWT_SECRET,
+            algorithms=["HS256"],
+            audience="authenticated",
+        )
+        email = (payload.get("email") or "").strip().lower()
+        if not email:
+            return "anonymous", ""
+        if email == _ADMIN_EMAIL:
+            return "admin", email
+        return "member", email
+    except _pyjwt.ExpiredSignatureError:
+        return "anonymous", ""
+    except _pyjwt.InvalidTokenError:
+        return "anonymous", ""
+
+
+def _check_ai_access(request: Request) -> None:
+    """Gate AI endpoints: verify JWT, check role + daily rate limit + monthly budget.
+    Anonymous users allowed when server has ANTHROPIC_API_KEY, rate-limited by IP.
+    """
     if not os.environ.get("ANTHROPIC_API_KEY"):
         raise HTTPException(503, "AI features are not configured on this server.")
 
-    role, email = _get_user_role(request)
+    role, email = _get_user_from_jwt(request)
 
-    # Monthly budget check (applies to everyone)
-    usage = _load_monthly_usage()
+    # Monthly budget (applies to all, including admin — for visibility)
+    usage = _load_usage()
     if usage.get("total_cents", 0) >= _AI_MONTHLY_BUDGET_CENTS:
         raise HTTPException(429, "AI budget reached for this month. Deterministic features still work.")
 
@@ -107,13 +128,29 @@ def _check_ai_access(request: Request, visitor_key: str | None = None) -> None:
     # Rate limit by email (signed in) or IP (anonymous)
     limit_key = email if email else (request.client.host if request.client else "unknown")
     today = datetime.date.today().isoformat()
-    user_usage = _daily_usage.get(limit_key, {})
-    if user_usage.get("date") != today:
-        user_usage = {"date": today, "count": 0}
-    if user_usage["count"] >= _AI_RATE_LIMIT:
+    daily = usage.get("daily", {})
+    user_day = daily.get(limit_key, {})
+    if user_day.get("date") != today:
+        user_day = {"date": today, "count": 0}
+    if user_day["count"] >= _AI_RATE_LIMIT:
         raise HTTPException(429, f"Daily AI limit reached ({_AI_RATE_LIMIT} calls/day). Try again tomorrow.")
-    user_usage["count"] += 1
-    _daily_usage[limit_key] = user_usage
+    user_day["count"] += 1
+    daily[limit_key] = user_day
+    usage["daily"] = daily
+    _save_usage(usage)
+
+
+def _validate_decklist(payload: dict) -> tuple[str, str]:
+    """Validate and extract decklist + format from a POST body."""
+    decklist = (payload.get("decklist") or "").strip()
+    fmt = payload.get("format") or "commander"
+    if not decklist:
+        raise HTTPException(400, "Body must include a non-empty 'decklist' string.")
+    if len(decklist) > _MAX_DECKLIST_LEN:
+        raise HTTPException(400, f"Decklist too long ({len(decklist)} chars, max {_MAX_DECKLIST_LEN}).")
+    if fmt not in mtg.FORMAT_CONFIGS and fmt not in ("pauper", "paupercommander"):
+        raise HTTPException(400, f"Unknown format: {fmt}")
+    return decklist, fmt
 
 
 @asynccontextmanager
@@ -140,14 +177,13 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=config.cors_origins(),
     allow_methods=["GET", "POST"],
-    allow_headers=["*"],
-    expose_headers=["X-User-Email"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
 @app.get("/api/health")
 def health() -> dict:
-    usage = _load_monthly_usage()
+    usage = _load_usage()
     budget_pct = max(0, 100 - int(usage.get("total_cents", 0) / max(_AI_MONTHLY_BUDGET_CENTS, 1) * 100))
     has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
     return {
@@ -210,12 +246,9 @@ def cards_search(
 
 @app.post("/api/deck/analyze")
 def deck_analyze(
-    payload: Annotated[dict, Body(example={"decklist": "1 Sol Ring\n1 Llanowar Elves", "format": "commander"})],
+    payload: Annotated[dict, Body(examples=[{"decklist": "1 Sol Ring\n1 Llanowar Elves", "format": "commander"}])],
 ) -> dict:
-    decklist = (payload.get("decklist") or "").strip()
-    fmt = payload.get("format") or "commander"
-    if not decklist:
-        raise HTTPException(400, "Body must include a non-empty 'decklist' string.")
+    decklist, fmt = _validate_decklist(payload)
     try:
         return mtg.analyze_deck(decklist, fmt=fmt)
     except KeyError as e:
@@ -229,10 +262,7 @@ def deck_export(
     payload: Annotated[dict, Body(example={"decklist": "1 Sol Ring", "format": "commander"})],
 ) -> dict:
     """Normalize any pasted decklist into canonical Archidekt/Moxfield import text."""
-    decklist = (payload.get("decklist") or "").strip()
-    fmt = payload.get("format") or "commander"
-    if not decklist:
-        raise HTTPException(400, "Body must include a non-empty 'decklist' string.")
+    decklist, fmt = _validate_decklist(payload)
     try:
         return {"format": fmt, "text": mtg.export_deck_text(decklist, fmt=fmt)}
     except KeyError as e:
@@ -241,17 +271,14 @@ def deck_export(
         raise HTTPException(500, str(e)) from e
 
 
-def _decklist_and_format(payload: dict) -> tuple[str, str]:
-    decklist = (payload.get("decklist") or "").strip()
-    if not decklist:
-        raise HTTPException(400, "Body must include a non-empty 'decklist' string.")
-    return decklist, payload.get("format") or "commander"
+def _target_bracket(payload: dict) -> int | None:
+    b = payload.get("bracket")
+    return int(b) if b is not None else None
 
 
 @app.post("/api/deck/recommend")
 def deck_recommend(payload: Annotated[dict, Body()]) -> dict:
-    """EDHREC recommendations for the deck's commander(s) (build helper)."""
-    decklist, fmt = _decklist_and_format(payload)
+    decklist, fmt = _validate_decklist(payload)
     try:
         return mtg.deck_recommendations(decklist, fmt=fmt)
     except KeyError as e:
@@ -262,8 +289,7 @@ def deck_recommend(payload: Annotated[dict, Body()]) -> dict:
 
 @app.post("/api/deck/combos")
 def deck_combos(payload: Annotated[dict, Body()]) -> dict:
-    """Combos in the deck + near-misses one card away (Commander Spellbook)."""
-    decklist, fmt = _decklist_and_format(payload)
+    decklist, fmt = _validate_decklist(payload)
     try:
         return mtg.deck_combos(decklist, fmt=fmt)
     except KeyError as e:
@@ -274,8 +300,7 @@ def deck_combos(payload: Annotated[dict, Body()]) -> dict:
 
 @app.post("/api/deck/composition")
 def deck_composition(payload: Annotated[dict, Body()]) -> dict:
-    """Category counts vs Commander rules-of-thumb (the 'what's missing' view)."""
-    decklist, fmt = _decklist_and_format(payload)
+    decklist, fmt = _validate_decklist(payload)
     try:
         return mtg.deck_composition(decklist, fmt=fmt)
     except KeyError as e:
@@ -284,87 +309,64 @@ def deck_composition(payload: Annotated[dict, Body()]) -> dict:
         raise HTTPException(500, str(e)) from e
 
 
-def _visitor_key(payload: dict) -> str | None:
-    return (payload.get("api_key") or "").strip() or None
-
-
-def _target_bracket(payload: dict) -> int | None:
-    b = payload.get("bracket")
-    return int(b) if b is not None else None
-
-
 @app.post("/api/deck/ai/cuts")
 def deck_ai_cuts(request: Request, payload: Annotated[dict, Body()]) -> dict:
-    _check_ai_access(request, _visitor_key(payload))
-    decklist, fmt = _decklist_and_format(payload)
-    return mtg.ai_suggest_cuts(
-        decklist, fmt=fmt, bracket=_target_bracket(payload), api_key=_visitor_key(payload)
-    )
+    _check_ai_access(request)
+    decklist, fmt = _validate_decklist(payload)
+    return mtg.ai_suggest_cuts(decklist, fmt=fmt, bracket=_target_bracket(payload))
 
 
 @app.post("/api/deck/ai/fills")
 def deck_ai_fills(request: Request, payload: Annotated[dict, Body()]) -> dict:
-    _check_ai_access(request, _visitor_key(payload))
-    decklist, fmt = _decklist_and_format(payload)
-    return mtg.ai_composition_fills(
-        decklist, fmt=fmt, bracket=_target_bracket(payload), api_key=_visitor_key(payload)
-    )
+    _check_ai_access(request)
+    decklist, fmt = _validate_decklist(payload)
+    return mtg.ai_composition_fills(decklist, fmt=fmt, bracket=_target_bracket(payload))
 
 
 @app.post("/api/deck/ai/explain")
 def deck_ai_explain(request: Request, payload: Annotated[dict, Body()]) -> dict:
-    _check_ai_access(request, _visitor_key(payload))
-    decklist, fmt = _decklist_and_format(payload)
+    _check_ai_access(request)
+    decklist, fmt = _validate_decklist(payload)
     card_names = payload.get("card_names") or []
-    if not card_names:
-        raise HTTPException(400, "Provide a 'card_names' list.")
-    return mtg.ai_explain_recommendations(
-        decklist, card_names, fmt=fmt, bracket=_target_bracket(payload), api_key=_visitor_key(payload)
-    )
+    if not card_names or len(card_names) > _MAX_CARD_NAMES:
+        raise HTTPException(400, f"Provide 1-{_MAX_CARD_NAMES} card names.")
+    for cn in card_names:
+        if len(cn) > _MAX_CARD_NAME_LEN:
+            raise HTTPException(400, f"Card name too long: {cn[:30]}…")
+    return mtg.ai_explain_recommendations(decklist, card_names, fmt=fmt, bracket=_target_bracket(payload))
 
 
 @app.post("/api/deck/ai/combos")
 def deck_ai_combos(request: Request, payload: Annotated[dict, Body()]) -> dict:
-    _check_ai_access(request, _visitor_key(payload))
-    decklist, fmt = _decklist_and_format(payload)
+    _check_ai_access(request)
+    decklist, fmt = _validate_decklist(payload)
     combos_data = payload.get("combos") or []
     near_misses = payload.get("near_misses") or []
-    return mtg.ai_combo_guidance(
-        decklist, combos_data, near_misses, fmt=fmt,
-        bracket=_target_bracket(payload), api_key=_visitor_key(payload),
-    )
+    return mtg.ai_combo_guidance(decklist, combos_data, near_misses, fmt=fmt, bracket=_target_bracket(payload))
 
 
 @app.post("/api/deck/wizard/skeleton")
 def wizard_skeleton(payload: Annotated[dict, Body()]) -> dict:
-    """Build a starter skeleton for a commander (EDHREC + staples)."""
     commander = (payload.get("commander") or "").strip()
-    if not commander:
-        raise HTTPException(400, "Provide a 'commander' name.")
+    if not commander or len(commander) > _MAX_CARD_NAME_LEN:
+        raise HTTPException(400, "Provide a valid commander name.")
     fmt = payload.get("format") or "commander"
-    bracket = _target_bracket(payload)
-    return mtg.wizard_build_skeleton(commander, fmt=fmt, bracket=bracket)
+    return mtg.wizard_build_skeleton(commander, fmt=fmt, bracket=_target_bracket(payload))
 
 
 @app.post("/api/deck/wizard/narrate")
 def wizard_narrate(request: Request, payload: Annotated[dict, Body()]) -> dict:
-    """AI narration: explain why suggested cards fit the deck."""
-    _check_ai_access(request, _visitor_key(payload))
+    _check_ai_access(request)
     commander = (payload.get("commander") or "").strip()
-    category = payload.get("category") or ""
     card_names = payload.get("card_names") or []
-    decklist = payload.get("decklist") or ""
     if not commander or not card_names:
         raise HTTPException(400, "Provide 'commander' and 'card_names'.")
-    return mtg.wizard_narrate(
-        commander, category, card_names, decklist, api_key=_visitor_key(payload)
-    )
+    return mtg.wizard_narrate(commander, payload.get("category", ""), card_names, payload.get("decklist", ""))
 
 
 @app.post("/api/deck/wizard/chat")
 def wizard_chat(request: Request, payload: Annotated[dict, Body()]) -> dict:
-    """Free-form conversational deck building (requires Sonnet)."""
-    _check_ai_access(request, _visitor_key(payload))
+    _check_ai_access(request)
     commander = (payload.get("commander") or "").strip()
     messages = payload.get("messages") or []
     decklist = payload.get("decklist") or ""
@@ -373,7 +375,7 @@ def wizard_chat(request: Request, payload: Annotated[dict, Body()]) -> dict:
         raise HTTPException(400, "Provide 'commander' and 'messages'.")
     return mtg.wizard_chat(
         messages, commander, decklist, fmt=fmt,
-        bracket=_target_bracket(payload), api_key=_visitor_key(payload),
+        bracket=_target_bracket(payload),
     )
 
 
@@ -401,12 +403,11 @@ def rules_ask(
     payload: Annotated[dict, Body(example={"question": "Can I counter a triggered ability?"})],
 ) -> dict:
     """AI Rules Q&A: answer a plain-English MTG rules question with cited rules."""
-    visitor_key = _visitor_key(payload)
-    _check_ai_access(request, visitor_key)
+    _check_ai_access(request)
     question = (payload.get("question") or "").strip()
-    if not question:
-        raise HTTPException(400, "Body must include a non-empty 'question' string.")
-    return mtg.rules_ask(question, api_key=visitor_key)
+    if not question or len(question) > _MAX_QUESTION_LEN:
+        raise HTTPException(400, f"Question must be 1-{_MAX_QUESTION_LEN} characters.")
+    return mtg.rules_ask(question)
 
 
 @app.post("/api/rules/ask/stream")
@@ -415,13 +416,12 @@ def rules_ask_stream(
     payload: Annotated[dict, Body()],
 ):
     """Streaming AI Rules Q&A — answer appears word-by-word via SSE."""
-    visitor_key = _visitor_key(payload)
-    _check_ai_access(request, visitor_key)
+    _check_ai_access(request)
     question = (payload.get("question") or "").strip()
-    if not question:
-        raise HTTPException(400, "Body must include a non-empty 'question' string.")
+    if not question or len(question) > _MAX_QUESTION_LEN:
+        raise HTTPException(400, f"Question must be 1-{_MAX_QUESTION_LEN} characters.")
 
-    key = visitor_key or os.environ.get("ANTHROPIC_API_KEY")
+    key = os.environ.get("ANTHROPIC_API_KEY")
     cards = mtg._find_cards_in_question(question)
     rules_context, cited, cards_text = mtg._gather_rules_context(question, cards)
     sections = []

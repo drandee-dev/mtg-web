@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase, supabaseEnabled } from "./lib/supabase";
-import { api, assembleDecklist, disassembleDecklist, setUserEmail } from "./lib/api";
+import { api, assembleDecklist, disassembleDecklist, setAccessToken } from "./lib/api";
 import { makeStore } from "./lib/store";
 import Analyze from "./components/Analyze";
 import Build from "./components/Build";
@@ -74,7 +74,7 @@ export default function App() {
   }, []);
 
   const userId = session?.user?.id || null;
-  setUserEmail(session?.user?.email || "");
+  setAccessToken(session?.access_token || "");
   const cloud = Boolean(userId && supabase);
   const store = makeStore(userId);
 
