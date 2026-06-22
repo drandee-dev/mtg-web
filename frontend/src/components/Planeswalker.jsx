@@ -46,8 +46,15 @@ export default function Planeswalker({ decklist, commander, format, bracket, aiA
         const reply = r.response;
         setMessages([...newMsgs, { role: "assistant", content: reply }]);
 
-        // Auto-detect actionable suggestions in the response
-        // (cards mentioned for adding/cutting could get action buttons in a future pass)
+        // Detect if the response contains a decklist (lines like "1 Card Name")
+        const deckLines = (reply || "").split("\n").filter((l) => /^\d+\s+[A-Z]/.test(l.trim()));
+        if (deckLines.length >= 10) {
+          setMessages([...newMsgs,
+            { role: "assistant", content: reply },
+            { role: "system", content: "_deck_detected_", deckLines: deckLines.join("\n") },
+          ]);
+          return;
+        }
       }
     } catch (e) {
       setMessages([...newMsgs, { role: "assistant", content: `Connection error: ${e.message}` }]);
@@ -83,12 +90,26 @@ export default function Planeswalker({ decklist, commander, format, bracket, aiA
           </div>
 
           <div className="planeswalker-messages" ref={scrollRef}>
-            {messages.map((m, i) => (
+            {messages.filter((m) => m.role !== "system").map((m, i) => (
               <div key={i} className={`pw-msg pw-${m.role}`}>
                 <div className="pw-label">{m.role === "user" ? "You" : "Planeswalker"}</div>
                 <div className="pw-text">{m.content}</div>
               </div>
             ))}
+            {messages.some((m) => m.content === "_deck_detected_") && (
+              <div className="pw-msg pw-assistant">
+                <button className="primary small" onClick={() => {
+                  const dm = messages.find((m) => m.content === "_deck_detected_");
+                  if (dm?.deckLines && addCard) {
+                    dm.deckLines.split("\n").forEach((l) => {
+                      const match = l.trim().match(/^\d+\s+(.+)$/);
+                      if (match) addCard(match[1].trim());
+                    });
+                    notify("Deck loaded from Planeswalker!");
+                  }
+                }}>Load this deck into Build</button>
+              </div>
+            )}
             {busy && (
               <div className="pw-msg pw-assistant">
                 <div className="pw-label">Planeswalker</div>

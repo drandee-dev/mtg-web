@@ -9,6 +9,7 @@ import Rules from "./components/Rules";
 import CardSearch from "./components/CardSearch";
 import Settings from "./components/Settings";
 import Feedback from "./components/Feedback";
+import Playtest from "./components/Playtest";
 import Planeswalker from "./components/Planeswalker";
 
 const TABS = [
@@ -20,17 +21,32 @@ const TABS = [
   ["settings", "Settings"],
 ];
 
+function _loadSharedDeck() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const encoded = params.get("deck");
+    if (!encoded) return null;
+    const decoded = atob(encoded);
+    const fmt = params.get("fmt") || "commander";
+    const cmd = params.get("cmd") || "";
+    window.history.replaceState({}, "", window.location.pathname);
+    return { deckText: decoded, format: fmt, commander: cmd };
+  } catch { return null; }
+}
+
 export default function App() {
-  const [tab, setTab] = useState("analyze");
+  const _shared = _loadSharedDeck();
+  const [tab, setTab] = useState(_shared ? "analyze" : "analyze");
+  const [playtesting, setPlaytesting] = useState(false);
   const [session, setSession] = useState(null);
   const [decks, setDecks] = useState([]);
   const [toast, setToast] = useState("");
   const [serverStatus, setServerStatus] = useState("checking"); // checking | ready | waking
   const [serverAi, setServerAi] = useState(false); // ai_available from /api/health
   // Shared deck input so Analyze and Build operate on the same list.
-  const [deckText, setDeckText] = useState("");
-  const [format, setFormat] = useState("commander");
-  const [commander, setCommander] = useState("");
+  const [deckText, setDeckText] = useState(_shared?.deckText || "");
+  const [format, setFormat] = useState(_shared?.format || "commander");
+  const [commander, setCommander] = useState(_shared?.commander || "");
 
   // AI is usable if the server has a key (ai_available) OR the visitor set a personal key.
   const aiAvailable = serverAi || Boolean(localStorage.getItem("mtgweb:anthropicKey"));
@@ -126,6 +142,19 @@ export default function App() {
     setDeckText((prev) => `${prev.replace(/\s*$/, "")}\n1 ${name}`);
   }, []);
 
+  const shareDeck = useCallback(() => {
+    const full = assembleDecklist(deckText, commander);
+    if (!full.trim()) return notify("No deck to share.");
+    const encoded = btoa(full);
+    const params = new URLSearchParams({ deck: encoded, fmt: format });
+    if (commander) params.set("cmd", commander);
+    const url = `${window.location.origin}${window.location.pathname}?${params}`;
+    navigator.clipboard.writeText(url).then(
+      () => notify("Share link copied to clipboard!"),
+      () => notify("Couldn't copy — check browser permissions."),
+    );
+  }, [deckText, commander, format, notify]);
+
   return (
     <div className="app">
       {serverStatus === "waking" && (
@@ -145,7 +174,14 @@ export default function App() {
       </nav>
 
       <main>
-        {tab === "analyze" && (
+        {playtesting && (
+          <Playtest
+            decklist={assembleDecklist(deckText, commander)}
+            commander={commander}
+            onClose={() => setPlaytesting(false)}
+          />
+        )}
+        {!playtesting && tab === "analyze" && (
           <Analyze
             decklist={deckText}
             setDecklist={setDeckText}
@@ -154,10 +190,12 @@ export default function App() {
             commander={commander}
             setCommander={setCommander}
             onSaveRequest={saveFromAnalyze}
+            onPlaytest={() => setPlaytesting(true)}
+            onShare={shareDeck}
             notify={notify}
           />
         )}
-        {tab === "build" && (
+        {!playtesting && tab === "build" && (
           <Build
             decklist={deckText}
             setDecklist={setDeckText}
@@ -167,6 +205,7 @@ export default function App() {
             setCommander={setCommander}
             aiAvailable={aiAvailable}
             onGoAnalyze={() => setTab("analyze")}
+            onPlaytest={() => setPlaytesting(true)}
             notify={notify}
           />
         )}

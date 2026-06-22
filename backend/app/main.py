@@ -309,6 +309,13 @@ def deck_composition(payload: Annotated[dict, Body()]) -> dict:
         raise HTTPException(500, str(e)) from e
 
 
+@app.post("/api/deck/budget-swaps")
+def deck_budget_swaps(payload: Annotated[dict, Body()]) -> dict:
+    decklist, fmt = _validate_decklist(payload)
+    threshold = float(payload.get("threshold", 5.0))
+    return mtg.budget_swaps(decklist, fmt=fmt, threshold=threshold)
+
+
 @app.post("/api/deck/ai/cuts")
 def deck_ai_cuts(request: Request, payload: Annotated[dict, Body()]) -> dict:
     _check_ai_access(request)

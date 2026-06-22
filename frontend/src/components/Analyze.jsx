@@ -17,7 +17,7 @@ function statusBadge(status) {
 
 // Paste a decklist, analyze it, and (optionally) hand the deck up to be saved.
 // decklist/format are lifted to App so the Build tab shares the same list.
-export default function Analyze({ decklist, setDecklist, format, setFormat, commander, setCommander, onSaveRequest, notify }) {
+export default function Analyze({ decklist, setDecklist, format, setFormat, commander, setCommander, onSaveRequest, onPlaytest, onShare, notify }) {
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -67,6 +67,12 @@ export default function Analyze({ decklist, setDecklist, format, setFormat, comm
             <button onClick={() => onSaveRequest({ format, decklist_text: decklist })}>
               Save deck
             </button>
+          )}
+          {decklist.trim() && onPlaytest && (
+            <button onClick={onPlaytest}>Playtest</button>
+          )}
+          {decklist.trim() && onShare && (
+            <button onClick={onShare}>Share</button>
           )}
         </div>
       </div>

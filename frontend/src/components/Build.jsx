@@ -35,7 +35,7 @@ const countCards = (txt) =>
     .filter((l) => /^\s*\d+\s+\S/.test(l))
     .reduce((n, l) => n + (parseInt(l, 10) || 1), 0);
 
-export default function Build({ decklist, setDecklist, format, setFormat, commander, setCommander, aiAvailable: aiProp, onGoAnalyze, notify }) {
+export default function Build({ decklist, setDecklist, format, setFormat, commander, setCommander, aiAvailable: aiProp, onGoAnalyze, onPlaytest, notify }) {
   const [mode, setMode] = useState("manual"); // "manual" | "wizard"
   const [recs, setRecs] = useState(null);
   const [combos, setCombos] = useState(null);
@@ -48,6 +48,7 @@ export default function Build({ decklist, setDecklist, format, setFormat, comman
   const [fills, setFills] = useState(null);
   const [explanations, setExplanations] = useState(null);
   const [comboGuide, setComboGuide] = useState(null);
+  const [budgetSwaps, setBudgetSwaps] = useState(null);
   const [bracket, setBracket] = useState(null);
 
   // Universal skip tracking — cards dismissed from suggestions
@@ -231,7 +232,15 @@ export default function Build({ decklist, setDecklist, format, setFormat, comman
             </button>
           )}
           {decklist.trim() && onGoAnalyze && (
-            <button onClick={onGoAnalyze}>Analyze this deck</button>
+            <button onClick={onGoAnalyze}>Analyze</button>
+          )}
+          {decklist.trim() && onPlaytest && (
+            <button onClick={onPlaytest}>Playtest</button>
+          )}
+          {decklist.trim() && (
+            <button onClick={async () => { setBusy("Budget"); try { const full = assembleDecklist(decklist, isCommanderFmt ? commander : ""); setBudgetSwaps(await api.budgetSwaps(full, format)); } catch (e) { notify(`Budget swaps failed: ${e.message}`); } finally { setBusy(""); } }} disabled={busy === "Budget"}>
+              {busy === "Budget" ? "Checking…" : "Budget swaps"}
+            </button>
           )}
         </div>
       </div>
@@ -244,6 +253,28 @@ export default function Build({ decklist, setDecklist, format, setFormat, comman
       <LoadingIndicator label="Finding fill suggestions" active={busy === "AI Fills"} />
       <LoadingIndicator label="Explaining recommendations" active={busy === "AI Explain"} />
       <LoadingIndicator label="Evaluating combos" active={busy === "AI Combos"} />
+
+      {/* Budget swaps */}
+      {budgetSwaps && budgetSwaps.swaps?.length > 0 && (
+        <div className="panel">
+          <h3>Budget swaps</h3>
+          <p className="muted small">Cheaper alternatives for expensive cards. Potential savings: ${budgetSwaps.total_savings?.toFixed(2)}</p>
+          {budgetSwaps.swaps.map((s) => (
+            <div key={s.card} className="spread" style={{ borderTop: "1px solid var(--border)", padding: ".4rem 0" }}>
+              <div style={{ flex: 1 }}>
+                <CardPreview name={s.card} /> <span className="muted small">${s.price}</span>
+                <span style={{ margin: "0 .4rem", color: "var(--muted)" }}>→</span>
+                <CardPreview name={s.alternative.name} /> <span className="muted small">${s.alternative.price}</span>
+                <span className="badge good small" style={{ marginLeft: ".3rem" }}>{s.alternative.role}</span>
+              </div>
+              <button className="ghost small" onClick={() => swapCard(s.card, s.alternative.name)} style={{ color: "var(--good)" }}>Swap</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {budgetSwaps && budgetSwaps.swaps?.length === 0 && (
+        <div className="panel"><p className="muted small">No expensive cards found above the threshold — your deck is already budget-friendly!</p></div>
+      )}
 
       {/* AI Suggested Cuts with Swap */}
       {cuts && !cuts.error && cuts.cuts?.filter((c) => !isSkipped(c.name)).length > 0 && (

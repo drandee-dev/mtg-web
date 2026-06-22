@@ -802,6 +802,75 @@ def _parse_ai_json(raw: str) -> Any:
     raise ValueError(f"No valid JSON found in response: {raw[:200]}")
 
 
+def budget_swaps(text: str, *, fmt: str = "commander", threshold: float = 5.0) -> dict[str, Any]:
+    """Find cheaper alternatives for expensive cards. No AI needed — pure search."""
+    deck = parse_deck_text(text, format=fmt)
+    hd = HydratedDeck.from_parsed(deck, _bulk_index())
+    idx = _bulk_index()
+    ci_lists = [((idx.get(c["name"]) or {}).get("color_identity") or []) for c in deck.get("commanders", [])]
+    ci = "".join(color for ci_list in ci_lists for color in ci_list)
+    in_deck = {e["name"] for zone in ("commanders", "cards") for e in deck.get(zone, [])}
+
+    swaps = []
+    for entry, card in hd.entries(zones=("cards",)):
+        if not card:
+            continue
+        price = extract_price(card)
+        if not price or price < threshold:
+            continue
+        name = entry.get("name", "")
+        roles = _classify_roles(card)
+        alt = None
+        for role in roles[:2]:
+            search_cfg = None
+            for key, label in _ROLE_CHECKS:
+                if label == role:
+                    search_cfg = _FILL_SEARCH.get(key)
+                    break
+            if not search_cfg:
+                for pattern, label in _ORACLE_ROLES:
+                    if label == role:
+                        search_cfg = {"oracle": pattern, "type": None}
+                        break
+            if search_cfg:
+                try:
+                    cands = _search_cards(
+                        config.BULK_PATH, oracle=search_cfg.get("oracle"),
+                        card_type=search_cfg.get("type"), color_identity=ci or None,
+                        format=fmt, sort="price-asc", limit=10,
+                    )
+                    for c in cands:
+                        cn = c.get("name", "")
+                        cp = extract_price(c)
+                        if cn not in in_deck and cn != name and cp and cp < price * 0.5:
+                            alt = {"name": cn, "price": round(cp, 2), "role": role}
+                            break
+                except Exception:
+                    pass
+            if alt:
+                break
+        if not alt:
+            type_line = (card.get("type_line") or "").lower()
+            for t in ("creature", "instant", "sorcery", "artifact", "enchantment"):
+                if t in type_line:
+                    try:
+                        cands = _search_cards(config.BULK_PATH, card_type=t, color_identity=ci or None,
+                                              format=fmt, sort="price-asc", limit=10)
+                        for c in cands:
+                            cn = c.get("name", "")
+                            cp = extract_price(c)
+                            if cn not in in_deck and cn != name and cp and cp < price * 0.5:
+                                alt = {"name": cn, "price": round(cp, 2), "role": t.capitalize()}
+                                break
+                    except Exception:
+                        pass
+                    break
+        if alt:
+            swaps.append({"card": name, "price": round(price, 2), "alternative": alt})
+    swaps.sort(key=lambda s: s["price"], reverse=True)
+    return {"swaps": swaps, "total_savings": round(sum(s["price"] - s["alternative"]["price"] for s in swaps), 2)}
+
+
 def ai_suggest_cuts(
     text: str, *, fmt: str = "commander", bracket: int | None = None,
     api_key: str | None = None,

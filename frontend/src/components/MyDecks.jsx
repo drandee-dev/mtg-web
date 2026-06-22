@@ -132,9 +132,13 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
               <button className="primary small" onClick={() => onOpen(d)}>Analyze</button>
               <button className="small" onClick={() => onOpenInBuild(d)}>Build</button>
               <button className="ghost small" onClick={() => rename(d)}>Rename</button>
-              <button className="ghost small" onClick={() => exportText(d)}>Export .txt</button>
-              <button className="ghost small" onClick={() => exportJson(d)}>Export .json</button>
-              <button className="ghost small" onClick={() => onDelete(d.id)}>Delete</button>
+              <select className="ghost small" style={{ width: "auto", padding: ".15rem .3rem", fontSize: ".8rem" }}
+                defaultValue="" onChange={(e) => { if (e.target.value === "txt") exportText(d); else if (e.target.value === "json") exportJson(d); e.target.value = ""; }}>
+                <option value="" disabled>Export</option>
+                <option value="txt">.txt (Moxfield/Archidekt)</option>
+                <option value="json">.json (backup)</option>
+              </select>
+              <button className="ghost small" onClick={() => onDelete(d.id)} style={{ color: "var(--danger, #d9534f)" }}>Delete</button>
             </div>
           </div>
         ))}

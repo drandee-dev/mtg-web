@@ -86,6 +86,7 @@ export const api = {
   analyze: (decklist, format) => post("/api/deck/analyze", { decklist, format }),
   exportText: (decklist, format) => post("/api/deck/export", { decklist, format }),
   recommend: (decklist, format) => post("/api/deck/recommend", { decklist, format }),
+  budgetSwaps: (decklist, format, threshold) => post("/api/deck/budget-swaps", { decklist, format, threshold }),
   combos: (decklist, format) => post("/api/deck/combos", { decklist, format }),
   composition: (decklist, format) => post("/api/deck/composition", { decklist, format }),
   commanders: (q) => get("/api/commanders/search", { q }),
