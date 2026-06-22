@@ -66,10 +66,10 @@ export default function Settings({ session, notify }) {
       </div>
 
       <div className="panel">
-        <h2>AI features</h2>
+        <h2>Planeswalker</h2>
         <p className="muted small">
-          AI-powered features (suggested cuts, composition fills, rules Q&A, combo guidance) are
-          included — no setup needed. Usage is limited to {25} calls per day.
+          The ⚡ Planeswalker provides tailored deck advice, rules answers, and strategy guidance —
+          no setup needed. Usage is limited to {25} calls per day.
         </p>
         <p className="muted small" style={{ marginTop: ".3rem" }}>
           <button className="ghost small" onClick={() => setShowAdvanced(!showAdvanced)}>

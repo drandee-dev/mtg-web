@@ -121,7 +121,7 @@ export default function Build({ decklist, setDecklist, format, setFormat, comman
         </div>
         <p className="muted small">
           Paste an existing list to tune it, or use the <strong>Deck wizard</strong> to build from scratch.
-          Use the <strong>⚡ Planeswalker</strong> for AI-powered advice.
+          Use the <strong>⚡ Planeswalker</strong> for tailored advice.
         </p>
 
         <div className="row" style={{ flexWrap: "wrap" }}>
