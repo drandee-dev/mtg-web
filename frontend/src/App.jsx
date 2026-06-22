@@ -41,7 +41,8 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [decks, setDecks] = useState([]);
   const [toast, setToast] = useState("");
-  const [serverStatus, setServerStatus] = useState("checking"); // checking | ready | waking
+  const [serverStatus, setServerStatus] = useState("checking"); // checking | ready | waking | offline
+  const [healthRetry, setHealthRetry] = useState(0);
   const [serverAi, setServerAi] = useState(true); // assume AI available; health check corrects if not
   // Shared deck input so Analyze and Build operate on the same list.
   const [deckText, setDeckText] = useState(_shared?.deckText || "");
@@ -60,6 +61,7 @@ export default function App() {
   // Retries every 10s for up to 60s on cold start.
   useEffect(() => {
     let cancelled = false;
+    setServerStatus("checking");
     async function check(attempt) {
       try {
         const h = await api.health();
@@ -67,16 +69,16 @@ export default function App() {
       } catch {
         if (cancelled) return;
         if (attempt === 0) setServerStatus("waking");
-        if (attempt < 5) {
+        if (attempt < 7) {
           setTimeout(() => check(attempt + 1), 10000);
         } else {
-          setServerStatus("ready"); // give up showing the banner after 60s
+          setServerStatus("offline");
         }
       }
     }
     check(0);
     return () => { cancelled = true; };
-  }, []);
+  }, [healthRetry]);
 
   // Track Supabase auth session (no-op when Supabase isn't configured).
   useEffect(() => {
@@ -153,9 +155,15 @@ export default function App() {
 
   return (
     <div className="app">
-      {serverStatus === "waking" && (
+      {(serverStatus === "waking" || serverStatus === "checking") && (
         <div style={{ background: "var(--accent)", color: "var(--bg)", textAlign: "center", padding: ".4rem", fontSize: ".85rem" }}>
           Server is waking up — first load takes ~30 seconds. Hang tight!
+        </div>
+      )}
+      {serverStatus === "offline" && (
+        <div style={{ background: "#c44", color: "#fff", textAlign: "center", padding: ".4rem", fontSize: ".85rem", cursor: "pointer" }}
+          onClick={() => setHealthRetry((n) => n + 1)}>
+          Server didn't respond — click here to retry.
         </div>
       )}
       <header className="app-header">

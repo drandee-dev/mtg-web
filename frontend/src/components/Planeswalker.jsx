@@ -119,7 +119,9 @@ export default function Planeswalker({ decklist, commander, format, bracket, aiA
           </div>
 
           <div className="planeswalker-input">
-            {serverStatus && serverStatus !== "ready" ? (
+            {serverStatus === "offline" ? (
+              <div className="pw-waking">Server is offline — click the banner above to retry.</div>
+            ) : serverStatus && serverStatus !== "ready" ? (
               <div className="pw-waking">Server is waking up — hang tight...</div>
             ) : (
               <>

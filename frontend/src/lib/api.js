@@ -78,8 +78,14 @@ export async function postStream(path, body, onChunk) {
   }
 }
 
+async function quickGet(path) {
+  const res = await fetch(BASE + path, { headers: _accessToken ? { "Authorization": `Bearer ${_accessToken}` } : {} });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+  return res.json();
+}
+
 export const api = {
-  health: () => get("/api/health"),
+  health: () => quickGet("/api/health"),
   rules: (params) => get("/api/rules/search", params),
   cards: (params) => get("/api/cards/search", params),
   analyze: (decklist, format) => post("/api/deck/analyze", { decklist, format }),
