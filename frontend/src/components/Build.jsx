@@ -35,7 +35,7 @@ const countCards = (txt) =>
     .filter((l) => /^\s*\d+\s+\S/.test(l))
     .reduce((n, l) => n + (parseInt(l, 10) || 1), 0);
 
-export default function Build({ decklist, setDecklist, format, setFormat, commander, setCommander, aiAvailable: aiProp, notify }) {
+export default function Build({ decklist, setDecklist, format, setFormat, commander, setCommander, aiAvailable: aiProp, onGoAnalyze, notify }) {
   const [mode, setMode] = useState("manual"); // "manual" | "wizard"
   const [recs, setRecs] = useState(null);
   const [combos, setCombos] = useState(null);
@@ -229,6 +229,9 @@ export default function Build({ decklist, setDecklist, format, setFormat, comman
             <button onClick={runAiCuts} disabled={busy === "AI Cuts"} style={{ borderColor: "var(--accent)" }}>
               {busy === "AI Cuts" ? "Thinking…" : "✨ Suggest cuts"}
             </button>
+          )}
+          {decklist.trim() && onGoAnalyze && (
+            <button onClick={onGoAnalyze}>Analyze this deck</button>
           )}
         </div>
       </div>

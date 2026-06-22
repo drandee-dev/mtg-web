@@ -109,16 +109,21 @@ export default function App() {
     setTab("decks");
   }, [saveDeck, commander]);
 
-  // Open a saved deck: load it into the shared state (split commander from the list)
-  // and jump to Analyze, where it can be viewed, edited, and analyzed.
-  const openDeck = useCallback((deck) => {
+  const _loadDeck = useCallback((deck, targetTab) => {
     const { commander: c, deckText: t } = disassembleDecklist(deck.decklist_text);
     setFormat(deck.format || "commander");
     setCommander(c);
     setDeckText(t);
-    setTab("analyze");
+    setTab(targetTab);
     notify(`Opened "${deck.name}".`);
   }, [notify]);
+
+  const openDeck = useCallback((deck) => _loadDeck(deck, "analyze"), [_loadDeck]);
+  const openDeckInBuild = useCallback((deck) => _loadDeck(deck, "build"), [_loadDeck]);
+
+  const addCardToDecklist = useCallback((name) => {
+    setDeckText((prev) => `${prev.replace(/\s*$/, "")}\n1 ${name}`);
+  }, []);
 
   return (
     <div className="app">
@@ -160,6 +165,7 @@ export default function App() {
             commander={commander}
             setCommander={setCommander}
             aiAvailable={aiAvailable}
+            onGoAnalyze={() => setTab("analyze")}
             notify={notify}
           />
         )}
@@ -171,12 +177,13 @@ export default function App() {
             onSave={saveDeck}
             onDelete={deleteDeck}
             onOpen={openDeck}
+            onOpenInBuild={openDeckInBuild}
             notify={notify}
             refresh={refresh}
           />
         )}
         {tab === "rules" && <Rules aiAvailable={aiAvailable} notify={notify} />}
-        {tab === "cards" && <CardSearch notify={notify} />}
+        {tab === "cards" && <CardSearch addCard={addCardToDecklist} notify={notify} />}
         {tab === "settings" && <Settings session={session} notify={notify} />}
       </main>
 

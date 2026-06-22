@@ -3,7 +3,7 @@ import { api } from "../lib/api";
 import CardPreview from "./CardPreview";
 
 // Search Scryfall bulk data with deck-building filters.
-export default function CardSearch({ notify }) {
+export default function CardSearch({ addCard, notify }) {
   const [f, setF] = useState({ name: "", type: "", oracle: "", color_identity: "", cmc_max: "" });
   const [res, setRes] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -42,14 +42,15 @@ export default function CardSearch({ notify }) {
           <p className="muted small">{res.count} result{res.count === 1 ? "" : "s"}</p>
           <div style={{ overflowX: "auto" }}>
             <table className="results-table">
-              <thead><tr><th>Name</th><th>Type</th><th>CMC</th><th>$</th></tr></thead>
+              <thead><tr><th>Name</th><th>Type</th><th>CMC</th><th>$</th>{addCard && <th></th>}</tr></thead>
               <tbody>
                 {res.results.map((c, i) => (
-                  <tr key={i}>
+                  <tr key={c.name || i}>
                     <td><CardPreview name={c.name} /></td>
                     <td className="muted">{c.type_line}</td>
                     <td>{c.cmc}</td>
                     <td>{c.prices?.usd ? `$${c.prices.usd}` : "—"}</td>
+                    {addCard && <td><button className="ghost small" onClick={() => { addCard(c.name); notify(`Added ${c.name}`); }}>+ Add</button></td>}
                   </tr>
                 ))}
               </tbody>
