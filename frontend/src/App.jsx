@@ -42,7 +42,7 @@ export default function App() {
   const [decks, setDecks] = useState([]);
   const [toast, setToast] = useState("");
   const [serverStatus, setServerStatus] = useState("checking"); // checking | ready | waking
-  const [serverAi, setServerAi] = useState(false); // ai_available from /api/health
+  const [serverAi, setServerAi] = useState(true); // assume AI available; health check corrects if not
   // Shared deck input so Analyze and Build operate on the same list.
   const [deckText, setDeckText] = useState(_shared?.deckText || "");
   const [format, setFormat] = useState(_shared?.format || "commander");
@@ -57,28 +57,24 @@ export default function App() {
   }, []);
 
   // Check if the backend is awake on load, and capture AI availability.
+  // Retries every 10s for up to 60s on cold start.
   useEffect(() => {
     let cancelled = false;
-    async function check() {
+    async function check(attempt) {
       try {
         const h = await api.health();
         if (!cancelled) { setServerStatus("ready"); setServerAi(Boolean(h?.ai_available)); }
       } catch {
-        if (!cancelled) {
-          setServerStatus("waking");
-          // Retry after a delay (cold start)
-          setTimeout(async () => {
-            try {
-              const h = await api.health();
-              if (!cancelled) { setServerStatus("ready"); setServerAi(Boolean(h?.ai_available)); }
-            } catch {
-              if (!cancelled) setServerStatus("ready"); // give up gracefully
-            }
-          }, 10000);
+        if (cancelled) return;
+        if (attempt === 0) setServerStatus("waking");
+        if (attempt < 5) {
+          setTimeout(() => check(attempt + 1), 10000);
+        } else {
+          setServerStatus("ready"); // give up showing the banner after 60s
         }
       }
     }
-    check();
+    check(0);
     return () => { cancelled = true; };
   }, []);
 
