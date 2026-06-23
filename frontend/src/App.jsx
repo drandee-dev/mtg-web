@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase, supabaseEnabled } from "./lib/supabase";
 import { api, assembleDecklist, disassembleDecklist, setAccessToken } from "./lib/api";
 import { makeStore } from "./lib/store";
-import Analyze from "./components/Analyze";
-import Build from "./components/Build";
+import AppHeader from "./components/layout/AppHeader";
+import NavBar from "./components/layout/NavBar";
+import HamburgerMenu from "./components/layout/HamburgerMenu";
+import DeckView from "./components/deck/DeckView";
 import MyDecks from "./components/MyDecks";
 import Rules from "./components/Rules";
 import CardSearch from "./components/CardSearch";
@@ -13,15 +15,15 @@ import Playtest from "./components/Playtest";
 import Planeswalker from "./components/Planeswalker";
 
 const TABS = [
-  ["analyze", "Analyze"],
-  ["build", "Build"],
+  ["deck", "Deck"],
   ["decks", "My Decks"],
   ["rules", "Rules"],
   ["cards", "Cards"],
   ["settings", "Settings"],
 ];
 
-const VALID_TABS = new Set(["analyze", "build", "decks", "rules", "cards", "settings"]);
+const VALID_TABS = new Set(TABS.map(([id]) => id));
+const TAB_ALIASES = { analyze: "deck", build: "deck" };
 
 function _loadSharedDeck() {
   try {
@@ -39,46 +41,43 @@ function _loadSharedDeck() {
 function _initialTab() {
   const params = new URLSearchParams(window.location.search);
   const t = params.get("tab");
-  return (t && VALID_TABS.has(t)) ? t : "analyze";
+  if (t && VALID_TABS.has(t)) return t;
+  if (t && TAB_ALIASES[t]) return TAB_ALIASES[t];
+  return "deck";
 }
 
 export default function App() {
   const _shared = _loadSharedDeck();
-  const [tab, setTab] = useState(_shared ? "analyze" : _initialTab());
+  const [tab, setTab] = useState(_shared ? "deck" : _initialTab());
+  const [menuOpen, setMenuOpen] = useState(false);
   const [playtesting, setPlaytesting] = useState(false);
   const [session, setSession] = useState(null);
   const [decks, setDecks] = useState([]);
   const [toast, setToast] = useState("");
-  const [serverStatus, setServerStatus] = useState("checking"); // checking | ready | waking | offline
+  const [serverStatus, setServerStatus] = useState("checking");
   const [healthRetry, setHealthRetry] = useState(0);
-  const [serverAi, setServerAi] = useState(true); // assume AI available; health check corrects if not
-  // Shared deck input so Analyze and Build operate on the same list.
+  const [serverAi, setServerAi] = useState(true);
   const [deckText, setDeckText] = useState(_shared?.deckText || "");
   const [format, setFormat] = useState(_shared?.format || "commander");
   const [commander, setCommander] = useState(_shared?.commander || "");
 
   const savedDeckText = useRef(deckText);
 
-  // Sync tab to URL query param
   useEffect(() => {
     const url = new URL(window.location);
-    if (tab === "analyze") { url.searchParams.delete("tab"); }
+    if (tab === "deck") { url.searchParams.delete("tab"); }
     else { url.searchParams.set("tab", tab); }
     window.history.replaceState({}, "", url);
   }, [tab]);
 
-  // Warn before leaving with unsaved deck changes
   useEffect(() => {
     function handler(e) {
-      if (deckText && deckText !== savedDeckText.current) {
-        e.preventDefault();
-      }
+      if (deckText && deckText !== savedDeckText.current) { e.preventDefault(); }
     }
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [deckText]);
 
-  // AI is usable if the server has a key (ai_available) OR the visitor set a personal key.
   const aiAvailable = serverAi || Boolean(localStorage.getItem("mtgweb:anthropicKey"));
 
   const notify = useCallback((msg) => {
@@ -86,8 +85,6 @@ export default function App() {
     setTimeout(() => setToast(""), 3500);
   }, []);
 
-  // Check if the backend is awake on load, and capture AI availability.
-  // Retries every 10s for up to 60s on cold start.
   useEffect(() => {
     let cancelled = false;
     setServerStatus("checking");
@@ -109,7 +106,6 @@ export default function App() {
     return () => { cancelled = true; };
   }, [healthRetry]);
 
-  // Track Supabase auth session (no-op when Supabase isn't configured).
   useEffect(() => {
     if (!supabaseEnabled) return;
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -123,14 +119,10 @@ export default function App() {
   const store = makeStore(userId);
 
   const refresh = useCallback(async () => {
-    try {
-      setDecks(await store.list());
-    } catch (e) {
-      notify(`Could not load decks: ${e.message}`);
-    }
+    try { setDecks(await store.list()); }
+    catch (e) { notify(`Could not load decks: ${e.message}`); }
   }, [store, notify]);
 
-  // Reload decks whenever the active backend changes (sign in/out).
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [userId]);
 
   const saveDeck = useCallback(async (deck) => {
@@ -146,26 +138,22 @@ export default function App() {
     notify("Deleted.");
   }, [store, refresh, notify]);
 
-  // From Analyze "Save deck": ask for a name, then persist and jump to My Decks.
-  const saveFromAnalyze = useCallback(async ({ format: fmt, decklist_text }) => {
+  const saveDeckFromView = useCallback(async () => {
     const name = prompt("Name this deck:");
     if (!name) return;
-    await saveDeck({ name: name.trim(), format: fmt, decklist_text: assembleDecklist(decklist_text, commander) });
+    await saveDeck({ name: name.trim(), format, decklist_text: assembleDecklist(deckText, commander) });
     setTab("decks");
-  }, [saveDeck, commander]);
+  }, [saveDeck, format, deckText, commander]);
 
-  const _loadDeck = useCallback((deck, targetTab) => {
+  const openDeck = useCallback((deck) => {
     const { commander: c, deckText: t } = disassembleDecklist(deck.decklist_text);
     setFormat(deck.format || "commander");
     setCommander(c);
     setDeckText(t);
     savedDeckText.current = t;
-    setTab(targetTab);
+    setTab("deck");
     notify(`Opened "${deck.name}".`);
   }, [notify]);
-
-  const openDeck = useCallback((deck) => _loadDeck(deck, "analyze"), [_loadDeck]);
-  const openDeckInBuild = useCallback((deck) => _loadDeck(deck, "build"), [_loadDeck]);
 
   const addCardToDecklist = useCallback((name) => {
     setDeckText((prev) => `${prev.replace(/\s*$/, "")}\n1 ${name}`);
@@ -191,6 +179,7 @@ export default function App() {
         onBlur={(e) => { e.target.style.position = "absolute"; e.target.style.left = "-9999px"; e.target.style.width = "1px"; e.target.style.height = "1px"; }}>
         Skip to content
       </a>
+
       {(serverStatus === "waking" || serverStatus === "checking") && (
         <div className="banner-waking" role="alert" aria-live="polite">
           Server is waking up — first load takes ~30 seconds. Hang tight!
@@ -203,16 +192,25 @@ export default function App() {
           Server didn't respond — tap to retry.
         </button>
       )}
-      <header className="app-header">
-        <div className="brand"><span className="dot" /> MTG Workshop</div>
-        <span className="badge small">{cloud ? session.user.email : supabaseEnabled ? "Not signed in" : "Local mode"}</span>
-      </header>
 
-      <nav className="tabs" role="tablist" aria-label="Main navigation">
-        {TABS.map(([id, label]) => (
-          <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>
-        ))}
-      </nav>
+      <AppHeader
+        cloud={cloud}
+        session={session}
+        supabaseEnabled={supabaseEnabled}
+        onMenuToggle={() => setMenuOpen(true)}
+      />
+
+      <NavBar tabs={TABS} tab={tab} setTab={setTab} />
+
+      <HamburgerMenu
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        tabs={TABS}
+        tab={tab}
+        setTab={setTab}
+        session={session}
+        cloud={cloud}
+      />
 
       <main id="main-content" role="tabpanel">
         {playtesting && (
@@ -222,30 +220,17 @@ export default function App() {
             onClose={() => setPlaytesting(false)}
           />
         )}
-        {!playtesting && tab === "analyze" && (
-          <Analyze
+        {!playtesting && tab === "deck" && (
+          <DeckView
             decklist={deckText}
             setDecklist={setDeckText}
             format={format}
             setFormat={setFormat}
             commander={commander}
             setCommander={setCommander}
-            onSaveRequest={saveFromAnalyze}
+            onSave={saveDeckFromView}
             onPlaytest={() => setPlaytesting(true)}
             onShare={shareDeck}
-            notify={notify}
-          />
-        )}
-        {!playtesting && tab === "build" && (
-          <Build
-            decklist={deckText}
-            setDecklist={setDeckText}
-            format={format}
-            setFormat={setFormat}
-            commander={commander}
-            setCommander={setCommander}
-            onGoAnalyze={() => setTab("analyze")}
-            onPlaytest={() => setPlaytesting(true)}
             notify={notify}
           />
         )}
@@ -257,7 +242,6 @@ export default function App() {
             onSave={saveDeck}
             onDelete={deleteDeck}
             onOpen={openDeck}
-            onOpenInBuild={openDeckInBuild}
             notify={notify}
             refresh={refresh}
           />

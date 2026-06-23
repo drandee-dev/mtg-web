@@ -12,7 +12,7 @@ function download(filename, text, type = "text/plain") {
 }
 
 // Saved decks. Backed by Supabase when signed in, else this browser's localStorage.
-export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onOpenInBuild, notify, refresh }) {
+export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, notify, refresh }) {
   const [importText, setImportText] = useState("");
   const [importName, setImportName] = useState("");
   const [importFormat, setImportFormat] = useState("commander");
@@ -129,8 +129,7 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
               <div className="muted small">{d.format}</div>
             </div>
             <div className="row" style={{ flexWrap: "wrap" }}>
-              <button className="primary small" onClick={() => onOpen(d)}>Analyze</button>
-              <button className="small" onClick={() => onOpenInBuild(d)}>Build</button>
+              <button className="primary small" onClick={() => onOpen(d)}>Open</button>
               <button className="ghost small" onClick={() => rename(d)}>Rename</button>
               <select className="ghost small" style={{ width: "auto", padding: ".15rem .3rem", fontSize: ".8rem" }}
                 defaultValue="" onChange={(e) => { if (e.target.value === "txt") exportText(d); else if (e.target.value === "json") exportJson(d); e.target.value = ""; }}>

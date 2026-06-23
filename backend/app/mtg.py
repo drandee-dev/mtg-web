@@ -119,6 +119,7 @@ def card_image(name: str) -> dict[str, Any]:
         "found": True,
         "image": _image_from_record(rec, "normal"),
         "thumb": _image_from_record(rec, "small"),
+        "type_line": rec.get("type_line", ""),
     }
 
 
