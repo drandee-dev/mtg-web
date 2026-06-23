@@ -8,6 +8,7 @@ import CardGrid from "./CardGrid";
 import DeckInput from "./DeckInput";
 import DeckSidebar from "./DeckSidebar";
 import MoreMenu from "./MoreMenu";
+import DrawProbability from "./DrawProbability";
 
 const REC_CATEGORIES = [
   ["high_synergy", "High synergy"],
@@ -214,6 +215,9 @@ export default function DeckView({
           />
 
           {/* Expandable panels below card grid */}
+          {activePanel === "DrawOdds" && (
+            <DrawProbability result={result} commander={commander} format={format} />
+          )}
           {activePanel === "Recommendations" && (
             <LoadingIndicator label="Loading recommendations" active={busy === "Recommendations"} />
           )}
@@ -342,6 +346,7 @@ export default function DeckView({
           onCombos={() => loadPanel("Combos", api.combos, setCombos)}
           onBudgetSwaps={() => loadPanel("Budget", api.budgetSwaps, setBudgetSwaps)}
           onComposition={() => loadPanel("Composition", api.composition, setComp)}
+          onDrawOdds={() => setActivePanel(activePanel === "DrawOdds" ? null : "DrawOdds")}
         />
       </div>
     </div>

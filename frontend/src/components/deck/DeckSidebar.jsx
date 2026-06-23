@@ -14,8 +14,7 @@ function statusBadge(status) {
 
 export default function DeckSidebar({
   result, isAnalyzing, onAnalyze,
-  onPlaytest, onShare, onSave,
-  onRecommendations, onCombos, onBudgetSwaps, onComposition,
+  onRecommendations, onCombos, onBudgetSwaps, onComposition, onDrawOdds,
 }) {
   const s = result?.stats || {};
   const mana = result?.mana || {};
@@ -108,6 +107,7 @@ export default function DeckSidebar({
           {onCombos && <button className="ghost small" onClick={onCombos}>Find Combos</button>}
           {onBudgetSwaps && <button className="ghost small" onClick={onBudgetSwaps}>Budget Swaps</button>}
           {onComposition && <button className="ghost small" onClick={onComposition}>Check Composition</button>}
+          {onDrawOdds && <button className="ghost small" onClick={onDrawOdds}>Draw Odds</button>}
         </div>
       </div>
 
