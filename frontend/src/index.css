@@ -181,16 +181,24 @@ header.app-header {
 .card-thumb:hover .remove-btn,
 .card-thumb:focus-within .remove-btn { opacity: 1; }
 
+/* Stack columns — horizontal flow of type-group piles */
+.stack-columns {
+  display: grid;
+  gap: .75rem;
+  align-items: start;
+}
+.stack-column { min-width: 0; }
+
 /* Card stack — pile/stacked view */
-.card-stack { display: flex; flex-direction: column; max-width: 200px; }
+.card-stack { display: flex; flex-direction: column; }
 .card-stack .card-thumb {
-  margin-bottom: -85%; position: relative; z-index: 0;
+  margin-bottom: -82%; position: relative; z-index: 0;
   transition: transform .15s, z-index 0s;
 }
 .card-stack .card-thumb:last-child { margin-bottom: 0; }
 .card-stack .card-thumb:hover,
 .card-stack .card-thumb:focus-within { transform: translateY(-20px); z-index: 1; }
-.card-stack .card-thumb.expanded { transform: translateY(-100px); z-index: 10; }
+.card-stack .card-thumb.expanded { transform: translateY(-80px); z-index: 10; }
 
 /* Card list — compact text rows */
 .card-list-row {
@@ -449,7 +457,7 @@ nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent);
   .deck-layout { grid-template-columns: 1fr; }
   .deck-sidebar { position: static; max-height: none; }
   .card-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
-  .card-stack { max-width: 140px; }
+  .stack-columns { grid-template-columns: repeat(auto-fill, 100px) !important; }
   .card-list-row { grid-template-columns: 24px 28px 1fr auto auto; }
   .card-list-type { display: none; }
 }

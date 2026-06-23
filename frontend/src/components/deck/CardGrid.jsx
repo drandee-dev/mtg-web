@@ -10,9 +10,18 @@ const canHover =
   typeof window !== "undefined" &&
   window.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
 
+const STACK_SIZES = [
+  { id: "sm", label: "S", width: 120 },
+  { id: "md", label: "M", width: 160 },
+  { id: "lg", label: "L", width: 200 },
+];
+
 export default function CardGrid({ decklist, commander, onRemove, notify }) {
   const [viewMode, setViewMode] = useState(
     () => localStorage.getItem("mtgweb:viewMode") || "grid"
+  );
+  const [stackSize, setStackSize] = useState(
+    () => localStorage.getItem("mtgweb:stackSize") || "md"
   );
   const [typeMap, setTypeMap] = useState({});
   const [priceMap, setPriceMap] = useState({});
@@ -24,6 +33,10 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
   useEffect(() => {
     localStorage.setItem("mtgweb:viewMode", viewMode);
   }, [viewMode]);
+
+  useEffect(() => {
+    localStorage.setItem("mtgweb:stackSize", stackSize);
+  }, [stackSize]);
 
   // Resolve type_line and prices for all cards
   useEffect(() => {
@@ -73,14 +86,60 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
 
   const groupTotal = (cards) => cards.reduce((s, c) => s + c.qty, 0);
 
+  const stackW = STACK_SIZES.find((s) => s.id === stackSize)?.width || 160;
+
   return (
     <div className="card-grid-container">
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center", margin: ".4rem 0" }}>
         <span className="muted small">{totalCards} cards</span>
-        <ViewToggle mode={viewMode} setMode={setViewMode} />
+        <div className="row" style={{ gap: ".4rem" }}>
+          {viewMode === "stack" && (
+            <div className="view-toggle" role="group" aria-label="Stack column size">
+              {STACK_SIZES.map((s) => (
+                <button
+                  key={s.id}
+                  className={`view-toggle-btn ${stackSize === s.id ? "active" : ""}`}
+                  aria-pressed={stackSize === s.id}
+                  aria-label={`${s.label} columns`}
+                  onClick={() => setStackSize(s.id)}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <ViewToggle mode={viewMode} setMode={setViewMode} />
+        </div>
       </div>
 
-      {Object.entries(groups).map(([type, groupCards]) => (
+      {/* Stack view: groups flow side-by-side */}
+      {viewMode === "stack" && (
+        <div className="stack-columns" style={{ gridTemplateColumns: `repeat(auto-fill, ${stackW}px)` }}>
+          {Object.entries(groups).map(([type, groupCards]) => (
+            <div key={type} className="stack-column" style={{ width: stackW }}>
+              <div className="group-header">
+                <h3>{type}</h3>
+                <span className="count">({groupTotal(groupCards)})</span>
+              </div>
+              <div className="card-stack" role="list">
+                {groupCards.map((c) => (
+                  <CardThumbnail
+                    key={c.name}
+                    name={c.name}
+                    qty={c.qty}
+                    onRemove={onRemove}
+                    expanded={expandedId === c.name}
+                    onExpand={() => handleThumbnailExpand(c.name)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Grid and List views: groups stacked vertically */}
+      {viewMode !== "stack" && Object.entries(groups).map(([type, groupCards]) => (
         <div key={type} className="card-group">
           <div className="group-header">
             <h3>{type}</h3>
@@ -95,21 +154,6 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
                   name={c.name}
                   qty={c.qty}
                   onRemove={onRemove}
-                  onExpand={() => handleThumbnailExpand(c.name)}
-                />
-              ))}
-            </div>
-          )}
-
-          {viewMode === "stack" && (
-            <div className="card-stack" role="list">
-              {groupCards.map((c) => (
-                <CardThumbnail
-                  key={c.name}
-                  name={c.name}
-                  qty={c.qty}
-                  onRemove={onRemove}
-                  expanded={expandedId === c.name}
                   onExpand={() => handleThumbnailExpand(c.name)}
                 />
               ))}
