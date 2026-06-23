@@ -132,7 +132,7 @@ header.app-header {
 /* Deck layout — 2 column on desktop */
 .deck-layout { display: grid; grid-template-columns: 1fr 320px; gap: 1rem; align-items: start; }
 .deck-main { min-width: 0; }
-.deck-toolbar { margin-bottom: .5rem; }
+.deck-toolbar { margin-bottom: .5rem; position: relative; z-index: 10; }
 
 /* Deck sidebar */
 .deck-sidebar {
@@ -313,7 +313,7 @@ nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent);
   border-radius: 10px; padding: 1rem 1.2rem; color: var(--muted); }
 
 /* Commander autocomplete dropdown */
-.autocomplete { position: absolute; top: 100%; left: 0; right: 0; z-index: 15;
+.autocomplete { position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
   background: var(--panel-2); border: 1px solid var(--border); border-radius: 0 0 8px 8px;
   max-height: 280px; overflow-y: auto; }
 .autocomplete .ac-item { display: block; width: 100%; text-align: left; border: none;
