@@ -149,11 +149,23 @@ header.app-header {
 .sidebar-section-body { padding: .25rem 0; }
 .sidebar-actions { padding-top: .5rem; border-top: 1px solid var(--border); }
 
-/* Card group headers */
+/* Card group headers — clickable to collapse */
 .card-group { margin-bottom: 1rem; }
-.group-header { display: flex; align-items: baseline; gap: .4rem; padding: .4rem 0 .25rem; border-bottom: 1px solid var(--border); margin-bottom: .5rem; }
+.group-header {
+  display: flex; align-items: baseline; gap: .4rem; padding: .4rem 0 .25rem;
+  border-bottom: 1px solid var(--border); margin-bottom: .5rem;
+  background: none; border-left: none; border-right: none; border-top: none;
+  border-radius: 0; color: var(--text); cursor: pointer; width: 100%;
+  text-align: left; min-height: auto; font: inherit;
+}
+.group-header:hover { background: var(--panel-2); }
 .group-header h3 { margin: 0; font-size: .95rem; }
 .group-header .count { color: var(--muted); font-size: .85rem; }
+.group-chevron {
+  font-size: .75rem; color: var(--muted); transition: transform .15s;
+  display: inline-block; width: 1em; text-align: center;
+}
+.group-chevron.closed { transform: rotate(-90deg); }
 
 /* Card grid — thumbnail images */
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .5rem; }

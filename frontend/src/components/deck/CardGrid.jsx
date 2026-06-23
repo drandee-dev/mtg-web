@@ -27,6 +27,10 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
   const [priceMap, setPriceMap] = useState({});
   const [expandedId, setExpandedId] = useState(null);
   const [previewCard, setPreviewCard] = useState(null);
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("mtgweb:collapsed") || "[]")); }
+    catch { return new Set(); }
+  });
 
   const { cards, totalCards } = parseDeckText(decklist);
 
@@ -37,6 +41,15 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
   useEffect(() => {
     localStorage.setItem("mtgweb:stackSize", stackSize);
   }, [stackSize]);
+
+  const toggleCollapse = useCallback((type) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type); else next.add(type);
+      localStorage.setItem("mtgweb:collapsed", JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
 
   // Resolve type_line and prices for all cards
   useEffect(() => {
@@ -117,22 +130,25 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
         <div className="stack-columns" style={{ gridTemplateColumns: `repeat(auto-fill, ${stackW}px)` }}>
           {Object.entries(groups).map(([type, groupCards]) => (
             <div key={type} className="stack-column" style={{ width: stackW }}>
-              <div className="group-header">
+              <button className="group-header" onClick={() => toggleCollapse(type)} aria-expanded={!collapsed.has(type)}>
+                <span className={`group-chevron ${collapsed.has(type) ? "closed" : ""}`}>▾</span>
                 <h3>{type}</h3>
                 <span className="count">({groupTotal(groupCards)})</span>
-              </div>
-              <div className="card-stack" role="list">
-                {groupCards.map((c) => (
-                  <CardThumbnail
-                    key={c.name}
-                    name={c.name}
-                    qty={c.qty}
-                    onRemove={onRemove}
-                    expanded={expandedId === c.name}
-                    onExpand={() => handleThumbnailExpand(c.name)}
-                  />
-                ))}
-              </div>
+              </button>
+              {!collapsed.has(type) && (
+                <div className="card-stack" role="list">
+                  {groupCards.map((c) => (
+                    <CardThumbnail
+                      key={c.name}
+                      name={c.name}
+                      qty={c.qty}
+                      onRemove={onRemove}
+                      expanded={expandedId === c.name}
+                      onExpand={() => handleThumbnailExpand(c.name)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -141,12 +157,13 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
       {/* Grid and List views: groups stacked vertically */}
       {viewMode !== "stack" && Object.entries(groups).map(([type, groupCards]) => (
         <div key={type} className="card-group">
-          <div className="group-header">
+          <button className="group-header" onClick={() => toggleCollapse(type)} aria-expanded={!collapsed.has(type)}>
+            <span className={`group-chevron ${collapsed.has(type) ? "closed" : ""}`}>▾</span>
             <h3>{type}</h3>
             <span className="count">({groupTotal(groupCards)})</span>
-          </div>
+          </button>
 
-          {viewMode === "grid" && (
+          {!collapsed.has(type) && viewMode === "grid" && (
             <div className="card-grid" role="list">
               {groupCards.map((c) => (
                 <CardThumbnail
@@ -160,7 +177,7 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
             </div>
           )}
 
-          {viewMode === "list" && (
+          {!collapsed.has(type) && viewMode === "list" && (
             <div className="card-list" role="list">
               {groupCards.map((c) => (
                 <CardListRow
