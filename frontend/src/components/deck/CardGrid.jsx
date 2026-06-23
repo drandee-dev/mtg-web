@@ -169,7 +169,7 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
       {viewMode === "stack" && (
         <div className="stack-columns">
           {Object.entries(groups).map(([type, groupCards]) => (
-            <div key={type} className="stack-column" style={{ width: stackW }}>
+            <div key={type} className="stack-column" style={{ width: stackW, "--cw": `${stackW}px` }}>
               <button className="group-header" onClick={() => toggleCollapse(type)} aria-expanded={!collapsed.has(type)}>
                 <span className={`group-chevron ${collapsed.has(type) ? "closed" : ""}`}>▾</span>
                 <h3>{type}</h3>

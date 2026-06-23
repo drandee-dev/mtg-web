@@ -233,15 +233,16 @@ header.app-header {
 }
 .group-chevron.closed { transform: rotate(-90deg); }
 
-/* Card grid — thumbnail images */
+/* Card grid — thumbnail images. Radius is percentage-based to match MTG card
+   corner geometry (~4.8% / 3.4%), clipping the white image corners cleanly. */
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .5rem; }
 .card-thumb {
-  position: relative; border-radius: var(--radius); overflow: hidden; cursor: pointer;
+  position: relative; border-radius: 4.8% / 3.4%; overflow: hidden; cursor: pointer;
   aspect-ratio: 488 / 680; background: var(--panel-2);
   transition: box-shadow .15s, transform .15s;
 }
 .card-thumb:hover { box-shadow: var(--shadow-md); }
-.card-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius); }
+.card-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 4.8% / 3.4%; }
 .card-thumb-placeholder {
   display: flex; align-items: center; justify-content: center; height: 100%;
   font-size: .75rem; color: var(--muted); text-align: center; padding: .3rem;
@@ -270,16 +271,24 @@ header.app-header {
 }
 .stack-column { flex: none; }
 
-/* Card stack — pile/stacked view. Cards overlap but leave the name banner visible. */
+/* Card stack — pile/stacked view. Tight overlap so only each card's name banner
+   shows; hovering raises it above the cards stacked after it (Archidekt-style),
+   revealing the full card in place with a subtle lift. */
 .card-stack { display: flex; flex-direction: column; }
+/* Card height = width × 1.393 (488/680). Overlap all but ~34px (the name banner)
+   using a calc tied to the column width (--cw), so the sliver is consistent at
+   every S/M/L size. */
 .card-stack .card-thumb {
-  margin-bottom: -72%; position: relative; z-index: 0;
-  transition: transform .15s, z-index 0s;
+  margin-bottom: calc(34px - var(--cw, 160px) * 1.393);
+  position: relative; z-index: 0;
+  transition: transform .18s ease-out, box-shadow .18s;
 }
 .card-stack .card-thumb:last-child { margin-bottom: 0; }
 .card-stack .card-thumb:hover,
-.card-stack .card-thumb:focus-within { transform: translateY(-24px); z-index: 1; }
-.card-stack .card-thumb.expanded { transform: translateY(-80px); z-index: 10; }
+.card-stack .card-thumb:focus-within,
+.card-stack .card-thumb.expanded {
+  transform: translateY(-6px); z-index: 10; box-shadow: var(--shadow-lg);
+}
 
 /* Card list — compact text rows */
 .card-list-row {
