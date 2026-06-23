@@ -127,7 +127,7 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
 
       {/* Stack view: groups flow side-by-side */}
       {viewMode === "stack" && (
-        <div className="stack-columns" style={{ gridTemplateColumns: `repeat(auto-fill, ${stackW}px)` }}>
+        <div className="stack-columns">
           {Object.entries(groups).map(([type, groupCards]) => (
             <div key={type} className="stack-column" style={{ width: stackW }}>
               <button className="group-header" onClick={() => toggleCollapse(type)} aria-expanded={!collapsed.has(type)}>

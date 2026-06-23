@@ -195,11 +195,12 @@ header.app-header {
 
 /* Stack columns — horizontal flow of type-group piles */
 .stack-columns {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: .75rem;
-  align-items: start;
+  align-items: flex-start;
 }
-.stack-column { min-width: 0; }
+.stack-column { flex: none; }
 
 /* Card stack — pile/stacked view */
 .card-stack { display: flex; flex-direction: column; }
@@ -469,7 +470,7 @@ nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent);
   .deck-layout { grid-template-columns: 1fr; }
   .deck-sidebar { position: static; max-height: none; }
   .card-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
-  .stack-columns { grid-template-columns: repeat(auto-fill, 100px) !important; }
+  .stack-column { width: 100px !important; }
   .card-list-row { grid-template-columns: 24px 28px 1fr auto auto; }
   .card-list-type { display: none; }
 }
