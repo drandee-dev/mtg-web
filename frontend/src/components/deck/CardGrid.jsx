@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { getCardImage } from "../../lib/api";
-import { parseDeckText, groupByMtgType } from "../../lib/deckParser";
+import { parseDeckText, groupCards } from "../../lib/deckParser";
 import CardThumbnail from "./CardThumbnail";
 import CardListRow from "./CardListRow";
 import ViewToggle from "./ViewToggle";
@@ -22,6 +22,13 @@ const SORTS = [
   { id: "price", label: "Price" },
 ];
 
+const GROUPS = [
+  { id: "type", label: "Type" },
+  { id: "role", label: "Role" },
+  { id: "cmc", label: "Mana value" },
+  { id: "color", label: "Color" },
+];
+
 export default function CardGrid({ decklist, commander, onRemove, notify }) {
   const [viewMode, setViewMode] = useState(
     () => localStorage.getItem("mtgweb:viewMode") || "grid"
@@ -32,9 +39,10 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
   const [sortBy, setSortBy] = useState(
     () => localStorage.getItem("mtgweb:sortBy") || "name"
   );
-  const [typeMap, setTypeMap] = useState({});
-  const [priceMap, setPriceMap] = useState({});
-  const [cmcMap, setCmcMap] = useState({});
+  const [groupBy, setGroupBy] = useState(
+    () => localStorage.getItem("mtgweb:groupBy") || "type"
+  );
+  const [metaMap, setMetaMap] = useState({});
   const [expandedId, setExpandedId] = useState(null);
   const [previewCard, setPreviewCard] = useState(null);
   const [collapsed, setCollapsed] = useState(() => {
@@ -56,6 +64,10 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
     localStorage.setItem("mtgweb:sortBy", sortBy);
   }, [sortBy]);
 
+  useEffect(() => {
+    localStorage.setItem("mtgweb:groupBy", groupBy);
+  }, [groupBy]);
+
   const toggleCollapse = useCallback((type) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -65,7 +77,7 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
     });
   }, []);
 
-  // Resolve type_line, prices, and mana value for all cards
+  // Resolve full card metadata (type, roles, cmc, color, price) for all cards
   useEffect(() => {
     const names = [...new Set(cards.map((c) => c.name))];
     let cancelled = false;
@@ -76,17 +88,17 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
       })
     ).then((entries) => {
       if (cancelled) return;
-      const types = {};
-      const prices = {};
-      const cmcs = {};
+      const meta = {};
       for (const [name, d] of entries) {
-        types[name] = d?.type_line || "";
-        prices[name] = d?.price_usd ?? null;
-        cmcs[name] = d?.cmc ?? 0;
+        meta[name] = {
+          type_line: d?.type_line || "",
+          roles: d?.roles || [],
+          cmc: d?.cmc ?? 0,
+          color_identity: d?.color_identity || [],
+          price_usd: d?.price_usd ?? null,
+        };
       }
-      setTypeMap(types);
-      setPriceMap(prices);
-      setCmcMap(cmcs);
+      setMetaMap(meta);
     });
     return () => { cancelled = true; };
   }, [decklist]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -94,17 +106,17 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
   const sortCards = useCallback((list) => {
     const sorted = [...list];
     if (sortBy === "cmc") {
-      sorted.sort((a, b) => (cmcMap[a.name] ?? 0) - (cmcMap[b.name] ?? 0) || a.name.localeCompare(b.name));
+      sorted.sort((a, b) => (metaMap[a.name]?.cmc ?? 0) - (metaMap[b.name]?.cmc ?? 0) || a.name.localeCompare(b.name));
     } else if (sortBy === "price") {
-      sorted.sort((a, b) => (priceMap[b.name] ?? 0) - (priceMap[a.name] ?? 0) || a.name.localeCompare(b.name));
+      sorted.sort((a, b) => (metaMap[b.name]?.price_usd ?? 0) - (metaMap[a.name]?.price_usd ?? 0) || a.name.localeCompare(b.name));
     } else {
       sorted.sort((a, b) => a.name.localeCompare(b.name));
     }
     return sorted;
-  }, [sortBy, cmcMap, priceMap]);
+  }, [sortBy, metaMap]);
 
-  const rawGroups = Object.keys(typeMap).length > 0
-    ? groupByMtgType(cards, typeMap)
+  const rawGroups = Object.keys(metaMap).length > 0
+    ? groupCards(cards, groupBy, metaMap)
     : cards.length > 0
       ? { "All Cards": cards }
       : {};
@@ -138,6 +150,14 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center", margin: ".4rem 0" }}>
         <span className="muted small">{totalCards} cards</span>
         <div className="row" style={{ gap: ".4rem" }}>
+          <select
+            className="sort-select"
+            value={groupBy}
+            onChange={(e) => setGroupBy(e.target.value)}
+            aria-label="Group cards by"
+          >
+            {GROUPS.map((g) => <option key={g.id} value={g.id}>Group: {g.label}</option>)}
+          </select>
           <select
             className="sort-select"
             value={sortBy}
@@ -224,8 +244,8 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
                   key={c.name}
                   name={c.name}
                   qty={c.qty}
-                  typeLine={typeMap[c.name]}
-                  price={priceMap[c.name]}
+                  typeLine={metaMap[c.name]?.type_line}
+                  price={metaMap[c.name]?.price_usd}
                   onRemove={onRemove}
                   onPreview={handlePreview}
                 />
