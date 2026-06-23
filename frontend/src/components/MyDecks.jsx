@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { api, FORMATS } from "../lib/api";
+import { useEffect, useState } from "react";
+import { api, disassembleDecklist, getCardImage, FORMATS } from "../lib/api";
 
 function download(filename, text, type = "text/plain") {
   const blob = new Blob([text], { type });
@@ -11,12 +11,85 @@ function download(filename, text, type = "text/plain") {
   URL.revokeObjectURL(url);
 }
 
-// Saved decks. Backed by Supabase when signed in, else this browser's localStorage.
-export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, notify, refresh }) {
+const WUBRG_COLORS = ["W", "U", "B", "R", "G"];
+
+function DeckHero({ deck, meta, onOpen, onDelete, onRename, onExport, notify }) {
+  const art = meta?.art_crop;
+  const colors = meta?.color_identity || [];
+
+  return (
+    <div className="deck-hero-wrap">
+      <div className="deck-hero" onClick={() => onOpen(deck)} role="button" tabIndex={0}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(deck); } }}
+        aria-label={`Open ${deck.name}`}>
+        {art ? (
+          <img src={art} alt="" loading="lazy" />
+        ) : (
+          <div className="deck-hero-placeholder" />
+        )}
+        <div className="deck-hero-overlay">
+          <div className="deck-hero-name">{deck.name}</div>
+          <div className="deck-hero-meta">
+            {colors.length > 0 && (
+              <span className="deck-hero-pips">
+                {WUBRG_COLORS.filter((c) => colors.includes(c)).map((c) => (
+                  <span key={c} className={`pip pip-${c}`}>{c}</span>
+                ))}
+              </span>
+            )}
+            {meta?.bracket != null && (
+              <span className="deck-hero-bracket">Bracket {meta.bracket}</span>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="deck-hero-actions">
+        <button className="ghost small" onClick={() => onRename(deck)}>Rename</button>
+        <select className="ghost small" style={{ width: "auto", padding: ".1rem .3rem", fontSize: ".75rem" }}
+          defaultValue="" onChange={(e) => { if (e.target.value) onExport(deck, e.target.value); e.target.value = ""; }}>
+          <option value="" disabled>Export</option>
+          <option value="txt">.txt</option>
+          <option value="json">.json</option>
+        </select>
+        <button className="ghost small btn-danger" onClick={() => onDelete(deck.id)}>Delete</button>
+      </div>
+    </div>
+  );
+}
+
+export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onNewDeck, notify, refresh }) {
   const [importText, setImportText] = useState("");
   const [importName, setImportName] = useState("");
   const [importFormat, setImportFormat] = useState("commander");
   const [busy, setBusy] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [deckMeta, setDeckMeta] = useState({});
+
+  // Resolve commander art + colors for each deck
+  useEffect(() => {
+    let cancelled = false;
+    async function resolve() {
+      const meta = {};
+      for (const deck of decks) {
+        const { commander } = disassembleDecklist(deck.decklist_text);
+        if (!commander) continue;
+        const cmdrName = commander.split(" && ")[0];
+        try {
+          const data = await getCardImage(cmdrName);
+          if (data?.found) {
+            meta[deck.id] = {
+              art_crop: data.art_crop,
+              color_identity: data.color_identity,
+              bracket: null,
+            };
+          }
+        } catch { /* ignore */ }
+      }
+      if (!cancelled) setDeckMeta(meta);
+    }
+    resolve();
+    return () => { cancelled = true; };
+  }, [decks]);
 
   async function doImport() {
     if (!importText.trim()) return notify("Paste a decklist to import.");
@@ -29,6 +102,7 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
       });
       setImportText("");
       setImportName("");
+      setShowImport(false);
       notify("Imported.");
     } finally {
       setBusy(false);
@@ -41,7 +115,6 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        // Accept either a .json backup ({name,format,decklist_text}) or raw decklist text.
         const txt = String(reader.result);
         if (file.name.endsWith(".json")) {
           const d = JSON.parse(txt);
@@ -52,6 +125,7 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
           setImportText(txt);
           setImportName(file.name.replace(/\.[^.]+$/, ""));
         }
+        setShowImport(true);
       } catch (err) {
         notify(`Could not read file: ${err.message}`);
       }
@@ -59,18 +133,18 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
     reader.readAsText(file);
   }
 
-  async function exportText(deck) {
-    try {
-      const { text } = await api.exportText(deck.decklist_text, deck.format);
-      download(`${deck.name || "deck"}.txt`, text);
-    } catch (e) {
-      notify(`Export failed: ${e.message}`);
+  async function exportDeck(deck, format) {
+    if (format === "txt") {
+      try {
+        const { text } = await api.exportText(deck.decklist_text, deck.format);
+        download(`${deck.name || "deck"}.txt`, text);
+      } catch (e) {
+        notify(`Export failed: ${e.message}`);
+      }
+    } else {
+      const payload = { name: deck.name, format: deck.format, decklist_text: deck.decklist_text };
+      download(`${deck.name || "deck"}.json`, JSON.stringify(payload, null, 2), "application/json");
     }
-  }
-
-  function exportJson(deck) {
-    const payload = { name: deck.name, format: deck.format, decklist_text: deck.decklist_text };
-    download(`${deck.name || "deck"}.json`, JSON.stringify(payload, null, 2), "application/json");
   }
 
   async function rename(deck) {
@@ -80,67 +154,72 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
 
   return (
     <div>
-      <div className="panel">
-        <div className="spread">
-          <h2>My decks</h2>
-          <span className="badge">{cloud ? "Cloud-synced" : "This device"}</span>
+      {/* Header row */}
+      <div className="spread" style={{ margin: ".5rem 0 1rem" }}>
+        <div>
+          <h2 style={{ margin: 0 }}>My Decks</h2>
+          <span className="muted small">{cloud ? "Cloud-synced" : "This device"}</span>
         </div>
-        <p className="muted small">
-          {cloud
-            ? "Signed in — these decks sync across your devices."
-            : signedIn === false
-            ? "Saved on this device only. Sign in (Settings) to sync across devices, or use Export/Import to move them."
-            : "Saved on this device only. Use Export/Import to move decks between devices."}
-        </p>
-        <button className="ghost small" onClick={refresh}>Refresh</button>
-      </div>
-
-      <div className="panel">
-        <h3>Import a deck</h3>
-        <p className="muted small">Paste from Archidekt / Moxfield / Arena, or load a file.</p>
-        <div className="row">
-          <input
-            placeholder="Deck name"
-            value={importName}
-            onChange={(e) => setImportName(e.target.value)}
-            style={{ flex: "1 1 200px" }}
-          />
-          <select value={importFormat} onChange={(e) => setImportFormat(e.target.value)} style={{ width: "auto" }}>
-            {FORMATS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-          </select>
-        </div>
-        <textarea value={importText} onChange={(e) => setImportText(e.target.value)} placeholder={"1 Sol Ring\n..."} />
-        <div className="row" style={{ marginTop: ".5rem" }}>
-          <button className="primary" onClick={doImport} disabled={busy}>Save imported deck</button>
-          <label className="ghost" style={{ margin: 0 }}>
-            <input type="file" accept=".txt,.json,.csv" onChange={onImportFile} style={{ display: "none" }} />
-            <span className="badge" style={{ cursor: "pointer" }}>Load from file…</span>
-          </label>
+        <div className="row" style={{ gap: ".4rem" }}>
+          {onNewDeck && <button className="primary" onClick={onNewDeck}>+ New Deck</button>}
+          <button className="ghost small" onClick={() => setShowImport(!showImport)}>Import</button>
+          <button className="ghost small" onClick={refresh}>Refresh</button>
         </div>
       </div>
 
-      <div className="panel">
-        <h3>Saved ({decks.length})</h3>
-        {decks.length === 0 && <p className="muted small">No saved decks yet.</p>}
+      {/* Import panel (collapsible) */}
+      {showImport && (
+        <div className="panel" style={{ marginBottom: "1rem" }}>
+          <h3>Import a deck</h3>
+          <p className="muted small">Paste from Archidekt / Moxfield / Arena, or load a file.</p>
+          <div className="row">
+            <input placeholder="Deck name" value={importName} onChange={(e) => setImportName(e.target.value)} style={{ flex: "1 1 200px" }} />
+            <select value={importFormat} onChange={(e) => setImportFormat(e.target.value)} style={{ width: "auto" }}>
+              {FORMATS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+            </select>
+          </div>
+          <textarea value={importText} onChange={(e) => setImportText(e.target.value)} placeholder={"1 Sol Ring\n..."} />
+          <div className="row" style={{ marginTop: ".5rem" }}>
+            <button className="primary" onClick={doImport} disabled={busy}>Save</button>
+            <label style={{ margin: 0, cursor: "pointer" }}>
+              <input type="file" accept=".txt,.json,.csv" onChange={onImportFile} style={{ display: "none" }} />
+              <span className="badge" style={{ cursor: "pointer" }}>Load file…</span>
+            </label>
+            <button className="ghost small" onClick={() => setShowImport(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Hero portrait grid */}
+      {decks.length === 0 && !showImport && (
+        <div style={{ textAlign: "center", padding: "3rem 1rem" }}>
+          <p className="muted">No decks yet.</p>
+          <p className="muted small">Create a new deck or import one to get started.</p>
+        </div>
+      )}
+
+      <div className="hero-grid">
         {decks.map((d) => (
-          <div key={d.id} className="spread" style={{ borderTop: "1px solid var(--border)", padding: ".6rem 0" }}>
-            <div>
-              <strong>{d.name}</strong>
-              <div className="muted small">{d.format}</div>
-            </div>
-            <div className="row" style={{ flexWrap: "wrap" }}>
-              <button className="primary small" onClick={() => onOpen(d)}>Open</button>
-              <button className="ghost small" onClick={() => rename(d)}>Rename</button>
-              <select className="ghost small" style={{ width: "auto", padding: ".15rem .3rem", fontSize: ".8rem" }}
-                defaultValue="" onChange={(e) => { if (e.target.value === "txt") exportText(d); else if (e.target.value === "json") exportJson(d); e.target.value = ""; }}>
-                <option value="" disabled>Export</option>
-                <option value="txt">.txt (Moxfield/Archidekt)</option>
-                <option value="json">.json (backup)</option>
-              </select>
-              <button className="ghost small" onClick={() => onDelete(d.id)} style={{ color: "var(--danger, #d9534f)" }}>Delete</button>
+          <DeckHero
+            key={d.id}
+            deck={d}
+            meta={deckMeta[d.id]}
+            onOpen={onOpen}
+            onDelete={onDelete}
+            onRename={rename}
+            onExport={exportDeck}
+            notify={notify}
+          />
+        ))}
+        {decks.length > 0 && onNewDeck && (
+          <div className="deck-hero deck-hero-new" onClick={onNewDeck} role="button" tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNewDeck(); } }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: "2.5rem", lineHeight: 1 }}>+</div>
+              <div style={{ fontSize: ".8rem", marginTop: ".3rem", color: "var(--muted)" }}>New Deck</div>
             </div>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

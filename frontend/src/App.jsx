@@ -15,8 +15,8 @@ import Playtest from "./components/Playtest";
 import Planeswalker from "./components/Planeswalker";
 
 const TABS = [
-  ["deck", "Deck"],
   ["decks", "My Decks"],
+  ["deck", "Deck"],
   ["rules", "Rules"],
   ["cards", "Cards"],
   ["settings", "Settings"],
@@ -43,12 +43,20 @@ function _initialTab() {
   const t = params.get("tab");
   if (t && VALID_TABS.has(t)) return t;
   if (t && TAB_ALIASES[t]) return TAB_ALIASES[t];
-  return "deck";
+  return "decks";
 }
 
 export default function App() {
   const _shared = _loadSharedDeck();
   const [tab, setTab] = useState(_shared ? "deck" : _initialTab());
+
+  const newDeck = useCallback(() => {
+    setDeckText("");
+    setCommander("");
+    setFormat("commander");
+    savedDeckText.current = "";
+    setTab("deck");
+  }, []);
   const [menuOpen, setMenuOpen] = useState(false);
   const [playtesting, setPlaytesting] = useState(false);
   const [session, setSession] = useState(null);
@@ -65,7 +73,7 @@ export default function App() {
 
   useEffect(() => {
     const url = new URL(window.location);
-    if (tab === "deck") { url.searchParams.delete("tab"); }
+    if (tab === "decks") { url.searchParams.delete("tab"); }
     else { url.searchParams.set("tab", tab); }
     window.history.replaceState({}, "", url);
   }, [tab]);
@@ -242,6 +250,7 @@ export default function App() {
             onSave={saveDeck}
             onDelete={deleteDeck}
             onOpen={openDeck}
+            onNewDeck={newDeck}
             notify={notify}
             refresh={refresh}
           />

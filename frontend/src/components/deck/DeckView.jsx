@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, assembleDecklist, FORMATS } from "../../lib/api";
+import { api, assembleDecklist, getCardImage, FORMATS } from "../../lib/api";
 import CommanderInput from "../CommanderInput";
 import CardPreview from "../CardPreview";
 import LoadingIndicator from "../LoadingIndicator";
@@ -43,9 +43,19 @@ export default function DeckView({
   const [cat, setCat] = useState("high_synergy");
   const [activePanel, setActivePanel] = useState(null);
   const [skipped, setSkipped] = useState(new Set());
+  const [cmdrData, setCmdrData] = useState(null);
   const debounceRef = useRef(null);
 
   const isCommanderFmt = format === "commander" || format === "paupercommander";
+
+  // Resolve commander card image
+  useEffect(() => {
+    if (!commander) { setCmdrData(null); return; }
+    const name = commander.split(" && ")[0];
+    let cancelled = false;
+    getCardImage(name).then((d) => { if (!cancelled) setCmdrData(d); });
+    return () => { cancelled = true; };
+  }, [commander]);
 
   function skip(name) { setSkipped((prev) => new Set(prev).add(name)); }
 
@@ -132,6 +142,8 @@ export default function DeckView({
 
   const recList = recs?.categories?.[cat] || [];
 
+  const hasCommander = isCommanderFmt && commander;
+
   return (
     <div>
       {/* Commander + format bar */}
@@ -144,13 +156,37 @@ export default function DeckView({
             ✨ Wizard
           </button>
         </div>
-        {isCommanderFmt && (
+        {isCommanderFmt && !commander && (
           <CommanderInput commander={commander} setCommander={setCommander} />
         )}
       </div>
 
-      {/* Main 2-column layout */}
-      <div className="deck-layout">
+      {/* Main layout: 3-column when commander is set, 2-column otherwise */}
+      <div className={hasCommander ? "deck-layout-3col" : "deck-layout"}>
+        {/* Commander left column */}
+        {hasCommander && (
+          <div className="cmdr-col">
+            {cmdrData?.image ? (
+              <img className="cmdr-col-card" src={cmdrData.image} alt={commander} loading="lazy" />
+            ) : (
+              <div className="cmdr-col-card" style={{ aspectRatio: "488/680", background: "var(--panel-2)", borderRadius: "var(--radius-lg)" }} />
+            )}
+            <div className="cmdr-col-name">{commander.replace(" && ", " + ")}</div>
+            <div className="cmdr-col-type">{cmdrData?.type_line || ""}</div>
+            <div className="cmdr-col-badges">
+              {(cmdrData?.color_identity || []).map((c) => (
+                <span key={c} className={`pip pip-${c}`}>{c}</span>
+              ))}
+            </div>
+            <div style={{ textAlign: "center", marginTop: ".5rem" }}>
+              <button className="ghost small" onClick={() => setCommander("")} style={{ fontSize: ".75rem" }}>Change commander</button>
+            </div>
+            {!commander && (
+              <CommanderInput commander={commander} setCommander={setCommander} />
+            )}
+          </div>
+        )}
+
         <div className="deck-main">
           <DeckInput
             decklist={decklist}

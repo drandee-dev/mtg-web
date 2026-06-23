@@ -506,6 +506,45 @@ nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent);
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
 
+/* Hero portrait grid — My Decks landing */
+.hero-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .75rem; }
+.deck-hero-wrap { display: flex; flex-direction: column; }
+.deck-hero {
+  position: relative; aspect-ratio: 3/4; border-radius: var(--radius-lg); overflow: hidden;
+  cursor: pointer; transition: transform .2s, box-shadow .2s;
+}
+.deck-hero:hover { transform: scale(1.02); box-shadow: var(--shadow-lg); }
+.deck-hero img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; transition: transform .3s; }
+.deck-hero:hover img { transform: scale(1.05); }
+.deck-hero-placeholder { width: 100%; height: 100%; background: linear-gradient(135deg, var(--panel-2), var(--panel)); }
+.deck-hero-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: .65rem .75rem; background: linear-gradient(transparent, rgba(0,0,0,.85));
+}
+.deck-hero-name { font-size: .9rem; font-weight: 700; }
+.deck-hero-meta { display: flex; align-items: center; gap: .4rem; margin-top: .2rem; }
+.deck-hero-pips { display: flex; gap: .15rem; }
+.deck-hero-pips .pip { width: 15px; height: 15px; font-size: .6rem; }
+.deck-hero-bracket { font-size: .7rem; color: rgba(255,255,255,.55); }
+.deck-hero-actions {
+  display: flex; gap: .2rem; padding: .3rem 0; justify-content: center;
+}
+.deck-hero-actions button, .deck-hero-actions select { font-size: .75rem; padding: .15rem .4rem; min-height: auto; }
+.deck-hero-new {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--panel); border: 1px dashed var(--border-strong);
+  color: var(--muted); transition: background .15s, border-color .15s;
+}
+.deck-hero-new:hover { background: var(--panel-2); border-color: var(--accent); }
+
+/* Commander left column — deck view */
+.deck-layout-3col { display: grid; grid-template-columns: 200px 1fr 320px; gap: 1rem; align-items: start; }
+.cmdr-col { position: sticky; top: 6.5rem; }
+.cmdr-col-card { width: 100%; border-radius: var(--radius-lg); box-shadow: var(--shadow-md); }
+.cmdr-col-name { font-weight: 700; font-size: .9rem; margin-top: .5rem; text-align: center; }
+.cmdr-col-type { font-size: .75rem; color: var(--muted); text-align: center; }
+.cmdr-col-badges { display: flex; gap: .25rem; justify-content: center; margin-top: .4rem; flex-wrap: wrap; }
+
 /* Wizard split view */
 .wizard-split { display: block; }
 .wizard-left, .wizard-right { display: none; }
@@ -515,16 +554,22 @@ nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent);
   .hamburger-btn { display: flex; }
   nav.tabs { display: none; }
   .deck-layout { grid-template-columns: 1fr; }
+  .deck-layout-3col { grid-template-columns: 1fr; }
+  .cmdr-col { position: static; display: flex; gap: .75rem; align-items: flex-start; margin-bottom: .75rem; }
+  .cmdr-col-card { width: 120px; flex: none; }
+  .cmdr-col-name, .cmdr-col-type { text-align: left; }
   .deck-sidebar { position: static; max-height: none; }
   .card-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
   .stack-column { width: 100px !important; }
   .card-list-row { grid-template-columns: 24px 28px 1fr auto auto; }
   .card-list-type { display: none; }
+  .hero-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
 
 /* Responsive: tablet (700–900px) — visible nav, single column layout */
 @media (min-width: 700px) and (max-width: 900px) {
   .deck-layout { grid-template-columns: 1fr; }
+  .deck-layout-3col { grid-template-columns: 160px 1fr; }
   .deck-sidebar { position: static; max-height: none; }
 }
 
