@@ -159,19 +159,39 @@ export function assembleDecklist(rawText, commander) {
 }
 
 // Reverse of assembleDecklist: split a saved decklist that may carry
-// "Commander\n1 Name\nDeck\n<rest>" headers back into { commander, deckText }.
-// Falls back to { commander: "", deckText: text } when no commander header is present.
+// "Commander\n1 Name\nDeck\n<rest>" headers (and an optional trailing
+// "Maybeboard\n<rest>" section) back into { commander, deckText, maybeboard }.
 const _CMD_BLOCK = /^\s*commander\s*\r?\n((?:\s*\d+\s+.+\r?\n)+)\s*deck\s*\r?\n([\s\S]*)$/i;
+const _MAYBE_SPLIT = /\r?\n\s*maybeboard\s*\r?\n/i;
 export function disassembleDecklist(text) {
   const raw = (text || "").trim();
+  let commander = "";
+  let body = raw;
   const m = raw.match(_CMD_BLOCK);
   if (m) {
     const cmds = m[1].trim().split(/\r?\n/)
       .map((l) => l.trim().replace(/^\d+\s+/, "").trim())
       .filter(Boolean);
-    return { commander: cmds.join(" && "), deckText: m[2].trim() };
+    commander = cmds.join(" && ");
+    body = m[2].trim();
   }
-  return { commander: "", deckText: raw };
+  let deckText = body;
+  let maybeboard = "";
+  const parts = body.split(_MAYBE_SPLIT);
+  if (parts.length > 1) {
+    deckText = parts[0].trim();
+    maybeboard = parts.slice(1).join("\n").trim();
+  }
+  return { commander, deckText, maybeboard };
+}
+
+// Build the persisted form including an optional Maybeboard section. Analysis
+// calls keep using assembleDecklist (deck only); only saving includes the pile.
+export function assembleForStorage(rawText, commander, maybeboard) {
+  let out = assembleDecklist(rawText, commander);
+  const mb = (maybeboard || "").trim();
+  if (mb) out = `${out}\nMaybeboard\n${mb}`;
+  return out;
 }
 
 // Formats offered in the UI (trimmed per request). Value is the backend format key.

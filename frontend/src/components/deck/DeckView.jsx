@@ -9,6 +9,8 @@ import DeckInput from "./DeckInput";
 import DeckSidebar from "./DeckSidebar";
 import MoreMenu from "./MoreMenu";
 import DrawProbability from "./DrawProbability";
+import Maybeboard from "./Maybeboard";
+import { parseDeckText } from "../../lib/deckParser";
 
 const REC_CATEGORIES = [
   ["high_synergy", "High synergy"],
@@ -32,6 +34,7 @@ function comboPieces(cards = [], templates = []) {
 
 export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
+  maybeboard, setMaybeboard,
   deckName, onSave, onClone, onExport, onPlaytest, onShare, notify,
 }) {
   const [mode, setMode] = useState("manual");
@@ -46,6 +49,8 @@ export default function DeckView({
   const [activePanel, setActivePanel] = useState(null);
   const [skipped, setSkipped] = useState(new Set());
   const [cmdrData, setCmdrData] = useState(null);
+  const [maybeOpen, setMaybeOpen] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const debounceRef = useRef(null);
 
   const isCommanderFmt = format === "commander" || format === "paupercommander";
@@ -105,6 +110,40 @@ export default function DeckView({
     skip(oldName);
   }
 
+  function addToConsidering(name) {
+    setMaybeboard?.((prev) => {
+      const has = (prev || "").split("\n").some((l) => l.trim().replace(/^\d+\s+/, "").toLowerCase() === name.toLowerCase());
+      if (has) return prev;
+      return `${(prev || "").replace(/\s*$/, "")}\n1 ${name}`.trim();
+    });
+  }
+
+  // Ask the Planeswalker for ~8 cards to weigh, parse "Card Name — reason" lines,
+  // and drop them into the considering pile.
+  async function suggestConsiderations() {
+    setSuggesting(true);
+    try {
+      const full = assembleDecklist(decklist || "", commander || "");
+      const prompt = "Suggest 8 specific cards I should CONSIDER adding to this deck. " +
+        "Reply with one card per line in the exact format: `1 Card Name — short reason`. " +
+        "Only real Magic cards legal in this deck's colors. No preamble.";
+      const r = await api.planeswalkerChat([{ role: "user", content: prompt }], full, format, commander);
+      const text = r?.response || "";
+      const names = text.split("\n")
+        .map((l) => l.trim().match(/^\d+\s+(.+?)\s*(?:[—-]\s*.+)?$/))
+        .filter(Boolean)
+        .map((m) => m[1].trim())
+        .filter((n) => n && n.length < 60);
+      if (!names.length) { notify?.("No suggestions parsed — try again."); return; }
+      names.forEach(addToConsidering);
+      notify?.(`Added ${names.length} cards to consider`);
+    } catch (e) {
+      notify?.(`Suggestion failed: ${e.message}`);
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
   async function loadPanel(kind, fn, setter) {
     if (!decklist.trim()) return notify?.("Add some cards first.");
     setBusy(kind);
@@ -145,6 +184,7 @@ export default function DeckView({
   const recList = recs?.categories?.[cat] || [];
 
   const hasCommander = isCommanderFmt && commander;
+  const considerCount = parseDeckText(maybeboard || "").cards.length;
 
   return (
     <div>
@@ -158,6 +198,9 @@ export default function DeckView({
             </select>
             <button onClick={() => setMode("wizard")} className="ghost small" style={{ borderColor: "var(--accent)" }}>
               ✨ Wizard
+            </button>
+            <button className="ghost small" onClick={() => setMaybeOpen(true)}>
+              Considering ({considerCount})
             </button>
             <button className="primary small" onClick={onSave}>Save</button>
             <MoreMenu items={[
@@ -349,6 +392,17 @@ export default function DeckView({
           onDrawOdds={() => setActivePanel(activePanel === "DrawOdds" ? null : "DrawOdds")}
         />
       </div>
+
+      <Maybeboard
+        open={maybeOpen}
+        onClose={() => setMaybeOpen(false)}
+        maybeboard={maybeboard}
+        setMaybeboard={setMaybeboard}
+        onMoveToDeck={addCard}
+        onSuggest={suggestConsiderations}
+        suggesting={suggesting}
+        notify={notify}
+      />
     </div>
   );
 }

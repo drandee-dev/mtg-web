@@ -305,6 +305,29 @@ header.app-header {
 .card-list-price { font-variant-numeric: tabular-nums; }
 .card-list-remove { min-height: auto; padding: .2rem .4rem; }
 
+/* Maybeboard / considering pile — slide-in side panel */
+.maybeboard-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(360px, 100vw);
+  background: var(--panel); border-left: 1px solid var(--border);
+  z-index: 101; display: flex; flex-direction: column;
+  box-shadow: -8px 0 30px rgba(0,0,0,.4);
+  animation: panelSlideRight .2s ease-out;
+}
+@keyframes panelSlideRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.maybeboard-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: .75rem 1rem; border-bottom: 1px solid var(--border); font-size: 1rem;
+}
+.maybeboard-add { padding: .75rem 1rem; border-bottom: 1px solid var(--border); }
+.maybeboard-list { flex: 1; overflow-y: auto; padding: .5rem; }
+.maybeboard-item {
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  padding: .4rem .5rem; border-radius: var(--radius);
+}
+.maybeboard-item:hover { background: rgba(255,255,255,.04); }
+.maybeboard-item-actions { display: flex; gap: .25rem; flex: none; }
+.maybeboard-item-actions button { min-height: auto; padding: .2rem .45rem; font-size: .75rem; }
+
 /* Draw probability calculator */
 .draw-odds-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; margin-top: .5rem; }
 .draw-odds-grid label { margin: 0; display: flex; flex-direction: column; gap: .2rem; text-transform: none; letter-spacing: 0; }

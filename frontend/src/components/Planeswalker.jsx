@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, assembleDecklist } from "../lib/api";
 
-export default function Planeswalker({ decklist, commander, format, bracket, aiAvailable, serverStatus, addCard, removeCard, notify }) {
+export default function Planeswalker({ decklist, commander, format, bracket, aiAvailable, serverStatus, addCard, addToConsidering, removeCard, notify }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -104,7 +104,7 @@ export default function Planeswalker({ decklist, commander, format, bracket, aiA
               </div>
             ))}
             {messages.some((m) => m.content === "_deck_detected_") && (
-              <div className="pw-msg pw-assistant">
+              <div className="pw-msg pw-assistant" style={{ display: "flex", gap: ".3rem", flexWrap: "wrap" }}>
                 <button className="primary small" onClick={() => {
                   const dm = messages.find((m) => m.content === "_deck_detected_");
                   if (dm?.deckLines && addCard) {
@@ -114,7 +114,20 @@ export default function Planeswalker({ decklist, commander, format, bracket, aiA
                     });
                     notify("Deck loaded from Planeswalker!");
                   }
-                }}>Load this deck into Build</button>
+                }}>Load into deck</button>
+                {addToConsidering && (
+                  <button className="ghost small" onClick={() => {
+                    const dm = messages.find((m) => m.content === "_deck_detected_");
+                    if (dm?.deckLines) {
+                      let n = 0;
+                      dm.deckLines.split("\n").forEach((l) => {
+                        const match = l.trim().match(/^\d+\s+(.+)$/);
+                        if (match) { addToConsidering(match[1].trim()); n++; }
+                      });
+                      notify(`Added ${n} cards to consider`);
+                    }
+                  }}>Add to Considering</button>
+                )}
               </div>
             )}
             {busy && (

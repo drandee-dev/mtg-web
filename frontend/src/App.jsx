@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase, supabaseEnabled } from "./lib/supabase";
-import { api, assembleDecklist, disassembleDecklist, setAccessToken } from "./lib/api";
+import { api, assembleDecklist, assembleForStorage, disassembleDecklist, setAccessToken } from "./lib/api";
 import { makeStore } from "./lib/store";
 import AppHeader from "./components/layout/AppHeader";
 import NavBar from "./components/layout/NavBar";
@@ -60,6 +60,7 @@ export default function App() {
   const [deckText, setDeckText] = useState(_shared?.deckText || "");
   const [format, setFormat] = useState(_shared?.format || "commander");
   const [commander, setCommander] = useState(_shared?.commander || "");
+  const [maybeboard, setMaybeboard] = useState("");
   // The currently-open saved deck ({ id, name }), or null for a new unsaved deck.
   const [currentDeck, setCurrentDeck] = useState(null);
 
@@ -68,10 +69,19 @@ export default function App() {
   const newDeck = useCallback(() => {
     setDeckText("");
     setCommander("");
+    setMaybeboard("");
     setFormat("commander");
     setCurrentDeck(null);
     savedDeckText.current = "";
     setTab("deck");
+  }, []);
+
+  const addToConsidering = useCallback((name) => {
+    setMaybeboard((prev) => {
+      const has = prev.split("\n").some((l) => l.trim().replace(/^\d+\s+/, "").toLowerCase() === name.toLowerCase());
+      if (has) return prev;
+      return `${prev.replace(/\s*$/, "")}\n1 ${name}`.trim();
+    });
   }, []);
 
   useEffect(() => {
@@ -153,8 +163,8 @@ export default function App() {
   // Save from the deck view: update the open deck in place if there is one,
   // otherwise prompt for a name and create a new deck.
   const saveCurrentDeck = useCallback(async () => {
-    const decklist_text = assembleDecklist(deckText, commander);
-    if (!decklist_text.trim()) return notify("Nothing to save yet.");
+    const decklist_text = assembleForStorage(deckText, commander, maybeboard);
+    if (!assembleDecklist(deckText, commander).trim()) return notify("Nothing to save yet.");
     if (currentDeck?.id) {
       const saved = await saveDeck({ id: currentDeck.id, name: currentDeck.name, format, decklist_text });
       setCurrentDeck({ id: saved.id, name: saved.name });
@@ -164,18 +174,18 @@ export default function App() {
       const saved = await saveDeck({ name: name.trim(), format, decklist_text });
       setCurrentDeck({ id: saved.id, name: saved.name });
     }
-  }, [currentDeck, saveDeck, format, deckText, commander, notify]);
+  }, [currentDeck, saveDeck, format, deckText, commander, maybeboard, notify]);
 
   // Clone: always create a NEW deck (no id), copying the current contents.
   const cloneCurrentDeck = useCallback(async () => {
-    const decklist_text = assembleDecklist(deckText, commander);
-    if (!decklist_text.trim()) return notify("Nothing to clone yet.");
+    const decklist_text = assembleForStorage(deckText, commander, maybeboard);
+    if (!assembleDecklist(deckText, commander).trim()) return notify("Nothing to clone yet.");
     const base = currentDeck?.name || "Untitled deck";
     const name = prompt("Name the copy:", `${base} (copy)`);
     if (!name) return;
     const saved = await saveDeck({ name: name.trim(), format, decklist_text });
     setCurrentDeck({ id: saved.id, name: saved.name });
-  }, [currentDeck, saveDeck, format, deckText, commander, notify]);
+  }, [currentDeck, saveDeck, format, deckText, commander, maybeboard, notify]);
 
   const exportCurrentDeck = useCallback(async () => {
     const decklist_text = assembleDecklist(deckText, commander);
@@ -195,10 +205,11 @@ export default function App() {
   }, [deckText, commander, format, currentDeck, notify]);
 
   const openDeck = useCallback((deck) => {
-    const { commander: c, deckText: t } = disassembleDecklist(deck.decklist_text);
+    const { commander: c, deckText: t, maybeboard: mb } = disassembleDecklist(deck.decklist_text);
     setFormat(deck.format || "commander");
     setCommander(c);
     setDeckText(t);
+    setMaybeboard(mb || "");
     setCurrentDeck({ id: deck.id, name: deck.name });
     savedDeckText.current = t;
     setTab("deck");
@@ -278,6 +289,8 @@ export default function App() {
             setFormat={setFormat}
             commander={commander}
             setCommander={setCommander}
+            maybeboard={maybeboard}
+            setMaybeboard={setMaybeboard}
             deckName={currentDeck?.name || null}
             onSave={saveCurrentDeck}
             onClone={cloneCurrentDeck}
@@ -313,6 +326,7 @@ export default function App() {
         aiAvailable={aiAvailable}
         serverStatus={serverStatus}
         addCard={addCardToDecklist}
+        addToConsidering={addToConsidering}
         notify={notify}
       />
       <Feedback notify={notify} />
