@@ -16,6 +16,12 @@ const STACK_SIZES = [
   { id: "lg", label: "L", width: 200 },
 ];
 
+const SORTS = [
+  { id: "name", label: "Name" },
+  { id: "cmc", label: "Mana value" },
+  { id: "price", label: "Price" },
+];
+
 export default function CardGrid({ decklist, commander, onRemove, notify }) {
   const [viewMode, setViewMode] = useState(
     () => localStorage.getItem("mtgweb:viewMode") || "grid"
@@ -23,8 +29,12 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
   const [stackSize, setStackSize] = useState(
     () => localStorage.getItem("mtgweb:stackSize") || "md"
   );
+  const [sortBy, setSortBy] = useState(
+    () => localStorage.getItem("mtgweb:sortBy") || "name"
+  );
   const [typeMap, setTypeMap] = useState({});
   const [priceMap, setPriceMap] = useState({});
+  const [cmcMap, setCmcMap] = useState({});
   const [expandedId, setExpandedId] = useState(null);
   const [previewCard, setPreviewCard] = useState(null);
   const [collapsed, setCollapsed] = useState(() => {
@@ -42,6 +52,10 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
     localStorage.setItem("mtgweb:stackSize", stackSize);
   }, [stackSize]);
 
+  useEffect(() => {
+    localStorage.setItem("mtgweb:sortBy", sortBy);
+  }, [sortBy]);
+
   const toggleCollapse = useCallback((type) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -51,7 +65,7 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
     });
   }, []);
 
-  // Resolve type_line and prices for all cards
+  // Resolve type_line, prices, and mana value for all cards
   useEffect(() => {
     const names = [...new Set(cards.map((c) => c.name))];
     let cancelled = false;
@@ -64,21 +78,39 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
       if (cancelled) return;
       const types = {};
       const prices = {};
+      const cmcs = {};
       for (const [name, d] of entries) {
         types[name] = d?.type_line || "";
         prices[name] = d?.price_usd ?? null;
+        cmcs[name] = d?.cmc ?? 0;
       }
       setTypeMap(types);
       setPriceMap(prices);
+      setCmcMap(cmcs);
     });
     return () => { cancelled = true; };
   }, [decklist]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const groups = Object.keys(typeMap).length > 0
+  const sortCards = useCallback((list) => {
+    const sorted = [...list];
+    if (sortBy === "cmc") {
+      sorted.sort((a, b) => (cmcMap[a.name] ?? 0) - (cmcMap[b.name] ?? 0) || a.name.localeCompare(b.name));
+    } else if (sortBy === "price") {
+      sorted.sort((a, b) => (priceMap[b.name] ?? 0) - (priceMap[a.name] ?? 0) || a.name.localeCompare(b.name));
+    } else {
+      sorted.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return sorted;
+  }, [sortBy, cmcMap, priceMap]);
+
+  const rawGroups = Object.keys(typeMap).length > 0
     ? groupByMtgType(cards, typeMap)
     : cards.length > 0
       ? { "All Cards": cards }
       : {};
+  const groups = Object.fromEntries(
+    Object.entries(rawGroups).map(([type, list]) => [type, sortCards(list)])
+  );
 
   const handlePreview = useCallback((name) => setPreviewCard(name), []);
   const closePreview = useCallback(() => setPreviewCard(null), []);
@@ -106,6 +138,14 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center", margin: ".4rem 0" }}>
         <span className="muted small">{totalCards} cards</span>
         <div className="row" style={{ gap: ".4rem" }}>
+          <select
+            className="sort-select"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            aria-label="Sort cards"
+          >
+            {SORTS.map((s) => <option key={s.id} value={s.id}>Sort: {s.label}</option>)}
+          </select>
           {viewMode === "stack" && (
             <div className="view-toggle" role="group" aria-label="Stack column size">
               {STACK_SIZES.map((s) => (

@@ -103,11 +103,6 @@ export default function DeckSidebar({
         <button className="primary" onClick={onAnalyze} disabled={isAnalyzing} style={{ width: "100%" }}>
           {isAnalyzing ? "Analyzing…" : result ? "Refresh Analysis" : "Analyze"}
         </button>
-        <div className="row" style={{ gap: ".3rem", marginTop: ".4rem" }}>
-          {onPlaytest && <button className="ghost small" onClick={onPlaytest}>Playtest</button>}
-          {onShare && <button className="ghost small" onClick={onShare}>Share</button>}
-          {onSave && <button className="ghost small" onClick={onSave}>Save</button>}
-        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: ".3rem", marginTop: ".5rem" }}>
           {onRecommendations && <button className="ghost small" onClick={onRecommendations}>Recommendations</button>}
           {onCombos && <button className="ghost small" onClick={onCombos}>Find Combos</button>}

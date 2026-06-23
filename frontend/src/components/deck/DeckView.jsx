@@ -7,6 +7,7 @@ import Wizard from "../Wizard";
 import CardGrid from "./CardGrid";
 import DeckInput from "./DeckInput";
 import DeckSidebar from "./DeckSidebar";
+import MoreMenu from "./MoreMenu";
 
 const REC_CATEGORIES = [
   ["high_synergy", "High synergy"],
@@ -30,7 +31,7 @@ function comboPieces(cards = [], templates = []) {
 
 export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
-  onSave, onPlaytest, onShare, notify,
+  deckName, onSave, onClone, onExport, onPlaytest, onShare, notify,
 }) {
   const [mode, setMode] = useState("manual");
   const [result, setResult] = useState(null);
@@ -148,13 +149,23 @@ export default function DeckView({
     <div>
       {/* Commander + format bar */}
       <div className="deck-toolbar">
-        <div className="row" style={{ gap: ".4rem", flexWrap: "wrap", alignItems: "center" }}>
-          <select value={format} onChange={(e) => setFormat(e.target.value)} style={{ width: "auto" }}>
-            {FORMATS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-          </select>
-          <button onClick={() => setMode("wizard")} className="ghost small" style={{ borderColor: "var(--accent)" }}>
-            ✨ Wizard
-          </button>
+        <div className="deck-toolbar-top">
+          <h2 className="deck-title">{deckName || "Untitled deck"}</h2>
+          <div className="row" style={{ gap: ".4rem", alignItems: "center" }}>
+            <select value={format} onChange={(e) => setFormat(e.target.value)} style={{ width: "auto" }}>
+              {FORMATS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+            </select>
+            <button onClick={() => setMode("wizard")} className="ghost small" style={{ borderColor: "var(--accent)" }}>
+              ✨ Wizard
+            </button>
+            <button className="primary small" onClick={onSave}>Save</button>
+            <MoreMenu items={[
+              { label: "Share link", icon: "🔗", onClick: onShare },
+              { label: "Clone deck", icon: "⎘", onClick: onClone },
+              { label: "Export .txt", icon: "↓", onClick: onExport },
+              { label: "Playtest", icon: "▶", onClick: onPlaytest },
+            ]} />
+          </div>
         </div>
         {isCommanderFmt && !commander && (
           <CommanderInput commander={commander} setCommander={setCommander} />
@@ -326,9 +337,6 @@ export default function DeckView({
           result={result}
           isAnalyzing={isAnalyzing}
           onAnalyze={analyze}
-          onPlaytest={decklist.trim() ? onPlaytest : null}
-          onShare={decklist.trim() ? onShare : null}
-          onSave={decklist.trim() ? onSave : null}
           onRecommendations={() => loadPanel("Recommendations", api.recommend, setRecs)}
           onCombos={() => loadPanel("Combos", api.combos, setCombos)}
           onBudgetSwaps={() => loadPanel("Budget", api.budgetSwaps, setBudgetSwaps)}

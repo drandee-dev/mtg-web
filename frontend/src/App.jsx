@@ -49,14 +49,6 @@ function _initialTab() {
 export default function App() {
   const _shared = _loadSharedDeck();
   const [tab, setTab] = useState(_shared ? "deck" : _initialTab());
-
-  const newDeck = useCallback(() => {
-    setDeckText("");
-    setCommander("");
-    setFormat("commander");
-    savedDeckText.current = "";
-    setTab("deck");
-  }, []);
   const [menuOpen, setMenuOpen] = useState(false);
   const [playtesting, setPlaytesting] = useState(false);
   const [session, setSession] = useState(null);
@@ -68,8 +60,19 @@ export default function App() {
   const [deckText, setDeckText] = useState(_shared?.deckText || "");
   const [format, setFormat] = useState(_shared?.format || "commander");
   const [commander, setCommander] = useState(_shared?.commander || "");
+  // The currently-open saved deck ({ id, name }), or null for a new unsaved deck.
+  const [currentDeck, setCurrentDeck] = useState(null);
 
   const savedDeckText = useRef(deckText);
+
+  const newDeck = useCallback(() => {
+    setDeckText("");
+    setCommander("");
+    setFormat("commander");
+    setCurrentDeck(null);
+    savedDeckText.current = "";
+    setTab("deck");
+  }, []);
 
   useEffect(() => {
     const url = new URL(window.location);
@@ -134,10 +137,11 @@ export default function App() {
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [userId]);
 
   const saveDeck = useCallback(async (deck) => {
-    await store.save(deck);
+    const saved = await store.save(deck);
     await refresh();
     savedDeckText.current = deckText;
     notify("Saved.");
+    return saved;
   }, [store, refresh, notify, deckText]);
 
   const deleteDeck = useCallback(async (id) => {
@@ -146,18 +150,56 @@ export default function App() {
     notify("Deleted.");
   }, [store, refresh, notify]);
 
-  const saveDeckFromView = useCallback(async () => {
-    const name = prompt("Name this deck:");
+  // Save from the deck view: update the open deck in place if there is one,
+  // otherwise prompt for a name and create a new deck.
+  const saveCurrentDeck = useCallback(async () => {
+    const decklist_text = assembleDecklist(deckText, commander);
+    if (!decklist_text.trim()) return notify("Nothing to save yet.");
+    if (currentDeck?.id) {
+      const saved = await saveDeck({ id: currentDeck.id, name: currentDeck.name, format, decklist_text });
+      setCurrentDeck({ id: saved.id, name: saved.name });
+    } else {
+      const name = prompt("Name this deck:");
+      if (!name) return;
+      const saved = await saveDeck({ name: name.trim(), format, decklist_text });
+      setCurrentDeck({ id: saved.id, name: saved.name });
+    }
+  }, [currentDeck, saveDeck, format, deckText, commander, notify]);
+
+  // Clone: always create a NEW deck (no id), copying the current contents.
+  const cloneCurrentDeck = useCallback(async () => {
+    const decklist_text = assembleDecklist(deckText, commander);
+    if (!decklist_text.trim()) return notify("Nothing to clone yet.");
+    const base = currentDeck?.name || "Untitled deck";
+    const name = prompt("Name the copy:", `${base} (copy)`);
     if (!name) return;
-    await saveDeck({ name: name.trim(), format, decklist_text: assembleDecklist(deckText, commander) });
-    setTab("decks");
-  }, [saveDeck, format, deckText, commander]);
+    const saved = await saveDeck({ name: name.trim(), format, decklist_text });
+    setCurrentDeck({ id: saved.id, name: saved.name });
+  }, [currentDeck, saveDeck, format, deckText, commander, notify]);
+
+  const exportCurrentDeck = useCallback(async () => {
+    const decklist_text = assembleDecklist(deckText, commander);
+    if (!decklist_text.trim()) return notify("Nothing to export yet.");
+    try {
+      const { text } = await api.exportText(decklist_text, format);
+      const blob = new Blob([text], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${currentDeck?.name || "deck"}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      notify(`Export failed: ${e.message}`);
+    }
+  }, [deckText, commander, format, currentDeck, notify]);
 
   const openDeck = useCallback((deck) => {
     const { commander: c, deckText: t } = disassembleDecklist(deck.decklist_text);
     setFormat(deck.format || "commander");
     setCommander(c);
     setDeckText(t);
+    setCurrentDeck({ id: deck.id, name: deck.name });
     savedDeckText.current = t;
     setTab("deck");
     notify(`Opened "${deck.name}".`);
@@ -236,7 +278,10 @@ export default function App() {
             setFormat={setFormat}
             commander={commander}
             setCommander={setCommander}
-            onSave={saveDeckFromView}
+            deckName={currentDeck?.name || null}
+            onSave={saveCurrentDeck}
+            onClone={cloneCurrentDeck}
+            onExport={exportCurrentDeck}
             onPlaytest={() => setPlaytesting(true)}
             onShare={shareDeck}
             notify={notify}

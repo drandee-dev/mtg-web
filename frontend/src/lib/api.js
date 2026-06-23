@@ -118,15 +118,29 @@ export const api = {
     post("/api/planeswalker/chat", { messages, decklist, format, commander, ...(bracket != null ? { bracket } : {}) }),
 };
 
+// Derive the art_crop URL from a normal/small Scryfall image URL. The stripped bulk
+// data only keeps normal+small, but Scryfall's CDN paths are predictable, so swapping
+// the size segment yields the art crop without storing it.
+function _deriveArtCrop(data) {
+  if (data?.art_crop) return data;
+  const src = data?.image || data?.thumb;
+  if (src) {
+    return { ...data, art_crop: src.replace(/\/(normal|small|large)\//, "/art_crop/") };
+  }
+  return data;
+}
+
 // Lazy, cached card-image lookup by name. Each distinct card is fetched at most once
 // per session (shared module-level cache), so hovering the same card repeatedly — or
 // the same card across tabs — never refetches.
-const _imageCache = new Map(); // name -> Promise<{found, image, thumb}>
+const _imageCache = new Map(); // name -> Promise<{found, image, thumb, art_crop, ...}>
 export function getCardImage(name) {
   if (!_imageCache.has(name)) {
     _imageCache.set(
       name,
-      api.cardImage(name).catch(() => ({ found: false, image: null, thumb: null })),
+      api.cardImage(name)
+        .then(_deriveArtCrop)
+        .catch(() => ({ found: false, image: null, thumb: null })),
     );
   }
   return _imageCache.get(name);
