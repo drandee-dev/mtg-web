@@ -10,11 +10,14 @@
   --good: #4caf7d;
   --warn: #d9a441;
   --bad: #d9534f;
+  --danger: #d9534f;
   --radius: 10px;
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
+*:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+*:focus:not(:focus-visible) { outline: none; }
 
 html, body, #root { height: 100%; }
 
@@ -24,6 +27,7 @@ body {
   background: var(--bg);
   color: var(--text);
   -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
 }
 
 h1, h2, h3 { margin: 0 0 .5rem; line-height: 1.2; }
@@ -44,8 +48,11 @@ button {
   min-height: 40px;            /* comfortable tap target on phones */
 }
 button:hover { border-color: var(--accent); }
+button:active:not(:disabled) { transform: scale(.97); }
 button.primary { background: var(--accent); color: #1a1206; border-color: var(--accent); font-weight: 600; }
+button.primary:hover { filter: brightness(1.1); }
 button.ghost { background: transparent; }
+button.ghost:hover { background: var(--panel-2); }
 button:disabled { opacity: .5; cursor: not-allowed; }
 
 input, textarea, select {
@@ -99,8 +106,9 @@ nav.tabs { display: flex; gap: .25rem; overflow-x: auto; padding: .5rem 0; }
 nav.tabs button {
   border: none; background: transparent; color: var(--muted);
   border-bottom: 2px solid transparent; border-radius: 0; padding: .4rem .6rem;
-  white-space: nowrap;
+  white-space: nowrap; transition: color .15s, border-color .15s;
 }
+nav.tabs button:hover { color: var(--text); }
 nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
 
 .results-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
@@ -117,7 +125,7 @@ nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent);
 .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; }
 .stat { background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius); padding: .6rem; }
 .stat .k { font-size: .75rem; color: var(--muted); }
-.stat .v { font-size: 1.2rem; font-weight: 600; }
+.stat .v { font-size: 1.2rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
   background: var(--panel-2); border: 1px solid var(--border); padding: .6rem 1rem;
@@ -162,7 +170,7 @@ nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent);
 
 /* Card name + image preview (hover desktop / tap mobile) */
 .cardname { cursor: pointer; border-bottom: 1px dotted var(--accent-2); }
-.cardname:hover, .cardname:focus { color: var(--accent-2); outline: none; }
+.cardname:hover, .cardname:focus { color: var(--accent-2); }
 .card-float { position: fixed; z-index: 40; pointer-events: none;
   border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
 .card-float img { display: block; border-radius: 12px; }
@@ -206,7 +214,7 @@ nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent);
   padding: .25rem .4rem; font-size: .85rem;
 }
 .playtest-actions { display: flex; gap: .15rem; }
-.playtest-actions button { padding: 0 .2rem; font-size: .7rem; }
+.playtest-actions button { padding: .15rem .35rem; font-size: .75rem; min-height: 32px; }
 
 /* Planeswalker chat panel */
 .planeswalker-btn {
@@ -269,6 +277,36 @@ nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent);
 .feedback-panel {
   background: var(--panel); border: 1px solid var(--border); border-radius: .5rem;
   padding: 1.2rem; width: min(400px, 90vw);
+}
+
+/* Utility classes */
+.border-top { border-top: 1px solid var(--border); }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn-good { color: var(--good); }
+.btn-danger { color: var(--danger); }
+
+/* Status banners */
+.banner-waking { background: var(--accent); color: var(--bg); text-align: center; padding: .4rem; font-size: .85rem; }
+.banner-offline { background: #c44; color: #fff; text-align: center; padding: .4rem; font-size: .85rem; }
+
+/* Autocomplete dropdown enter */
+.autocomplete { animation: fadeSlideIn .12s ease-out; }
+
+/* Planeswalker panel enter */
+.planeswalker-panel { animation: panelSlideUp .2s ease-out; }
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes panelSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
 
 /* Wizard split view */

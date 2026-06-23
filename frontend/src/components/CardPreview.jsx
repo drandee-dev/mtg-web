@@ -13,13 +13,19 @@ export default function CardPreview({ name, children }) {
   const elRef = useRef(null);
   const nameRef = useRef(name);
 
-  // Reset cached data when the name prop changes (prevents stale images)
   useEffect(() => {
     if (name !== nameRef.current) {
       setData(null);
       nameRef.current = name;
     }
   }, [name]);
+
+  useEffect(() => {
+    if (!modal) return;
+    function onKey(e) { if (e.key === "Escape") setModal(false); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [modal]);
 
   const ensure = useCallback(async () => {
     if (data && nameRef.current === name) return data;
@@ -65,15 +71,15 @@ export default function CardPreview({ name, children }) {
       {hover && (
         <span className="card-float" style={{ left: pos.left, top: pos.top }}>
           {img
-            ? <img src={img} alt={name} width="232" loading="lazy" />
+            ? <img src={img} alt={name} width="232" height="324" loading="lazy" />
             : <span className="card-float-empty">{data ? "No image" : "Loading…"}</span>}
         </span>
       )}
 
       {modal && (
-        <div className="card-modal" onClick={() => setModal(false)} role="dialog" aria-label={name}>
+        <div className="card-modal" onClick={() => setModal(false)} role="dialog" aria-modal="true" aria-label={name}>
           {img
-            ? <img src={img} alt={name} loading="lazy" />
+            ? <img src={img} alt={name} width="488" height="680" loading="lazy" />
             : <div className="card-modal-empty">{data ? `No image for ${name}` : "Loading…"}</div>}
         </div>
       )}

@@ -103,8 +103,8 @@ export default function Playtest({ decklist, commander, onClose }) {
       <div className="row" style={{ gap: "1rem", margin: ".5rem 0", flexWrap: "wrap" }}>
         <span>Turn: <strong>{turn}</strong></span>
         <span>Life: <strong>{life}</strong>
-          <button className="ghost small" onClick={() => setLife((l) => l - 1)} style={{ padding: "0 .3rem", marginLeft: ".2rem" }}>-</button>
-          <button className="ghost small" onClick={() => setLife((l) => l + 1)} style={{ padding: "0 .3rem" }}>+</button>
+          <button className="ghost small" onClick={() => setLife((l) => l - 1)} style={{ padding: ".2rem .5rem", marginLeft: ".2rem", minHeight: "36px" }} aria-label="Decrease life">−</button>
+          <button className="ghost small" onClick={() => setLife((l) => l + 1)} style={{ padding: ".2rem .5rem", minHeight: "36px" }} aria-label="Increase life">+</button>
         </span>
         <span>Library: <strong>{library.length}</strong></span>
         <span className="muted small">Hand: {hand.length} | Battlefield: {battlefield.length} | Graveyard: {graveyard.length}</span>

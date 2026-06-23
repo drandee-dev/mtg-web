@@ -121,9 +121,9 @@ export default function CommanderInput({ commander, setCommander }) {
         )}
       </div>
       {results.length > 0 && (
-        <div className="autocomplete">
+        <div className="autocomplete" role="listbox" aria-label="Commander suggestions">
           {results.map((c) => (
-            <button key={c.name} className="ac-item"
+            <button key={c.name} className="ac-item" role="option"
               onClick={() => pickingPartner ? pickPartner(c.name) : pickFirst(c.name, c)}>
               <strong>{c.name}</strong>
               <span className="muted small"> {c.type_line}</span>

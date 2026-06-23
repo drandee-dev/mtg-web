@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase, supabaseEnabled } from "./lib/supabase";
 import { api, assembleDecklist, disassembleDecklist, setAccessToken } from "./lib/api";
 import { makeStore } from "./lib/store";
@@ -21,6 +21,8 @@ const TABS = [
   ["settings", "Settings"],
 ];
 
+const VALID_TABS = new Set(["analyze", "build", "decks", "rules", "cards", "settings"]);
+
 function _loadSharedDeck() {
   try {
     const params = new URLSearchParams(window.location.search);
@@ -34,9 +36,15 @@ function _loadSharedDeck() {
   } catch { return null; }
 }
 
+function _initialTab() {
+  const params = new URLSearchParams(window.location.search);
+  const t = params.get("tab");
+  return (t && VALID_TABS.has(t)) ? t : "analyze";
+}
+
 export default function App() {
   const _shared = _loadSharedDeck();
-  const [tab, setTab] = useState(_shared ? "analyze" : "analyze");
+  const [tab, setTab] = useState(_shared ? "analyze" : _initialTab());
   const [playtesting, setPlaytesting] = useState(false);
   const [session, setSession] = useState(null);
   const [decks, setDecks] = useState([]);
@@ -48,6 +56,27 @@ export default function App() {
   const [deckText, setDeckText] = useState(_shared?.deckText || "");
   const [format, setFormat] = useState(_shared?.format || "commander");
   const [commander, setCommander] = useState(_shared?.commander || "");
+
+  const savedDeckText = useRef(deckText);
+
+  // Sync tab to URL query param
+  useEffect(() => {
+    const url = new URL(window.location);
+    if (tab === "analyze") { url.searchParams.delete("tab"); }
+    else { url.searchParams.set("tab", tab); }
+    window.history.replaceState({}, "", url);
+  }, [tab]);
+
+  // Warn before leaving with unsaved deck changes
+  useEffect(() => {
+    function handler(e) {
+      if (deckText && deckText !== savedDeckText.current) {
+        e.preventDefault();
+      }
+    }
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [deckText]);
 
   // AI is usable if the server has a key (ai_available) OR the visitor set a personal key.
   const aiAvailable = serverAi || Boolean(localStorage.getItem("mtgweb:anthropicKey"));
@@ -107,8 +136,9 @@ export default function App() {
   const saveDeck = useCallback(async (deck) => {
     await store.save(deck);
     await refresh();
+    savedDeckText.current = deckText;
     notify("Saved.");
-  }, [store, refresh, notify]);
+  }, [store, refresh, notify, deckText]);
 
   const deleteDeck = useCallback(async (id) => {
     await store.remove(id);
@@ -129,6 +159,7 @@ export default function App() {
     setFormat(deck.format || "commander");
     setCommander(c);
     setDeckText(t);
+    savedDeckText.current = t;
     setTab(targetTab);
     notify(`Opened "${deck.name}".`);
   }, [notify]);
@@ -155,29 +186,35 @@ export default function App() {
 
   return (
     <div className="app">
+      <a href="#main-content" className="sr-only" style={{ position: "absolute", left: "-9999px", top: "auto", width: "1px", height: "1px", overflow: "hidden" }}
+        onFocus={(e) => { e.target.style.position = "static"; e.target.style.width = "auto"; e.target.style.height = "auto"; e.target.style.left = "0"; }}
+        onBlur={(e) => { e.target.style.position = "absolute"; e.target.style.left = "-9999px"; e.target.style.width = "1px"; e.target.style.height = "1px"; }}>
+        Skip to content
+      </a>
       {(serverStatus === "waking" || serverStatus === "checking") && (
-        <div style={{ background: "var(--accent)", color: "var(--bg)", textAlign: "center", padding: ".4rem", fontSize: ".85rem" }}>
+        <div className="banner-waking" role="alert" aria-live="polite">
           Server is waking up — first load takes ~30 seconds. Hang tight!
         </div>
       )}
       {serverStatus === "offline" && (
-        <div style={{ background: "#c44", color: "#fff", textAlign: "center", padding: ".4rem", fontSize: ".85rem", cursor: "pointer" }}
+        <button className="banner-offline" style={{ width: "100%", border: "none", borderRadius: 0, minHeight: "auto", cursor: "pointer" }}
+          role="alert" aria-live="polite"
           onClick={() => setHealthRetry((n) => n + 1)}>
-          Server didn't respond — click here to retry.
-        </div>
+          Server didn't respond — tap to retry.
+        </button>
       )}
       <header className="app-header">
         <div className="brand"><span className="dot" /> MTG Workshop</div>
         <span className="badge small">{cloud ? session.user.email : supabaseEnabled ? "Not signed in" : "Local mode"}</span>
       </header>
 
-      <nav className="tabs">
+      <nav className="tabs" role="tablist" aria-label="Main navigation">
         {TABS.map(([id, label]) => (
-          <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>
+          <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>
         ))}
       </nav>
 
-      <main>
+      <main id="main-content" role="tabpanel">
         {playtesting && (
           <Playtest
             decklist={assembleDecklist(deckText, commander)}
@@ -230,7 +267,7 @@ export default function App() {
         {tab === "settings" && <Settings session={session} notify={notify} />}
       </main>
 
-      {toast && <div className="toast">{toast}</div>}
+      {toast && <div className="toast" role="status" aria-live="polite">{toast}</div>}
       <Planeswalker
         decklist={deckText}
         commander={commander}

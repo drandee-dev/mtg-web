@@ -12,6 +12,13 @@ export default function Planeswalker({ decklist, commander, format, bracket, aiA
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e) { if (e.key === "Escape") setOpen(false); }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
   // Welcome message on first open
   useEffect(() => {
     if (open && messages.length === 0) {
@@ -72,7 +79,7 @@ export default function Planeswalker({ decklist, commander, format, bracket, aiA
   return (
     <>
       <button className="planeswalker-btn" onClick={() => setOpen(!open)}
-        aria-label="Open Planeswalker assistant">
+        aria-label={open ? "Close Planeswalker assistant" : "Open Planeswalker assistant"}>
         {open ? "✕" : "⚡"}
       </button>
 
@@ -89,7 +96,7 @@ export default function Planeswalker({ decklist, commander, format, bracket, aiA
             </div>
           </div>
 
-          <div className="planeswalker-messages" ref={scrollRef}>
+          <div className="planeswalker-messages" ref={scrollRef} aria-live="polite" aria-relevant="additions">
             {messages.filter((m) => m.role !== "system").map((m, i) => (
               <div key={i} className={`pw-msg pw-${m.role}`}>
                 <div className="pw-label">{m.role === "user" ? "You" : "Planeswalker"}</div>
@@ -113,7 +120,7 @@ export default function Planeswalker({ decklist, commander, format, bracket, aiA
             {busy && (
               <div className="pw-msg pw-assistant">
                 <div className="pw-label">Planeswalker</div>
-                <div className="pw-text"><span className="loading-dot" /> Thinking...</div>
+                <div className="pw-text"><span className="loading-dot" /> Thinking…</div>
               </div>
             )}
           </div>
@@ -122,14 +129,15 @@ export default function Planeswalker({ decklist, commander, format, bracket, aiA
             {serverStatus === "offline" ? (
               <div className="pw-waking">Server is offline — click the banner above to retry.</div>
             ) : serverStatus === "waking" ? (
-              <div className="pw-waking">Server is waking up — hang tight...</div>
+              <div className="pw-waking">Server is waking up — hang tight…</div>
             ) : (
               <>
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && send()}
-                  placeholder="Ask about cuts, fills, rules, combos..."
+                  placeholder="Ask about cuts, fills, rules, combos…"
+                  aria-label="Message Planeswalker"
                   disabled={busy}
                 />
                 <button className="primary" onClick={send} disabled={busy || !input.trim()}>
