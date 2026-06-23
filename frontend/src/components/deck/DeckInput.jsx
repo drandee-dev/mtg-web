@@ -1,6 +1,42 @@
 import { useState } from "react";
 import { api } from "../../lib/api";
 
+// Parse Archidekt-style search syntax into API params.
+// Supported: t:creature, c:wug, cmc:3, cmc>2, cmc<5, o:draw, $<5, $>1
+// Anything not matching a prefix is treated as a name search.
+function parseSearch(raw) {
+  const params = {};
+  const nameParts = [];
+  const tokens = raw.match(/(?:[^\s"]+|"[^"]*")/g) || [];
+  for (const tok of tokens) {
+    const m = tok.match(/^(t|type|c|color|cmc|mv|o|oracle|\$|price)([:<>=]+)(.+)$/i);
+    if (!m) { nameParts.push(tok.replace(/^"|"$/g, "")); continue; }
+    const key = m[1].toLowerCase();
+    const op = m[2];
+    const val = m[3].replace(/^"|"$/g, "");
+    if (key === "t" || key === "type") {
+      params.type = val;
+    } else if (key === "c" || key === "color") {
+      params.color_identity = val.toUpperCase();
+    } else if (key === "cmc" || key === "mv") {
+      const n = parseFloat(val);
+      if (isNaN(n)) continue;
+      if (op.includes(">") || op === ":>") params.cmc_min = n;
+      else if (op.includes("<") || op === ":<") params.cmc_max = n;
+      else { params.cmc_min = n; params.cmc_max = n; }
+    } else if (key === "o" || key === "oracle") {
+      params.oracle = val;
+    } else if (key === "$" || key === "price") {
+      const n = parseFloat(val);
+      if (isNaN(n)) continue;
+      if (op.includes("<")) params.price_max = n;
+      else if (op.includes(">")) params.price_min = n;
+    }
+  }
+  if (nameParts.length) params.name = nameParts.join(" ");
+  return params;
+}
+
 export default function DeckInput({ decklist, setDecklist, addCard, notify }) {
   const [showText, setShowText] = useState(false);
   const [search, setSearch] = useState("");
@@ -12,8 +48,10 @@ export default function DeckInput({ decklist, setDecklist, addCard, notify }) {
     if (!q) return;
     setSearching(true);
     try {
-      const r = await api.cards({ name: q, limit: 8 });
+      const params = { ...parseSearch(q), limit: 12 };
+      const r = await api.cards(params);
       setResults(r.results || []);
+      if (!r.results?.length) notify?.("No cards found.");
     } catch {
       notify?.("Search failed.");
     } finally {
@@ -23,20 +61,18 @@ export default function DeckInput({ decklist, setDecklist, addCard, notify }) {
 
   return (
     <div className="deck-input">
-      <div className="row" style={{ gap: ".4rem", marginBottom: ".4rem" }}>
-        <div className="deck-input-search" style={{ display: "flex", gap: ".3rem", flex: 1 }}>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && doSearch()}
-            placeholder="Add cards… e.g. Sol Ring"
-            aria-label="Search cards to add"
-            style={{ flex: 1 }}
-          />
-          <button className="ghost small" onClick={doSearch} disabled={searching}>
-            {searching ? "…" : "+ Add"}
-          </button>
-        </div>
+      <div className="deck-input-bar">
+        <input
+          className="deck-input-field"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && doSearch()}
+          placeholder='Search… e.g. "Sol Ring" or t:creature c:green cmc<4'
+          aria-label="Search cards to add (supports t: c: cmc: o: syntax)"
+        />
+        <button className="ghost small" onClick={doSearch} disabled={searching}>
+          {searching ? "…" : "Search"}
+        </button>
         <button
           className="ghost small"
           onClick={() => setShowText(!showText)}
@@ -52,15 +88,20 @@ export default function DeckInput({ decklist, setDecklist, addCard, notify }) {
             <button
               key={c.name}
               className="deck-input-result"
-              onClick={() => { addCard(c.name); setResults([]); setSearch(""); }}
+              onClick={() => { addCard(c.name); setResults((prev) => prev.filter((r) => r.name !== c.name)); }}
             >
-              <strong>{c.name}</strong>
-              <span className="muted small"> {c.type_line}</span>
-              {c.prices?.usd && <span className="muted small"> · ${c.prices.usd}</span>}
+              <span className="deck-input-result-name">{c.name}</span>
+              <span className="muted small">{c.type_line}</span>
+              {c.prices?.usd && <span className="muted small">${c.prices.usd}</span>}
+              <span className="deck-input-result-add">+ Add</span>
             </button>
           ))}
         </div>
       )}
+
+      <div className="deck-input-syntax-hint muted small">
+        Filters: <code>t:</code>type <code>c:</code>color <code>cmc:</code>mana value <code>o:</code>oracle text <code>$&lt;</code>price
+      </div>
 
       {showText && (
         <textarea

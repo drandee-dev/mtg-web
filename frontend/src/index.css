@@ -364,17 +364,40 @@ header.app-header {
 .view-toggle-btn.active { color: var(--accent); background: var(--accent-soft); border-color: rgba(201,138,58,.3); }
 
 /* DeckInput search results */
+/* DeckInput — compact search bar with syntax filters */
+.deck-input { position: relative; margin-bottom: .5rem; }
+.deck-input-bar {
+  display: flex; gap: .3rem; align-items: center;
+}
+.deck-input-field {
+  flex: 1; min-height: 34px; padding: .35rem .6rem; font-size: .85rem;
+}
+.deck-input-syntax-hint {
+  font-size: .7rem; margin-top: .2rem; opacity: .7;
+}
+.deck-input-syntax-hint code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  background: rgba(255,255,255,.06); padding: .05rem .25rem; border-radius: 3px;
+  font-size: .7rem;
+}
 .deck-input-results {
+  position: absolute; left: 0; right: 0; top: 100%; z-index: 18;
   background: var(--panel); border: 1px solid var(--border); border-radius: 0 0 var(--radius) var(--radius);
-  max-height: 240px; overflow-y: auto; margin-bottom: .5rem; box-shadow: var(--shadow-md);
+  max-height: 320px; overflow-y: auto; box-shadow: var(--shadow-md);
 }
 .deck-input-result {
-  display: block; width: 100%; text-align: left; border: none;
-  border-bottom: 1px solid var(--border); border-radius: 0; background: transparent;
-  padding: .45rem .65rem; cursor: pointer; min-height: auto; font-size: .9rem;
-  transition: background .1s;
+  display: flex; align-items: center; gap: .5rem; width: 100%; text-align: left;
+  border: none; border-bottom: 1px solid var(--border); border-radius: 0;
+  background: transparent; padding: .4rem .6rem; cursor: pointer;
+  min-height: auto; font-size: .85rem; transition: background .1s;
 }
 .deck-input-result:hover { background: rgba(255,255,255,.05); }
+.deck-input-result-name { font-weight: 600; flex: none; }
+.deck-input-result-add {
+  margin-left: auto; flex: none; color: var(--accent); font-weight: 600;
+  font-size: .75rem; opacity: 0; transition: opacity .1s;
+}
+.deck-input-result:hover .deck-input-result-add { opacity: 1; }
 
 /* Tab nav */
 nav.tabs { display: flex; gap: .15rem; overflow-x: auto; padding: .4rem 0; }
