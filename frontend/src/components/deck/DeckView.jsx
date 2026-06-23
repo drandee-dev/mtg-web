@@ -208,6 +208,7 @@ export default function DeckView({
           <CardGrid
             decklist={decklist}
             commander={commander}
+            format={format}
             onRemove={removeCard}
             notify={notify}
           />

@@ -29,7 +29,20 @@ const GROUPS = [
   { id: "color", label: "Color" },
 ];
 
-export default function CardGrid({ decklist, commander, onRemove, notify }) {
+function deckCompleteness(totalCards, commander, format) {
+  const isCmdr = format === "commander" || format === "paupercommander";
+  if (isCmdr) {
+    const cmdrCount = commander ? commander.split(" && ").filter(Boolean).length : 0;
+    const total = totalCards + cmdrCount;
+    const status = total === 100 ? "good" : "warn";
+    return { label: `${total} / 100`, status, title: "Commander decks are exactly 100 cards" };
+  }
+  // Constructed: 60-card minimum
+  const status = totalCards >= 60 ? "good" : "warn";
+  return { label: `${totalCards} / 60+`, status, title: "Constructed decks are a 60-card minimum" };
+}
+
+export default function CardGrid({ decklist, commander, format, onRemove, notify }) {
   const [viewMode, setViewMode] = useState(
     () => localStorage.getItem("mtgweb:viewMode") || "grid"
   );
@@ -148,7 +161,10 @@ export default function CardGrid({ decklist, commander, onRemove, notify }) {
   return (
     <div className="card-grid-container">
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center", margin: ".4rem 0" }}>
-        <span className="muted small">{totalCards} cards</span>
+        {(() => {
+          const c = deckCompleteness(totalCards, commander, format);
+          return <span className={`badge ${c.status}`} title={c.title}>{c.label}</span>;
+        })()}
         <div className="row" style={{ gap: ".4rem" }}>
           <select
             className="sort-select"
