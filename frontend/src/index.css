@@ -1011,7 +1011,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .cmdr-col-badges { justify-content: flex-start; }
   .deck-sidebar { position: static; max-height: none; }
   .card-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: .4rem; }
-  .card-thumb .remove-btn { opacity: .7; }
+  .card-thumb .remove-btn { display: none; }
   .stack-column { width: 130px !important; }
   .card-list-row { grid-template-columns: 24px 28px 1fr auto auto; }
   .card-list-type { display: none; }
