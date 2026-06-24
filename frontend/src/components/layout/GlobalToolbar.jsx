@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 
 export default function GlobalToolbar({
-  tabs, tab, setTab, cloud, session, supabaseEnabled, onMenuToggle,
+  tabs, tab, setTab, cloud, session, supabaseEnabled,
 }) {
   const [showUser, setShowUser] = useState(false);
   const popRef = useRef(null);
@@ -27,7 +27,6 @@ export default function GlobalToolbar({
 
   return (
     <header className="global-toolbar" role="banner">
-      {/* Left: brand */}
       <div className="gt-left">
         <button
           className="gt-brand"
@@ -39,7 +38,6 @@ export default function GlobalToolbar({
         </button>
       </div>
 
-      {/* Center: nav tabs — hidden on mobile */}
       <nav className="gt-nav" role="tablist" aria-label="Main navigation">
         {tabs.map(([id, label]) => (
           <button
@@ -54,7 +52,6 @@ export default function GlobalToolbar({
         ))}
       </nav>
 
-      {/* Right: status + hamburger */}
       <div className="gt-right">
         <div className="gt-user-wrap" ref={popRef}>
           <button
@@ -68,21 +65,11 @@ export default function GlobalToolbar({
             <div className="gt-user-pop">
               <span className="gt-user-label">{userLabel}</span>
               {cloud && (
-                <span className="gt-cloud-badge">☁ Cloud sync</span>
+                <span className="gt-cloud-badge">Cloud sync</span>
               )}
             </div>
           )}
         </div>
-
-        <button
-          className="gt-hamburger"
-          onClick={onMenuToggle}
-          aria-label="Open navigation menu"
-        >
-          <span className="gt-hamburger-bar" />
-          <span className="gt-hamburger-bar" />
-          <span className="gt-hamburger-bar" />
-        </button>
       </div>
     </header>
   );

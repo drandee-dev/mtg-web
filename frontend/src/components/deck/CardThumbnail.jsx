@@ -1,29 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { getCardImage } from "../../lib/api";
+import { useCallback, useRef, useState } from "react";
+import { canHover, useCardImage } from "../../lib/hooks";
 
-const canHover =
-  typeof window !== "undefined" &&
-  window.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
-
-export default function CardThumbnail({ name, qty, onRemove, onPreview, expanded, onExpand }) {
-  const [img, setImg] = useState(null);
+export default function CardThumbnail({ name, qty, onRemove, expanded, onExpand }) {
+  const data = useCardImage(name);
+  const img = data?.image || null;
   const [swipeX, setSwipeX] = useState(0);
   const touchRef = useRef({ startX: 0, startY: 0, swiping: false });
 
-  useEffect(() => {
-    let cancelled = false;
-    getCardImage(name).then((d) => { if (!cancelled) setImg(d?.image || null); });
-    return () => { cancelled = true; };
-  }, [name]);
-
   const handleClick = useCallback(() => {
     if (swipeX !== 0) return;
-    if (onExpand) {
-      onExpand();
-    } else if (onPreview) {
-      onPreview(name);
-    }
-  }, [name, onExpand, onPreview, swipeX]);
+    onExpand?.();
+  }, [onExpand, swipeX]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === "Enter" || e.key === " ") {

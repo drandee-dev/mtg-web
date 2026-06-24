@@ -1,34 +1,23 @@
-import { useEffect, useRef, useState } from "react";
-import { getCardImage } from "../../lib/api";
+import { useEffect } from "react";
+import { useCardImage, useEscapeKey } from "../../lib/hooks";
 
 export default function CardBottomSheet({ name, onClose, onRemove, onAddToConsidering }) {
-  const [data, setData] = useState(null);
-  const sheetRef = useRef(null);
+  const data = useCardImage(name);
+
+  useEscapeKey(Boolean(name), onClose);
 
   useEffect(() => {
     if (!name) return;
-    let cancelled = false;
-    getCardImage(name).then((d) => { if (!cancelled) setData(d); });
-    return () => { cancelled = true; };
-  }, [name]);
-
-  useEffect(() => {
-    if (!name) return;
-    function onKey(e) { if (e.key === "Escape") onClose(); }
-    document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [name, onClose]);
+    return () => { document.body.style.overflow = ""; };
+  }, [name]);
 
   if (!name) return null;
 
   return (
     <>
       <div className="bs-overlay" onClick={onClose} />
-      <div className="bs-sheet" ref={sheetRef} role="dialog" aria-modal="true" aria-label={name}>
+      <div className="bs-sheet" role="dialog" aria-modal="true" aria-label={name}>
         <div className="bs-handle" />
         <div className="bs-content">
           {data?.image ? (
@@ -39,7 +28,6 @@ export default function CardBottomSheet({ name, onClose, onRemove, onAddToConsid
           <div className="bs-info">
             <h3 className="bs-name">{name}</h3>
             {data?.type_line && <p className="bs-type muted small">{data.type_line}</p>}
-            {data?.oracle_text && <p className="bs-oracle small">{data.oracle_text}</p>}
             {data?.price_usd != null && (
               <span className="badge small">${data.price_usd.toFixed(2)}</span>
             )}
@@ -52,7 +40,7 @@ export default function CardBottomSheet({ name, onClose, onRemove, onAddToConsid
             )}
             {onAddToConsidering && (
               <button className="ghost small" onClick={() => { onAddToConsidering(name); onClose(); }}>
-                → Considering
+                Considering
               </button>
             )}
             <button className="ghost small" onClick={onClose}>Close</button>

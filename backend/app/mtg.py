@@ -1327,6 +1327,8 @@ def wizard_build_skeleton(
     }
 
 
+_WIZARD_NARRATE = """You are an expert MTG deck builder. Briefly explain why each suggested card fits this commander's strategy. One sentence per card, focusing on synergy with the commander and the deck's game plan. Be concise and specific."""
+
 def wizard_narrate(
     commander_name: str, category: str, card_names: list[str],
     current_decklist: str, *, api_key: str | None = None,
@@ -1374,29 +1376,8 @@ def wizard_chat(
     if not key:
         return {"error": True, "message": "No API key available."}
 
-    # Check if we have a Sonnet-class model available
     client = anthropic.Anthropic(api_key=key)
-    sonnet_models = [
-        "claude-sonnet-4-5-20250514",
-        "claude-3-5-sonnet-20241022",
-        "claude-3-7-sonnet-20250219",
-    ]
-    model = None
-    for m in sonnet_models:
-        try:
-            client.messages.create(model=m, max_tokens=5,
-                                   messages=[{"role": "user", "content": "hi"}])
-            model = m
-            break
-        except Exception:
-            continue
-
-    if not model:
-        return {
-            "error": True,
-            "requires_sonnet": True,
-            "message": "Conversational mode requires a Sonnet-class model. Your API key only has access to Haiku. Use the guided wizard instead, or upgrade your API plan.",
-        }
+    model = _AI_MODEL
 
     # Build rich context
     ctx = _deck_context_cached(current_decklist, fmt, bracket=bracket) if current_decklist.strip() else None
@@ -1428,7 +1409,6 @@ def wizard_chat(
 # --------------------------------------------------------------------------- #
 # AI Rules Q&A (Phase 2 — lightweight RAG over Comprehensive Rules + cards)
 # --------------------------------------------------------------------------- #
-_RULES_QA_MODEL = _AI_MODEL
 _RULES_QA_MAX_TOKENS = 1500
 _RULES_QA_GREP_LIMIT = 40
 

@@ -190,46 +190,6 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .gt-user-label { font-size: .78rem; color: var(--text-secondary); word-break: break-all; }
 .gt-cloud-badge { font-size: .72rem; color: var(--good); font-weight: 500; }
 
-/* Hamburger — mobile only */
-.gt-hamburger {
-  display: none; background: transparent; border: none;
-  padding: .4rem; min-height: 44px; min-width: 44px;
-  flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  cursor: pointer;
-}
-.gt-hamburger-bar {
-  display: block; width: 18px; height: 2px;
-  background: var(--text); border-radius: 1px;
-  transition: transform .2s, opacity .2s;
-}
-
-/* Legacy .brand (used in hamburger drawer header) */
-.brand { display: flex; align-items: center; gap: .5rem; font-weight: 700; font-size: .95rem; letter-spacing: -.01em; }
-.brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px rgba(201,138,58,.4); }
-
-/* Hamburger drawer */
-.drawer-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(4px); z-index: 100;
-}
-.drawer {
-  position: fixed; top: 0; right: 0; bottom: 0; width: 280px;
-  background: var(--panel); border-left: 1px solid var(--border);
-  z-index: 101; padding: 1rem;
-  transform: translateX(100%); transition: transform .25s ease-out;
-  overflow-y: auto; display: flex; flex-direction: column;
-  box-shadow: -8px 0 30px rgba(0,0,0,.4);
-}
-.drawer.open { transform: translateX(0); }
-.drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; padding-bottom: .5rem; border-bottom: 1px solid var(--border); }
-.drawer-nav-link {
-  display: block; width: 100%; text-align: left; padding: .75rem .75rem;
-  border: none; background: transparent; color: var(--text-secondary); font-size: .95rem;
-  border-bottom: none; min-height: 44px; border-radius: var(--radius); cursor: pointer;
-  margin-bottom: 2px; font-weight: 500; transition: background .15s, color .15s;
-}
-.drawer-nav-link.active { color: var(--accent); font-weight: 600; background: var(--accent-soft); }
-.drawer-nav-link:hover { background: rgba(255,255,255,.05); color: var(--text); }
-.drawer-footer { margin-top: auto; padding-top: .75rem; border-top: 1px solid var(--border); }
 
 /* Deck layout — 2 column on desktop (rem widths scale with the fluid root) */
 .deck-layout { display: grid; grid-template-columns: 1fr 22rem; gap: 1rem; align-items: start; }
@@ -871,7 +831,6 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 }
 
 /* Utility classes */
-.border-top { border-top: 1px solid var(--border); }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .btn-good { color: var(--good); }
 .btn-danger { color: var(--danger); }
@@ -1039,7 +998,6 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 @media (max-width: 699px) {
   .app { padding: 3.2rem .75rem 5.5rem; }
   .gt-nav { display: none; }
-  .gt-hamburger { display: none; }
   .bottom-nav { display: flex; }
   .toast { bottom: 4.5rem; }
   .planeswalker-btn { bottom: 4.5rem; }
@@ -1059,9 +1017,11 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .card-list-type { display: none; }
   .hero-grid { grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); }
   .deck-title { font-size: 1.1rem; }
-  .deck-toolbar-top { gap: .35rem; }
-  .deck-toolbar-top select { font-size: .78rem; padding: .3rem .4rem; }
-  .deck-toolbar-top button { font-size: .78rem; padding: .3rem .5rem; }
+  .deck-toolbar-top { gap: .3rem; }
+  .deck-toolbar-top select { font-size: .72rem; padding: .25rem .35rem; min-height: 32px; }
+  .deck-toolbar-top button { font-size: .72rem; padding: .25rem .4rem; min-height: 32px; }
+  .deck-title { font-size: 1rem; }
+  .deck-lock-btn { min-height: 32px !important; min-width: 32px !important; font-size: .85rem !important; }
   .card-modal img { max-width: 85vw; max-height: 75vh; }
 }
 

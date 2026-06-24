@@ -290,9 +290,6 @@ export default function DeckView({
             <div style={{ textAlign: "center", marginTop: ".5rem" }}>
               <button className="ghost small" onClick={() => setCommander("")} style={{ fontSize: ".75rem" }}>Change commander</button>
             </div>
-            {!commander && (
-              <CommanderInput commander={commander} setCommander={setCommander} />
-            )}
           </div>
         )}
 

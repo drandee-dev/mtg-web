@@ -1,14 +1,8 @@
-import { useEffect, useState } from "react";
-import { getCardImage } from "../../lib/api";
+import { useCardImage } from "../../lib/hooks";
 
 export default function CardListRow({ name, qty, typeLine, price, isMdfc, onRemove, onPreview }) {
-  const [thumb, setThumb] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    getCardImage(name).then((d) => { if (!cancelled) setThumb(d?.thumb || null); });
-    return () => { cancelled = true; };
-  }, [name]);
+  const data = useCardImage(name);
+  const thumb = data?.thumb || null;
 
   return (
     <div className="card-list-row" role="listitem">

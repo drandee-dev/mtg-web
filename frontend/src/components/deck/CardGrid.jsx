@@ -1,15 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { getCardImage } from "../../lib/api";
 import { parseDeckText, groupCards } from "../../lib/deckParser";
+import { canHover } from "../../lib/hooks";
 import CardThumbnail from "./CardThumbnail";
 import CardListRow from "./CardListRow";
 import CardBottomSheet from "./CardBottomSheet";
 import ViewToggle from "./ViewToggle";
 import CardPreview from "../CardPreview";
-
-const canHover =
-  typeof window !== "undefined" &&
-  window.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
 
 const STACK_SIZES = [
   { id: "sm", label: "S", width: 120 },

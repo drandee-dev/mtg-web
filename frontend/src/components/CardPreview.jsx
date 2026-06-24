@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCardImage } from "../lib/api";
-
-const canHover =
-  typeof window !== "undefined" &&
-  window.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
+import { canHover, useEscapeKey } from "../lib/hooks";
 
 export default function CardPreview({ name, children }) {
   const [data, setData] = useState(null);
@@ -20,12 +17,7 @@ export default function CardPreview({ name, children }) {
     }
   }, [name]);
 
-  useEffect(() => {
-    if (!modal) return;
-    function onKey(e) { if (e.key === "Escape") setModal(false); }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [modal]);
+  useEscapeKey(modal, () => setModal(false));
 
   const ensure = useCallback(async () => {
     if (data && nameRef.current === name) return data;

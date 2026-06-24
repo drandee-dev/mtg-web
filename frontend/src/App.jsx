@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase, supabaseEnabled } from "./lib/supabase";
 import { api, assembleDecklist, assembleForStorage, disassembleDecklist, setAccessToken } from "./lib/api";
 import { makeStore } from "./lib/store";
+import { downloadFile } from "./lib/hooks";
 import GlobalToolbar from "./components/layout/GlobalToolbar";
 import BottomNav from "./components/layout/BottomNav";
-import HamburgerMenu from "./components/layout/HamburgerMenu";
 import DeckView from "./components/deck/DeckView";
 import MyDecks from "./components/MyDecks";
 import Rules from "./components/Rules";
@@ -85,7 +85,6 @@ function _initialTab() {
 export default function App() {
   const _shared = _loadSharedDeck();
   const [tab, setTab] = useState(_shared ? "deck" : _initialTab());
-  const [menuOpen, setMenuOpen] = useState(false);
   const [playtesting, setPlaytesting] = useState(false);
   const [session, setSession] = useState(null);
   const [decks, setDecks] = useState([]);
@@ -241,13 +240,7 @@ export default function App() {
     if (!decklist_text.trim()) return notify("Nothing to export yet.");
     try {
       const { text } = await api.exportText(decklist_text, format);
-      const blob = new Blob([text], { type: "text/plain" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${currentDeck?.name || "deck"}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadFile(`${currentDeck?.name || "deck"}.txt`, text);
     } catch (e) {
       notify(`Export failed: ${e.message}`);
     }
@@ -301,17 +294,6 @@ export default function App() {
         cloud={cloud}
         session={session}
         supabaseEnabled={supabaseEnabled}
-        onMenuToggle={() => setMenuOpen(true)}
-      />
-
-      <HamburgerMenu
-        open={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        tabs={TABS}
-        tab={tab}
-        setTab={setTab}
-        session={session}
-        cloud={cloud}
       />
 
       <main id="main-content" role="tabpanel">

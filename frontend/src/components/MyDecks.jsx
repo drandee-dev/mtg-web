@@ -1,15 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, disassembleDecklist, getCardImage, FORMATS } from "../lib/api";
-
-function download(filename, text, type = "text/plain") {
-  const blob = new Blob([text], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+import { downloadFile } from "../lib/hooks";
 
 const WUBRG_COLORS = ["W", "U", "B", "R", "G"];
 
@@ -137,13 +128,13 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
     if (format === "txt") {
       try {
         const { text } = await api.exportText(deck.decklist_text, deck.format);
-        download(`${deck.name || "deck"}.txt`, text);
+        downloadFile(`${deck.name || "deck"}.txt`, text);
       } catch (e) {
         notify(`Export failed: ${e.message}`);
       }
     } else {
       const payload = { name: deck.name, format: deck.format, decklist_text: deck.decklist_text };
-      download(`${deck.name || "deck"}.json`, JSON.stringify(payload, null, 2), "application/json");
+      downloadFile(`${deck.name || "deck"}.json`, JSON.stringify(payload, null, 2), "application/json");
     }
   }
 
