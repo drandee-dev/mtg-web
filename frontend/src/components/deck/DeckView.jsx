@@ -67,6 +67,7 @@ export default function DeckView({
   const [maybeOpen, setMaybeOpen] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [saveState, setSaveState] = useState("idle");
   const searchRef = useRef(null);
   const debounceRef = useRef(null);
 
@@ -225,7 +226,17 @@ export default function DeckView({
             <button className="ghost small" onClick={() => setMaybeOpen(true)}>
               Considering ({considerCount})
             </button>
-            <button className="primary small" onClick={onSave}>Save</button>
+            <button
+              className={`primary small${saveState === "saved" ? " btn-saved" : ""}`}
+              disabled={saveState === "saving"}
+              onClick={async () => {
+                setSaveState("saving");
+                try { await onSave(); setSaveState("saved"); setTimeout(() => setSaveState("idle"), 2000); }
+                catch { setSaveState("idle"); }
+              }}
+            >
+              {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved!" : "Save"}
+            </button>
             <MoreMenu items={[
               { label: "Share link", icon: "🔗", onClick: onShare },
               { label: "Clone deck", icon: "⎘", onClick: onClone },

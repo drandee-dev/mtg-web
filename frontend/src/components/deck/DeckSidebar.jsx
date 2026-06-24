@@ -44,10 +44,8 @@ export default function DeckSidebar({
 
   const isCmdr = format === "commander" || format === "paupercommander";
   const cardCount = result?.total_cards;
-  const cmdrCount = isCmdr && commander ? commander.split(" && ").filter(Boolean).length : 0;
-  const deckTotal = (cardCount || 0) + cmdrCount;
   const cardCountStatus = isCmdr
-    ? (deckTotal > 100 ? "bad" : deckTotal === 100 ? "good" : "warn")
+    ? ((cardCount || 0) > 100 ? "bad" : (cardCount || 0) === 100 ? "good" : "warn")
     : ((cardCount || 0) >= 60 ? "good" : "warn");
 
   return (

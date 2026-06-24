@@ -625,6 +625,10 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .deck-lock-btn.locked {
   background: var(--accent-soft); border-color: var(--accent);
 }
+.btn-saved {
+  background: var(--good) !important; border-color: var(--good) !important;
+  color: #fff !important; transition: background .3s, border-color .3s;
+}
 
 /* ── Mobile FAB (add card) ── */
 .deck-fab {
