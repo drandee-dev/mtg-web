@@ -417,34 +417,15 @@ def planeswalker_chat(request: Request, payload: Annotated[dict, Body()]) -> dic
     if ctx_summary:
         system += f"\n\nCurrent deck context:\n{ctx_summary}"
 
-    resp = mtg._ai_call(system, messages[-1]["content"] if len(messages) == 1 else None,
-                         max_tokens=2000, cache_user_msg=bool(ctx_summary))
-    if len(messages) > 1:
-        import anthropic
-        key = os.environ.get("ANTHROPIC_API_KEY")
-        if key:
-            try:
-                client = anthropic.Anthropic(api_key=key)
-                response = client.messages.create(
-                    model=mtg._AI_MODEL,
-                    max_tokens=2000,
-                    system=system,
-                    messages=messages,
-                )
-                usage = response.usage
-                if mtg.on_ai_usage and callable(mtg.on_ai_usage):
-                    mtg.on_ai_usage(usage.input_tokens, usage.output_tokens)
-                return {
-                    "error": False,
-                    "response": response.content[0].text,
-                    "model": mtg._AI_MODEL,
-                }
-            except Exception as exc:
-                return {"error": True, "response": f"AI request failed: {exc}"}
+    if len(messages) == 1:
+        resp = mtg._ai_call(system, messages[0]["content"],
+                             max_tokens=2000, cache_user_msg=bool(ctx_summary))
     else:
-        if resp["error"]:
-            return {"error": True, "response": resp["result"]}
-        return {"error": False, "response": resp["result"], "model": resp.get("model")}
+        resp = mtg._ai_call(system, messages=messages, max_tokens=2000)
+
+    if resp["error"]:
+        return {"error": True, "response": resp["result"]}
+    return {"error": False, "response": resp["result"], "model": resp.get("model")}
 
 
 @app.get("/api/cards/image")

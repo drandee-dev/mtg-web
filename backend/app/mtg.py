@@ -475,15 +475,17 @@ on_ai_usage: Any = None  # callable(input_tokens, output_tokens) or None
 
 def _ai_call(
     system: str,
-    user_msg: str,
+    user_msg: str | None = None,
     *,
+    messages: list[dict] | None = None,
     api_key: str | None = None,
     max_tokens: int = 1500,
     cache_user_msg: bool = False,
 ) -> dict[str, Any]:
     """Shared wrapper for all AI features. Uses Sonnet by default, falls back to
-    Haiku if Sonnet is unavailable. Supports Anthropic prompt caching on the user
-    message (the deck context), which is shared across cuts/fills/explain/combos.
+    Haiku if Sonnet is unavailable. Supports multi-turn via the messages param,
+    or single-turn via user_msg. Supports Anthropic prompt caching on the user
+    message (the deck context).
     """
     import anthropic
 
@@ -494,13 +496,13 @@ def _ai_call(
             "result": "No API key available. Add your Anthropic API key in Settings, or ask the site owner to configure one.",
         }
 
-    # Build messages with optional cache_control on the user message
-    if cache_user_msg:
-        messages = [{"role": "user", "content": [
-            {"type": "text", "text": user_msg, "cache_control": {"type": "ephemeral"}},
-        ]}]
-    else:
-        messages = [{"role": "user", "content": user_msg}]
+    if messages is None:
+        if cache_user_msg and user_msg:
+            messages = [{"role": "user", "content": [
+                {"type": "text", "text": user_msg, "cache_control": {"type": "ephemeral"}},
+            ]}]
+        else:
+            messages = [{"role": "user", "content": user_msg or ""}]
 
     client = anthropic.Anthropic(api_key=key)
     for model in (_AI_MODEL, _AI_MODEL_FALLBACK):
