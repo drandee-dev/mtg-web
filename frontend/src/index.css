@@ -550,16 +550,17 @@ nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent);
 /* Planeswalker chat panel */
 .planeswalker-btn {
   position: fixed; bottom: 1.2rem; right: 4rem; z-index: 900;
-  width: 44px; height: 44px; border-radius: 50%;
-  background: var(--accent); color: var(--bg); border: none;
+  width: 46px; height: 46px; border-radius: 50%;
+  background: var(--panel-2); color: var(--bg); border: 1.5px solid var(--border);
+  padding: 0; overflow: hidden;
   font-size: 1.3rem; cursor: pointer;
-  box-shadow: 0 2px 12px rgba(201,138,58,.3);
+  box-shadow: 0 2px 12px rgba(0,0,0,.4);
   transition: transform .15s, box-shadow .15s;
 }
-.planeswalker-btn:hover { transform: scale(1.1); box-shadow: 0 4px 20px rgba(201,138,58,.4); }
+.planeswalker-btn:hover { transform: scale(1.1); box-shadow: 0 4px 20px rgba(0,0,0,.5); border-color: var(--border-strong); }
 .pw-chibi {
-  width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
-  pointer-events: none;
+  width: 130%; height: 130%; object-fit: cover; border-radius: 50%;
+  pointer-events: none; object-position: center 30%;
 }
 .planeswalker-panel {
   position: fixed; bottom: 4.5rem; right: 1rem; z-index: 950;
