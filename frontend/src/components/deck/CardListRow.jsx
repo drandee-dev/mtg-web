@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getCardImage } from "../../lib/api";
 
-export default function CardListRow({ name, qty, typeLine, price, onRemove, onPreview }) {
+export default function CardListRow({ name, qty, typeLine, price, isMdfc, onRemove, onPreview }) {
   const [thumb, setThumb] = useState(null);
 
   useEffect(() => {
@@ -30,7 +30,10 @@ export default function CardListRow({ name, qty, typeLine, price, onRemove, onPr
       <button className="card-list-name" onClick={() => onPreview?.(name)}>
         {name}
       </button>
-      <span className="card-list-type muted small truncate">{typeLine || ""}</span>
+      <span className="card-list-type muted small truncate">
+        {typeLine || ""}
+        {isMdfc && <span className="mdfc-tag" title="Modal double-faced card">MDFC</span>}
+      </span>
       <span className="card-list-price muted small">
         {price != null ? `$${Number(price).toFixed(2)}` : ""}
       </span>

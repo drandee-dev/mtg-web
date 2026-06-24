@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import Curve from "../Curve";
 import CardPreview from "../CardPreview";
 import LoadingIndicator from "../LoadingIndicator";
@@ -41,12 +42,20 @@ export default function DeckSidebar({
 
   const recList = recs?.categories?.[recCat] || [];
 
+  const isCmdr = format === "commander" || format === "paupercommander";
+  const cardCount = result?.total_cards;
+  const cmdrCount = isCmdr && commander ? commander.split(" && ").filter(Boolean).length : 0;
+  const deckTotal = (cardCount || 0) + cmdrCount;
+  const cardCountStatus = isCmdr
+    ? (deckTotal > 100 ? "bad" : deckTotal === 100 ? "good" : "warn")
+    : ((cardCount || 0) >= 60 ? "good" : "warn");
+
   return (
     <aside className="deck-sidebar" role="complementary" aria-label="Deck statistics">
-      {/* Stats overview */}
+      {/* Stats overview — always visible */}
       <div className="sidebar-section">
         <div className="stat-grid">
-          <Stat k="Cards" v={result?.total_cards} />
+          <Stat k="Cards" v={cardCount} className={cardCountStatus === "bad" ? "stat-danger" : ""} />
           <Stat k="Lands" v={s.land_count} />
           <Stat k="Avg CMC" v={s.avg_cmc} />
           <Stat k="Price" v={price != null ? `$${price.toFixed(2)}` : "—"}
@@ -253,8 +262,16 @@ export default function DeckSidebar({
 function AccordionItem({ id, label, activePanel, busy, onPanelClick, children }) {
   const isActive = activePanel === id;
   const isLoading = busy === id;
+  const itemRef = useRef(null);
+
+  useEffect(() => {
+    if (isActive && !isLoading && itemRef.current) {
+      itemRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [isActive, isLoading]);
+
   return (
-    <div className="acc-item">
+    <div className="acc-item" ref={itemRef}>
       <button
         className={`accordion-row${isActive ? " active" : ""}`}
         onClick={() => onPanelClick(id)}
@@ -339,9 +356,9 @@ function ManaBase({ mana }) {
   );
 }
 
-function Stat({ k, v, title }) {
+function Stat({ k, v, title, className }) {
   return (
-    <div className="stat" title={title || undefined}>
+    <div className={`stat${className ? ` ${className}` : ""}`} title={title || undefined}>
       <div className="k">{k}</div>
       <div className="v">{v ?? "—"}</div>
     </div>

@@ -112,6 +112,7 @@ export default function CardGrid({ decklist, commander, format, filter, onRemove
           color_identity: d?.color_identity || [],
           price_usd: d?.price_usd ?? null,
           rarity: d?.rarity || "common",
+          is_mdfc: d?.is_mdfc || false,
         };
       }
       setMetaMap(meta);
@@ -269,6 +270,7 @@ export default function CardGrid({ decklist, commander, format, filter, onRemove
                   qty={c.qty}
                   typeLine={metaMap[c.name]?.type_line}
                   price={metaMap[c.name]?.price_usd}
+                  isMdfc={metaMap[c.name]?.is_mdfc}
                   onRemove={onRemove}
                   onPreview={handlePreview}
                 />

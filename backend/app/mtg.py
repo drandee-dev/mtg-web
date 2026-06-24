@@ -114,17 +114,22 @@ def card_image(name: str) -> dict[str, Any]:
     rec = _bulk_index().get(name)
     if not rec:
         return {"name": name, "found": False, "image": None, "thumb": None}
+    full_type = rec.get("type_line", "")
+    layout = rec.get("layout", "")
+    is_mdfc = layout in ("modal_dfc", "transform")
+    front_type = full_type.split("//")[0].strip() if is_mdfc else full_type
     return {
         "name": rec.get("name", name),
         "found": True,
         "image": _image_from_record(rec, "normal"),
         "thumb": _image_from_record(rec, "small"),
         "art_crop": _image_from_record(rec, "art_crop"),
-        "type_line": rec.get("type_line", ""),
+        "type_line": front_type,
         "color_identity": rec.get("color_identity", []),
         "cmc": rec.get("cmc", 0),
         "price_usd": extract_price(rec),
         "rarity": (rec.get("rarity") or "common").lower(),
+        "is_mdfc": is_mdfc,
         "roles": _classify_roles(rec),
     }
 
@@ -1217,13 +1222,14 @@ def _classify_roles(card: dict | None) -> list[str]:
         if label not in roles and re.search(pattern, oracle, re.IGNORECASE):
             roles.append(label)
 
-    # 3. Type-line based roles
+    # 3. Type-line based roles — use front face only for MDFCs
     type_line = (card.get("type_line") or "").lower()
-    if "land" in type_line and "Land" not in roles:
+    front_type = type_line.split("//")[0].strip()
+    if "land" in front_type and "Land" not in roles:
         roles.append("Land")
-    if "creature" in type_line and not roles:
+    if "creature" in front_type and not roles:
         roles.append("Creature")
-    if "planeswalker" in type_line:
+    if "planeswalker" in front_type:
         roles.append("Planeswalker")
 
     return roles[:3]
