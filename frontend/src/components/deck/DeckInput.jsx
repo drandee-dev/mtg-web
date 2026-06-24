@@ -1,9 +1,6 @@
-import { forwardRef, useState } from "react";
+import { forwardRef, useState, useRef } from "react";
 import { api } from "../../lib/api";
 
-// Parse Archidekt-style search syntax into API params.
-// Supported: t:creature, c:wug, cmc:3, cmc>2, cmc<5, o:draw, $<5, $>1
-// Anything not matching a prefix is treated as a name search.
 function parseSearch(raw) {
   const params = {};
   const nameParts = [];
@@ -37,11 +34,54 @@ function parseSearch(raw) {
   return params;
 }
 
+const FILTER_CHIPS = [
+  { prefix: "t:", label: "Type", example: "t:creature" },
+  { prefix: "c:", label: "Color", example: "c:wug" },
+  { prefix: "cmc:", label: "MV", example: "cmc<4" },
+  { prefix: "o:", label: "Oracle", example: 'o:"draw a card"' },
+  { prefix: "$<", label: "Price", example: "$<5" },
+];
+
+function activeFilters(search) {
+  if (!search.trim()) return [];
+  const parsed = parseSearch(search);
+  const active = [];
+  if (parsed.type) active.push({ key: "type", label: `t:${parsed.type}` });
+  if (parsed.color_identity) active.push({ key: "color", label: `c:${parsed.color_identity}` });
+  if (parsed.cmc_min != null && parsed.cmc_max != null && parsed.cmc_min === parsed.cmc_max) {
+    active.push({ key: "cmc", label: `cmc:${parsed.cmc_min}` });
+  } else {
+    if (parsed.cmc_min != null) active.push({ key: "cmc_min", label: `cmc>${parsed.cmc_min}` });
+    if (parsed.cmc_max != null) active.push({ key: "cmc_max", label: `cmc<${parsed.cmc_max}` });
+  }
+  if (parsed.oracle) active.push({ key: "oracle", label: `o:${parsed.oracle}` });
+  if (parsed.price_max != null) active.push({ key: "price_max", label: `$<${parsed.price_max}` });
+  if (parsed.price_min != null) active.push({ key: "price_min", label: `$>${parsed.price_min}` });
+  return active;
+}
+
+function removeFilter(search, filterKey) {
+  const patterns = {
+    type: /\b(?:t|type)[:<>=]+\S+/gi,
+    color: /\b(?:c|color)[:<>=]+\S+/gi,
+    cmc: /\b(?:cmc|mv)[:<>=]+\S+/gi,
+    cmc_min: /\b(?:cmc|mv)[>]+\S+/gi,
+    cmc_max: /\b(?:cmc|mv)[<]+\S+/gi,
+    oracle: /\b(?:o|oracle)[:<>=]+"[^"]*"|\b(?:o|oracle)[:<>=]+\S+/gi,
+    price_max: /\$<\S+/gi,
+    price_min: /\$>\S+/gi,
+  };
+  const pat = patterns[filterKey];
+  if (!pat) return search;
+  return search.replace(pat, "").replace(/\s+/g, " ").trim();
+}
+
 const DeckInput = forwardRef(function DeckInput({ decklist, setDecklist, addCard, notify, filter, setFilter, locked }, ref) {
   const [showText, setShowText] = useState(false);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const inputRef = useRef(null);
 
   async function doSearch() {
     const q = search.trim();
@@ -59,18 +99,32 @@ const DeckInput = forwardRef(function DeckInput({ decklist, setDecklist, addCard
     }
   }
 
+  function insertChip(prefix) {
+    const hasPrefix = search.toLowerCase().includes(prefix.toLowerCase());
+    if (hasPrefix) return;
+    setSearch((s) => `${s.trim()} ${prefix}`.trim());
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }
+
+  function dismissFilter(key) {
+    setSearch((s) => removeFilter(s, key));
+  }
+
+  const active = activeFilters(search);
+
   return (
     <div className="deck-input" ref={ref}>
       {!locked && (
         <>
           <div className="deck-input-bar">
             <input
+              ref={inputRef}
               className="deck-input-field"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && doSearch()}
               placeholder='Search… e.g. "Sol Ring" or t:creature c:green cmc<4'
-              aria-label="Search cards to add (supports t: c: cmc: o: syntax)"
+              aria-label="Search cards to add"
             />
             <button className="ghost small" onClick={doSearch} disabled={searching}>
               {searching ? "…" : "Search"}
@@ -101,10 +155,30 @@ const DeckInput = forwardRef(function DeckInput({ decklist, setDecklist, addCard
             </div>
           )}
 
-          <div className="deck-input-row2">
-            <div className="deck-input-syntax-hint muted small">
-              Filters: <code>t:</code>type <code>c:</code>color <code>cmc:</code>mana value <code>o:</code>oracle text <code>$&lt;</code>price
-            </div>
+          {/* Filter chips row */}
+          <div className="filter-chips-row">
+            {FILTER_CHIPS.map((chip) => (
+              <button
+                key={chip.prefix}
+                className={`filter-chip${search.toLowerCase().includes(chip.prefix.toLowerCase()) ? " active" : ""}`}
+                onClick={() => insertChip(chip.prefix)}
+                title={chip.example}
+              >
+                {chip.label}
+              </button>
+            ))}
+
+            {/* Active filter indicators */}
+            {active.map((f) => (
+              <span key={f.key} className="filter-active-tag">
+                {f.label}
+                <button className="filter-active-x" onClick={() => dismissFilter(f.key)} aria-label={`Remove ${f.label}`}>✕</button>
+              </span>
+            ))}
+
+            {active.length > 0 && (
+              <button className="filter-chip clear" onClick={() => setSearch("")}>Clear all</button>
+            )}
           </div>
         </>
       )}
