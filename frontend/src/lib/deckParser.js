@@ -62,8 +62,26 @@ function _colorBucket(colorIdentity, typeLine) {
   return COLOR_NAMES[ci[0]] || "Colorless";
 }
 
-// Generic grouping by mode: "type" | "role" | "cmc" | "color".
-// metaMap: name -> { type_line, roles, cmc, color_identity }
+const RARITY_ORDER = ["Mythic", "Rare", "Uncommon", "Common", "Special", "Other"];
+const PRICE_BUCKETS = [
+  [0, 0.5, "Under $0.50"],
+  [0.5, 2, "$0.50 – $2"],
+  [2, 5, "$2 – $5"],
+  [5, 15, "$5 – $15"],
+  [15, 50, "$15 – $50"],
+  [50, Infinity, "$50+"],
+];
+
+function _priceBucket(price) {
+  if (price == null) return "No price";
+  for (const [lo, hi, label] of PRICE_BUCKETS) {
+    if (price >= lo && price < hi) return label;
+  }
+  return "No price";
+}
+
+// Generic grouping by mode: "type" | "role" | "cmc" | "color" | "rarity" | "price".
+// metaMap: name -> { type_line, roles, cmc, color_identity, rarity, price_usd }
 export function groupCards(cards, mode, metaMap) {
   if (mode === "type") {
     return groupByMtgType(cards, Object.fromEntries(
@@ -83,6 +101,11 @@ export function groupCards(cards, mode, metaMap) {
       bucket = (m.type_line || "").toLowerCase().includes("land") ? "Lands" : `MV ${c >= 7 ? "7+" : c}`;
     } else if (mode === "color") {
       bucket = _colorBucket(m.color_identity, m.type_line);
+    } else if (mode === "rarity") {
+      const r = (m.rarity || "common");
+      bucket = r.charAt(0).toUpperCase() + r.slice(1);
+    } else if (mode === "price") {
+      bucket = _priceBucket(m.price_usd);
     } else {
       bucket = "Other";
     }
@@ -93,7 +116,9 @@ export function groupCards(cards, mode, metaMap) {
   let order;
   if (mode === "color") order = COLOR_ORDER;
   else if (mode === "cmc") order = ["MV 0", "MV 1", "MV 2", "MV 3", "MV 4", "MV 5", "MV 6", "MV 7+", "Lands"];
-  else order = null; // role: alphabetical by group name
+  else if (mode === "rarity") order = RARITY_ORDER;
+  else if (mode === "price") order = PRICE_BUCKETS.map(([,, l]) => l).concat(["No price"]);
+  else order = null;
 
   const keys = order
     ? order.filter((k) => groups[k])

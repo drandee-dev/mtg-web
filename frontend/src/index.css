@@ -291,6 +291,53 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   min-height: auto;
 }
 .accordion-row:hover { background: rgba(255,255,255,.04); border-color: var(--border-strong); }
+.accordion-row.active { background: var(--accent-soft); border-color: var(--accent); }
+
+/* Inline accordion panel content */
+.acc-item { display: flex; flex-direction: column; }
+.acc-panel {
+  border: 1px solid var(--border); border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  background: var(--bg-raised);
+  max-height: 320px; overflow-y: auto;
+  margin-bottom: .2rem;
+}
+.acc-panel-body { padding: .4rem .5rem; }
+
+/* Rec rows */
+.acc-rec-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: .3rem; padding: .2rem 0; border-bottom: 1px solid var(--border);
+}
+.acc-rec-row:last-child { border-bottom: none; }
+.acc-rec-info { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Combo rows */
+.acc-combo-row {
+  display: flex; align-items: center; gap: .3rem; flex-wrap: wrap;
+  padding: .2rem 0; border-bottom: 1px solid var(--border);
+}
+.acc-combo-row:last-child { border-bottom: none; }
+
+/* Composition grid */
+.acc-comp-grid { display: flex; flex-direction: column; gap: .15rem; }
+.acc-comp-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: .15rem 0; border-bottom: 1px solid var(--border);
+}
+.acc-comp-row:last-child { border-bottom: none; }
+
+/* Swap rows */
+.acc-swap-row {
+  display: flex; align-items: center; justify-content: space-between; gap: .3rem;
+  padding: .25rem 0; border-bottom: 1px solid var(--border);
+}
+.acc-swap-row:last-child { border-bottom: none; }
+
+/* Compact draw odds (sidebar) */
+.draw-odds-grid.compact { grid-template-columns: 1fr 1fr; gap: .3rem; }
+.draw-odds-grid.compact label { font-size: .7rem; }
+.draw-odds-grid.compact input { min-height: 30px; padding: .3rem .4rem; font-size: .8rem; }
 .accordion-row.active {
   background: var(--accent-soft); border-color: var(--accent);
   order: -1;
@@ -527,6 +574,21 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .deck-lock-btn.locked {
   background: var(--accent-soft); border-color: var(--accent);
 }
+
+/* ── Mobile FAB (add card) ── */
+.deck-fab {
+  display: none;
+  position: fixed; z-index: 48;
+  bottom: 5rem; right: 1rem;
+  width: 50px; height: 50px; border-radius: 50%;
+  background: var(--accent); color: #1a1206; border: none;
+  font-size: 1.6rem; font-weight: 700; line-height: 1;
+  box-shadow: 0 4px 16px rgba(201,138,58,.4);
+  align-items: center; justify-content: center;
+  cursor: pointer; transition: transform .15s, box-shadow .15s;
+  padding: 0; min-height: auto;
+}
+.deck-fab:hover { transform: scale(1.1); box-shadow: 0 6px 24px rgba(201,138,58,.5); }
 
 /* ── Bottom nav (mobile) ── */
 .bottom-nav {
@@ -927,6 +989,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .toast { bottom: 4.5rem; }
   .planeswalker-btn { bottom: 4.5rem; }
   .feedback-btn { bottom: 4.5rem; }
+  .deck-fab { display: flex; }
   .deck-layout { grid-template-columns: 1fr; }
   .deck-layout-3col { grid-template-columns: 1fr; }
   .cmdr-col { position: static; display: flex; gap: .75rem; align-items: flex-start; margin-bottom: .75rem; }

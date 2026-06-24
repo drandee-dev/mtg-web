@@ -124,6 +124,7 @@ def card_image(name: str) -> dict[str, Any]:
         "color_identity": rec.get("color_identity", []),
         "cmc": rec.get("cmc", 0),
         "price_usd": extract_price(rec),
+        "rarity": (rec.get("rarity") or "common").lower(),
         "roles": _classify_roles(rec),
     }
 

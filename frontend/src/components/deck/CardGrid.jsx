@@ -28,6 +28,8 @@ const GROUPS = [
   { id: "role", label: "Role" },
   { id: "cmc", label: "Mana value" },
   { id: "color", label: "Color" },
+  { id: "rarity", label: "Rarity" },
+  { id: "price", label: "Price range" },
 ];
 
 function deckCompleteness(totalCards, commander, format) {
@@ -109,6 +111,7 @@ export default function CardGrid({ decklist, commander, format, filter, onRemove
           cmc: d?.cmc ?? 0,
           color_identity: d?.color_identity || [],
           price_usd: d?.price_usd ?? null,
+          rarity: d?.rarity || "common",
         };
       }
       setMetaMap(meta);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { forwardRef, useState } from "react";
 import { api } from "../../lib/api";
 
 // Parse Archidekt-style search syntax into API params.
@@ -37,7 +37,7 @@ function parseSearch(raw) {
   return params;
 }
 
-export default function DeckInput({ decklist, setDecklist, addCard, notify, filter, setFilter, locked }) {
+const DeckInput = forwardRef(function DeckInput({ decklist, setDecklist, addCard, notify, filter, setFilter, locked }, ref) {
   const [showText, setShowText] = useState(false);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
@@ -60,7 +60,7 @@ export default function DeckInput({ decklist, setDecklist, addCard, notify, filt
   }
 
   return (
-    <div className="deck-input">
+    <div className="deck-input" ref={ref}>
       {!locked && (
         <>
           <div className="deck-input-bar">
@@ -135,4 +135,6 @@ export default function DeckInput({ decklist, setDecklist, addCard, notify, filt
       )}
     </div>
   );
-}
+});
+
+export default DeckInput;

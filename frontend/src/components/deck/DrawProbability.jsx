@@ -23,7 +23,7 @@ function hyperAtLeast(N, K, draws, atLeast) {
   return Math.max(0, Math.min(1, p));
 }
 
-export default function DrawProbability({ result, commander, format }) {
+export default function DrawProbability({ result, commander, format, compact }) {
   const isCmdr = format === "commander" || format === "paupercommander";
   const landCount = result?.stats?.land_count ?? 0;
   const totalCards = result?.total_cards ?? (isCmdr ? 100 : 60);
@@ -49,12 +49,12 @@ export default function DrawProbability({ result, commander, format }) {
   );
 
   return (
-    <div className="panel">
-      <h3>Draw Probability</h3>
+    <div className={compact ? "" : "panel"}>
+      {!compact && <h3>Draw Probability</h3>}
       <p className="muted small">
         Hypergeometric odds of drawing your target cards by a given turn.
       </p>
-      <div className="draw-odds-grid">
+      <div className={compact ? "draw-odds-grid compact" : "draw-odds-grid"}>
         <label>Library size
           <input type="number" min="1" value={deckSize}
             onChange={(e) => setDeckSize(Math.max(1, +e.target.value || 1))} />
