@@ -57,7 +57,7 @@ function DeckHero({ deck, meta, onOpen, onDelete, onRename, onExport, notify }) 
   );
 }
 
-export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onNewDeck, notify, refresh }) {
+export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onNewDeck, onGuidedBuild, notify, refresh }) {
   const [importText, setImportText] = useState("");
   const [importName, setImportName] = useState("");
   const [importFormat, setImportFormat] = useState("commander");
@@ -162,6 +162,11 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
         </div>
         <div className="row" style={{ gap: ".4rem" }}>
           {onNewDeck && <button className="primary" onClick={onNewDeck}>+ New Deck</button>}
+          {onGuidedBuild && (
+            <button className="ghost small" onClick={onGuidedBuild} style={{ borderColor: "var(--accent)" }}>
+              ✨ Guided Build
+            </button>
+          )}
           <button className="ghost small" onClick={() => setShowImport(!showImport)}>Import</button>
           <button className="ghost small" onClick={refresh}>Refresh</button>
         </div>
@@ -194,7 +199,12 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
       {decks.length === 0 && !showImport && (
         <div style={{ textAlign: "center", padding: "3rem 1rem" }}>
           <p className="muted">No decks yet.</p>
-          <p className="muted small">Create a new deck or import one to get started.</p>
+          <p className="muted small">Create a new deck, use Guided Build, or import one to get started.</p>
+          {onGuidedBuild && (
+            <button className="primary" onClick={onGuidedBuild} style={{ marginTop: ".75rem" }}>
+              ✨ Guided Build
+            </button>
+          )}
         </div>
       )}
 

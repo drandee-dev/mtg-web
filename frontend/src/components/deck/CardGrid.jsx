@@ -34,15 +34,14 @@ function deckCompleteness(totalCards, commander, format) {
   if (isCmdr) {
     const cmdrCount = commander ? commander.split(" && ").filter(Boolean).length : 0;
     const total = totalCards + cmdrCount;
-    const status = total === 100 ? "good" : "warn";
+    const status = total > 100 ? "bad" : total === 100 ? "good" : "warn";
     return { label: `${total} / 100`, status, title: "Commander decks are exactly 100 cards" };
   }
-  // Constructed: 60-card minimum
   const status = totalCards >= 60 ? "good" : "warn";
   return { label: `${totalCards} / 60+`, status, title: "Constructed decks are a 60-card minimum" };
 }
 
-export default function CardGrid({ decklist, commander, format, onRemove, notify }) {
+export default function CardGrid({ decklist, commander, format, filter, onRemove, notify }) {
   const [viewMode, setViewMode] = useState(
     () => localStorage.getItem("mtgweb:viewMode") || "grid"
   );
@@ -128,10 +127,14 @@ export default function CardGrid({ decklist, commander, format, onRemove, notify
     return sorted;
   }, [sortBy, metaMap]);
 
+  const filteredCards = filter
+    ? cards.filter((c) => c.name.toLowerCase().includes(filter.toLowerCase()))
+    : cards;
+
   const rawGroups = Object.keys(metaMap).length > 0
-    ? groupCards(cards, groupBy, metaMap)
-    : cards.length > 0
-      ? { "All Cards": cards }
+    ? groupCards(filteredCards, groupBy, metaMap)
+    : filteredCards.length > 0
+      ? { "All Cards": filteredCards }
       : {};
   const groups = Object.fromEntries(
     Object.entries(rawGroups).map(([type, list]) => [type, sortCards(list)])

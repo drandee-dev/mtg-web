@@ -1,5 +1,24 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, assembleDecklist } from "../lib/api";
+
+const CHIBI_ART = [
+  "https://cards.scryfall.io/art_crop/front/e/b/ebbfc1b2-2407-4079-a847-6bb6b9a2c9de.jpg",
+  "https://cards.scryfall.io/art_crop/front/4/f/4fe22cd8-31e6-491b-bce2-db257668eb92.jpg",
+  "https://cards.scryfall.io/art_crop/front/b/a/ba48c787-a444-4e15-bab7-39994a6e23e7.jpg",
+  "https://cards.scryfall.io/art_crop/front/d/d/dd6f76d4-a2b3-40e5-b6a7-b27c42caf615.jpg",
+  "https://cards.scryfall.io/art_crop/front/7/4/7427e78c-4881-42bd-930c-39aae324fc58.jpg",
+  "https://cards.scryfall.io/art_crop/front/d/0/d05b3f79-74d0-4756-b7e7-1cd17685bbb7.jpg",
+  "https://cards.scryfall.io/art_crop/front/9/7/97f8d1ca-bc82-453a-b237-ef75ce027b8f.jpg",
+  "https://cards.scryfall.io/art_crop/front/f/b/fbbd5627-2f55-4101-981b-49f5f45db578.jpg",
+  "https://cards.scryfall.io/art_crop/front/6/3/63e3de28-d6e9-4f27-a544-0434fb4b55bb.jpg",
+  "https://cards.scryfall.io/art_crop/front/0/0/000db964-719d-4532-9225-35658565b35d.jpg",
+  "https://cards.scryfall.io/art_crop/front/f/a/fa553e54-e6aa-499b-ac48-0cdbf6c37734.jpg",
+  "https://cards.scryfall.io/art_crop/front/5/6/5662d0a5-3222-4ab9-9e15-f06477730b75.jpg",
+  "https://cards.scryfall.io/art_crop/front/1/d/1df8d25e-e519-4197-aa8e-ec596cb2a2d8.jpg",
+  "https://cards.scryfall.io/art_crop/front/d/2/d25c3609-a200-4532-9df8-8e92c24544bc.jpg",
+  "https://cards.scryfall.io/art_crop/front/5/2/5284b87f-d249-43c2-a198-dd03e961bedb.jpg",
+  "https://cards.scryfall.io/art_crop/front/8/a/8a2813cb-c73c-4a50-b278-2f13deb71773.jpg",
+];
 
 export default function Planeswalker({ decklist, commander, format, bracket, aiAvailable, serverStatus, addCard, addToConsidering, removeCard, notify }) {
   const [open, setOpen] = useState(false);
@@ -7,6 +26,7 @@ export default function Planeswalker({ decklist, commander, format, bracket, aiA
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef(null);
+  const chibiArt = useMemo(() => CHIBI_ART[Math.floor(Math.random() * CHIBI_ART.length)], []);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -80,7 +100,7 @@ export default function Planeswalker({ decklist, commander, format, bracket, aiA
     <>
       <button className="planeswalker-btn" onClick={() => setOpen(!open)}
         aria-label={open ? "Close Planeswalker assistant" : "Open Planeswalker assistant"}>
-        {open ? "✕" : "⚡"}
+        {open ? "✕" : <img src={chibiArt} alt="" className="pw-chibi" />}
       </button>
 
       {open && (

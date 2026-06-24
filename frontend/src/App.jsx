@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, supabaseEnabled } from "./lib/supabase";
 import { api, assembleDecklist, assembleForStorage, disassembleDecklist, setAccessToken } from "./lib/api";
 import { makeStore } from "./lib/store";
@@ -13,6 +13,42 @@ import Settings from "./components/Settings";
 import Feedback from "./components/Feedback";
 import Playtest from "./components/Playtest";
 import Planeswalker from "./components/Planeswalker";
+
+function ColdStartOverlay({ status, onRetry }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const offline = status === "offline";
+  return (
+    <div className={`cold-start-overlay${offline ? " offline" : ""}`} role="alert" aria-live="polite">
+      <div className="cold-start-smoke">
+        <span /><span /><span /><span />
+      </div>
+      <div className="cold-start-icon">⚡</div>
+      <div className="cold-start-text">
+        {offline ? "Server didn't respond" : "Summoning the server…"}
+      </div>
+      <div className="cold-start-sub">
+        {offline
+          ? "The server may be down. Tap below to try again."
+          : "Free-tier cold start — usually takes ~30 seconds"}
+      </div>
+      {!offline && (
+        <>
+          <div className="cold-start-bar"><div className="cold-start-bar-fill" /></div>
+          {elapsed >= 10 && (
+            <div className="cold-start-elapsed">{elapsed}s elapsed — still working</div>
+          )}
+        </>
+      )}
+      {offline && (
+        <button className="cold-start-retry" onClick={onRetry}>Retry connection</button>
+      )}
+    </div>
+  );
+}
 
 const TABS = [
   ["decks", "My Decks"],
@@ -65,6 +101,7 @@ export default function App() {
   const [currentDeck, setCurrentDeck] = useState(null);
 
   const savedDeckText = useRef(deckText);
+  const [startInWizard, setStartInWizard] = useState(false);
 
   const newDeck = useCallback(() => {
     setDeckText("");
@@ -73,6 +110,18 @@ export default function App() {
     setFormat("commander");
     setCurrentDeck(null);
     savedDeckText.current = "";
+    setStartInWizard(false);
+    setTab("deck");
+  }, []);
+
+  const guidedBuild = useCallback(() => {
+    setDeckText("");
+    setCommander("");
+    setMaybeboard("");
+    setFormat("commander");
+    setCurrentDeck(null);
+    savedDeckText.current = "";
+    setStartInWizard(true);
     setTab("deck");
   }, []);
 
@@ -241,17 +290,8 @@ export default function App() {
         Skip to content
       </a>
 
-      {(serverStatus === "waking" || serverStatus === "checking") && (
-        <div className="banner-waking" role="alert" aria-live="polite">
-          Server is waking up — first load takes ~30 seconds. Hang tight!
-        </div>
-      )}
-      {serverStatus === "offline" && (
-        <button className="banner-offline" style={{ width: "100%", border: "none", borderRadius: 0, minHeight: "auto", cursor: "pointer" }}
-          role="alert" aria-live="polite"
-          onClick={() => setHealthRetry((n) => n + 1)}>
-          Server didn't respond — tap to retry.
-        </button>
+      {(serverStatus === "waking" || serverStatus === "checking" || serverStatus === "offline") && (
+        <ColdStartOverlay status={serverStatus} onRetry={() => setHealthRetry((n) => n + 1)} />
       )}
 
       <AppHeader
@@ -297,6 +337,8 @@ export default function App() {
             onExport={exportCurrentDeck}
             onPlaytest={() => setPlaytesting(true)}
             onShare={shareDeck}
+            startInWizard={startInWizard}
+            onWizardConsumed={() => setStartInWizard(false)}
             notify={notify}
           />
         )}
@@ -309,6 +351,7 @@ export default function App() {
             onDelete={deleteDeck}
             onOpen={openDeck}
             onNewDeck={newDeck}
+            onGuidedBuild={guidedBuild}
             notify={notify}
             refresh={refresh}
           />

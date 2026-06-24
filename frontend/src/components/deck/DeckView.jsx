@@ -12,6 +12,35 @@ import DrawProbability from "./DrawProbability";
 import Maybeboard from "./Maybeboard";
 import { parseDeckText } from "../../lib/deckParser";
 
+const COLOR_COMBO_NAMES = {
+  "": "Colorless",
+  "W": "Mono-White", "U": "Mono-Blue", "B": "Mono-Black", "R": "Mono-Red", "G": "Mono-Green",
+  "WU": "Azorius", "WB": "Orzhov", "WR": "Boros", "WG": "Selesnya",
+  "UB": "Dimir", "UR": "Izzet", "UG": "Simic",
+  "BR": "Rakdos", "BG": "Golgari",
+  "RG": "Gruul",
+  "WUB": "Esper", "WUR": "Jeskai", "WUG": "Bant",
+  "WBR": "Mardu", "WBG": "Abzan", "WRG": "Naya",
+  "UBR": "Grixis", "UBG": "Sultai", "URG": "Temur",
+  "BRG": "Jund",
+  "WUBR": "Yore-Tiller", "WUBG": "Witch-Maw", "WURG": "Ink-Treader", "WBRG": "Dune-Brood", "UBRG": "Glint-Eye",
+  "WUBRG": "5-Color",
+};
+const WUBRG_ORDER = "WUBRG";
+function colorKey(colors) {
+  return WUBRG_ORDER.split("").filter((c) => colors.includes(c)).join("");
+}
+const COLOR_HEX = { W: "#f9faf4", U: "#0e68ab", B: "#150b00", R: "#d3202a", G: "#00733e" };
+
+const BRACKET_LABELS = {
+  1: "Precon",
+  2: "Core",
+  3: "Optimized",
+  4: "cEDH",
+};
+
+const BRACKET_URL = "https://mtgcommander.net/index.php/the-bracket-system/";
+
 const REC_CATEGORIES = [
   ["high_synergy", "High synergy"],
   ["top_cards", "Top cards"],
@@ -35,9 +64,17 @@ function comboPieces(cards = [], templates = []) {
 export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
   maybeboard, setMaybeboard,
-  deckName, onSave, onClone, onExport, onPlaytest, onShare, notify,
+  deckName, onSave, onClone, onExport, onPlaytest, onShare,
+  startInWizard, onWizardConsumed, notify,
 }) {
-  const [mode, setMode] = useState("manual");
+  const [mode, setMode] = useState(startInWizard ? "wizard" : "manual");
+
+  useEffect(() => {
+    if (startInWizard) {
+      setMode("wizard");
+      onWizardConsumed?.();
+    }
+  }, [startInWizard, onWizardConsumed]);
   const [result, setResult] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [recs, setRecs] = useState(null);
@@ -47,6 +84,7 @@ export default function DeckView({
   const [busy, setBusy] = useState("");
   const [cat, setCat] = useState("high_synergy");
   const [activePanel, setActivePanel] = useState(null);
+  const [deckFilter, setDeckFilter] = useState("");
   const [skipped, setSkipped] = useState(new Set());
   const [cmdrData, setCmdrData] = useState(null);
   const [maybeOpen, setMaybeOpen] = useState(false);
@@ -227,11 +265,31 @@ export default function DeckView({
               <div className="cmdr-col-card" style={{ aspectRatio: "488/680", background: "var(--panel-2)", borderRadius: "var(--radius-lg)" }} />
             )}
             <div className="cmdr-col-name">{commander.replace(" && ", " + ")}</div>
-            <div className="cmdr-col-type">{cmdrData?.type_line || ""}</div>
+            <div className="cmdr-col-type">
+              {result?.bracket?.bracket != null ? (
+                <a href={BRACKET_URL} target="_blank" rel="noopener noreferrer" className="bracket-link">
+                  Est. Bracket: {BRACKET_LABELS[result.bracket.bracket] || result.bracket.bracket} ({result.bracket.bracket})
+                </a>
+              ) : isCommanderFmt ? (
+                <span className="muted">Bracket: analyzing…</span>
+              ) : null}
+            </div>
             <div className="cmdr-col-badges">
-              {(cmdrData?.color_identity || []).map((c) => (
-                <span key={c} className={`pip pip-${c}`}>{c}</span>
-              ))}
+              {(() => {
+                const ci = cmdrData?.color_identity || [];
+                const key = colorKey(ci);
+                const name = COLOR_COMBO_NAMES[key];
+                const colors = WUBRG_ORDER.split("").filter((c) => ci.includes(c));
+                const grad = colors.length >= 2
+                  ? `linear-gradient(90deg, ${colors.map((c, i) => `${COLOR_HEX[c]} ${(i / (colors.length - 1)) * 100}%`).join(", ")})`
+                  : colors.length === 1 ? COLOR_HEX[colors[0]] : "var(--muted)";
+                return (
+                  <>
+                    <span className="color-swatch" style={{ background: grad }} />
+                    {name && <span className="color-combo-name">{name}</span>}
+                  </>
+                );
+              })()}
             </div>
             <div style={{ textAlign: "center", marginTop: ".5rem" }}>
               <button className="ghost small" onClick={() => setCommander("")} style={{ fontSize: ".75rem" }}>Change commander</button>
@@ -248,11 +306,14 @@ export default function DeckView({
             setDecklist={setDecklist}
             addCard={addCard}
             notify={notify}
+            filter={deckFilter}
+            setFilter={setDeckFilter}
           />
           <CardGrid
             decklist={decklist}
             commander={commander}
             format={format}
+            filter={deckFilter}
             onRemove={removeCard}
             notify={notify}
           />
@@ -384,12 +445,19 @@ export default function DeckView({
         <DeckSidebar
           result={result}
           isAnalyzing={isAnalyzing}
-          onAnalyze={analyze}
-          onRecommendations={() => loadPanel("Recommendations", api.recommend, setRecs)}
-          onCombos={() => loadPanel("Combos", api.combos, setCombos)}
-          onBudgetSwaps={() => loadPanel("Budget", api.budgetSwaps, setBudgetSwaps)}
-          onComposition={() => loadPanel("Composition", api.composition, setComp)}
-          onDrawOdds={() => setActivePanel(activePanel === "DrawOdds" ? null : "DrawOdds")}
+          activePanel={activePanel}
+          busy={busy}
+          onPanelClick={(id) => {
+            if (activePanel === id) { setActivePanel(null); return; }
+            if (id === "DrawOdds") { setActivePanel("DrawOdds"); return; }
+            const map = {
+              Recommendations: [api.recommend, setRecs],
+              Combos: [api.combos, setCombos],
+              Composition: [api.composition, setComp],
+              Budget: [api.budgetSwaps, setBudgetSwaps],
+            };
+            if (map[id]) loadPanel(id, ...map[id]);
+          }}
         />
       </div>
 

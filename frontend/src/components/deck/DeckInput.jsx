@@ -37,7 +37,7 @@ function parseSearch(raw) {
   return params;
 }
 
-export default function DeckInput({ decklist, setDecklist, addCard, notify }) {
+export default function DeckInput({ decklist, setDecklist, addCard, notify, filter, setFilter }) {
   const [showText, setShowText] = useState(false);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
@@ -99,8 +99,23 @@ export default function DeckInput({ decklist, setDecklist, addCard, notify }) {
         </div>
       )}
 
-      <div className="deck-input-syntax-hint muted small">
-        Filters: <code>t:</code>type <code>c:</code>color <code>cmc:</code>mana value <code>o:</code>oracle text <code>$&lt;</code>price
+      <div className="deck-input-row2">
+        <div className="deck-input-syntax-hint muted small">
+          Filters: <code>t:</code>type <code>c:</code>color <code>cmc:</code>mana value <code>o:</code>oracle text <code>$&lt;</code>price
+        </div>
+        <div className="deck-filter-bar">
+          <input
+            className="deck-filter-field"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Filter deck…"
+            aria-label="Filter cards in deck by name"
+          />
+          {filter && (
+            <button className="ghost small" onClick={() => setFilter("")} aria-label="Clear filter"
+              style={{ padding: ".15rem .35rem", minHeight: "auto", fontSize: ".7rem" }}>✕</button>
+          )}
+        </div>
       </div>
 
       {showText && (

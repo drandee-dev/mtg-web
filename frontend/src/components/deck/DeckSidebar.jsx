@@ -13,8 +13,8 @@ function statusBadge(status) {
 }
 
 export default function DeckSidebar({
-  result, isAnalyzing, onAnalyze,
-  onRecommendations, onCombos, onBudgetSwaps, onComposition, onDrawOdds,
+  result, isAnalyzing,
+  activePanel, onPanelClick, busy,
 }) {
   const s = result?.stats || {};
   const mana = result?.mana || {};
@@ -32,7 +32,7 @@ export default function DeckSidebar({
           <Stat k="Lands" v={s.land_count} />
           <Stat k="Avg CMC" v={s.avg_cmc} />
           <Stat k="Price" v={price != null ? `$${price.toFixed(2)}` : "—"}
-            sub={bd.prices_as_of ? `as of ${bd.prices_as_of}` : null} />
+            title={bd.prices_as_of ? `Prices as of ${bd.prices_as_of}` : null} />
         </div>
       </div>
 
@@ -97,18 +97,25 @@ export default function DeckSidebar({
         </details>
       )}
 
-      {/* Action buttons */}
-      <div className="sidebar-section sidebar-actions">
-        <button className="primary" onClick={onAnalyze} disabled={isAnalyzing} style={{ width: "100%" }}>
-          {isAnalyzing ? "Analyzing…" : result ? "Refresh Analysis" : "Analyze"}
-        </button>
-        <div style={{ display: "flex", flexDirection: "column", gap: ".3rem", marginTop: ".5rem" }}>
-          {onRecommendations && <button className="ghost small" onClick={onRecommendations}>Recommendations</button>}
-          {onCombos && <button className="ghost small" onClick={onCombos}>Find Combos</button>}
-          {onBudgetSwaps && <button className="ghost small" onClick={onBudgetSwaps}>Budget Swaps</button>}
-          {onComposition && <button className="ghost small" onClick={onComposition}>Check Composition</button>}
-          {onDrawOdds && <button className="ghost small" onClick={onDrawOdds}>Draw Odds</button>}
-        </div>
+      {/* Action accordion */}
+      <div className="sidebar-section sidebar-accordion">
+        {[
+          ["Recommendations", "Recommendations"],
+          ["Combos", "Find Combos"],
+          ["Composition", "Composition"],
+          ["Budget", "Budget Swaps"],
+          ["DrawOdds", "Draw Odds"],
+        ].map(([id, label]) => (
+          <button
+            key={id}
+            className={`accordion-row ${activePanel === id ? "active" : ""}`}
+            onClick={() => onPanelClick(id)}
+            disabled={busy === id}
+          >
+            <span>{busy === id ? `Loading…` : label}</span>
+            <span className={`accordion-chevron ${activePanel === id ? "open" : ""}`}>▾</span>
+          </button>
+        ))}
       </div>
 
       <LoadingIndicator label="Analyzing deck" active={isAnalyzing} />
@@ -182,12 +189,11 @@ function ManaBase({ mana }) {
   );
 }
 
-function Stat({ k, v, sub }) {
+function Stat({ k, v, title }) {
   return (
-    <div className="stat">
+    <div className="stat" title={title || undefined}>
       <div className="k">{k}</div>
       <div className="v">{v ?? "—"}</div>
-      {sub && <div className="muted small">{sub}</div>}
     </div>
   );
 }
