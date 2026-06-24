@@ -125,22 +125,87 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .badge.bad { color: var(--bad); background: var(--bad-soft); }
 
 /* App shell */
-.app { width: min(95vw, 2100px); margin: 0 auto; padding: 0 1.5rem 5rem; }
-header.app-header {
-  position: sticky; top: 0; z-index: 5;
-  background: rgba(12,13,17,.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-  padding: .65rem 0; display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+.app { width: min(95vw, 2100px); margin: 0 auto; padding: 3.2rem 1.5rem 5rem; }
+
+/* ── Global toolbar (Archidekt-style) ── */
+.global-toolbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  height: 3rem;
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(12,13,17,.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
+  padding: 0 1rem;
+  gap: .5rem;
 }
+
+/* Left: brand */
+.gt-left { display: flex; align-items: center; flex: none; }
+.gt-brand {
+  display: flex; align-items: center; gap: .45rem;
+  background: transparent; border: none; padding: .25rem .4rem;
+  cursor: pointer; min-height: auto; color: var(--text);
+}
+.gt-brand:hover { background: rgba(255,255,255,.05); border-radius: var(--radius); }
+.gt-logo-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 8px rgba(201,138,58,.4);
+  flex: none;
+}
+.gt-logo-text { font-weight: 700; font-size: .9rem; letter-spacing: -.01em; white-space: nowrap; }
+
+/* Center: nav tabs */
+.gt-nav {
+  display: flex; align-items: center; gap: .1rem;
+  position: absolute; left: 50%; transform: translateX(-50%);
+}
+.gt-tab {
+  background: transparent; border: none; border-bottom: 2px solid transparent;
+  border-radius: 0; padding: .5rem .7rem; min-height: auto;
+  color: var(--muted); font-size: .82rem; font-weight: 500; white-space: nowrap;
+  transition: color .15s, border-color .15s;
+}
+.gt-tab:hover { color: var(--text-secondary); background: transparent; border-color: transparent; }
+.gt-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+/* Right: user + hamburger */
+.gt-right { display: flex; align-items: center; gap: .4rem; flex: none; }
+.gt-user-wrap { position: relative; }
+.gt-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--panel-2); border: 1px solid var(--border);
+  color: var(--text-secondary); font-size: .65rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; min-height: auto; min-width: auto; cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.gt-avatar:hover { border-color: var(--accent); background: var(--accent-soft); }
+.gt-user-pop {
+  position: absolute; right: 0; top: calc(100% + 6px);
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-md); padding: .5rem .7rem;
+  min-width: 180px; z-index: 60;
+  display: flex; flex-direction: column; gap: .3rem;
+  animation: fadeSlideIn .12s ease-out;
+}
+.gt-user-label { font-size: .78rem; color: var(--text-secondary); word-break: break-all; }
+.gt-cloud-badge { font-size: .72rem; color: var(--good); font-weight: 500; }
+
+/* Hamburger — mobile only */
+.gt-hamburger {
+  display: none; background: transparent; border: none;
+  padding: .4rem; min-height: 44px; min-width: 44px;
+  flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  cursor: pointer;
+}
+.gt-hamburger-bar {
+  display: block; width: 18px; height: 2px;
+  background: var(--text); border-radius: 1px;
+  transition: transform .2s, opacity .2s;
+}
+
+/* Legacy .brand (used in hamburger drawer header) */
 .brand { display: flex; align-items: center; gap: .5rem; font-weight: 700; font-size: .95rem; letter-spacing: -.01em; }
 .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px rgba(201,138,58,.4); }
-
-/* Hamburger button — hidden on desktop, visible on mobile */
-.hamburger-btn {
-  display: none; background: transparent; border: none; color: var(--text);
-  font-size: 1.4rem; padding: .4rem; min-height: 44px; min-width: 44px;
-  align-items: center; justify-content: center;
-}
 
 /* Hamburger drawer */
 .drawer-overlay {
@@ -200,8 +265,8 @@ header.app-header {
 
 /* Deck sidebar */
 .deck-sidebar {
-  position: sticky; top: 6.5rem;
-  max-height: calc(100vh - 7rem); overflow-y: auto;
+  position: sticky; top: 4rem;
+  max-height: calc(100vh - 4.5rem); overflow-y: auto;
 }
 .sidebar-section { margin-bottom: .4rem; }
 .sidebar-section summary {
@@ -430,16 +495,7 @@ header.app-header {
 }
 .deck-input-result:hover .deck-input-result-add { opacity: 1; }
 
-/* Tab nav */
-nav.tabs { display: flex; gap: .15rem; overflow-x: auto; padding: .4rem 0; }
-nav.tabs button {
-  border: none; background: transparent; color: var(--muted);
-  border-bottom: 2px solid transparent; border-radius: 0; padding: .45rem .7rem;
-  white-space: nowrap; transition: color .15s, border-color .15s;
-  font-weight: 500; font-size: .875rem;
-}
-nav.tabs button:hover { color: var(--text-secondary); background: transparent; border-color: transparent; }
-nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+/* (Tab nav merged into GlobalToolbar — .gt-nav / .gt-tab above) */
 
 .results-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
 .results-table th, .results-table td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
@@ -462,6 +518,82 @@ nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent);
   border-radius: var(--radius); z-index: 20; max-width: 90vw;
   box-shadow: var(--shadow-lg); backdrop-filter: blur(8px); font-size: .85rem; font-weight: 500; }
 
+/* ── Deck lock button ── */
+.deck-lock-btn {
+  min-height: 34px; min-width: 34px; padding: 0; font-size: 1rem;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius); transition: background .15s, border-color .15s;
+}
+.deck-lock-btn.locked {
+  background: var(--accent-soft); border-color: var(--accent);
+}
+
+/* ── Bottom nav (mobile) ── */
+.bottom-nav {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 49;
+  height: 3.5rem;
+  background: rgba(12,13,17,.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  align-items: stretch; justify-content: space-around;
+  padding: 0 .25rem; padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.bn-tab {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .1rem; background: transparent; border: none; border-radius: 0;
+  color: var(--muted); padding: .25rem 0; min-height: auto; cursor: pointer;
+  transition: color .15s;
+}
+.bn-tab.active { color: var(--accent); }
+.bn-tab:hover { color: var(--text-secondary); background: transparent; }
+.bn-icon { font-size: 1.1rem; line-height: 1; }
+.bn-label { font-size: .6rem; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; }
+
+/* ── Bottom sheet (mobile card detail) ── */
+.bs-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.5);
+  backdrop-filter: blur(4px); z-index: 200;
+}
+.bs-sheet {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 201;
+  background: var(--panel); border-top: 1px solid var(--border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  max-height: 70vh; overflow-y: auto;
+  box-shadow: 0 -8px 30px rgba(0,0,0,.5);
+  animation: slideUp .25s ease-out;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.bs-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,.2); margin: .5rem auto;
+}
+.bs-content {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 0 1rem 1rem; gap: .6rem;
+}
+.bs-card-img {
+  width: 220px; border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
+}
+.bs-card-placeholder {
+  width: 220px; aspect-ratio: 488/680; background: var(--panel-2);
+  border-radius: var(--radius-lg); display: flex; align-items: center;
+  justify-content: center; color: var(--muted);
+}
+.bs-info { text-align: center; }
+.bs-name { margin: 0; font-size: 1rem; font-weight: 700; }
+.bs-type { margin: .1rem 0; }
+.bs-oracle {
+  margin: .2rem 0; max-height: 6rem; overflow-y: auto;
+  font-style: italic; color: var(--text-secondary);
+}
+.bs-actions {
+  display: flex; gap: .4rem; justify-content: center; flex-wrap: wrap;
+  padding-top: .3rem; border-top: 1px solid var(--border); width: 100%;
+}
 
 /* MTG color identity (WUBRG) — brightened for a dark background */
 :root {
@@ -786,11 +918,15 @@ nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent);
 .wizard-split { display: block; }
 .wizard-left, .wizard-right { display: none; }
 
-/* Responsive: mobile (<700px) — hamburger, single column */
+/* Responsive: mobile (<700px) — bottom nav, single column */
 @media (max-width: 699px) {
-  .app { padding: 0 .75rem 5rem; }
-  .hamburger-btn { display: flex; }
-  nav.tabs { display: none; }
+  .app { padding: 3.2rem .75rem 5.5rem; }
+  .gt-nav { display: none; }
+  .gt-hamburger { display: none; }
+  .bottom-nav { display: flex; }
+  .toast { bottom: 4.5rem; }
+  .planeswalker-btn { bottom: 4.5rem; }
+  .feedback-btn { bottom: 4.5rem; }
   .deck-layout { grid-template-columns: 1fr; }
   .deck-layout-3col { grid-template-columns: 1fr; }
   .cmdr-col { position: static; display: flex; gap: .75rem; align-items: flex-start; margin-bottom: .75rem; }
@@ -824,7 +960,6 @@ nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent);
 @media (min-width: 700px) {
   h1 { font-size: 1.5rem; }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
-  nav.tabs button { padding: .5rem .9rem; }
   .wizard-split { display: grid; grid-template-columns: 1fr 320px; gap: .8rem; align-items: start; }
   .wizard-left, .wizard-right { display: block !important; }
 }

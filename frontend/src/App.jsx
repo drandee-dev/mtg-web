@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase, supabaseEnabled } from "./lib/supabase";
 import { api, assembleDecklist, assembleForStorage, disassembleDecklist, setAccessToken } from "./lib/api";
 import { makeStore } from "./lib/store";
-import AppHeader from "./components/layout/AppHeader";
-import NavBar from "./components/layout/NavBar";
+import GlobalToolbar from "./components/layout/GlobalToolbar";
+import BottomNav from "./components/layout/BottomNav";
 import HamburgerMenu from "./components/layout/HamburgerMenu";
 import DeckView from "./components/deck/DeckView";
 import MyDecks from "./components/MyDecks";
@@ -294,14 +294,15 @@ export default function App() {
         <ColdStartOverlay status={serverStatus} onRetry={() => setHealthRetry((n) => n + 1)} />
       )}
 
-      <AppHeader
+      <GlobalToolbar
+        tabs={TABS}
+        tab={tab}
+        setTab={setTab}
         cloud={cloud}
         session={session}
         supabaseEnabled={supabaseEnabled}
         onMenuToggle={() => setMenuOpen(true)}
       />
-
-      <NavBar tabs={TABS} tab={tab} setTab={setTab} />
 
       <HamburgerMenu
         open={menuOpen}
@@ -362,6 +363,7 @@ export default function App() {
       </main>
 
       {toast && <div className="toast" role="status" aria-live="polite">{toast}</div>}
+      <BottomNav tabs={TABS} tab={tab} setTab={setTab} />
       <Planeswalker
         decklist={deckText}
         commander={commander}

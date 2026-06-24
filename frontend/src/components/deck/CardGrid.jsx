@@ -3,6 +3,7 @@ import { getCardImage } from "../../lib/api";
 import { parseDeckText, groupCards } from "../../lib/deckParser";
 import CardThumbnail from "./CardThumbnail";
 import CardListRow from "./CardListRow";
+import CardBottomSheet from "./CardBottomSheet";
 import ViewToggle from "./ViewToggle";
 import CardPreview from "../CardPreview";
 
@@ -280,8 +281,15 @@ export default function CardGrid({ decklist, commander, format, filter, onRemove
         </p>
       )}
 
-      {/* Full-size card preview modal */}
-      {previewCard && (
+      {/* Full-size card preview: bottom sheet on touch, modal on desktop */}
+      {previewCard && !canHover && (
+        <CardBottomSheet
+          name={previewCard}
+          onClose={closePreview}
+          onRemove={onRemove}
+        />
+      )}
+      {previewCard && canHover && (
         <div className="card-modal" onClick={closePreview} role="dialog" aria-modal="true" aria-label={previewCard}>
           <CardPreviewModal name={previewCard} />
         </div>

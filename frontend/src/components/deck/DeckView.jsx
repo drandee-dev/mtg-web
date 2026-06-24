@@ -89,6 +89,7 @@ export default function DeckView({
   const [cmdrData, setCmdrData] = useState(null);
   const [maybeOpen, setMaybeOpen] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
+  const [locked, setLocked] = useState(false);
   const debounceRef = useRef(null);
 
   const isCommanderFmt = format === "commander" || format === "paupercommander";
@@ -231,7 +232,15 @@ export default function DeckView({
         <div className="deck-toolbar-top">
           <h2 className="deck-title">{deckName || "Untitled deck"}</h2>
           <div className="row" style={{ gap: ".4rem", alignItems: "center" }}>
-            <select value={format} onChange={(e) => setFormat(e.target.value)} style={{ width: "auto" }}>
+            <button
+              className={`deck-lock-btn ghost small${locked ? " locked" : ""}`}
+              onClick={() => setLocked((l) => !l)}
+              aria-label={locked ? "Unlock deck for editing" : "Lock deck (view only)"}
+              title={locked ? "Unlock deck" : "Lock deck"}
+            >
+              {locked ? "🔒" : "🔓"}
+            </button>
+            <select value={format} onChange={(e) => setFormat(e.target.value)} style={{ width: "auto" }} disabled={locked}>
               {FORMATS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
             </select>
             <button onClick={() => setMode("wizard")} className="ghost small" style={{ borderColor: "var(--accent)" }}>
@@ -308,13 +317,14 @@ export default function DeckView({
             notify={notify}
             filter={deckFilter}
             setFilter={setDeckFilter}
+            locked={locked}
           />
           <CardGrid
             decklist={decklist}
             commander={commander}
             format={format}
             filter={deckFilter}
-            onRemove={removeCard}
+            onRemove={locked ? null : removeCard}
             notify={notify}
           />
 

@@ -37,7 +37,7 @@ function parseSearch(raw) {
   return params;
 }
 
-export default function DeckInput({ decklist, setDecklist, addCard, notify, filter, setFilter }) {
+export default function DeckInput({ decklist, setDecklist, addCard, notify, filter, setFilter, locked }) {
   const [showText, setShowText] = useState(false);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
@@ -61,48 +61,55 @@ export default function DeckInput({ decklist, setDecklist, addCard, notify, filt
 
   return (
     <div className="deck-input">
-      <div className="deck-input-bar">
-        <input
-          className="deck-input-field"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && doSearch()}
-          placeholder='Search… e.g. "Sol Ring" or t:creature c:green cmc<4'
-          aria-label="Search cards to add (supports t: c: cmc: o: syntax)"
-        />
-        <button className="ghost small" onClick={doSearch} disabled={searching}>
-          {searching ? "…" : "Search"}
-        </button>
-        <button
-          className="ghost small"
-          onClick={() => setShowText(!showText)}
-          aria-label={showText ? "Hide text editor" : "Show text editor"}
-        >
-          {showText ? "Hide text" : "Edit text"}
-        </button>
-      </div>
-
-      {results.length > 0 && (
-        <div className="deck-input-results">
-          {results.map((c) => (
-            <button
-              key={c.name}
-              className="deck-input-result"
-              onClick={() => { addCard(c.name); setResults((prev) => prev.filter((r) => r.name !== c.name)); }}
-            >
-              <span className="deck-input-result-name">{c.name}</span>
-              <span className="muted small">{c.type_line}</span>
-              {c.prices?.usd && <span className="muted small">${c.prices.usd}</span>}
-              <span className="deck-input-result-add">+ Add</span>
+      {!locked && (
+        <>
+          <div className="deck-input-bar">
+            <input
+              className="deck-input-field"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && doSearch()}
+              placeholder='Search… e.g. "Sol Ring" or t:creature c:green cmc<4'
+              aria-label="Search cards to add (supports t: c: cmc: o: syntax)"
+            />
+            <button className="ghost small" onClick={doSearch} disabled={searching}>
+              {searching ? "…" : "Search"}
             </button>
-          ))}
-        </div>
+            <button
+              className="ghost small"
+              onClick={() => setShowText(!showText)}
+              aria-label={showText ? "Hide text editor" : "Show text editor"}
+            >
+              {showText ? "Hide text" : "Edit text"}
+            </button>
+          </div>
+
+          {results.length > 0 && (
+            <div className="deck-input-results">
+              {results.map((c) => (
+                <button
+                  key={c.name}
+                  className="deck-input-result"
+                  onClick={() => { addCard(c.name); setResults((prev) => prev.filter((r) => r.name !== c.name)); }}
+                >
+                  <span className="deck-input-result-name">{c.name}</span>
+                  <span className="muted small">{c.type_line}</span>
+                  {c.prices?.usd && <span className="muted small">${c.prices.usd}</span>}
+                  <span className="deck-input-result-add">+ Add</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="deck-input-row2">
+            <div className="deck-input-syntax-hint muted small">
+              Filters: <code>t:</code>type <code>c:</code>color <code>cmc:</code>mana value <code>o:</code>oracle text <code>$&lt;</code>price
+            </div>
+          </div>
+        </>
       )}
 
-      <div className="deck-input-row2">
-        <div className="deck-input-syntax-hint muted small">
-          Filters: <code>t:</code>type <code>c:</code>color <code>cmc:</code>mana value <code>o:</code>oracle text <code>$&lt;</code>price
-        </div>
+      <div className={locked ? "deck-input-row2" : ""}>
         <div className="deck-filter-bar">
           <input
             className="deck-filter-field"
@@ -118,7 +125,7 @@ export default function DeckInput({ decklist, setDecklist, addCard, notify, filt
         </div>
       </div>
 
-      {showText && (
+      {!locked && showText && (
         <textarea
           value={decklist}
           onChange={(e) => setDecklist(e.target.value)}
