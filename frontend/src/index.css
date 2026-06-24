@@ -562,6 +562,11 @@ nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent);
   width: 130%; height: 130%; object-fit: cover; border-radius: 50%;
   pointer-events: none; object-position: center 30%;
 }
+.pw-header-chibi {
+  width: 30px; height: 30px; border-radius: 50%; object-fit: cover;
+  object-position: center 30%; border: 1.5px solid var(--border);
+  flex: none;
+}
 .planeswalker-panel {
   position: fixed; bottom: 4.5rem; right: 1rem; z-index: 950;
   width: min(420px, calc(100vw - 2rem)); height: min(500px, 60vh);

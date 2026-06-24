@@ -76,7 +76,8 @@ export function groupCards(cards, mode, metaMap) {
     const m = metaMap[card.name] || {};
     let bucket;
     if (mode === "role") {
-      bucket = (m.roles && m.roles[0]) || _typeBucket(m.type_line);
+      const firstRole = m.roles?.length > 0 ? m.roles[0] : null;
+      bucket = firstRole || _typeBucket(m.type_line);
     } else if (mode === "cmc") {
       const c = Math.floor(m.cmc ?? 0);
       bucket = (m.type_line || "").toLowerCase().includes("land") ? "Lands" : `MV ${c >= 7 ? "7+" : c}`;

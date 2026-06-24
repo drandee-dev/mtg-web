@@ -106,9 +106,12 @@ export default function Planeswalker({ decklist, commander, format, bracket, aiA
       {open && (
         <div className="planeswalker-panel">
           <div className="planeswalker-header">
-            <div>
-              <strong>Planeswalker</strong>
-              {commander && <span className="muted small" style={{ marginLeft: ".4rem" }}>{commander.replace(" && ", " + ")}</span>}
+            <div className="row" style={{ alignItems: "center", gap: ".45rem" }}>
+              <img src={chibiArt} alt="" className="pw-header-chibi" />
+              <div>
+                <strong>Planeswalker</strong>
+                {commander && <span className="muted small" style={{ marginLeft: ".4rem" }}>{commander.replace(" && ", " + ")}</span>}
+              </div>
             </div>
             <div className="row" style={{ gap: ".3rem" }}>
               <button className="ghost small" onClick={clearChat}>Clear</button>
