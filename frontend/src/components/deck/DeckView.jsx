@@ -91,6 +91,7 @@ export default function DeckView({
   const [suggesting, setSuggesting] = useState(false);
   const [locked, setLocked] = useState(false);
   const debounceRef = useRef(null);
+  const panelAreaRef = useRef(null);
 
   const isCommanderFmt = format === "commander" || format === "paupercommander";
 
@@ -192,6 +193,7 @@ export default function DeckView({
       const r = await fn(full, format);
       setter(r);
       if (r.note) notify?.(r.note);
+      setTimeout(() => panelAreaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
     } catch (e) {
       notify?.(`${kind} failed: ${e.message}`);
     } finally {
@@ -329,6 +331,7 @@ export default function DeckView({
           />
 
           {/* Expandable panels below card grid */}
+          <div ref={panelAreaRef} />
           {activePanel === "DrawOdds" && (
             <DrawProbability result={result} commander={commander} format={format} />
           )}
@@ -459,7 +462,11 @@ export default function DeckView({
           busy={busy}
           onPanelClick={(id) => {
             if (activePanel === id) { setActivePanel(null); return; }
-            if (id === "DrawOdds") { setActivePanel("DrawOdds"); return; }
+            if (id === "DrawOdds") {
+              setActivePanel("DrawOdds");
+              setTimeout(() => panelAreaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+              return;
+            }
             const map = {
               Recommendations: [api.recommend, setRecs],
               Combos: [api.combos, setCombos],
