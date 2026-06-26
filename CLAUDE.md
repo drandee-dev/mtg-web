@@ -40,12 +40,19 @@ When the task is unclear or has multiple interpretations — especially AI promp
 
 ### Design handoff review process
 When implementing from a design handoff (`.dc.html` prototypes, spec docs):
-1. Read all handoff files thoroughly before writing any code
+1. **Open the prototype HTML files in a browser first** — they are visual references, not just code to read. Screenshot each screen at each breakpoint (mobile 375px, tablet 768px, desktop 1280px+) and compare against the running app
 2. Cross-reference each spec item against existing code — identify what's already done vs. gaps
-3. Scan for security issues: `dangerouslySetInnerHTML` without sanitization, unsanitized user inputs in AI prompts
-4. Check for dead code from partial implementations (unused components, orphaned CSS classes)
-5. Verify backend endpoints and API client wrappers exist before building frontend features
-6. Prioritize: security fixes → missing features → design polish → cleanup
+3. **"Exists" does not mean "matches design"** — a component existing doesn't mean its rendered output matches the prototype. Always visually compare at every breakpoint before marking anything as done
+4. Scan for security issues: `dangerouslySetInnerHTML` without sanitization, unsanitized user inputs in AI prompts
+5. Check for dead code from partial implementations (unused components, orphaned CSS classes)
+6. Verify backend endpoints and API client wrappers exist before building frontend features
+7. Prioritize: security fixes → missing features → design polish → cleanup
+
+### CSS and data patterns (lessons learned)
+- **CSS base styles go BEFORE responsive media queries** — if `.foo { display: none }` appears after `@media { .foo { display: flex } }`, the base rule wins at equal specificity. Always define base/default styles first, overrides in media queries after
+- **Check data shapes before using them** — read existing components that consume the same data (e.g., `Curve.jsx` uses `Object.entries(stats.curve)` because it's an object, not an array). Never assume array vs. object
+- **Test every view mode at every breakpoint** — grid, stack, and list views must all be tested on mobile, tablet, and desktop. A view mode saved in localStorage persists across sessions and breakpoints
+- **Use Playwright to verify mobile rendering before pushing** — `npm run build` passing means zero about visual correctness. Render at 375×812 with `is_mobile: true` and screenshot before committing
 
 ### Verify before reporting done
 For multi-step tasks, state a brief plan with verification:
