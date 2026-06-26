@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRegisterSW } from "virtual:pwa-register/react";
 import { supabase, supabaseEnabled } from "./lib/supabase";
 import { api, assembleDecklist, assembleForStorage, disassembleDecklist, setAccessToken } from "./lib/api";
 import { makeStore } from "./lib/store";
@@ -111,6 +112,15 @@ export default function App() {
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [deckText]);
+
+  const {
+    needRefresh: [needRefresh, setNeedRefresh],
+    updateServiceWorker,
+  } = useRegisterSW({
+    onRegisteredSW(swUrl, r) {
+      if (r) setInterval(() => r.update(), 60 * 60 * 1000);
+    },
+  });
 
   const aiAvailable = serverAi || Boolean(localStorage.getItem("mtgweb:anthropicKey"));
 
@@ -309,6 +319,13 @@ export default function App() {
         {tab === "settings" && <Settings session={session} notify={notify} />}
       </main>
 
+      {needRefresh && (
+        <div className="pwa-update-banner" role="alert">
+          <span>New version available</span>
+          <button onClick={() => updateServiceWorker(true)}>Update</button>
+          <button onClick={() => setNeedRefresh(false)} aria-label="Dismiss">✕</button>
+        </div>
+      )}
       {toast && <div className="toast" role="status" aria-live="polite">{toast}</div>}
       <BottomNav tabs={TABS} tab={tab} setTab={setTab} />
       <Planeswalker
