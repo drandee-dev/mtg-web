@@ -1428,7 +1428,8 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .deck-sidebar { display: none; }
   .deck-fab-ai { display: flex; }
   .deck-input { display: none; }
-  .card-grid-container > .row:first-child { display: none; }
+  .card-grid-container .sort-select { display: none; }
+  .card-grid-container .view-toggle[aria-label="Stack column size"] { display: none; }
   .card-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .card-thumb { aspect-ratio: 488 / 680; border-radius: 5px; }
   .card-thumb img { border-radius: 5px; object-fit: cover; }
@@ -1438,7 +1439,13 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
     -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .category-tabs::-webkit-scrollbar { display: none; }
   .category-tab { font-size: 11px; padding: 0 10px; }
-  .stack-column { width: 130px !important; }
+  /* Stack view: single full-width column on mobile, one card expanded per group */
+  .stack-columns { flex-direction: column; }
+  .stack-column { width: 100% !important; }
+  .card-stack .card-thumb-swipe-wrap {
+    margin-bottom: calc(34px - (100vw - 3rem) * 1.393) !important;
+  }
+  .card-stack .card-thumb-swipe-wrap:first-child { margin-bottom: 0 !important; z-index: 10; }
   .card-list-row { grid-template-columns: 24px 28px 1fr auto auto; }
   .card-list-type { display: none; }
   .hero-grid { grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); }
