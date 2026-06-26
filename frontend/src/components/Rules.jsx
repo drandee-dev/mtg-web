@@ -25,9 +25,8 @@ export default function Rules({ aiAvailable, notify }) {
         let cards = [];
         let model = "";
 
-        const key = localStorage.getItem("mtgweb:anthropicKey") || "";
         await postStream("/api/rules/ask/stream",
-          { question: q.trim(), ...(key ? { api_key: key } : {}) },
+          { question: q.trim() },
           (chunk) => {
             if (chunk.status === "streaming") {
               fullText += chunk.text;

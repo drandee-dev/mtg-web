@@ -9,9 +9,13 @@ frontend/dist/
 
 # Env (never commit secrets)
 .env
-.env.local
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
 frontend/.env
-frontend/.env.local
+frontend/.env.*
+!frontend/.env.example
 
 # Editor / OS
 .DS_Store
