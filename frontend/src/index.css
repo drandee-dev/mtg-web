@@ -1427,6 +1427,8 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .cmdr-col { display: none !important; }
   .deck-sidebar { display: none; }
   .deck-fab-ai { display: flex; }
+  .deck-input { display: none; }
+  .card-grid-container > .row:first-child { display: none; }
   .card-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .card-thumb { aspect-ratio: 488 / 680; border-radius: 5px; }
   .card-thumb img { border-radius: 5px; object-fit: cover; }
