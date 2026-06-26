@@ -394,12 +394,16 @@ export default function DeckView({
               <div>
                 <div className="cmdr-mini-label">Mana Curve</div>
                 <div className="cmdr-mini-curve">
-                  {result.stats.curve.map((val, i) => {
-                    const max = Math.max(...result.stats.curve, 1);
+                  {[0, 1, 2, 3, 4, 5, 6, 7].map((cmc) => {
+                    const curve = result.stats.curve;
+                    const v = cmc === 7
+                      ? Object.entries(curve).reduce((s, [k, val]) => s + (Number(k) >= 7 ? val : 0), 0)
+                      : (curve[cmc] || 0);
+                    const max = Math.max(...Object.values(curve), 1);
                     return (
-                      <div key={i} className="cmdr-mini-bar">
-                        <div className="cmdr-mini-bar-fill" style={{ height: `${(val / max) * 100}%` }} />
-                        <span className="cmdr-mini-bar-lbl">{i}</span>
+                      <div key={cmc} className="cmdr-mini-bar">
+                        <div className="cmdr-mini-bar-fill" style={{ height: `${(v / max) * 100}%` }} />
+                        <span className="cmdr-mini-bar-lbl">{cmc === 7 ? "7+" : cmc}</span>
                       </div>
                     );
                   })}
