@@ -67,11 +67,11 @@ export default function DeckSidebar({
       {/* Stats overview — always visible */}
       <div className="sidebar-section">
         <div className="stat-grid">
-          <Stat k="Cards" v={cardCount} className={cardCountStatus === "bad" ? "stat-danger" : ""} />
-          <Stat k="Lands" v={s.land_count} />
+          <Stat k="Cards" v={cardCount != null ? (isCmdr ? `${cardCount}/100` : `${cardCount}/60+`) : "—"} className={cardCountStatus === "bad" ? "stat-danger" : ""} />
           <Stat k="Avg CMC" v={s.avg_cmc} />
           <Stat k="Price" v={price != null ? `$${price.toFixed(2)}` : "—"}
             title={bd.prices_as_of ? `Prices as of ${bd.prices_as_of}` : null} />
+          <Stat k="Bracket" v={bracket.bracket ?? "—"} />
         </div>
       </div>
 

@@ -51,15 +51,16 @@ function DeckHero({ deck, meta, onOpen, onDelete, onRename, onExport, notify }) 
         <div className="deck-hero-overlay">
           <div className="deck-hero-name">{deck.name}</div>
           <div className="deck-hero-meta">
+            <span className="deck-hero-format">
+              {(deck.format || "commander").replace(/^\w/, (c) => c.toUpperCase())}
+              {meta?.bracket != null ? ` · B${meta.bracket}` : ""}
+            </span>
             {colors.length > 0 && (
-              <span className="deck-hero-pips">
+              <span className="deck-hero-pips deck-hero-pips-desktop">
                 {WUBRG_COLORS.filter((c) => colors.includes(c)).map((c) => (
                   <span key={c} className={`pip pip-${c}`}>{c}</span>
                 ))}
               </span>
-            )}
-            {meta?.bracket != null && (
-              <span className="deck-hero-bracket">Bracket {meta.bracket}</span>
             )}
           </div>
         </div>
@@ -305,7 +306,7 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
             </div>
             <div className="row" style={{ gap: ".5rem" }}>
               {onGuidedBuild && (
-                <button onClick={onGuidedBuild}
+                <button className="guided-build-btn" onClick={onGuidedBuild}
                   style={{ background: "transparent", border: "1px solid rgba(201,138,58,.45)", color: "var(--accent)", borderRadius: "var(--radius)", padding: ".45rem .85rem", fontSize: ".8rem", fontWeight: 600 }}>
                   ✨ Guided Build
                 </button>

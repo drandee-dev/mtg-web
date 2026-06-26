@@ -73,7 +73,7 @@ export default function Rules({ aiAvailable, notify }) {
   }
 
   return (
-    <div>
+    <div className="rules-chat">
       {/* Header */}
       <div className="rules-header">
         <h2>Rules Q&amp;A</h2>
@@ -170,7 +170,8 @@ export default function Rules({ aiAvailable, notify }) {
             onClick={() => submit()}
             disabled={streaming || !input.trim()}
           >
-            Ask ✨
+            <span className="rules-ask-label">Ask ✨</span>
+            <span className="rules-ask-icon">↑</span>
           </button>
         </div>
         <div className="rules-footer">

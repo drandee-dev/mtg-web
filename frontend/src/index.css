@@ -1131,6 +1131,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   flex: 1; background: var(--bg-raised); border: 1px solid var(--border);
   border-radius: 10px; color: var(--text); font-size: .8rem; padding: .6rem .9rem; min-height: auto;
 }
+.rules-ask-icon { display: none; }
 .rules-ask-btn {
   background: var(--accent); color: #1a1206; border: none; border-radius: 10px;
   padding: .6rem 1.1rem; font-size: .8rem; font-weight: 700; cursor: pointer;
@@ -1318,6 +1319,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .deck-hero-pips { display: flex; gap: .15rem; }
 .deck-hero-pips .pip { width: 15px; height: 15px; font-size: .6rem; }
 .deck-hero-bracket { font-size: .7rem; color: rgba(255,255,255,.55); }
+.deck-hero-format { font-size: .7rem; color: rgba(255,255,255,.55); }
 .deck-hero-actions {
   display: flex; gap: .2rem; padding: .3rem 0; justify-content: center;
 }
@@ -1448,7 +1450,21 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .card-stack .card-thumb-swipe-wrap:first-child { margin-bottom: 0 !important; z-index: 10; }
   .card-list-row { grid-template-columns: 24px 28px 1fr auto auto; }
   .card-list-type { display: none; }
-  .hero-grid { grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); }
+  .hero-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .deck-hero-actions { display: none; }
+  .guided-build-btn { display: none; }
+  .feature-strip { display: none; }
+  .deck-hero-pips-desktop { display: none; }
+  .deck-hero-format { display: block; font-size: 9px; color: rgba(255,255,255,.45); margin-top: 1px; }
+  /* Rules Q&A mobile */
+  .rules-chips { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .rules-chips::-webkit-scrollbar { display: none; }
+  .rules-chips button { white-space: nowrap; flex: none; }
+  .rules-input-row input { border-color: rgba(201,138,58,.4); border-radius: 20px; }
+  .rules-ask-label { display: none; }
+  .rules-ask-icon { display: inline; }
+  .rules-ask-btn { border-radius: 50%; width: 34px; height: 34px; padding: 0; font-size: 15px;
+    display: flex; align-items: center; justify-content: center; }
   .card-modal img { max-width: 85vw; max-height: 75vh; }
 }
 
