@@ -60,8 +60,12 @@ export default function DeckView({
   const [combos, setCombos] = useState(null);
   const [comp, setComp] = useState(null);
   const [budgetSwaps, setBudgetSwaps] = useState(null);
+  const [cuts, setCuts] = useState(null);
+  const [upgrades, setUpgrades] = useState(null);
+  const [upgradeMode, setUpgradeMode] = useState("budget");
   const [strategy, setStrategy] = useState(null);
   const [strategyLoading, setStrategyLoading] = useState(false);
+  const [aiSheetOpen, setAiSheetOpen] = useState(false);
   const [busy, setBusy] = useState("");
   const [cat, setCat] = useState("high_synergy");
   const [activePanel, setActivePanel] = useState(null);
@@ -385,6 +389,45 @@ export default function DeckView({
                 );
               })()}
             </div>
+            {/* Mini mana curve */}
+            {result?.stats?.curve && (
+              <div>
+                <div className="cmdr-mini-label">Mana Curve</div>
+                <div className="cmdr-mini-curve">
+                  {result.stats.curve.map((val, i) => {
+                    const max = Math.max(...result.stats.curve, 1);
+                    return (
+                      <div key={i} className="cmdr-mini-bar">
+                        <div className="cmdr-mini-bar-fill" style={{ height: `${(val / max) * 100}%` }} />
+                        <span className="cmdr-mini-bar-lbl">{i}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Color demand bars */}
+            {result?.mana?.pip_demand_pct && (() => {
+              const pct = result.mana.pip_demand_pct;
+              const colors = WUBRG_ORDER.split("").filter((c) => pct[c]);
+              if (!colors.length) return null;
+              return (
+                <div>
+                  <div className="cmdr-mini-label">Color Demand</div>
+                  {colors.map((c) => (
+                    <div key={c} className="cmdr-color-row">
+                      <span className={`pip pip-${c}`} style={{ width: 14, height: 14, fontSize: ".55rem" }}>{c}</span>
+                      <div className="cmdr-color-bar">
+                        <div className="cmdr-color-fill" style={{ width: `${pct[c]}%`, background: COLOR_HEX[c] }} />
+                      </div>
+                      <span className="cmdr-color-pct">{pct[c]}%</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
             <div style={{ textAlign: "center", marginTop: ".5rem" }}>
               <button className="ghost small" onClick={() => setCommander("")} style={{ fontSize: ".75rem" }}>Change commander</button>
             </div>
@@ -424,11 +467,20 @@ export default function DeckView({
           onPanelClick={(id) => {
             if (activePanel === id) { setActivePanel(null); return; }
             if (id === "DrawOdds") { setActivePanel("DrawOdds"); return; }
+            if (id === "Upgrades") {
+              setActivePanel("Upgrades");
+              if (upgradeMode === "budget" && !budgetSwaps) {
+                loadPanel("Upgrades", api.budgetSwaps, setBudgetSwaps);
+              } else if (upgradeMode === "power" && !upgrades) {
+                loadPanel("Upgrades", (dl, fmt) => api.aiUpgrades(dl, fmt, commander, null, "power"), setUpgrades);
+              }
+              return;
+            }
             const map = {
               Recommendations: [api.recommend, setRecs],
+              Cuts: [api.aiCuts, setCuts],
               Combos: [api.combos, setCombos],
               Composition: [api.composition, setComp],
-              Budget: [api.budgetSwaps, setBudgetSwaps],
             };
             if (map[id]) loadPanel(id, ...map[id]);
           }}
@@ -442,6 +494,11 @@ export default function DeckView({
           comp={comp}
           budgetSwaps={budgetSwaps}
           onSwapCard={swapCard}
+          cuts={cuts}
+          onRemoveCard={removeCard}
+          upgrades={upgrades}
+          upgradeMode={upgradeMode}
+          setUpgradeMode={setUpgradeMode}
           commander={commander}
           format={format}
           strategy={strategy}
@@ -472,6 +529,75 @@ export default function DeckView({
         >
           +
         </button>
+      )}
+
+      {/* Mobile AI FAB */}
+      <button
+        className="deck-fab-ai"
+        onClick={() => setAiSheetOpen(true)}
+        aria-label="AI Insights"
+      >
+        ⚡
+      </button>
+
+      {/* Mobile AI Bottom Sheet */}
+      {aiSheetOpen && (
+        <div className="ai-sheet-backdrop" onClick={() => setAiSheetOpen(false)}>
+          <div className="ai-sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="ai-sheet-handle" />
+            <div className="ai-sheet-header">
+              <span style={{ fontWeight: 600, fontSize: ".85rem" }}>AI Insights</span>
+              <span className="muted" style={{ fontSize: ".7rem" }}>{deckName || "Untitled deck"}</span>
+            </div>
+            <div className="ai-sheet-body">
+              <DeckSidebar
+                result={result}
+                isAnalyzing={isAnalyzing}
+                activePanel={activePanel}
+                busy={busy}
+                onPanelClick={(id) => {
+                  if (activePanel === id) { setActivePanel(null); return; }
+                  if (id === "DrawOdds") { setActivePanel("DrawOdds"); return; }
+                  if (id === "Upgrades") {
+                    setActivePanel("Upgrades");
+                    if (upgradeMode === "budget" && !budgetSwaps) {
+                      loadPanel("Upgrades", api.budgetSwaps, setBudgetSwaps);
+                    } else if (upgradeMode === "power" && !upgrades) {
+                      loadPanel("Upgrades", (dl, fmt) => api.aiUpgrades(dl, fmt, commander, null, "power"), setUpgrades);
+                    }
+                    return;
+                  }
+                  const map = {
+                    Recommendations: [api.recommend, setRecs],
+                    Cuts: [api.aiCuts, setCuts],
+                    Combos: [api.combos, setCombos],
+                    Composition: [api.composition, setComp],
+                  };
+                  if (map[id]) loadPanel(id, ...map[id]);
+                }}
+                recs={recs}
+                recCat={cat}
+                setRecCat={setCat}
+                skipped={skipped}
+                onSkip={skip}
+                onAddCard={addCard}
+                combos={combos}
+                comp={comp}
+                budgetSwaps={budgetSwaps}
+                onSwapCard={swapCard}
+                cuts={cuts}
+                onRemoveCard={removeCard}
+                upgrades={upgrades}
+                upgradeMode={upgradeMode}
+                setUpgradeMode={setUpgradeMode}
+                commander={commander}
+                format={format}
+                strategy={strategy}
+                strategyLoading={strategyLoading}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

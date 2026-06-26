@@ -38,6 +38,15 @@ When the task is unclear or has multiple interpretations — especially AI promp
 - Touch only what the task requires. Match existing style.
 - Every changed line should trace directly to the request.
 
+### Design handoff review process
+When implementing from a design handoff (`.dc.html` prototypes, spec docs):
+1. Read all handoff files thoroughly before writing any code
+2. Cross-reference each spec item against existing code — identify what's already done vs. gaps
+3. Scan for security issues: `dangerouslySetInnerHTML` without sanitization, unsanitized user inputs in AI prompts
+4. Check for dead code from partial implementations (unused components, orphaned CSS classes)
+5. Verify backend endpoints and API client wrappers exist before building frontend features
+6. Prioritize: security fixes → missing features → design polish → cleanup
+
 ### Verify before reporting done
 For multi-step tasks, state a brief plan with verification:
 ```

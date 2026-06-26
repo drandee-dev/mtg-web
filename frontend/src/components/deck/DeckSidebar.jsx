@@ -3,6 +3,8 @@ import Curve from "../Curve";
 import CardPreview from "../CardPreview";
 import LoadingIndicator from "../LoadingIndicator";
 import DrawProbability from "./DrawProbability";
+import AIFeedPanel from "./AIFeedPanel";
+import { sanitizeHtml } from "../../lib/sanitize";
 
 const WUBRG = ["W", "U", "B", "R", "G", "C"];
 const COLOR_NAME = { W: "White", U: "Blue", B: "Black", R: "Red", G: "Green", C: "Colorless" };
@@ -31,6 +33,8 @@ export default function DeckSidebar({
   activePanel, onPanelClick, busy,
   recs, recCat, setRecCat, skipped, onSkip, onAddCard,
   combos, comp, budgetSwaps, onSwapCard,
+  cuts, onRemoveCard,
+  upgrades, upgradeMode, setUpgradeMode,
   commander, format,
   strategy, strategyLoading,
 }) {
@@ -106,7 +110,7 @@ export default function DeckSidebar({
             <span style={{ fontSize: ".55rem", background: "rgba(61,206,138,.15)", color: "var(--good)", borderRadius: "3px", padding: "1px 5px", fontWeight: 600 }}>auto</span>
           </div>
           <p style={{ fontSize: ".7rem", color: "var(--text-secondary)", lineHeight: 1.7, margin: 0 }}
-            dangerouslySetInnerHTML={{ __html: strategy.strategy || "" }} />
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(strategy.strategy) }} />
         </div>
       )}
       {strategyLoading && (
@@ -180,135 +184,202 @@ export default function DeckSidebar({
         </details>
       )}
 
-      {/* Action accordion — each panel's content renders inline */}
-      <div className="sidebar-section sidebar-accordion">
+      {/* AI sections — accordion or feed mode */}
+      {panelMode === "feed" ? (
+        <AIFeedPanel
+          strategy={strategy}
+          strategyLoading={strategyLoading}
+          weaknesses={weaknesses}
+          recs={recs}
+          recCat={recCat}
+          setRecCat={setRecCat}
+          skipped={skipped}
+          onSkip={onSkip}
+          onAddCard={onAddCard}
+          cuts={cuts}
+          onRemoveCard={onRemoveCard}
+          combos={combos}
+          budgetSwaps={budgetSwaps}
+          upgrades={upgrades}
+          upgradeMode={upgradeMode}
+          setUpgradeMode={setUpgradeMode}
+          onSwapCard={onSwapCard}
+          result={result}
+          commander={commander}
+          format={format}
+          onPanelClick={onPanelClick}
+          busy={busy}
+        />
+      ) : (
+        <div className="sidebar-section sidebar-accordion">
 
-        {/* Recommendations */}
-        <AccordionItem
-          id="Recommendations" label="Recommendations"
-          activePanel={activePanel} busy={busy} onPanelClick={onPanelClick}
-        >
-          {recs?.categories && Object.keys(recs.categories).length > 0 && (
-            <div className="acc-panel-body">
-              <select value={recCat} onChange={(e) => setRecCat(e.target.value)} style={{ width: "100%", marginBottom: ".3rem" }}>
-                {REC_CATEGORIES.filter(([k]) => recs.categories[k]?.length).map(([k, label]) => (
-                  <option key={k} value={k}>{label} ({recs.categories[k].length})</option>
-                ))}
-              </select>
-              {recList.filter((c) => !skipped.has(c.name)).map((c) => (
-                <div key={c.name} className="acc-rec-row" style={{ opacity: c.in_deck ? 0.45 : 1 }}>
-                  <div className="acc-rec-info">
-                    <CardPreview name={c.name} />
-                    <span className="muted small" style={{ marginLeft: ".3rem" }}>
-                      {c.synergy != null ? `${(c.synergy * 100).toFixed(0)}%` : ""}
-                    </span>
-                  </div>
-                  {!c.in_deck && (
-                    <div className="row" style={{ gap: ".15rem", flex: "none" }}>
-                      <button className="ghost small" style={{ padding: ".1rem .3rem", minHeight: "auto", fontSize: ".7rem" }} onClick={() => onSkip(c.name)}>Skip</button>
-                      <button className="ghost small" style={{ padding: ".1rem .3rem", minHeight: "auto", fontSize: ".7rem" }} onClick={() => onAddCard(c.name)}>+ Add</button>
+          {/* Recommendations */}
+          <AccordionItem
+            id="Recommendations" label="Recommendations"
+            activePanel={activePanel} busy={busy} onPanelClick={onPanelClick}
+          >
+            {recs?.categories && Object.keys(recs.categories).length > 0 && (
+              <div className="acc-panel-body">
+                <select value={recCat} onChange={(e) => setRecCat(e.target.value)} style={{ width: "100%", marginBottom: ".3rem" }}>
+                  {REC_CATEGORIES.filter(([k]) => recs.categories[k]?.length).map(([k, label]) => (
+                    <option key={k} value={k}>{label} ({recs.categories[k].length})</option>
+                  ))}
+                </select>
+                {recList.filter((c) => !skipped.has(c.name)).map((c) => (
+                  <div key={c.name} className="acc-rec-row" style={{ opacity: c.in_deck ? 0.45 : 1 }}>
+                    <div className="acc-rec-info">
+                      <CardPreview name={c.name} />
+                      <span className="muted small" style={{ marginLeft: ".3rem" }}>
+                        {c.synergy != null ? `${(c.synergy * 100).toFixed(0)}%` : ""}
+                      </span>
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </AccordionItem>
-
-        {/* Find Combos */}
-        <AccordionItem
-          id="Combos" label="Find Combos"
-          activePanel={activePanel} busy={busy} onPanelClick={onPanelClick}
-        >
-          {combos && (
-            <div className="acc-panel-body">
-              {combos.combos?.length === 0 && combos.near_misses?.length === 0 && (
-                <p className="muted small">No combos or near-misses found.</p>
-              )}
-              {combos.combos?.map((c, i) => (
-                <div key={i} className="acc-combo-row">
-                  <span className="badge good small">combo</span>
-                  <span className="small"> {c.cards?.join(" + ")}</span>
-                </div>
-              ))}
-              {combos.near_misses?.map((c, i) => (
-                <div key={i} className="acc-combo-row">
-                  <span className="badge warn small">1 away</span>
-                  <span className="small"> {c.missing_card || c.missing_template}</span>
-                  {c.missing_card && (
-                    <button className="ghost small" style={{ padding: ".1rem .3rem", minHeight: "auto", fontSize: ".7rem", marginLeft: "auto" }}
-                      onClick={() => onAddCard(c.missing_card)}>+ Add</button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </AccordionItem>
-
-        {/* Composition */}
-        <AccordionItem
-          id="Composition" label="Composition"
-          activePanel={activePanel} busy={busy} onPanelClick={onPanelClick}
-        >
-          {comp && (
-            <div className="acc-panel-body">
-              {comp.is_commander && <p className="muted small" style={{ margin: "0 0 .3rem" }}>Commander rules-of-thumb targets.</p>}
-              <div className="acc-comp-grid">
-                {comp.categories.map((c) => (
-                  <div className="acc-comp-row" key={c.key}>
-                    <span className="small">{c.label}</span>
-                    <span className="small">
-                      <strong>{c.count}</strong>
-                      {c.target ? <span className="muted"> / {c.target}</span> : null}
-                      {c.status === "thin" && <span className="badge bad small" style={{ marginLeft: ".2rem" }}>thin</span>}
-                    </span>
+                    {!c.in_deck && (
+                      <div className="row" style={{ gap: ".15rem", flex: "none" }}>
+                        <button className="ghost small" style={{ padding: ".1rem .3rem", minHeight: "auto", fontSize: ".7rem" }} onClick={() => onSkip(c.name)}>Skip</button>
+                        <button className="ghost small" style={{ padding: ".1rem .3rem", minHeight: "auto", fontSize: ".7rem" }} onClick={() => onAddCard(c.name)}>+ Add</button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-        </AccordionItem>
+            )}
+          </AccordionItem>
 
-        {/* Budget Swaps */}
-        <AccordionItem
-          id="Budget" label="Budget Swaps"
-          activePanel={activePanel} busy={busy} onPanelClick={onPanelClick}
-        >
-          {budgetSwaps?.swaps && (
-            <div className="acc-panel-body">
-              {budgetSwaps.swaps.length === 0 ? (
-                <p className="muted small">Already budget-friendly!</p>
-              ) : (
-                <>
-                  <p className="muted small" style={{ margin: "0 0 .3rem" }}>Save ~${budgetSwaps.total_savings?.toFixed(2)}</p>
-                  {budgetSwaps.swaps.map((sw) => (
-                    <div key={sw.card} className="acc-swap-row">
-                      <div className="small">
-                        <CardPreview name={sw.card} /> <span className="muted">${sw.price}</span>
-                        <span className="muted"> → </span>
-                        <CardPreview name={sw.alternative.name} /> <span className="muted">${sw.alternative.price}</span>
-                      </div>
-                      <button className="ghost small btn-good" style={{ padding: ".1rem .3rem", minHeight: "auto", fontSize: ".7rem" }}
-                        onClick={() => onSwapCard(sw.card, sw.alternative.name)}>Swap</button>
+          {/* Cut Suggestions */}
+          <AccordionItem
+            id="Cuts" label="✂️ Cut Suggestions"
+            activePanel={activePanel} busy={busy} onPanelClick={onPanelClick}
+          >
+            {cuts && (
+              <div className="acc-panel-body">
+                {cuts.cuts?.length === 0 && <p className="muted small">No cuts suggested.</p>}
+                {cuts.cuts?.map((c) => (
+                  <div key={c.name} className="acc-swap-row">
+                    <div className="small">
+                      <CardPreview name={c.name} />
+                      <span className="muted" style={{ marginLeft: ".3rem" }}>{c.reason}</span>
+                    </div>
+                    <button className="ghost small btn-bad" style={{ padding: ".1rem .3rem", minHeight: "auto", fontSize: ".7rem" }}
+                      onClick={() => onRemoveCard(c.name)}>Remove</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </AccordionItem>
+
+          {/* Find Combos */}
+          <AccordionItem
+            id="Combos" label="Find Combos"
+            activePanel={activePanel} busy={busy} onPanelClick={onPanelClick}
+          >
+            {combos && (
+              <div className="acc-panel-body">
+                {combos.combos?.length === 0 && combos.near_misses?.length === 0 && (
+                  <p className="muted small">No combos or near-misses found.</p>
+                )}
+                {combos.combos?.map((c, i) => (
+                  <div key={i} className="acc-combo-row">
+                    <span className="badge good small">combo</span>
+                    <span className="small"> {c.cards?.join(" + ")}</span>
+                  </div>
+                ))}
+                {combos.near_misses?.map((c, i) => (
+                  <div key={i} className="acc-combo-row">
+                    <span className="badge warn small">1 away</span>
+                    <span className="small"> {c.missing_card || c.missing_template}</span>
+                    {c.missing_card && (
+                      <button className="ghost small" style={{ padding: ".1rem .3rem", minHeight: "auto", fontSize: ".7rem", marginLeft: "auto" }}
+                        onClick={() => onAddCard(c.missing_card)}>+ Add</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </AccordionItem>
+
+          {/* Composition */}
+          <AccordionItem
+            id="Composition" label="Composition"
+            activePanel={activePanel} busy={busy} onPanelClick={onPanelClick}
+          >
+            {comp && (
+              <div className="acc-panel-body">
+                {comp.is_commander && <p className="muted small" style={{ margin: "0 0 .3rem" }}>Commander rules-of-thumb targets.</p>}
+                <div className="acc-comp-grid">
+                  {comp.categories.map((c) => (
+                    <div className="acc-comp-row" key={c.key}>
+                      <span className="small">{c.label}</span>
+                      <span className="small">
+                        <strong>{c.count}</strong>
+                        {c.target ? <span className="muted"> / {c.target}</span> : null}
+                        {c.status === "thin" && <span className="badge bad small" style={{ marginLeft: ".2rem" }}>thin</span>}
+                      </span>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+          </AccordionItem>
+
+          {/* Upgrade Path */}
+          <AccordionItem
+            id="Upgrades" label="🚀 Upgrade Path"
+            activePanel={activePanel} busy={busy} onPanelClick={onPanelClick}
+          >
+            <div className="acc-panel-body">
+              <div className="ai-panel-toggle" style={{ marginBottom: ".4rem" }}>
+                <button className={upgradeMode === "budget" ? "active" : ""} onClick={() => setUpgradeMode("budget")}>Budget</button>
+                <button className={upgradeMode === "power" ? "active" : ""} onClick={() => setUpgradeMode("power")}>Power</button>
+              </div>
+              {upgradeMode === "budget" && budgetSwaps?.swaps && (
+                <>
+                  {budgetSwaps.swaps.length === 0 ? (
+                    <p className="muted small">Already budget-friendly!</p>
+                  ) : (
+                    <>
+                      <p className="muted small" style={{ margin: "0 0 .3rem" }}>Save ~${budgetSwaps.total_savings?.toFixed(2)}</p>
+                      {budgetSwaps.swaps.map((sw) => (
+                        <div key={sw.card} className="acc-swap-row">
+                          <div className="small">
+                            <CardPreview name={sw.card} /> <span className="muted">${sw.price}</span>
+                            <span className="muted"> → </span>
+                            <CardPreview name={sw.alternative.name} /> <span className="muted">${sw.alternative.price}</span>
+                          </div>
+                          <button className="ghost small btn-good" style={{ padding: ".1rem .3rem", minHeight: "auto", fontSize: ".7rem" }}
+                            onClick={() => onSwapCard(sw.card, sw.alternative.name)}>Swap</button>
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </>
               )}
+              {upgradeMode === "power" && upgrades?.upgrades?.map((u) => (
+                <div key={u.replaces} className="acc-swap-row">
+                  <div className="small">
+                    <CardPreview name={u.replaces} />
+                    <span className="muted"> → </span>
+                    <CardPreview name={u.replacement} />
+                    {u.price_usd != null && <span className="muted"> ${u.price_usd.toFixed(2)}</span>}
+                  </div>
+                  <button className="ghost small btn-good" style={{ padding: ".1rem .3rem", minHeight: "auto", fontSize: ".7rem" }}
+                    onClick={() => onSwapCard(u.replaces, u.replacement)}>Swap</button>
+                </div>
+              ))}
             </div>
-          )}
-        </AccordionItem>
+          </AccordionItem>
 
-        {/* Draw Odds */}
-        <AccordionItem
-          id="DrawOdds" label="Draw Odds"
-          activePanel={activePanel} busy={busy} onPanelClick={onPanelClick}
-        >
-          <div className="acc-panel-body">
-            <DrawProbability result={result} commander={commander} format={format} compact />
-          </div>
-        </AccordionItem>
+          {/* Draw Odds */}
+          <AccordionItem
+            id="DrawOdds" label="Draw Odds"
+            activePanel={activePanel} busy={busy} onPanelClick={onPanelClick}
+          >
+            <div className="acc-panel-body">
+              <DrawProbability result={result} commander={commander} format={format} compact />
+            </div>
+          </AccordionItem>
 
-      </div>
+        </div>
+      )}
 
       <LoadingIndicator label="Analyzing deck" active={isAnalyzing} />
     </aside>

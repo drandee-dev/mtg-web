@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { postStream } from "../lib/api";
+import { sanitizeHtml } from "../lib/sanitize";
 
 const CHIPS = [
   "Can I counter a triggered ability?",
@@ -109,7 +110,7 @@ export default function Rules({ aiAvailable, notify }) {
                 </div>
                 <div
                   className="rules-msg-ai-text"
-                  dangerouslySetInnerHTML={{ __html: msg.text }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(msg.text) }}
                 />
                 {msg.citations?.length > 0 && (
                   <div className="rules-citations">
@@ -137,7 +138,7 @@ export default function Rules({ aiAvailable, notify }) {
               </div>
               <div
                 className="rules-msg-ai-text"
-                dangerouslySetInnerHTML={{ __html: streamText }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(streamText) }}
               />
             </div>
           )}

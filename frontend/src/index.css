@@ -1155,23 +1155,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .category-tab:hover { color: var(--text-secondary); }
 .category-tab.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
 
-/* ── 3-column deck builder ── */
-.deck-builder-3col {
-  display: grid; grid-template-columns: 175px 1fr 300px;
-  height: calc(100vh - 3rem - 34px); overflow: hidden;
-}
-.cmdr-sidebar {
-  border-right: 1px solid var(--border); padding: .75rem;
-  overflow-y: auto; display: flex; flex-direction: column; gap: .6rem;
-  background: #0a0b0f;
-}
-.cmdr-sidebar-card {
-  border-radius: 9px; overflow: hidden; aspect-ratio: 488/680;
-  background: var(--panel-2); box-shadow: 0 8px 24px rgba(0,0,0,.6);
-}
-.cmdr-sidebar-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.cmdr-sidebar-name { font-size: .75rem; font-weight: 700; line-height: 1.3; margin-bottom: 2px; }
-.cmdr-sidebar-type { font-size: .6rem; color: var(--muted); margin-bottom: .4rem; line-height: 1.4; }
+/* ── Commander column mini widgets ── */
 .cmdr-mini-label {
   font-size: .55rem; color: var(--muted); font-weight: 600;
   text-transform: uppercase; letter-spacing: .06em; margin-bottom: .3rem;
@@ -1185,20 +1169,11 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .cmdr-color-fill { height: 100%; border-radius: 3px; }
 .cmdr-color-pct { font-size: .55rem; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
 
-.deck-center { overflow-y: auto; padding: .6rem; position: relative; }
-.deck-ai-panel {
-  border-left: 1px solid var(--border); display: flex; flex-direction: column;
-  overflow: hidden; background: #0a0b0f;
-}
-
 /* Mobile commander strip + mobile deck nav */
 .cmdr-strip-mobile { display: none; }
 .mobile-deck-nav { display: none; }
 
 @media (max-width: 699px) {
-  .deck-builder-3col { grid-template-columns: 1fr; height: auto; }
-  .cmdr-sidebar { display: none; }
-  .deck-ai-panel { display: none; }
   .deck-toolbar { display: none; }
   .mobile-deck-nav {
     display: flex; align-items: center; gap: 4px;
@@ -1355,8 +1330,18 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .deck-hero-new:hover { background: var(--panel-2); border-color: var(--accent); }
 
 /* Commander left column — deck view */
-.deck-layout-3col { display: grid; grid-template-columns: 13rem 1fr 21rem; gap: 1rem; align-items: start; }
-.cmdr-col { position: sticky; top: 6.5rem; }
+.deck-layout-3col {
+  display: grid; grid-template-columns: 175px 1fr 300px;
+  height: calc(100vh - 3rem - 34px); overflow: hidden;
+}
+.deck-layout-3col .cmdr-col { overflow-y: auto; }
+.deck-layout-3col .deck-main { overflow-y: auto; }
+.deck-layout-3col .deck-sidebar { overflow-y: auto; }
+.cmdr-col {
+  position: sticky; top: 6.5rem;
+  border-right: 1px solid var(--border); background: #0a0b0f;
+  padding: .75rem; display: flex; flex-direction: column; gap: .5rem;
+}
 .cmdr-col-card { width: 100%; border-radius: var(--radius-lg); box-shadow: var(--shadow-md); }
 .cmdr-col-name { font-weight: 700; font-size: .9rem; margin-top: .5rem; text-align: center; }
 .cmdr-col-type { font-size: .75rem; color: var(--muted); text-align: center; }
@@ -1387,9 +1372,10 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .feedback-btn { bottom: 4.5rem; }
   .deck-fab { display: flex; }
   .deck-layout { grid-template-columns: 1fr; }
-  .deck-layout-3col { grid-template-columns: 1fr; }
+  .deck-layout-3col { grid-template-columns: 1fr; height: auto; overflow: visible; }
   .cmdr-col { display: none !important; }
-  .deck-sidebar { position: static; max-height: none; }
+  .deck-sidebar { display: none; }
+  .deck-fab-ai { display: flex; }
   .card-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .card-thumb { aspect-ratio: 488 / 680; border-radius: 5px; }
   .card-thumb img { border-radius: 5px; object-fit: cover; }
@@ -1406,10 +1392,61 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .card-modal img { max-width: 85vw; max-height: 75vh; }
 }
 
+/* Feed mode cards */
+.feed-panel { display: flex; flex-direction: column; gap: .5rem; }
+.feed-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: .75rem;
+}
+.feed-card-header { display: flex; align-items: center; gap: .4rem; margin-bottom: .4rem; }
+.feed-card-title { font-size: .7rem; font-weight: 600; }
+.feed-card-body { font-size: .65rem; }
+
+/* Mobile AI bottom sheet */
+.deck-fab-ai {
+  display: none; position: fixed; z-index: 48;
+  bottom: calc(5rem + 56px); right: 1rem;
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--accent-2); color: #fff; border: none;
+  font-size: 1.2rem;
+  box-shadow: 0 4px 16px rgba(124,172,248,.4);
+  align-items: center; justify-content: center;
+  cursor: pointer; padding: 0; min-height: auto;
+  transition: transform .15s, box-shadow .15s;
+}
+.deck-fab-ai:hover { transform: scale(1.1); }
+.ai-sheet-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.5);
+  backdrop-filter: blur(4px); z-index: 100;
+}
+.ai-sheet {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--panel);
+  border-radius: 20px 20px 0 0;
+  border-top: 1px solid rgba(255,255,255,.1);
+  box-shadow: 0 -8px 40px rgba(0,0,0,.6);
+  height: 88%; display: flex; flex-direction: column;
+  z-index: 101; animation: slideUp .3s ease-out both;
+  overflow: hidden;
+}
+.ai-sheet-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,.2); margin: 10px auto; flex: none;
+}
+.ai-sheet-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1rem .75rem; flex: none;
+}
+.ai-sheet-body {
+  flex: 1; overflow-y: auto; padding: 0 .5rem .5rem;
+  -webkit-overflow-scrolling: touch;
+}
+.ai-sheet-body .deck-sidebar { display: block; position: static; max-height: none; }
+
 /* Responsive: tablet (700–1000px) — visible nav; commander+main on top, sidebar below */
 @media (min-width: 700px) and (max-width: 999px) {
   .deck-layout { grid-template-columns: 1fr; }
-  .deck-layout-3col { grid-template-columns: 11rem 1fr; }
+  .deck-layout-3col { grid-template-columns: 11rem 1fr; height: auto; overflow: visible; }
   .deck-layout-3col .deck-sidebar { grid-column: 1 / -1; }
   .deck-sidebar { position: static; max-height: none; }
   .deck-sidebar .stat-grid { grid-template-columns: repeat(4, 1fr); }
