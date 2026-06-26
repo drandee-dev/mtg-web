@@ -1,0 +1,55 @@
+# MTG Workshop
+
+## Quick start
+
+```bash
+# Backend (FastAPI)
+cd backend && pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+
+# Frontend (React/Vite)
+cd frontend && npm install && npm run dev
+```
+
+## Architecture
+
+- **Frontend:** React 18 + Vite → Vercel (mtg-web-nine.vercel.app)
+- **Backend:** FastAPI → Render (mtg-workshop.onrender.com)
+- **Data:** Scryfall oracle_cards bulk (~8MB), Comprehensive Rules text
+- **Auth:** Supabase magic-link, JWT verified server-side
+- **AI:** Sonnet 4.6 primary, Haiku fallback — server-side key only
+- **Storage:** Supabase `decks` table with RLS; localStorage fallback
+
+## Key patterns
+
+- `_ai_call()` in `backend/app/mtg.py` — shared AI wrapper with Sonnet→Haiku fallback and token tracking
+- `_deck_context_cached()` — rich deck context with 30s hash-keyed cache
+- `assembleDecklist()` / `disassembleDecklist()` in `frontend/src/lib/api.js` — commander header management
+- Rate limit: 25 AI calls/day per IP; admin bypasses via Supabase JWT
+- Monthly AI budget: $10 ceiling tracked in `backend/ai_usage.json`
+
+## Behavioral guidelines
+
+### Surface assumptions on ambiguous requests
+When the task is unclear or has multiple interpretations — especially AI prompt changes, deck evaluation logic, or UX redesigns — state assumptions and ask before implementing. For routine bug fixes and small changes, just proceed.
+
+### Simplicity and surgical changes
+- No features beyond what was asked. No speculative abstractions.
+- Touch only what the task requires. Match existing style.
+- Every changed line should trace directly to the request.
+
+### Verify before reporting done
+For multi-step tasks, state a brief plan with verification:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+```
+For UI changes: start dev server, test golden path + edge cases, check for regressions.
+
+## Security rules (always apply)
+
+- Never hardcode secrets or admin identifiers — require env vars
+- Wrap user inputs in `<user_input>` tags in AI prompts; include injection defense in system prompts
+- Use Pydantic models with Field constraints for all POST bodies
+- Cap regex patterns from users (200 chars) and compile in try/except
+- Never leak exception details to clients — log server-side, return opaque messages
