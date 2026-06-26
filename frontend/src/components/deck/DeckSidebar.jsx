@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Curve from "../Curve";
 import CardPreview from "../CardPreview";
 import LoadingIndicator from "../LoadingIndicator";
@@ -32,13 +32,23 @@ export default function DeckSidebar({
   recs, recCat, setRecCat, skipped, onSkip, onAddCard,
   combos, comp, budgetSwaps, onSwapCard,
   commander, format,
+  strategy, strategyLoading,
 }) {
+  const [panelMode, setPanelMode] = useState(
+    () => localStorage.getItem("mtgweb:panelMode") || "accordion"
+  );
+
+  useEffect(() => {
+    localStorage.setItem("mtgweb:panelMode", panelMode);
+  }, [panelMode]);
+
   const s = result?.stats || {};
   const mana = result?.mana || {};
   const legality = result?.legality || {};
   const bracket = result?.bracket || {};
   const bd = result?.breakdown || {};
   const price = bd.price_usd;
+  const weaknesses = comp?.categories?.filter((c) => c.status === "thin") || [];
 
   const recList = recs?.categories?.[recCat] || [];
 
@@ -75,6 +85,54 @@ export default function DeckSidebar({
               Mana: {mana.overall_status || "—"}
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Panel mode toggle */}
+      <div className="sidebar-section" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: ".45rem .5rem" }}>
+        <span style={{ fontSize: ".6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--muted)" }}>AI Panel</span>
+        <div className="ai-panel-toggle">
+          <button className={panelMode === "accordion" ? "active" : ""} onClick={() => setPanelMode("accordion")}>Accordion</button>
+          <button className={panelMode === "feed" ? "active" : ""} onClick={() => setPanelMode("feed")}>Feed</button>
+        </div>
+      </div>
+
+      {/* Strategy Overview */}
+      {strategy && (
+        <div className="sidebar-section" style={{ padding: ".5rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", marginBottom: ".4rem" }}>
+            <span style={{ fontSize: ".85rem" }}>⚡</span>
+            <span style={{ fontSize: ".7rem", fontWeight: 600 }}>Strategy Overview</span>
+            <span style={{ fontSize: ".55rem", background: "rgba(61,206,138,.15)", color: "var(--good)", borderRadius: "3px", padding: "1px 5px", fontWeight: 600 }}>auto</span>
+          </div>
+          <p style={{ fontSize: ".7rem", color: "var(--text-secondary)", lineHeight: 1.7, margin: 0 }}
+            dangerouslySetInnerHTML={{ __html: strategy.strategy || "" }} />
+        </div>
+      )}
+      {strategyLoading && (
+        <div className="sidebar-section" style={{ padding: ".5rem" }}>
+          <LoadingIndicator label="Loading strategy" active />
+        </div>
+      )}
+
+      {/* Weakness Check */}
+      {weaknesses.length > 0 && (
+        <div className="sidebar-section" style={{ padding: ".5rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", marginBottom: ".4rem" }}>
+            <span style={{ fontSize: ".85rem" }}>⚠️</span>
+            <span style={{ fontSize: ".7rem", fontWeight: 600 }}>Weakness Check</span>
+            <span style={{ fontSize: ".55rem", background: "rgba(229,184,76,.15)", color: "var(--warn)", borderRadius: "3px", padding: "1px 5px", fontWeight: 600 }}>{weaknesses.length} flag{weaknesses.length !== 1 ? "s" : ""}</span>
+          </div>
+          {weaknesses.map((w) => (
+            <div key={w.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: ".3rem 0", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
+              <div>
+                <div style={{ fontSize: ".7rem", fontWeight: 600, color: "var(--warn)" }}>{w.label}</div>
+                <div style={{ fontSize: ".6rem", color: "var(--muted)", marginTop: "1px" }}>{w.count} · target {w.target}</div>
+              </div>
+              <button style={{ fontSize: ".6rem", color: "var(--accent-2)", background: "none", border: "none", cursor: "pointer", padding: 0, minHeight: "auto" }}
+                onClick={() => onPanelClick("Recommendations")}>Fix →</button>
+            </div>
+          ))}
         </div>
       )}
 

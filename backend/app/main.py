@@ -454,6 +454,25 @@ def deck_ai_combos(request: Request, payload: AiCombosPayload) -> dict:
     return mtg.ai_combo_guidance(decklist, combos_data, near_misses, fmt=fmt, bracket=payload.bracket)
 
 
+@app.post("/api/deck/ai/strategy")
+def deck_ai_strategy(request: Request, payload: Annotated[dict, Body()]) -> dict:
+    _check_ai_access(request)
+    decklist, fmt = _validate_decklist(payload)
+    commander = (payload.get("commander") or "").strip()[:_MAX_CARD_NAME_LEN] or None
+    return mtg.ai_strategy(decklist, fmt=fmt, commander=commander, bracket=_target_bracket(payload))
+
+
+@app.post("/api/deck/ai/upgrades")
+def deck_ai_upgrades(request: Request, payload: Annotated[dict, Body()]) -> dict:
+    _check_ai_access(request)
+    decklist, fmt = _validate_decklist(payload)
+    commander = (payload.get("commander") or "").strip()[:_MAX_CARD_NAME_LEN] or None
+    mode = (payload.get("mode") or "power").strip().lower()
+    if mode not in ("power", "budget"):
+        raise HTTPException(400, "mode must be 'power' or 'budget'.")
+    return mtg.ai_upgrades(decklist, fmt=fmt, commander=commander, bracket=_target_bracket(payload), mode=mode)
+
+
 @app.post("/api/deck/wizard/skeleton")
 def wizard_skeleton(payload: Annotated[dict, Body()]) -> dict:
     commander = (payload.get("commander") or "").strip()

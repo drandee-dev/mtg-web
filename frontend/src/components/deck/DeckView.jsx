@@ -58,6 +58,8 @@ export default function DeckView({
   const [combos, setCombos] = useState(null);
   const [comp, setComp] = useState(null);
   const [budgetSwaps, setBudgetSwaps] = useState(null);
+  const [strategy, setStrategy] = useState(null);
+  const [strategyLoading, setStrategyLoading] = useState(false);
   const [busy, setBusy] = useState("");
   const [cat, setCat] = useState("high_synergy");
   const [activePanel, setActivePanel] = useState(null);
@@ -105,6 +107,20 @@ export default function DeckView({
       setIsAnalyzing(false);
     }
   }
+
+  // Auto-load strategy when deck reaches 20+ cards
+  useEffect(() => {
+    const lines = (decklist || "").split("\n").filter((l) => /^\s*\d+\s+\S/.test(l));
+    if (lines.length < 20 || strategy) return;
+    let cancelled = false;
+    setStrategyLoading(true);
+    const full = assembleDecklist(decklist, isCommanderFmt ? commander : "");
+    api.aiStrategy?.(full, format, commander)
+      .then((r) => { if (!cancelled) setStrategy(r); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setStrategyLoading(false); });
+    return () => { cancelled = true; };
+  }, [decklist, commander, format]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function addCard(name) {
     setDecklist((prev) => `${prev.replace(/\s*$/, "")}\n1 ${name}`);
@@ -201,6 +217,23 @@ export default function DeckView({
 
   const hasCommander = isCommanderFmt && commander;
   const considerCount = parseDeckText(maybeboard || "").cards.length;
+  const [categoryFilter, setCategoryFilter] = useState("all");
+
+  const CATEGORY_TABS = [
+    ["all", "All"],
+    ["creature", "Creatures"],
+    ["instant", "Instants"],
+    ["sorcery", "Sorceries"],
+    ["artifact", "Artifacts"],
+    ["enchantment", "Enchantments"],
+    ["land", "Lands"],
+  ];
+
+  const filteredDeckFilter = categoryFilter === "all"
+    ? deckFilter
+    : deckFilter
+      ? `${deckFilter} t:${categoryFilter}`
+      : `t:${categoryFilter}`;
 
   return (
     <div>
@@ -249,6 +282,43 @@ export default function DeckView({
           <CommanderInput commander={commander} setCommander={setCommander} />
         )}
       </div>
+
+      {/* Category tabs bar */}
+      <div className="category-tabs">
+        {CATEGORY_TABS.map(([id, label]) => (
+          <button
+            key={id}
+            className={`category-tab${categoryFilter === id ? " active" : ""}`}
+            onClick={() => setCategoryFilter(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Mobile commander strip */}
+      {hasCommander && (
+        <div className="cmdr-strip-mobile">
+          <div className="cmdr-strip-art">
+            {cmdrData?.art_crop ? (
+              <img src={cmdrData.art_crop} alt="" />
+            ) : null}
+          </div>
+          <div>
+            <div style={{ fontSize: ".7rem", fontWeight: 600, color: "var(--text)" }}>{commander.replace(" && ", " + ")}</div>
+            <div style={{ display: "flex", gap: ".25rem", marginTop: "2px", alignItems: "center" }}>
+              <span style={{ fontSize: ".55rem", color: "var(--muted)" }}>
+                {format.charAt(0).toUpperCase() + format.slice(1)}
+              </span>
+              {result?.bracket?.bracket != null && (
+                <span style={{ fontSize: ".55rem", background: "rgba(229,184,76,.1)", color: "var(--warn)", borderRadius: "3px", padding: "1px 4px", fontWeight: 600 }}>
+                  B{result.bracket.bracket}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main layout: 3-column when commander is set, 2-column otherwise */}
       <div className={hasCommander ? "deck-layout-3col" : "deck-layout"}>
@@ -308,7 +378,7 @@ export default function DeckView({
             decklist={decklist}
             commander={commander}
             format={format}
-            filter={deckFilter}
+            filter={filteredDeckFilter || deckFilter}
             onRemove={locked ? null : removeCard}
             notify={notify}
           />
@@ -344,6 +414,8 @@ export default function DeckView({
           onSwapCard={swapCard}
           commander={commander}
           format={format}
+          strategy={strategy}
+          strategyLoading={strategyLoading}
         />
       </div>
 

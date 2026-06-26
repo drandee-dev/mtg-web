@@ -785,6 +785,127 @@ def _deck_context(
 
 
 # --------------------------------------------------------------------------- #
+# AI Strategy Summary
+# --------------------------------------------------------------------------- #
+_STRATEGY_SYSTEM = """You are an expert Magic: The Gathering deckbuilder. Analyze the deck and provide two things:
+
+1. A 2-3 sentence strategy summary: describe the deck's primary strategy, win condition, and play style. Be specific — name the key cards and interactions. Start with the archetype name in bold.
+2. The archetype name (e.g. "Voltron", "Aristocrats", "Spellslinger", "Stax", "Combo", "Midrange value", "Tokens", "Reanimator", etc.)
+
+IMPORTANT: Your entire response must be ONLY valid JSON. No preamble, no explanation, no markdown. Start with { immediately. Format:
+{"strategy": "**Archetype Name** — 2-3 sentence strategy description.", "archetype": "Archetype Name"}"""
+
+
+def ai_strategy(
+    text: str, *, fmt: str = "commander", commander: str | None = None,
+    bracket: int | None = None, api_key: str | None = None,
+) -> dict[str, Any]:
+    """Generate a concise strategy summary and archetype classification for a deck."""
+    ctx = _deck_context_cached(text, fmt, bracket=bracket)
+    cmd_name = commander or (ctx["commanders"][0] if ctx["commanders"] else "Unknown")
+
+    # Build a compact summary for the prompt
+    deck = ctx["deck"]
+    total = deck.get("total_cards", 0)
+    summary_lines = [f"Format: {fmt}, Commander: {cmd_name}, Cards: {total}"]
+    if ctx.get("bracket", {}).get("bracket") is not None:
+        summary_lines.append(f"Detected bracket: {ctx['bracket']['bracket']}")
+    summary_lines.append("")
+    summary_lines.append(ctx["summary"])
+
+    user_msg = (
+        f"You are an expert Magic: The Gathering deckbuilder. "
+        f"Given this {fmt} deck led by {cmd_name}:\n\n"
+        + "\n".join(summary_lines)
+        + "\n\nIn 2-3 sentences, describe the deck's primary strategy, win condition, "
+        "and play style. Be specific — name the key cards and interactions. "
+        "Start with the archetype name in bold."
+    )
+
+    resp = _ai_call(_STRATEGY_SYSTEM, user_msg, api_key=api_key, max_tokens=500, cache_user_msg=True)
+    if resp["error"]:
+        return {"error": True, "message": resp["result"], "strategy": "", "archetype": ""}
+
+    try:
+        data = _parse_ai_json(resp["result"])
+        return {
+            "error": False,
+            "strategy": data.get("strategy", ""),
+            "archetype": data.get("archetype", ""),
+            "model": resp.get("model"),
+        }
+    except (ValueError, KeyError):
+        # Fallback: treat the whole response as the strategy text
+        return {
+            "error": False,
+            "strategy": resp["result"],
+            "archetype": "",
+            "model": resp.get("model"),
+        }
+
+
+# --------------------------------------------------------------------------- #
+# AI Upgrade Suggestions
+# --------------------------------------------------------------------------- #
+_UPGRADES_POWER_SYSTEM = """You are an expert MTG deck builder. Suggest specific card upgrades to increase the deck's power level. For each upgrade, identify a card currently in the deck that should be replaced, name the replacement card, and explain why it's strictly better for this deck's strategy.
+
+Focus on:
+- Cards that are underperforming for the deck's strategy
+- Strict upgrades (same role, better card)
+- Cards that unlock new synergies with the commander
+
+IMPORTANT: Your entire response must be ONLY valid JSON. No preamble, no explanation, no markdown. Start with [ immediately. Format:
+[{"replaces": "Card Being Cut", "replacement": "Better Card", "reason": "Why this is an upgrade.", "price_usd": 2.50}]
+
+Suggest 5-8 upgrades, ordered from highest impact to lowest. Include an approximate price in USD for each replacement card (use null if unknown)."""
+
+_UPGRADES_BUDGET_SYSTEM = """You are an expert MTG deck builder focused on budget optimization. Suggest specific card upgrades that improve the deck while REDUCING its total cost. For each upgrade, identify an expensive card currently in the deck and name a cheaper replacement that fills the same role adequately.
+
+Focus on:
+- Expensive cards ($5+) that have cheaper functional alternatives
+- Cards where the premium version adds marginal value for this specific deck
+- Budget-friendly cards that punch above their price tag in this strategy
+
+IMPORTANT: Your entire response must be ONLY valid JSON. No preamble, no explanation, no markdown. Start with [ immediately. Format:
+[{"replaces": "Expensive Card", "replacement": "Cheaper Alternative", "reason": "Why this budget swap works.", "price_usd": 0.50}]
+
+Suggest 5-8 budget swaps, ordered from most savings to least. Include the approximate price in USD for each replacement card (use null if unknown)."""
+
+
+def ai_upgrades(
+    text: str, *, fmt: str = "commander", commander: str | None = None,
+    bracket: int | None = None, mode: str = "power",
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    """Suggest card upgrades for a deck, either for power or budget optimization."""
+    if mode not in ("power", "budget"):
+        return {"error": True, "message": "mode must be 'power' or 'budget'.", "upgrades": []}
+
+    ctx = _deck_context_cached(text, fmt, bracket=bracket)
+    system = _UPGRADES_POWER_SYSTEM if mode == "power" else _UPGRADES_BUDGET_SYSTEM
+
+    resp = _ai_call(system, ctx["summary"], api_key=api_key, max_tokens=2000, cache_user_msg=True)
+    if resp["error"]:
+        return {"error": True, "message": resp["result"], "upgrades": []}
+
+    try:
+        upgrades = _parse_ai_json(resp["result"])
+        # Validate structure
+        clean = []
+        for u in upgrades:
+            if isinstance(u, dict) and u.get("replaces") and u.get("replacement"):
+                clean.append({
+                    "replaces": u["replaces"],
+                    "replacement": u["replacement"],
+                    "reason": u.get("reason", ""),
+                    "price_usd": u.get("price_usd"),
+                })
+        return {"error": False, "upgrades": clean, "mode": mode, "model": resp.get("model")}
+    except (ValueError, KeyError):
+        return {"error": True, "message": f"Failed to parse AI response: {resp['result'][:200]}", "upgrades": []}
+
+
+# --------------------------------------------------------------------------- #
 # AI Suggested Cuts
 # --------------------------------------------------------------------------- #
 _CUTS_SYSTEM = """You are an expert MTG deck builder evaluating cuts for a Commander deck. You have the FULL deck context: commander oracle text, card list with keywords, detected combos, composition, and the target power bracket.

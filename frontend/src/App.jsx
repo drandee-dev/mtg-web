@@ -11,17 +11,16 @@ import DeckView from "./components/deck/DeckView";
 import MyDecks from "./components/MyDecks";
 import Rules from "./components/Rules";
 import CardSearch from "./components/CardSearch";
-import Settings from "./components/Settings";
+import AccountDropdown from "./components/AccountDropdown";
 import Feedback from "./components/Feedback";
 import Playtest from "./components/Playtest";
 import Planeswalker from "./components/Planeswalker";
 
 const TABS = [
   ["decks", "My Decks"],
-  ["deck", "Deck"],
+  ["deck", "Analyze & Build"],
   ["rules", "Rules"],
-  ["cards", "Cards"],
-  ["settings", "Settings"],
+  ["cards", "Card Search"],
 ];
 
 const VALID_TABS = new Set(TABS.map(([id]) => id));
@@ -55,6 +54,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [decks, setDecks] = useState([]);
   const [toast, setToast] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [serverStatus, setServerStatus] = useState("checking");
   const [healthRetry, setHealthRetry] = useState(0);
   const [serverAi, setServerAi] = useState(true);
@@ -269,6 +269,8 @@ export default function App() {
         cloud={cloud}
         session={session}
         supabaseEnabled={supabaseEnabled}
+        settingsOpen={settingsOpen}
+        setSettingsOpen={setSettingsOpen}
       />
 
       <main id="main-content" role="tabpanel">
@@ -312,12 +314,22 @@ export default function App() {
             onGuidedBuild={guidedBuild}
             notify={notify}
             refresh={refresh}
+            setTab={setTab}
           />
         )}
         {tab === "rules" && <Rules aiAvailable={aiAvailable} notify={notify} />}
         {tab === "cards" && <CardSearch addCard={addCardToDecklist} notify={notify} />}
-        {tab === "settings" && <Settings session={session} notify={notify} />}
       </main>
+
+      {settingsOpen && (
+        <AccountDropdown
+          session={session}
+          supabaseEnabled={supabaseEnabled}
+          cloud={cloud}
+          onClose={() => setSettingsOpen(false)}
+          notify={notify}
+        />
+      )}
 
       {needRefresh && (
         <div className="pwa-update-banner" role="alert">

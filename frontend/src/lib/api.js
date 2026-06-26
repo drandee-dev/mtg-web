@@ -114,6 +114,10 @@ export const api = {
     post("/api/deck/ai/explain", { decklist, format, card_names, ...(bracket != null ? { bracket } : {}) }),
   aiCombos: (decklist, format, combos, near_misses, bracket) =>
     post("/api/deck/ai/combos", { decklist, format, combos, near_misses, ...(bracket != null ? { bracket } : {}) }),
+  aiStrategy: (decklist, format, commander, bracket) =>
+    post("/api/deck/ai/strategy", { decklist, format, ...(commander ? { commander } : {}), ...(bracket != null ? { bracket } : {}) }),
+  aiUpgrades: (decklist, format, commander, bracket, mode) =>
+    post("/api/deck/ai/upgrades", { decklist, format, ...(commander ? { commander } : {}), ...(bracket != null ? { bracket } : {}), mode: mode || "power" }),
   planeswalkerChat: (messages, decklist, format, commander, bracket) =>
     post("/api/planeswalker/chat", { messages, decklist, format, commander, ...(bracket != null ? { bracket } : {}) }),
 };
