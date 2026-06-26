@@ -1,9 +1,9 @@
 import { useCallback, useRef, useState } from "react";
 import { canHover, useCardImage } from "../../lib/hooks";
 
-export default function CardThumbnail({ name, qty, onRemove, expanded, onExpand }) {
+export default function CardThumbnail({ name, qty, onRemove, expanded, onExpand, useArtCrop }) {
   const data = useCardImage(name);
-  const img = data?.image || null;
+  const img = useArtCrop ? (data?.art_crop || data?.image || null) : (data?.image || null);
   const [swipeX, setSwipeX] = useState(0);
   const touchRef = useRef({ startX: 0, startY: 0, swiping: false });
 
@@ -78,7 +78,7 @@ export default function CardThumbnail({ name, qty, onRemove, expanded, onExpand 
         ) : (
           <div className="card-thumb-placeholder">{name}</div>
         )}
-        {qty > 1 && <span className="qty-badge" aria-label={`${qty} copies`}>{qty}</span>}
+        <span className="qty-badge" aria-label={`${qty} copies`}>{qty}</span>
         {onRemove && (
           <button
             className="remove-btn"

@@ -41,7 +41,7 @@ function deckCompleteness(totalCards, commander, format) {
   return { label: `${totalCards} / 60+`, status, title: "Constructed decks are a 60-card minimum" };
 }
 
-export default function CardGrid({ decklist, commander, format, filter, onRemove, notify }) {
+export default function CardGrid({ decklist, commander, format, filter, typeFilter, onRemove, onTypeCounts, notify }) {
   const [viewMode, setViewMode] = useState(
     () => localStorage.getItem("mtgweb:viewMode") || "grid"
   );
@@ -129,9 +129,26 @@ export default function CardGrid({ decklist, commander, format, filter, onRemove
     return sorted;
   }, [sortBy, metaMap]);
 
-  const filteredCards = filter
-    ? cards.filter((c) => c.name.toLowerCase().includes(filter.toLowerCase()))
-    : cards;
+  useEffect(() => {
+    if (!onTypeCounts || Object.keys(metaMap).length === 0) return;
+    const counts = { all: totalCards };
+    for (const card of cards) {
+      const tl = (metaMap[card.name]?.type_line || "").toLowerCase();
+      for (const type of ["creature", "instant", "sorcery", "artifact", "enchantment", "land"]) {
+        if (tl.includes(type)) { counts[type] = (counts[type] || 0) + card.qty; break; }
+      }
+    }
+    onTypeCounts(counts);
+  }, [metaMap, cards, totalCards]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const filteredCards = cards.filter((c) => {
+    if (filter && !c.name.toLowerCase().includes(filter.toLowerCase())) return false;
+    if (typeFilter && typeFilter !== "all") {
+      const tl = (metaMap[c.name]?.type_line || "").toLowerCase();
+      if (!tl.includes(typeFilter)) return false;
+    }
+    return true;
+  });
 
   const rawGroups = Object.keys(metaMap).length > 0
     ? groupCards(filteredCards, groupBy, metaMap)
@@ -253,6 +270,7 @@ export default function CardGrid({ decklist, commander, format, filter, onRemove
                   qty={c.qty}
                   onRemove={onRemove}
                   onExpand={() => handleThumbnailExpand(c.name)}
+                  useArtCrop={!canHover}
                 />
               ))}
             </div>

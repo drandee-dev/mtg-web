@@ -42,9 +42,11 @@ export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
   maybeboard, setMaybeboard,
   deckName, onSave, onClone, onExport, onPlaytest, onShare,
-  startInWizard, onWizardConsumed, notify,
+  startInWizard, onWizardConsumed, onBack, notify,
 }) {
   const [mode, setMode] = useState(startInWizard ? "wizard" : "manual");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [typeCounts, setTypeCounts] = useState({});
 
   useEffect(() => {
     if (startInWizard) {
@@ -217,7 +219,6 @@ export default function DeckView({
 
   const hasCommander = isCommanderFmt && commander;
   const considerCount = parseDeckText(maybeboard || "").cards.length;
-  const [categoryFilter, setCategoryFilter] = useState("all");
 
   const CATEGORY_TABS = [
     ["all", "All"],
@@ -229,15 +230,34 @@ export default function DeckView({
     ["land", "Lands"],
   ];
 
-  const filteredDeckFilter = categoryFilter === "all"
-    ? deckFilter
-    : deckFilter
-      ? `${deckFilter} t:${categoryFilter}`
-      : `t:${categoryFilter}`;
-
   return (
     <div>
-      {/* Commander + format bar */}
+      {/* Mobile nav bar — visible only on mobile */}
+      <div className="mobile-deck-nav">
+        <button className="mobile-deck-back" onClick={onBack}>&#8249; Decks</button>
+        <span className="mobile-deck-name">{deckName || "Untitled deck"}</span>
+        <div className="mobile-deck-actions">
+          <button
+            className={`primary small mobile-deck-save${saveState === "saved" ? " btn-saved" : ""}`}
+            disabled={saveState === "saving"}
+            onClick={async () => {
+              setSaveState("saving");
+              try { await onSave(); setSaveState("saved"); setTimeout(() => setSaveState("idle"), 2000); }
+              catch { setSaveState("idle"); }
+            }}
+          >
+            {saveState === "saving" ? "…" : saveState === "saved" ? "Saved" : "Save"}
+          </button>
+          <MoreMenu items={[
+            { label: "Share link", icon: "🔗", onClick: onShare },
+            { label: "Clone deck", icon: "⎘", onClick: onClone },
+            { label: "Export .txt", icon: "↓", onClick: onExport },
+            { label: "Playtest", icon: "▶", onClick: onPlaytest },
+          ]} />
+        </div>
+      </div>
+
+      {/* Desktop toolbar */}
       <div className="deck-toolbar">
         <div className="deck-toolbar-top">
           <h2 className="deck-title">{deckName || "Untitled deck"}</h2>
@@ -283,6 +303,38 @@ export default function DeckView({
         )}
       </div>
 
+      {/* Mobile commander strip */}
+      {hasCommander && (
+        <div className="cmdr-strip-mobile">
+          <div className="cmdr-strip-art">
+            {cmdrData?.art_crop ? <img src={cmdrData.art_crop} alt="" /> : null}
+          </div>
+          <div className="cmdr-strip-info">
+            <div className="cmdr-strip-name">{commander.replace(" && ", " + ")}</div>
+            <div className="cmdr-strip-meta">
+              <span className="cmdr-strip-label">Commander</span>
+              <span className="cmdr-strip-dot">&middot;</span>
+              {(cmdrData?.color_identity || []).map((c) => (
+                <span key={c} className={`cmdr-strip-pip pip-${c}`}>{c}</span>
+              ))}
+              {result?.bracket?.bracket != null && (
+                <span className="cmdr-strip-bracket">B{result.bracket.bracket}</span>
+              )}
+            </div>
+          </div>
+          <div className="cmdr-strip-stats">
+            <span className="cmdr-strip-count">
+              {result?.total_cards != null
+                ? `${result.total_cards + (commander ? commander.split(" && ").filter(Boolean).length : 0)}/100`
+                : "—/100"}
+            </span>
+            {result?.breakdown?.price_usd != null && (
+              <span className="cmdr-strip-price">${Math.round(result.breakdown.price_usd)}</span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Category tabs bar */}
       <div className="category-tabs">
         {CATEGORY_TABS.map(([id, label]) => (
@@ -291,34 +343,10 @@ export default function DeckView({
             className={`category-tab${categoryFilter === id ? " active" : ""}`}
             onClick={() => setCategoryFilter(id)}
           >
-            {label}
+            {label}{typeCounts[id] != null ? ` (${typeCounts[id]})` : ""}
           </button>
         ))}
       </div>
-
-      {/* Mobile commander strip */}
-      {hasCommander && (
-        <div className="cmdr-strip-mobile">
-          <div className="cmdr-strip-art">
-            {cmdrData?.art_crop ? (
-              <img src={cmdrData.art_crop} alt="" />
-            ) : null}
-          </div>
-          <div>
-            <div style={{ fontSize: ".7rem", fontWeight: 600, color: "var(--text)" }}>{commander.replace(" && ", " + ")}</div>
-            <div style={{ display: "flex", gap: ".25rem", marginTop: "2px", alignItems: "center" }}>
-              <span style={{ fontSize: ".55rem", color: "var(--muted)" }}>
-                {format.charAt(0).toUpperCase() + format.slice(1)}
-              </span>
-              {result?.bracket?.bracket != null && (
-                <span style={{ fontSize: ".55rem", background: "rgba(229,184,76,.1)", color: "var(--warn)", borderRadius: "3px", padding: "1px 4px", fontWeight: 600 }}>
-                  B{result.bracket.bracket}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main layout: 3-column when commander is set, 2-column otherwise */}
       <div className={hasCommander ? "deck-layout-3col" : "deck-layout"}>
@@ -378,8 +406,10 @@ export default function DeckView({
             decklist={decklist}
             commander={commander}
             format={format}
-            filter={filteredDeckFilter || deckFilter}
+            filter={deckFilter}
+            typeFilter={categoryFilter}
             onRemove={locked ? null : removeCard}
+            onTypeCounts={setTypeCounts}
             notify={notify}
           />
 

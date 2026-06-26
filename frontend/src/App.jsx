@@ -299,6 +299,7 @@ export default function App() {
             onShare={shareDeck}
             startInWizard={startInWizard}
             onWizardConsumed={() => setStartInWizard(false)}
+            onBack={() => setTab("decks")}
             notify={notify}
           />
         )}
