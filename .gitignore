@@ -17,6 +17,10 @@ frontend/.env
 frontend/.env.*
 !frontend/.env.example
 
+# Claude Code (internal instructions, not for repo)
+CLAUDE.md
+.claude/
+
 # Editor / OS
 .DS_Store
 .vscode/
