@@ -206,7 +206,7 @@ export default function CardGrid({ decklist, commander, format, filter, typeFilt
 
       {/* Stack view: Archidekt-style overlapping columns */}
       {viewMode === "stack" && (
-        <StackView groups={Object.entries(groups)} onCardClick={handleThumbnailExpand} />
+        <StackView groups={Object.entries(groups)} onCardClick={handleThumbnailExpand} onRemove={onRemove} onConsider={onConsider} />
       )}
 
       {/* Grid and List views: groups stacked vertically */}

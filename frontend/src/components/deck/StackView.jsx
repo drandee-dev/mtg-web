@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { canHover, useCardImage } from "../../lib/hooks";
 
-// Archidekt-style stacked columns: cards in each type group overlap vertically,
-// showing only a ~36px name strip until hovered (desktop) or tapped (touch).
-export default function StackView({ groups, onCardClick, synergyMap = {} }) {
+export default function StackView({ groups, onCardClick, onRemove, onConsider, synergyMap = {} }) {
   return (
     <div className="stack-view">
       {groups.map(([label, cards]) => {
@@ -22,6 +20,8 @@ export default function StackView({ groups, onCardClick, synergyMap = {} }) {
                   qty={c.qty}
                   synergy={synergyMap[c.name]}
                   onCardClick={onCardClick}
+                  onRemove={onRemove}
+                  onConsider={onConsider}
                 />
               ))}
             </div>
@@ -32,13 +32,12 @@ export default function StackView({ groups, onCardClick, synergyMap = {} }) {
   );
 }
 
-function StackCard({ name, qty, synergy, onCardClick }) {
+function StackCard({ name, qty, synergy, onCardClick, onRemove, onConsider }) {
   const data = useCardImage(name);
   const img = data?.image || data?.art_crop || null;
   const [expanded, setExpanded] = useState(false);
 
   function handleClick() {
-    // Desktop reveals on hover; touch reveals on first tap, opens preview on second.
     if (canHover) { onCardClick?.(name); return; }
     if (expanded) { onCardClick?.(name); setExpanded(false); }
     else { setExpanded(true); }
@@ -62,6 +61,29 @@ function StackCard({ name, qty, synergy, onCardClick }) {
       {qty > 1 && <span className="stack-card-qty">{qty}</span>}
       {synergy != null && <span className="stack-card-synergy">{Math.round(synergy * 100)}%</span>}
       <div className="stack-card-name"><span>{name}</span></div>
+      {canHover && (
+        <div className="card-hover-overlay">
+          {onRemove && (
+            <button className="card-hover-btn card-hover-remove"
+              onClick={(e) => { e.stopPropagation(); onRemove(name); }}>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 4l8 8M12 4L4 12"/></svg>
+              <span>Remove</span>
+            </button>
+          )}
+          {onConsider && (
+            <button className="card-hover-btn card-hover-consider"
+              onClick={(e) => { e.stopPropagation(); onConsider(name); }}>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+              <span>Consider</span>
+            </button>
+          )}
+          <button className="card-hover-btn card-hover-scryfall"
+            onClick={(e) => { e.stopPropagation(); window.open(`https://scryfall.com/search?q=${encodeURIComponent(name)}`, "_blank", "noopener"); }}>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M7 3H3.5A1.5 1.5 0 0 0 2 4.5v8A1.5 1.5 0 0 0 3.5 14h8A1.5 1.5 0 0 0 13 12.5V9"/><path d="M9.5 2H14v4.5"/><line x1="14" y1="2" x2="7.5" y2="8.5"/></svg>
+            <span>Scryfall</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
