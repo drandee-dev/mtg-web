@@ -1,3 +1,5 @@
+import AvatarPopup from "./AvatarPopup";
+
 const TAB_ICONS = {
   decks: (
     <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
@@ -28,8 +30,10 @@ const TAB_ICONS = {
 };
 
 export default function GlobalToolbar({
-  tabs, tab, setTab, cloud, session, supabaseEnabled,
-  settingsOpen, setSettingsOpen,
+  tabs, tab, setTab, cloud, session,
+  setSettingsOpen,
+  decks, onNewDeck, onImportUrl, onPasteDecklist, onSignOut,
+  avatarMenuOpen, setAvatarMenuOpen,
 }) {
   const initials = cloud
     ? session.user.email.slice(0, 2).toUpperCase()
@@ -66,12 +70,25 @@ export default function GlobalToolbar({
       <div className="gt-right">
         <div className="gt-user-wrap">
           <button
-            className="gt-avatar"
-            onClick={() => setSettingsOpen((s) => !s)}
-            aria-label="Account info"
+            className={`gt-avatar${avatarMenuOpen ? " active" : ""}`}
+            onClick={() => setAvatarMenuOpen((s) => !s)}
+            aria-label="Account menu"
           >
             {initials}
           </button>
+          {avatarMenuOpen && (
+            <AvatarPopup
+              decks={decks}
+              session={session}
+              onNewDeck={onNewDeck}
+              onImportUrl={onImportUrl}
+              onPasteDecklist={onPasteDecklist}
+              setTab={setTab}
+              onAccountSettings={() => { setAvatarMenuOpen(false); setSettingsOpen(true); }}
+              onSignOut={onSignOut}
+              onClose={() => setAvatarMenuOpen(false)}
+            />
+          )}
         </div>
       </div>
     </header>

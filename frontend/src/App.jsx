@@ -55,6 +55,7 @@ export default function App() {
   const [decks, setDecks] = useState([]);
   const [toast, setToast] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [serverStatus, setServerStatus] = useState("checking");
   const [healthRetry, setHealthRetry] = useState(0);
   const [serverAi, setServerAi] = useState(true);
@@ -155,6 +156,27 @@ export default function App() {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // PWA magic-link return: detect auth callback in browser and prompt return to PWA
+  const [showPwaReturn, setShowPwaReturn] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth_callback") !== "1") return false;
+    window.history.replaceState({}, "", window.location.pathname);
+    const isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+    return !isStandalone;
+  });
+
+  // Refresh session when tab becomes visible (handles phone sleep/background)
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    function onVisible() {
+      if (document.visibilityState === "visible") {
+        supabase.auth.getSession().then(({ data }) => setSession(data.session));
+      }
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
   const userId = session?.user?.id || null;
@@ -271,6 +293,13 @@ export default function App() {
         supabaseEnabled={supabaseEnabled}
         settingsOpen={settingsOpen}
         setSettingsOpen={setSettingsOpen}
+        decks={decks}
+        onNewDeck={newDeck}
+        onImportUrl={() => setTab("decks")}
+        onPasteDecklist={newDeck}
+        onSignOut={() => { supabase.auth.signOut(); notify("Signed out."); }}
+        avatarMenuOpen={avatarMenuOpen}
+        setAvatarMenuOpen={setAvatarMenuOpen}
       />
 
       <main id="main-content" role="tabpanel">
@@ -327,6 +356,7 @@ export default function App() {
           session={session}
           supabaseEnabled={supabaseEnabled}
           cloud={cloud}
+          deckCount={decks.length}
           onClose={() => setSettingsOpen(false)}
           notify={notify}
         />
@@ -337,6 +367,12 @@ export default function App() {
           <span>New version available</span>
           <button onClick={() => updateServiceWorker(true)}>Update</button>
           <button onClick={() => setNeedRefresh(false)} aria-label="Dismiss">✕</button>
+        </div>
+      )}
+      {showPwaReturn && (
+        <div className="pwa-return-banner" role="alert">
+          <span>Signed in! You can return to the MTG Workshop app now.</span>
+          <button onClick={() => setShowPwaReturn(false)} aria-label="Dismiss">✕</button>
         </div>
       )}
       {toast && <div className="toast" role="status" aria-live="polite">{toast}</div>}

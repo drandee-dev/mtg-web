@@ -36,6 +36,8 @@ free, deterministic features; Phase 2 (later) adds optional AI.
 - AI-suggested cuts with reasoning
 - Full strategy guide generation
 
+See [[projects/mtg-web/DESIGN-HANDOFF|Phase 2 design handoff]] for the full UX spec, and the [[projects/mtg-web/design_handoff_mtg_workshop/|frontend redesign handoff]] for implementation details. The web app builds on the CLI tools from [[projects/mtg-deck-builder/|MTG Deck Builder]].
+
 ---
 
 ## Run locally

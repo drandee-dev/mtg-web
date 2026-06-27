@@ -1,15 +1,16 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import ThemeSwitcher from "./ThemeSwitcher";
 
 const KEY_STORE = "mtgweb:anthropicKey";
 
-export default function AccountDropdown({ session, supabaseEnabled, cloud, onClose, notify }) {
+export default function AccountDropdown({ session, supabaseEnabled, deckCount = 0, onClose, notify }) {
   const [email, setEmail] = useState("");
   const [apiKey, setApiKey] = useState(localStorage.getItem(KEY_STORE) || "");
+  const [editingKey, setEditingKey] = useState(!localStorage.getItem(KEY_STORE));
   const [busy, setBusy] = useState(false);
   const ref = useRef(null);
 
-  /* close on outside click */
   useEffect(() => {
     function handler(e) {
       if (ref.current && !ref.current.contains(e.target)) onClose();
@@ -24,7 +25,7 @@ export default function AccountDropdown({ session, supabaseEnabled, cloud, onClo
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: { emailRedirectTo: window.location.origin },
+        options: { emailRedirectTo: `${window.location.origin}/?auth_callback=1` },
       });
       if (error) throw error;
       notify("Check your email for the sign-in link.");
@@ -41,196 +42,135 @@ export default function AccountDropdown({ session, supabaseEnabled, cloud, onClo
   }
 
   function saveKey() {
-    if (apiKey.trim()) localStorage.setItem(KEY_STORE, apiKey.trim());
-    else localStorage.removeItem(KEY_STORE);
+    if (apiKey.trim()) {
+      localStorage.setItem(KEY_STORE, apiKey.trim());
+      setEditingKey(false);
+    } else {
+      localStorage.removeItem(KEY_STORE);
+    }
     notify("Saved.");
   }
 
+  const signedIn = supabaseEnabled && session;
   const avatarLetter = session ? session.user.email[0].toUpperCase() : "?";
-  const avatarBg = session ? "var(--accent)" : "var(--bg-raised)";
-  const avatarColor = session ? "#1a1206" : "var(--text-muted)";
+  const maskedKey = apiKey ? `sk-ant-${"•".repeat(20)}` : "";
 
   return (
-    <div
-      ref={ref}
-      style={{
-        position: "fixed",
-        top: 54,
-        right: 16,
-        zIndex: 200,
-        width: 280,
-        background: "var(--panel)",
-        border: "1px solid var(--border-strong)",
-        borderRadius: 12,
-        boxShadow: "0 8px 32px rgba(0,0,0,.65)",
-        overflow: "hidden",
-        animation: "fadeSlideIn .15s ease-out",
-      }}
-    >
-      {/* ── 1. Account status ── */}
-      <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              background: avatarBg,
-              color: avatarColor,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 700,
-              fontSize: 15,
-              flexShrink: 0,
-            }}
-          >
-            {avatarLetter}
-          </div>
-          <div style={{ minWidth: 0 }}>
-            {supabaseEnabled && session && (
-              <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {session.user.email}
+    <div className="account-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div ref={ref} className="account-panel">
+        {/* Header */}
+        <div className="account-header-row">
+          {signedIn ? (
+            <>
+              <div className="account-avatar account-avatar-active">{avatarLetter}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="account-email">{session.user.email}</div>
+                <div className="account-synced-dot">● Synced</div>
               </div>
-            )}
-            {supabaseEnabled && !session && (
-              <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Not signed in</div>
-            )}
-            {!supabaseEnabled && (
-              <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                Local mode &middot; decks saved to this browser
-              </div>
-            )}
-          </div>
-        </div>
-
-        {supabaseEnabled && !session && (
-          <>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              style={{
-                width: "100%",
-                padding: "7px 10px",
-                fontSize: 13,
-                background: "var(--bg-raised)",
-                border: "1px solid var(--border)",
-                borderRadius: 6,
-                color: "inherit",
-                boxSizing: "border-box",
-                marginBottom: 8,
-              }}
-            />
-            <button
-              onClick={sendLink}
-              disabled={busy}
-              style={{
-                width: "100%",
-                padding: "8px 0",
-                fontSize: 13,
-                background: "var(--accent)",
-                color: "#1a1206",
-                border: "none",
-                borderRadius: 7,
-                fontWeight: 700,
-                cursor: busy ? "wait" : "pointer",
-              }}
-            >
-              {busy ? "Sending..." : "Sign in with magic link"}
-            </button>
-          </>
-        )}
-
-        {supabaseEnabled && session && (
-          <button
-            onClick={signOut}
-            style={{
-              width: "100%",
-              padding: "7px 0",
-              fontSize: 13,
-              background: "transparent",
-              border: "1px solid var(--border)",
-              borderRadius: 7,
-              color: "var(--text-muted)",
-              cursor: "pointer",
-            }}
-          >
-            Sign out
+            </>
+          ) : (
+            <>
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" style={{ flex: "none" }}><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" stroke="var(--accent)" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+              <span className="account-brand-name">MTG Workshop</span>
+            </>
+          )}
+          <button className="account-close" onClick={onClose} aria-label="Close">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M4 4l8 8M12 4L4 12"/></svg>
           </button>
-        )}
-      </div>
-
-      {/* ── 2. Cloud sync ── */}
-      <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Cloud sync</span>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              padding: "2px 8px",
-              borderRadius: 9,
-              background: cloud ? "var(--accent)" : "var(--bg-raised)",
-              color: cloud ? "#1a1206" : "var(--text-muted)",
-            }}
-          >
-            {cloud ? "On" : "Off"}
-          </span>
         </div>
-        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
-          {cloud
-            ? "Decks sync across your devices automatically."
-            : "Sign in to sync decks across devices."}
-        </div>
-      </div>
 
-      {/* ── 3. API key ── */}
-      <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Anthropic API key</div>
-        <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>
-          Paste your own key to bypass the daily Planeswalker limit. Stored only in this browser.
-        </div>
-        <input
-          type="password"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-          onBlur={saveKey}
-          placeholder="sk-ant-api03-…"
-          style={{
-            width: "100%",
-            padding: "7px 10px",
-            fontSize: 13,
-            background: "var(--bg-raised)",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            color: "inherit",
-            fontFamily: "ui-monospace, monospace",
-            boxSizing: "border-box",
-          }}
-        />
-      </div>
+        <div className="account-body">
+          {/* Cloud sync callout */}
+          {signedIn ? (
+            <div className="account-callout account-callout-good">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="var(--good)" strokeWidth="1.4" strokeLinecap="round" style={{ flex: "none" }}><path d="M4 11.5a3.5 3.5 0 1 1 .5-6.97A4 4 0 1 1 11.5 9H5"/><path d="M5 11.5l-2 2 2 2"/></svg>
+              <div style={{ flex: 1 }}>
+                <span className="account-callout-title account-callout-title-good">Cloud sync active</span>
+                <span className="account-callout-sub"> {deckCount} deck{deckCount !== 1 ? "s" : ""} · Last synced just now</span>
+              </div>
+            </div>
+          ) : supabaseEnabled ? (
+            <div className="account-callout account-callout-blue">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--accent-2)" strokeWidth="1.4" strokeLinecap="round" style={{ flex: "none", marginTop: "1px" }}><path d="M4 11.5a3.5 3.5 0 1 1 .5-6.97A4 4 0 1 1 11.5 9H5"/><path d="M5 11.5l-2 2 2 2"/></svg>
+              <div>
+                <div className="account-callout-title account-callout-title-blue">Sign in to enable cloud sync</div>
+                <div className="account-callout-text">Your decks are saved locally. Sign in to back them up and access from any device.</div>
+              </div>
+            </div>
+          ) : (
+            <div className="account-callout account-callout-blue">
+              <div className="account-callout-text">Local mode · decks are saved to this browser.</div>
+            </div>
+          )}
 
-      {/* ── 4. Feedback ── */}
-      <div style={{ padding: "4px 8px 8px" }}>
-        <button
-          onClick={() => {
-            window.open("mailto:ANDRES.J.MARTINEZ@outlook.com?subject=MTG%20Workshop%20Feedback", "_blank");
-          }}
-          style={{
-            width: "100%",
-            padding: "8px 0",
-            fontSize: 13,
-            background: "transparent",
-            border: "none",
-            color: "var(--text-muted)",
-            cursor: "pointer",
-            borderRadius: 6,
-          }}
-        >
-          💬 Send feedback / report a bug
-        </button>
+          {/* Sign in (signed-out only) */}
+          {supabaseEnabled && !session && (
+            <div>
+              <div className="account-section-title">Sign In</div>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="account-email-input"
+              />
+              <button onClick={sendLink} disabled={busy} className="account-magic-link-btn">
+                {busy ? "Sending..." : "Send magic link"}
+              </button>
+              <div className="account-magic-hint">No password required · Check your email</div>
+            </div>
+          )}
+
+          {/* Theme */}
+          <div>
+            <div className="account-section-title">Theme</div>
+            <ThemeSwitcher />
+          </div>
+
+          {/* API key */}
+          <div>
+            <div className="account-key-header">
+              <span className="account-section-title" style={{ margin: 0 }}>Anthropic API Key</span>
+              {apiKey && !editingKey && <span className="account-key-badge">Active</span>}
+            </div>
+            {apiKey && !editingKey ? (
+              <div className="account-key-display">
+                <span className="account-key-masked">{maskedKey}</span>
+                <button className="account-key-change" onClick={() => setEditingKey(true)}>Change</button>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  onBlur={saveKey}
+                  placeholder="sk-ant-... (optional, for AI features)"
+                  className="account-api-input"
+                />
+                <div className="account-callout-text" style={{ marginTop: "6px" }}>
+                  Enables AI analysis and the Planeswalker assistant. Your key is stored locally and never sent to our servers.
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="account-footer">
+            <button
+              className="account-feedback-link"
+              onClick={() => window.open("mailto:ANDRES.J.MARTINEZ@outlook.com?subject=MTG%20Workshop%20Feedback", "_blank")}
+            >
+              Send feedback ↗
+            </button>
+            {signedIn && (
+              <button onClick={signOut} className="account-signout-btn">
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M10 3h3.5A1.5 1.5 0 0 1 15 4.5v7A1.5 1.5 0 0 1 13.5 13H10M7 10l3-2-3-2M1 8h10"/></svg>
+                Sign Out
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -473,6 +473,93 @@ def deck_ai_upgrades(request: Request, payload: Annotated[dict, Body()]) -> dict
     return mtg.ai_upgrades(decklist, fmt=fmt, commander=commander, bracket=_target_bracket(payload), mode=mode)
 
 
+class ImportUrlPayload(BaseModel):
+    url: str = Field(max_length=500)
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        v = v.strip()
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("URL must start with http:// or https://")
+        return v
+
+
+@app.post("/api/deck/import-url")
+def deck_import_url(payload: ImportUrlPayload) -> dict:
+    """Import a decklist from Moxfield or Archidekt URL."""
+    import requests as req
+
+    url = payload.url
+    try:
+        # Moxfield: https://www.moxfield.com/decks/{id}
+        mox = re.search(r"moxfield\.com/decks/([A-Za-z0-9_-]+)", url)
+        if mox:
+            deck_id = mox.group(1)
+            resp = req.get(
+                f"https://api2.moxfield.com/v3/decks/all/{deck_id}",
+                headers={"User-Agent": "MTGWorkshop/1.0"},
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                raise HTTPException(400, "Could not fetch Moxfield deck. Is it public?")
+            data = resp.json()
+            name = data.get("name", "Imported deck")
+            fmt = data.get("format", "commander")
+            lines = []
+            commanders = data.get("commanders") or {}
+            for card_data in commanders.values():
+                cname = (card_data.get("card") or {}).get("name", "")
+                qty = card_data.get("quantity", 1)
+                if cname:
+                    lines.append(f"Commander\n{qty} {cname}\nDeck")
+            for board_key in ("mainboard", "companions", "signatureSpells"):
+                board = data.get(board_key) or {}
+                for card_data in board.values():
+                    cname = (card_data.get("card") or {}).get("name", "")
+                    qty = card_data.get("quantity", 1)
+                    if cname:
+                        lines.append(f"{qty} {cname}")
+            return {"name": name, "decklist": "\n".join(lines), "format": fmt, "source": "moxfield"}
+
+        # Archidekt: https://archidekt.com/decks/{id}/...
+        arch = re.search(r"archidekt\.com/decks/(\d+)", url)
+        if arch:
+            deck_id = arch.group(1)
+            resp = req.get(
+                f"https://archidekt.com/api/decks/{deck_id}/",
+                headers={"User-Agent": "MTGWorkshop/1.0"},
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                raise HTTPException(400, "Could not fetch Archidekt deck. Is it public?")
+            data = resp.json()
+            name = data.get("name", "Imported deck")
+            fmt = data.get("deckFormat", "commander")
+            fmt_map = {1: "standard", 2: "modern", 3: "commander", 4: "legacy", 5: "vintage", 6: "pauper", 7: "pioneer"}
+            if isinstance(fmt, int):
+                fmt = fmt_map.get(fmt, "commander")
+            lines = []
+            for card_data in data.get("cards") or []:
+                cname = ((card_data.get("card") or {}).get("oracleCard") or {}).get("name", "")
+                qty = card_data.get("quantity", 1)
+                categories = card_data.get("categories") or []
+                if not cname:
+                    continue
+                if "Commander" in categories:
+                    lines.insert(0, f"Commander\n{qty} {cname}\nDeck")
+                else:
+                    lines.append(f"{qty} {cname}")
+            return {"name": name, "decklist": "\n".join(lines), "format": fmt, "source": "archidekt"}
+
+        raise HTTPException(400, "Unsupported URL. Paste a Moxfield or Archidekt deck URL.")
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        log.exception("import-url failed")
+        raise HTTPException(500, "Import failed.") from e
+
+
 @app.post("/api/deck/wizard/skeleton")
 def wizard_skeleton(payload: Annotated[dict, Body()]) -> dict:
     commander = (payload.get("commander") or "").strip()

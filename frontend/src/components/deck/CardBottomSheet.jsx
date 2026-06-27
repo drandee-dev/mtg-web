@@ -43,6 +43,9 @@ export default function CardBottomSheet({ name, onClose, onRemove, onAddToConsid
                 Considering
               </button>
             )}
+            <button className="ghost small" onClick={() => window.open(`https://scryfall.com/search?q=${encodeURIComponent(name)}`, "_blank", "noopener")}>
+              Scryfall ↗
+            </button>
             <button className="ghost small" onClick={onClose}>Close</button>
           </div>
         </div>

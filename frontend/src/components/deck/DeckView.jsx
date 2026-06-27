@@ -456,6 +456,7 @@ export default function DeckView({
             filter={deckFilter}
             typeFilter={categoryFilter}
             onRemove={locked ? null : removeCard}
+            onConsider={locked ? null : addToConsidering}
             onTypeCounts={setTypeCounts}
             notify={notify}
           />

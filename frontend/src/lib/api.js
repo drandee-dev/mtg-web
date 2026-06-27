@@ -118,6 +118,7 @@ export const api = {
     post("/api/deck/ai/strategy", { decklist, format, ...(commander ? { commander } : {}), ...(bracket != null ? { bracket } : {}) }),
   aiUpgrades: (decklist, format, commander, bracket, mode) =>
     post("/api/deck/ai/upgrades", { decklist, format, ...(commander ? { commander } : {}), ...(bracket != null ? { bracket } : {}), mode: mode || "power" }),
+  importUrl: (url) => post("/api/deck/import-url", { url }),
   planeswalkerChat: (messages, decklist, format, commander, bracket) =>
     post("/api/planeswalker/chat", { messages, decklist, format, commander, ...(bracket != null ? { bracket } : {}) }),
 };
