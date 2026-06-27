@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { api, disassembleDecklist, getCardImage, FORMATS } from "../lib/api";
 import { downloadFile } from "../lib/hooks";
 
@@ -7,46 +7,108 @@ const WUBRG_COLORS = ["W", "U", "B", "R", "G"];
 const HERO_ART = "https://cards.scryfall.io/art_crop/front/8/a/8a2813cb-c73c-4a50-b278-2f13deb71773.jpg";
 
 
-function DeckHero({ deck, meta, onOpen, onDelete, onRename, onExport, notify }) {
+function deckCardCount(text) {
+  return (text || "").split("\n")
+    .filter((l) => /^\s*\d/.test(l) && !/^\s*commander\s*$/i.test(l))
+    .reduce((s, l) => s + (parseInt(l.trim(), 10) || 0), 0);
+}
+
+function relativeTime(iso) {
+  if (!iso) return "";
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const secs = Math.max(0, (Date.now() - then) / 1000);
+  if (secs < 60) return "Just now";
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins} min${mins !== 1 ? "s" : ""} ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hour${hrs !== 1 ? "s" : ""} ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days} day${days !== 1 ? "s" : ""} ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks} week${weeks !== 1 ? "s" : ""} ago`;
+  const months = Math.floor(days / 30);
+  return `${months} month${months !== 1 ? "s" : ""} ago`;
+}
+
+function DeckHero({ deck, meta, onOpen, onPlaytest, onDelete, onRename, onExport }) {
   const art = meta?.art_crop;
   const colors = meta?.color_identity || [];
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handler(e) { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); }
+    document.addEventListener("pointerdown", handler);
+    return () => document.removeEventListener("pointerdown", handler);
+  }, [menuOpen]);
+
+  const isCmdr = deck.format === "commander" || deck.format === "paupercommander";
+  const count = deckCardCount(deck.decklist_text);
+  const total = isCmdr ? 100 : 60;
+  const when = relativeTime(deck.updated_at);
+  const fmtLabel = (deck.format || "commander").replace(/^\w/, (c) => c.toUpperCase());
 
   return (
-    <div className="deck-hero-wrap">
-      <div className="deck-hero" onClick={() => onOpen(deck)} role="button" tabIndex={0}
+    <div className="deck-card">
+      {/* Art */}
+      <div className="deck-card-art" onClick={() => onOpen(deck)} role="button" tabIndex={0}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(deck); } }}
         aria-label={`Open ${deck.name}`}>
-        {art ? (
-          <img src={art} alt="" loading="lazy" />
-        ) : (
-          <div className="deck-hero-placeholder" />
+        {art ? <img src={art} alt="" loading="lazy" /> : <div className="deck-card-art-ph" />}
+        <div className="deck-card-art-gradient" />
+        {colors.length > 0 && (
+          <div className="deck-card-pips">
+            {WUBRG_COLORS.filter((c) => colors.includes(c)).map((c) => (
+              <span key={c} className={`pip pip-${c}`}>{c}</span>
+            ))}
+          </div>
         )}
-        <div className="deck-hero-overlay">
-          <div className="deck-hero-name">{deck.name}</div>
-          <div className="deck-hero-meta">
-            <span className="deck-hero-format">
-              {(deck.format || "commander").replace(/^\w/, (c) => c.toUpperCase())}
-              {meta?.bracket != null ? ` · B${meta.bracket}` : ""}
-            </span>
-            {colors.length > 0 && (
-              <span className="deck-hero-pips deck-hero-pips-desktop">
-                {WUBRG_COLORS.filter((c) => colors.includes(c)).map((c) => (
-                  <span key={c} className={`pip pip-${c}`}>{c}</span>
-                ))}
-              </span>
+        {/* Hover action overlay */}
+        <div className="deck-card-hover">
+          <button className="deck-card-hover-btn" onClick={(e) => { e.stopPropagation(); onOpen(deck); }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"><path d="M2 13L5 10M11 2l3 3-9 9-4 1 1-4 9-9Z"/></svg>
+            Edit
+          </button>
+          <button className="deck-card-hover-btn" onClick={(e) => { e.stopPropagation(); onPlaytest?.(deck); }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"><path d="M2 8a6 6 0 1 0 12 0A6 6 0 0 0 2 8ZM8 5v3l2.5 1.5"/></svg>
+            Playtest
+          </button>
+          <button className="deck-card-hover-btn" onClick={(e) => { e.stopPropagation(); onExport(deck, "txt"); }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"><path d="M8 2v9M8 11L5.5 8.5M8 11l2.5-2.5"/><line x1="2.5" y1="14" x2="13.5" y2="14"/></svg>
+            Export
+          </button>
+        </div>
+      </div>
+      {/* Body */}
+      <div className="deck-card-body">
+        <div className="deck-card-name">{deck.name}</div>
+        <div className="deck-card-row">
+          <span className="deck-card-format">{fmtLabel}</span>
+          <span className="deck-card-count">{count}/{total}</span>
+        </div>
+        <div className="deck-card-row">
+          <span className="deck-card-time">
+            {when === "Just now" && <span className="deck-card-dot" />}
+            {when}
+          </span>
+          <div className="deck-card-menu-wrap" ref={menuRef}>
+            <button className="deck-card-menu-btn" onClick={() => setMenuOpen((o) => !o)} aria-label="Deck actions">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="3.5" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="12.5" cy="8" r="1.3" fill="currentColor"/></svg>
+            </button>
+            {menuOpen && (
+              <div className="deck-card-menu">
+                <button className="deck-card-menu-item" onClick={() => { setMenuOpen(false); onRename(deck); }}>Rename</button>
+                <button className="deck-card-menu-item" onClick={() => { setMenuOpen(false); onExport(deck, "txt"); }}>Export .txt</button>
+                <button className="deck-card-menu-item" onClick={() => { setMenuOpen(false); onExport(deck, "json"); }}>Export .json</button>
+                <button className="deck-card-menu-item" onClick={() => { setMenuOpen(false); onPlaytest?.(deck); }}>Playtest</button>
+                <div className="deck-card-menu-divider" />
+                <button className="deck-card-menu-item deck-card-menu-danger" onClick={() => { setMenuOpen(false); onDelete(deck.id); }}>Delete</button>
+              </div>
             )}
           </div>
         </div>
-      </div>
-      <div className="deck-hero-actions">
-        <button className="ghost small" onClick={() => onRename(deck)}>Rename</button>
-        <select className="ghost small" style={{ width: "auto", padding: ".1rem .3rem", fontSize: ".75rem" }}
-          defaultValue="" onChange={(e) => { if (e.target.value) onExport(deck, e.target.value); e.target.value = ""; }}>
-          <option value="" disabled>Export</option>
-          <option value="txt">.txt</option>
-          <option value="json">.json</option>
-        </select>
-        <button className="ghost small btn-danger" onClick={() => onDelete(deck.id)}>Delete</button>
       </div>
     </div>
   );
@@ -266,7 +328,7 @@ function AIChatPreview() {
   );
 }
 
-export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onNewDeck, onGuidedBuild, notify, refresh, setTab }) {
+export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onPlaytest, onNewDeck, onGuidedBuild, notify, refresh, setTab }) {
   const [importText, setImportText] = useState("");
   const [importName, setImportName] = useState("");
   const [importFormat, setImportFormat] = useState("commander");
@@ -511,14 +573,14 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
                 deck={d}
                 meta={deckMeta[d.id]}
                 onOpen={onOpen}
+                onPlaytest={onPlaytest}
                 onDelete={onDelete}
                 onRename={rename}
                 onExport={exportDeck}
-                notify={notify}
               />
             ))}
             {onNewDeck && (
-              <div className="deck-hero deck-hero-new" onClick={onNewDeck} role="button" tabIndex={0}
+              <div className="deck-card-new" onClick={onNewDeck} role="button" tabIndex={0}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNewDeck(); } }}>
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: "2rem", lineHeight: 1, color: "var(--muted)" }}>+</div>

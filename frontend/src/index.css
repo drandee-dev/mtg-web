@@ -1863,36 +1863,79 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 }
 
 /* Hero portrait grid — My Decks landing */
-.hero-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr)); gap: .75rem; }
-.deck-hero-wrap { display: flex; flex-direction: column; }
-.deck-hero {
-  position: relative; aspect-ratio: 3/4; border-radius: var(--radius-lg); overflow: hidden;
-  cursor: pointer; transition: transform .2s, box-shadow .2s;
+/* Deck card grid (Frame D — art on top + body) */
+.hero-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+.deck-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden; transition: border-color .15s;
 }
-.deck-hero:hover { transform: scale(1.02); box-shadow: var(--shadow-lg); }
-.deck-hero img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; transition: transform .3s; }
-.deck-hero:hover img { transform: scale(1.05); }
-.deck-hero-placeholder { width: 100%; height: 100%; background: linear-gradient(135deg, var(--panel-2), var(--panel)); }
-.deck-hero-overlay {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  padding: .65rem .75rem; background: linear-gradient(transparent, rgba(0,0,0,.85));
+.deck-card:hover { border-color: var(--border-strong); }
+.deck-card-art {
+  position: relative; height: 120px; overflow: hidden; cursor: pointer;
 }
-.deck-hero-name { font-size: .9rem; font-weight: 700; }
-.deck-hero-meta { display: flex; align-items: center; gap: .4rem; margin-top: .2rem; }
-.deck-hero-pips { display: flex; gap: .15rem; }
-.deck-hero-pips .pip { width: 15px; height: 15px; font-size: .6rem; }
-.deck-hero-bracket { font-size: .7rem; color: rgba(255,255,255,.55); }
-.deck-hero-format { font-size: .7rem; color: rgba(255,255,255,.55); }
-.deck-hero-actions {
-  display: flex; gap: .2rem; padding: .3rem 0; justify-content: center;
+.deck-card-art img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; display: block; }
+.deck-card-art-ph { width: 100%; height: 100%; background: linear-gradient(135deg, var(--panel-2), var(--panel)); }
+.deck-card-art-gradient {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, transparent 30%, rgba(12,13,17,.7) 100%);
+  pointer-events: none;
 }
-.deck-hero-actions button, .deck-hero-actions select { font-size: .75rem; padding: .15rem .4rem; min-height: auto; }
-.deck-hero-new {
+.deck-card-pips { position: absolute; bottom: 7px; left: 10px; display: flex; gap: 3px; }
+.deck-card-pips .pip { width: 15px; height: 15px; font-size: .6rem; }
+.deck-card-hover {
+  position: absolute; inset: 0; background: rgba(12,13,17,.7);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  opacity: 0; transition: opacity .15s;
+}
+.deck-card-art:hover .deck-card-hover, .deck-card-art:focus-within .deck-card-hover { opacity: 1; }
+.deck-card-hover-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; cursor: pointer; font-family: inherit;
+  color: var(--text-secondary); font-size: 10px; font-weight: 500; min-height: auto;
+}
+.deck-card-hover-btn:hover { color: var(--text); border-color: var(--accent); }
+.deck-card-body { padding: 10px 12px 12px; }
+.deck-card-name {
+  font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.deck-card-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.deck-card-row:last-child { margin-bottom: 0; }
+.deck-card-format {
+  font-size: 10px; font-weight: 600; background: rgba(229,184,76,.1); color: var(--warn);
+  border-radius: 4px; padding: 2px 7px;
+}
+.deck-card-count { font-size: 10px; color: var(--muted); }
+.deck-card-time { font-size: 10px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+.deck-card-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--good); display: inline-block; }
+.deck-card-menu-wrap { position: relative; }
+.deck-card-menu-btn {
+  background: none; border: none; cursor: pointer; padding: 2px; color: var(--muted);
+  min-height: auto; display: flex;
+}
+.deck-card-menu-btn:hover { color: var(--text); }
+.deck-card-menu {
+  position: absolute; bottom: calc(100% + 4px); right: 0; z-index: 50;
+  background: var(--panel-2); border: 1px solid var(--border-strong); border-radius: 8px;
+  box-shadow: var(--shadow-md); padding: 4px; min-width: 140px;
+  animation: fadeSlideIn .12s ease-out;
+}
+.deck-card-menu-item {
+  width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+  padding: 7px 10px; font-size: 12px; color: var(--text); border-radius: 6px;
+  font-family: inherit; min-height: auto;
+}
+.deck-card-menu-item:hover { background: var(--hover); }
+.deck-card-menu-danger { color: var(--bad); }
+.deck-card-menu-divider { height: 1px; background: var(--border); margin: 4px 8px; }
+.deck-card-new {
   display: flex; align-items: center; justify-content: center;
-  background: var(--panel); border: 1px dashed var(--border-strong);
-  color: var(--muted); transition: background .15s, border-color .15s;
+  background: var(--panel); border: 1px dashed var(--border-strong); border-radius: 12px;
+  color: var(--muted); cursor: pointer; min-height: 180px;
+  transition: background .15s, border-color .15s;
 }
-.deck-hero-new:hover { background: var(--panel-2); border-color: var(--accent); }
+.deck-card-new:hover { background: var(--panel-2); border-color: var(--accent); }
 
 /* Commander left column — deck view */
 .deck-layout-3col {
@@ -2008,12 +2051,9 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .card-list-row { grid-template-columns: 24px 28px 1fr auto auto; }
   .card-list-type { display: none; }
   .hero-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .deck-hero-actions { display: none; }
   .guided-build-btn { display: none; }
   .url-import-inline { display: none; }
   .feature-strip { display: none; }
-  .deck-hero-pips-desktop { display: none; }
-  .deck-hero-format { display: block; font-size: 9px; color: rgba(255,255,255,.45); margin-top: 1px; }
   /* Rules Q&A mobile */
   .rules-chips { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .rules-chips::-webkit-scrollbar { display: none; }

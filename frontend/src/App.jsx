@@ -340,6 +340,7 @@ export default function App() {
             onSave={saveDeck}
             onDelete={deleteDeck}
             onOpen={openDeck}
+            onPlaytest={(deck) => { openDeck(deck); setPlaytesting(true); }}
             onNewDeck={newDeck}
             onGuidedBuild={guidedBuild}
             notify={notify}
