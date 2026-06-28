@@ -76,6 +76,7 @@ export default function DeckView({
   const [suggesting, setSuggesting] = useState(false);
   const [locked, setLocked] = useState(false);
   const [saveState, setSaveState] = useState("idle");
+  const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef(null);
   const debounceRef = useRef(null);
 
@@ -155,6 +156,21 @@ export default function DeckView({
       const has = (prev || "").split("\n").some((l) => l.trim().replace(/^\d+\s+/, "").toLowerCase() === name.toLowerCase());
       if (has) return prev;
       return `${(prev || "").replace(/\s*$/, "")}\n1 ${name}`.trim();
+    });
+  }
+
+  async function handleSave() {
+    setSaveState("saving");
+    try { await onSave(); setSaveState("saved"); setTimeout(() => setSaveState("idle"), 2000); }
+    catch { setSaveState("idle"); }
+  }
+
+  // Toggle the search/paste panel and focus its input (Frame G "Card search").
+  function toggleSearch() {
+    setSearchOpen((o) => {
+      const next = !o;
+      if (next) setTimeout(() => searchRef.current?.querySelector("input")?.focus(), 60);
+      return next;
     });
   }
 
@@ -445,18 +461,22 @@ export default function DeckView({
             setDecklist={setDecklist}
             addCard={addCard}
             notify={notify}
-            filter={deckFilter}
-            setFilter={setDeckFilter}
             locked={locked}
+            open={searchOpen}
           />
           <CardGrid
             decklist={decklist}
             commander={commander}
             format={format}
             filter={deckFilter}
+            setFilter={setDeckFilter}
             typeFilter={categoryFilter}
             onRemove={locked ? null : removeCard}
             onConsider={locked ? null : addToConsidering}
+            addCard={locked ? null : addCard}
+            onCardSearch={locked ? null : toggleSearch}
+            onSave={locked ? null : handleSave}
+            saveState={saveState}
             onTypeCounts={setTypeCounts}
             notify={notify}
           />

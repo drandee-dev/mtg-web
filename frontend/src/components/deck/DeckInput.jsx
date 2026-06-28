@@ -76,7 +76,7 @@ function removeFilter(search, filterKey) {
   return search.replace(pat, "").replace(/\s+/g, " ").trim();
 }
 
-const DeckInput = forwardRef(function DeckInput({ decklist, setDecklist, addCard, notify, filter, setFilter, locked }, ref) {
+const DeckInput = forwardRef(function DeckInput({ decklist, setDecklist, addCard, notify, locked, open = true }, ref) {
   const [showText, setShowText] = useState(false);
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
@@ -111,6 +111,8 @@ const DeckInput = forwardRef(function DeckInput({ decklist, setDecklist, addCard
   }
 
   const active = activeFilters(search);
+
+  if (!open) return null;
 
   return (
     <div className="deck-input" ref={ref}>
@@ -182,22 +184,6 @@ const DeckInput = forwardRef(function DeckInput({ decklist, setDecklist, addCard
           </div>
         </>
       )}
-
-      <div className={locked ? "deck-input-row2" : ""}>
-        <div className="deck-filter-bar">
-          <input
-            className="deck-filter-field"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filter deck…"
-            aria-label="Filter cards in deck by name"
-          />
-          {filter && (
-            <button className="ghost small" onClick={() => setFilter("")} aria-label="Clear filter"
-              style={{ padding: ".15rem .35rem", minHeight: "auto", fontSize: ".7rem" }}>✕</button>
-          )}
-        </div>
-      </div>
 
       {!locked && showText && (
         <textarea

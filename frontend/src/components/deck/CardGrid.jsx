@@ -37,7 +37,8 @@ function deckCompleteness(totalCards, commander, format) {
   return { label: `${totalCards} / 60+`, status, title: "Constructed decks are a 60-card minimum" };
 }
 
-export default function CardGrid({ decklist, commander, format, filter, typeFilter, onRemove, onConsider, onTypeCounts, notify }) {
+export default function CardGrid({ decklist, commander, format, filter, setFilter, typeFilter, onRemove, onConsider, addCard, onCardSearch, onSave, saveState, onTypeCounts, notify }) {
+  const [quickAdd, setQuickAdd] = useState("");
   const [viewMode, setViewMode] = useState(
     () => localStorage.getItem("mtgweb:viewMode") || "grid"
   );
@@ -170,15 +171,38 @@ export default function CardGrid({ decklist, commander, format, filter, typeFilt
   return (
     <div className="card-grid-container">
       <div className="cg-toolbar">
-        {(() => {
-          const c = deckCompleteness(totalCards, commander, format);
-          return <span className={`badge ${c.status}`} title={c.title}>{c.label}</span>;
-        })()}
         <div className="cg-toolbar-controls">
+          {/* Add card */}
+          {addCard && onCardSearch && (
+            <div className="cg-tb-group cg-tb-addcard">
+              <span className="cg-tb-label">Add card</span>
+              <button className="cg-tb-search-btn" onClick={onCardSearch}>
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+                Card search
+              </button>
+            </div>
+          )}
+          {/* Quick add */}
+          {addCard && (
+            <div className="cg-tb-group cg-tb-quickadd-group">
+              <span className="cg-tb-label">Quick add</span>
+              <input
+                className="cg-tb-quickadd"
+                value={quickAdd}
+                onChange={(e) => setQuickAdd(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && quickAdd.trim()) { addCard(quickAdd.trim()); setQuickAdd(""); } }}
+                placeholder="Card name + Enter"
+                aria-label="Quick add a card by name"
+              />
+            </div>
+          )}
+          {addCard && <div className="cg-tb-divider" />}
+          {/* View as */}
           <div className="cg-tb-group">
             <span className="cg-tb-label">View as</span>
             <ViewToggle mode={viewMode} setMode={setViewMode} />
           </div>
+          {/* Group by */}
           <div className="cg-tb-group">
             <span className="cg-tb-label">Group by</span>
             <select
@@ -190,6 +214,7 @@ export default function CardGrid({ decklist, commander, format, filter, typeFilt
               {GROUPS.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
             </select>
           </div>
+          {/* Sort by */}
           <div className="cg-tb-group">
             <span className="cg-tb-label">Sort by</span>
             <select
@@ -201,6 +226,44 @@ export default function CardGrid({ decklist, commander, format, filter, typeFilt
               {SORTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
           </div>
+          {setFilter && <div className="cg-tb-divider" />}
+          {/* Syntax filter */}
+          {setFilter && (
+            <div className="cg-tb-group cg-tb-filter">
+              <span className="cg-tb-label">
+                Filter
+                <span className="cg-tb-help" title="Filters cards in your deck by name. Type part of a card name.">?</span>
+              </span>
+              <div className="cg-tb-filter-wrap">
+                <input
+                  className="cg-tb-filter-input"
+                  value={filter || ""}
+                  onChange={(e) => setFilter(e.target.value)}
+                  placeholder="Filter deck (eg. Sol Ring)"
+                  aria-label="Filter cards in deck"
+                />
+                {filter && (
+                  <button className="cg-tb-filter-clear" onClick={() => setFilter("")} aria-label="Clear filter">✕</button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        {/* Right: completeness + Save */}
+        <div className="cg-toolbar-right">
+          {(() => {
+            const c = deckCompleteness(totalCards, commander, format);
+            return <span className={`badge ${c.status}`} title={c.title}>{c.label}</span>;
+          })()}
+          {onSave && (
+            <button
+              className={`primary small cg-tb-save${saveState === "saved" ? " btn-saved" : ""}`}
+              disabled={saveState === "saving"}
+              onClick={onSave}
+            >
+              {saveState === "saving" ? "…" : saveState === "saved" ? "Saved" : "Save"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -255,7 +318,7 @@ export default function CardGrid({ decklist, commander, format, filter, typeFilt
 
       {totalCards === 0 && (
         <p className="muted" style={{ textAlign: "center", padding: "2rem 0" }}>
-          No cards yet — use the search bar above to add cards, or paste a decklist.
+          No cards yet — use Quick add or Card search in the toolbar above to add cards.
         </p>
       )}
 
