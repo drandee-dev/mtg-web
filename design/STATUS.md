@@ -1,0 +1,44 @@
+# Implementation Status
+
+> Last updated: 2026-06-27 — Phase 2 complete
+
+## Phase 2 (MTG Workshop Phase 2.dc.html)
+
+| Frame | Feature | Status | Notes |
+|-------|---------|--------|-------|
+| A | Landing - Mobile (new user) | Done | Hero art, AI chat preview, 3 secondary CTAs, URL import bar |
+| B | Landing - Desktop (new user) | Done | Two-column hero split, AI chat preview card |
+| C | My Decks - Mobile (returning) | Done | Filter toolbar: search, format, sort, direction |
+| D | My Decks - Desktop (returning) | Done | 4-col grid, deck hover overlay (Edit/Playtest/Export), inline URL import |
+| E | Card hover actions | Done | 3-button overlay (Remove/Consider/Scryfall) on grid + stack views, mobile bottom sheet |
+| F | Avatar dropdown popup | Done | Actions/Navigation/Recent/Account sections, outside-click dismiss |
+| G | Deck editor toolbar | Done | Consolidated row: Add card, Quick add, View/Group/Sort, Syntax filter, Save + completeness badge |
+| H | Account modal | Done | Signed-in/out states, tinted callout boxes, masked API key, theme switcher |
+
+## Phase 1 (design_handoff_mtg_workshop)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Stack view component | Done | StackView.jsx — Archidekt-style overlapping columns, hover expand |
+| Deck builder 3-col layout | Existing | DeckView.jsx already has sidebar + main + search layout |
+| AI panel sections | Existing | DeckSidebar.jsx has analysis/suggestions/budget tabs |
+| Rules Q&A | Existing | Rules.jsx chat interface |
+| Mobile deck view | Existing | Responsive layout with bottom nav |
+
+## Ready for next design iteration
+
+All Phase 2 frames are implemented. Areas that could benefit from design refinement:
+- Playtest mode UI (no design spec yet)
+- Deck sharing/export flow
+- Onboarding wizard (referenced in landing CTAs but not spec'd)
+
+## Design ↔ Code round-trip (2026-06-28)
+
+| Item | Design direction | Code status |
+|------|-----------------|-------------|
+| Avatar: drop "My Decks", restyle "Search" as input shell | Compact input with `--panel-2` bg, `--border` outline, 32px height | Done |
+| Warming pill in DeckSidebar | `--warn` bg at 11% opacity, auto-dismiss on `warmed: true` | Done |
+| Landing screenshots wrong (showed deck builder) | Recapture actual new-user landing | Done — 12 screenshots regenerated |
+| App defaulting to light mode | Should be dark per Phase 2 spec | Done — default changed to `"dark"` |
+
+See `COMMS.md` for full discussion thread.

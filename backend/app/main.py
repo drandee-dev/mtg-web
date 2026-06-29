@@ -230,21 +230,32 @@ def _validate_decklist(payload: dict) -> tuple[str, str]:
     return decklist, fmt
 
 
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    """Warm the heavy indexes at startup so the first request is fast.
+def _warm_in_background() -> None:
+    """Pre-load the heavy indexes off the startup path.
 
-    Best-effort: if data files are missing in a given environment, the server still
-    boots and individual endpoints surface a clear error.
+    Done in a daemon thread so the server can answer /api/health (and clear the
+    client's cold-start overlay) within ~1-2s of boot instead of blocking for the
+    full ~8MB bulk + rules load. The endpoints use the same lazy, cached loaders,
+    so a request that lands mid-warm just pays the load cost once itself.
     """
     global _warmed
-    mtg.on_ai_usage = _record_ai_usage
     try:
         mtg.warm()
         _warmed = True
         log.info("Warmed bulk index + rules.")
     except Exception:  # noqa: BLE001 - boot resilience; endpoints re-raise with detail
         log.exception("Warm-up failed; endpoints will load lazily / error per-request.")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Start serving immediately; warm the heavy indexes in the background.
+
+    Best-effort: if data files are missing in a given environment, the server still
+    boots and individual endpoints surface a clear error.
+    """
+    mtg.on_ai_usage = _record_ai_usage
+    threading.Thread(target=_warm_in_background, name="warm", daemon=True).start()
     yield
 
 

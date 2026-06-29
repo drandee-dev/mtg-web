@@ -328,7 +328,7 @@ function AIChatPreview() {
   );
 }
 
-export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onPlaytest, onNewDeck, onGuidedBuild, notify, refresh, setTab }) {
+export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onPlaytest, onNewDeck, onGuidedBuild, notify, refresh, setTab, decksIntent, onIntentConsumed }) {
   const [importText, setImportText] = useState("");
   const [importName, setImportName] = useState("");
   const [importFormat, setImportFormat] = useState("commander");
@@ -339,6 +339,16 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
   const [formatFilter, setFormatFilter] = useState("all");
   const [sortBy, setSortBy] = useState("updated");
   const [sortDir, setSortDir] = useState("desc");
+  const searchRef = useRef(null);
+
+  // Run a pending avatar-menu intent once the Decks tab mounts: "import" opens the
+  // import panel, "search" focuses the deck-search box. Consume it so it fires once.
+  useEffect(() => {
+    if (!decksIntent) return;
+    if (decksIntent === "import") setShowImport(true);
+    else if (decksIntent === "search") searchRef.current?.focus();
+    onIntentConsumed?.();
+  }, [decksIntent, onIntentConsumed]);
 
   useEffect(() => {
     let cancelled = false;
@@ -509,6 +519,7 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
               <div className="mydecks-filter-inputwrap">
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{ flexShrink: 0 }}><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
                 <input
+                  ref={searchRef}
                   type="text"
                   value={deckSearch}
                   onChange={(e) => setDeckSearch(e.target.value)}

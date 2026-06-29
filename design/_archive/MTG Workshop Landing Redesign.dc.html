@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0c0d11; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: .3; transform: scale(.8); }
+      50% { opacity: 1; transform: scale(1.1); }
+    }
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:#0c0d11;color:#ededf0;font-family:Inter,system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;">
+
+  <!-- ══ TOOLBAR ══ -->
+  <header style="position:fixed;top:0;left:0;right:0;z-index:50;height:48px;display:flex;align-items:center;justify-content:space-between;background:rgba(12,13,17,.93);backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.08);padding:0 20px;gap:8px;">
+
+    <!-- Brand -->
+    <button onClick="{{ goDecks }}" style="display:flex;align-items:center;gap:7px;background:transparent;border:none;cursor:pointer;padding:4px 6px;border-radius:8px;color:#ededf0;min-height:auto;">
+      <span style="width:10px;height:10px;border-radius:50%;background:#c98a3a;box-shadow:0 0 8px rgba(201,138,58,.45);flex:none;display:block;"></span>
+      <span style="font-weight:700;font-size:14px;letter-spacing:-.01em;white-space:nowrap;">MTG Workshop</span>
+    </button>
+
+    <!-- Desktop tabs -->
+    <nav style="display:flex;align-items:center;gap:2px;position:absolute;left:50%;transform:translateX(-50%);">
+      <button onClick="{{ goDecks }}" style="{{ ts_decks }}"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/></svg>My Decks</button>
+      <button onClick="{{ goDeck }}"  style="{{ ts_deck }}"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="1.5" width="11" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="5.5" x2="11" y2="5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><line x1="5" y1="8" x2="9" y2="8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>Analyze &amp; Build</button>
+      <button onClick="{{ goRules }}" style="{{ ts_rules }}"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 3.5v10M8 3.5C8 3.5 6.5 2 3 2v10c3.5 0 5 1.5 5 1.5M8 3.5C8 3.5 9.5 2 13 2v10c-3.5 0-5 1.5-5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Rules</button>
+      <button onClick="{{ goCards }}" style="{{ ts_cards }}"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="10" x2="14.5" y2="14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Card Search</button>
+    </nav>
+
+    <!-- Account button -->
+    <button onClick="{{ toggleSettings }}" style="width:30px;height:30px;border-radius:50%;background:#1c1f28;border:1px solid rgba(255,255,255,.08);color:#b0b4be;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;min-height:auto;flex:none;transition:border-color .15s;">?</button>
+  </header>
+
+  <!-- ══ ACCOUNT / SETTINGS DROPDOWN ══ -->
+  <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;top:54px;right:16px;z-index:200;width:280px;background:#16181f;border:1px solid rgba(255,255,255,.1);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.65);overflow:hidden;animation:fadeIn .15s ease-out;">
+      <!-- Account status -->
+      <div style="padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.07);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <div style="width:36px;height:36px;border-radius:50%;background:rgba(201,138,58,.1);border:1px solid rgba(201,138,58,.22);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#c98a3a;flex:none;">?</div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:#ededf0;">Not signed in</div>
+            <div style="font-size:10px;color:#71767f;margin-top:1px;">Local mode · decks saved to this browser</div>
+          </div>
+        </div>
+        <button style="width:100%;background:#c98a3a;color:#1a1206;border:none;border-radius:7px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;">Sign in with magic link</button>
+      </div>
+      <!-- Cloud sync -->
+      <div style="padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div>
+          <div style="font-size:12px;font-weight:600;color:#ededf0;">Cloud sync</div>
+          <div style="font-size:10px;color:#71767f;">Sign in to sync across devices</div>
+        </div>
+        <span style="font-size:10px;font-weight:600;background:rgba(255,255,255,.05);color:#71767f;border-radius:4px;padding:2px 8px;border:1px solid rgba(255,255,255,.08);white-space:nowrap;">Off</span>
+      </div>
+      <!-- API key -->
+      <div style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.07);">
+        <div style="font-size:11px;font-weight:600;color:#ededf0;margin-bottom:4px;">Anthropic API key</div>
+        <div style="font-size:10px;color:#71767f;line-height:1.5;margin-bottom:8px;">Enables AI features. <span style="color:#7cacf8;">Get a free key →</span></div>
+        <input placeholder="sk-ant-api03-…" style="width:100%;background:#111318;border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#ededf0;font-size:11px;padding:6px 10px;min-height:auto;outline:none;font-family:ui-monospace,monospace;" />
+      </div>
+      <!-- Feedback -->
+      <div style="padding:4px 8px 8px;">
+        <button style="width:100%;text-align:left;background:transparent;border:none;border-radius:6px;padding:8px;font-size:12px;color:#71767f;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;display:flex;align-items:center;gap:8px;">
+          <span>💬</span><span>Send feedback / report a bug</span>
+        </button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ══ CONTEXT BAR — current-tab description ══ -->
+  <div style="position:fixed;top:48px;left:0;right:0;z-index:40;background:#0e1016;border-bottom:1px solid rgba(255,255,255,.06);padding:0 20px;height:28px;display:flex;align-items:center;gap:8px;">
+    <span style="width:6px;height:6px;border-radius:50%;background:{{ ctxDot }};flex:none;display:block;"></span>
+    <span style="font-size:11px;color:#71767f;letter-spacing:.01em;">{{ ctxDesc }}</span>
+  </div>
+
+  <!-- ══ MAIN CONTENT ══ -->
+  <main style="{{ mainStyle }}">
+
+    <!-- ════════════════ MY DECKS TAB ════════════════ -->
+    <sc-if value="{{ showDecks }}" hint-placeholder-val="{{ true }}">
+
+      <!-- ── NEW USER state ── -->
+      <sc-if value="{{ isNewUser }}" hint-placeholder-val="{{ true }}">
+
+        <!-- Welcome hero -->
+        <div style="position:relative;border-radius:16px;overflow:hidden;margin-bottom:28px;min-height:210px;display:flex;align-items:flex-end;animation:fadeUp .5s ease-out both;">
+          <img src="https://cards.scryfall.io/art_crop/front/8/a/8a2813cb-c73c-4a50-b278-2f13deb71773.jpg"
+               alt=""
+               style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 30%;filter:blur(5px) brightness(.22);transform:scale(1.08);" />
+          <div style="position:absolute;inset:0;background:linear-gradient(to top, rgba(12,13,17,.97) 0%, rgba(12,13,17,.55) 55%, rgba(12,13,17,.2) 100%);"></div>
+          <div style="position:relative;z-index:1;padding:28px 32px;width:100%;">
+            <div style="display:inline-block;background:rgba(201,138,58,.14);border:1px solid rgba(201,138,58,.28);border-radius:999px;padding:3px 12px;font-size:11px;font-weight:600;color:#c98a3a;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;">Welcome</div>
+            <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;letter-spacing:-.03em;line-height:1.2;">Your MTG Command Center</h1>
+            <p style="margin:0 0 22px;font-size:14px;color:#b0b4be;max-width:480px;line-height:1.65;">Analyze decklists, build with AI guidance, look up rulings, and search every card ever printed — all in one place.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <button onClick="{{ goDeck }}" style="background:#c98a3a;color:#1a1206;border:none;border-radius:8px;padding:10px 20px;font-weight:700;font-size:13px;cursor:pointer;min-height:auto;display:flex;align-items:center;gap:6px;font-family:Inter,system-ui,sans-serif;">
+                ✨ Guided Build
+              </button>
+              <button onClick="{{ goDeck }}" style="background:rgba(255,255,255,.07);color:#ededf0;border:1px solid rgba(255,255,255,.13);border-radius:8px;padding:10px 20px;font-weight:600;font-size:13px;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;">
+                Analyze a Deck →
+              </button>
+              <button style="background:none;border:none;color:#71767f;font-size:12px;cursor:pointer;min-height:auto;padding:0 4px;font-family:Inter,system-ui,sans-serif;">Import a decklist</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI differentiator strip -->
+        <div style="margin-bottom:16px;padding:14px 16px;background:rgba(201,138,58,.05);border:1px solid rgba(201,138,58,.14);border-radius:10px;">
+          <div style="font-size:10px;font-weight:700;color:#c98a3a;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Why Workshop, not just Archidekt or Moxfield?</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:6px;">
+            <div style="display:flex;align-items:flex-start;gap:8px;">
+              <span style="font-size:13px;flex:none;margin-top:1px;">✨</span>
+              <div><span style="font-size:12px;font-weight:600;color:#ededf0;">AI explains every recommendation</span><span style="font-size:12px;color:#71767f;"> — not just synergy numbers, but why a card belongs in your specific deck</span></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:8px;">
+              <span style="font-size:13px;flex:none;margin-top:1px;">📖</span>
+              <div><span style="font-size:12px;font-weight:600;color:#ededf0;">Plain-English rules Q&amp;A</span><span style="font-size:12px;color:#71767f;"> — ask "can I counter a triggered ability?" and get a sourced answer</span></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:8px;">
+              <span style="font-size:13px;flex:none;margin-top:1px;">🔗</span>
+              <div><span style="font-size:12px;font-weight:600;color:#ededf0;">Combo near-miss detection</span><span style="font-size:12px;color:#71767f;"> — finds combos you're 1 card away from completing</span></div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:8px;">
+              <span style="font-size:13px;flex:none;margin-top:1px;">⚠️</span>
+              <div><span style="font-size:12px;font-weight:600;color:#ededf0;">Deck weakness analysis</span><span style="font-size:12px;color:#71767f;"> — automatically flags thin categories and suggests targeted fixes</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section label -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+          <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#71767f;white-space:nowrap;">What can you do here?</span>
+          <div style="flex:1;height:1px;background:rgba(255,255,255,.06);"></div>
+        </div>
+
+        <!-- Feature discovery grid -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:28px;animation:fadeUp .5s .1s ease-out both;">
+
+          <!-- Card: Analyze & Build -->
+          <div onClick="{{ goDeck }}" style="{{ fc_deck }}">
+            <img src="https://cards.scryfall.io/art_crop/front/5/6/5662d0a5-3222-4ab9-9e15-f06477730b75.jpg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(14px) brightness(.16);transform:scale(1.12);" />
+            <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#7cacf8;border-radius:12px 12px 0 0;"></div>
+            <div style="position:relative;z-index:1;padding:18px;display:flex;flex-direction:column;height:100%;">
+              <div style="font-size:20px;margin-bottom:9px;line-height:1;">🃏</div>
+              <div style="font-size:13px;font-weight:700;margin-bottom:5px;color:#ededf0;">Analyze &amp; Build</div>
+              <div style="font-size:12px;color:#b0b4be;line-height:1.6;flex:1;margin-bottom:14px;">Paste a decklist to see mana curve, pricing &amp; legality. Or use the AI wizard to build from scratch with EDHREC data.</div>
+              <span style="font-size:12px;font-weight:600;color:#7cacf8;">Open →</span>
+            </div>
+          </div>
+
+          <!-- Card: Rules -->
+          <div onClick="{{ goRules }}" style="{{ fc_rules }}">
+            <img src="https://cards.scryfall.io/art_crop/front/d/d/dd6f76d4-a2b3-40e5-b6a7-b27c42caf615.jpg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(14px) brightness(.16);transform:scale(1.12);" />
+            <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#9a86b8;border-radius:12px 12px 0 0;"></div>
+            <div style="position:relative;z-index:1;padding:18px;display:flex;flex-direction:column;height:100%;">
+              <div style="font-size:20px;margin-bottom:9px;line-height:1;">📖</div>
+              <div style="font-size:13px;font-weight:700;margin-bottom:5px;color:#ededf0;">Rules &amp; Rulings</div>
+              <div style="font-size:12px;color:#b0b4be;line-height:1.6;flex:1;margin-bottom:14px;">Search the full Comprehensive Rules by rule number, keyword, or plain English. Ask the AI a rules question in natural language.</div>
+              <span style="font-size:12px;font-weight:600;color:#9a86b8;">Open →</span>
+            </div>
+          </div>
+
+          <!-- Card: Card Search -->
+          <div onClick="{{ goCards }}" style="{{ fc_cards }}">
+            <img src="https://cards.scryfall.io/art_crop/front/b/a/ba48c787-a444-4e15-bab7-39994a6e23e7.jpg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(14px) brightness(.16);transform:scale(1.12);" />
+            <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#3dce8a;border-radius:12px 12px 0 0;"></div>
+            <div style="position:relative;z-index:1;padding:18px;display:flex;flex-direction:column;height:100%;">
+              <div style="font-size:20px;margin-bottom:9px;line-height:1;">🔍</div>
+              <div style="font-size:13px;font-weight:700;margin-bottom:5px;color:#ededf0;">Card Search</div>
+              <div style="font-size:12px;color:#b0b4be;line-height:1.6;flex:1;margin-bottom:14px;">Search every Magic card by name, type, color, CMC, or price. Add cards directly to any deck you're building.</div>
+              <span style="font-size:12px;font-weight:600;color:#3dce8a;">Open →</span>
+            </div>
+          </div>
+
+          <!-- Card: AI Planeswalker -->
+          <div style="{{ fc_ai }}">
+            <img src="https://cards.scryfall.io/art_crop/front/f/b/fbbd5627-2f55-4101-981b-49f5f45db578.jpg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(14px) brightness(.16);transform:scale(1.12);" />
+            <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#c98a3a 0%,#9a86b8 100%);border-radius:12px 12px 0 0;"></div>
+            <div style="position:relative;z-index:1;padding:18px;display:flex;flex-direction:column;height:100%;">
+              <div style="font-size:20px;margin-bottom:9px;line-height:1;">✨</div>
+              <div style="font-size:13px;font-weight:700;margin-bottom:5px;color:#ededf0;">AI Planeswalker</div>
+              <div style="font-size:12px;color:#b0b4be;line-height:1.6;flex:1;margin-bottom:14px;">Your AI deckbuilding advisor. Ask anything about strategy, get card suggestions, explore combos — always in context of your deck.</div>
+              <span style="font-size:12px;font-weight:600;color:#c98a3a;">Open Chat →</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Bottom import hint -->
+        <div style="text-align:center;padding:14px;border:1px dashed rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.02);">
+          <span style="font-size:12px;color:#71767f;">Already have a saved deck? </span>
+          <button style="background:none;border:none;color:#c98a3a;font-size:12px;font-weight:600;cursor:pointer;padding:0 2px;min-height:auto;font-family:Inter,system-ui,sans-serif;text-decoration:underline;">Import a decklist →</button>
+        </div>
+
+      </sc-if>
+
+      <!-- ── RETURNING USER state ── -->
+      <sc-if value="{{ isReturning }}" hint-placeholder-val="{{ false }}">
+
+        <!-- Header row -->
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+          <div>
+            <h2 style="margin:0;font-size:20px;font-weight:700;letter-spacing:-.02em;">My Decks</h2>
+            <span style="font-size:12px;color:#71767f;">This device · 4 decks</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button onClick="{{ goDeck }}" style="background:transparent;border:1px solid rgba(201,138,58,.45);color:#c98a3a;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;min-height:auto;display:flex;align-items:center;gap:5px;font-family:Inter,system-ui,sans-serif;">✨ Guided Build</button>
+            <button onClick="{{ goDeck }}" style="background:#c98a3a;color:#1a1206;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;">+ New Deck</button>
+          </div>
+        </div>
+
+        <!-- Deck hero grid -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;">
+          <sc-for list="{{ mockDecks }}" as="deck" hint-placeholder-count="4">
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <div style="position:relative;aspect-ratio:3/4;border-radius:12px;overflow:hidden;cursor:pointer;">
+                <img src="{{ deck.art }}" alt="{{ deck.name }}" loading="lazy" style="width:100%;height:100%;object-fit:cover;object-position:center 18%;transition:transform .3s;" />
+                <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.88) 0%,rgba(0,0,0,.1) 55%,transparent 100%);"></div>
+                <div style="position:absolute;bottom:0;left:0;right:0;padding:10px 12px;">
+                  <div style="font-size:13px;font-weight:700;line-height:1.3;">{{ deck.name }}</div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
+                    <span style="font-size:11px;color:rgba(255,255,255,.5);">{{ deck.format }}</span>
+                    <span style="font-size:11px;color:rgba(255,255,255,.35);">·</span>
+                    <span style="font-size:11px;color:rgba(255,255,255,.45);">Bracket {{ deck.bracket }}</span>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex;gap:4px;justify-content:center;">
+                <button style="font-size:11px;padding:3px 8px;min-height:auto;background:transparent;border:1px solid rgba(255,255,255,.08);border-radius:6px;color:#b0b4be;cursor:pointer;font-family:Inter,system-ui,sans-serif;">Rename</button>
+                <button style="font-size:11px;padding:3px 8px;min-height:auto;background:transparent;border:1px solid rgba(255,255,255,.08);border-radius:6px;color:#b0b4be;cursor:pointer;font-family:Inter,system-ui,sans-serif;">Export</button>
+                <button style="font-size:11px;padding:3px 8px;min-height:auto;background:transparent;border:1px solid rgba(255,255,255,.08);border-radius:6px;color:#ef5350;cursor:pointer;font-family:Inter,system-ui,sans-serif;">Delete</button>
+              </div>
+            </div>
+          </sc-for>
+
+          <!-- New deck tile -->
+          <div onClick="{{ goDeck }}" style="aspect-ratio:3/4;border-radius:12px;border:1px dashed rgba(255,255,255,.13);display:flex;align-items:center;justify-content:center;flex-direction:column;cursor:pointer;gap:6px;background:rgba(255,255,255,.02);transition:border-color .15s,background .15s;">
+            <div style="font-size:32px;line-height:1;color:#71767f;">+</div>
+            <div style="font-size:11px;color:#71767f;">New Deck</div>
+          </div>
+
+        </div>
+
+        <!-- Feature strip for returning users -->
+        <div style="margin-top:28px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;">
+          <button onClick="{{ goDeck }}"    style="{{ strip_btn }}">🃏 Analyze &amp; Build</button>
+          <button onClick="{{ goRules }}"   style="{{ strip_btn }}">📖 Rules &amp; Rulings</button>
+          <button onClick="{{ goCards }}"   style="{{ strip_btn }}">🔍 Card Search</button>
+          <button style="{{ strip_btn }}">✨ AI Advisor</button>
+        </div>
+
+      </sc-if>
+    </sc-if>
+
+    <!-- ════ OTHER TABS — simplified ════ -->
+    <sc-if value="{{ showDeck }}" hint-placeholder-val="{{ false }}">
+      <div style="text-align:center;padding:72px 20px;color:#71767f;animation:fadeIn .3s;">
+        <div style="font-size:36px;margin-bottom:14px;line-height:1;">🃏</div>
+        <div style="font-size:17px;font-weight:600;color:#ededf0;margin-bottom:6px;">Analyze &amp; Build</div>
+        <div style="font-size:13px;max-width:320px;margin:0 auto;line-height:1.6;">Paste a decklist or pick your Commander to start the guided wizard</div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showRules }}" hint-placeholder-val="{{ false }}">
+      <div style="max-width:720px;margin:0 auto;display:flex;flex-direction:column;height:calc(100vh - 116px);animation:fadeIn .3s;">
+
+        <!-- Header -->
+        <div style="margin-bottom:14px;">
+          <h2 style="margin:0 0 4px;font-size:18px;font-weight:700;letter-spacing:-.02em;">Rules Q&amp;A</h2>
+          <p style="margin:0;font-size:12px;color:#71767f;">Ask about interactions, triggered abilities, priority, or anything else in plain English. Answers cite the Comprehensive Rules.</p>
+        </div>
+
+        <!-- Quick asks -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">
+          <button style="font-size:11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:5px 12px;color:#b0b4be;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;white-space:nowrap;">Can I counter a triggered ability?</button>
+          <button style="font-size:11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:5px 12px;color:#b0b4be;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;white-space:nowrap;">How does priority work?</button>
+          <button style="font-size:11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:5px 12px;color:#b0b4be;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;white-space:nowrap;">Replacement vs triggered effects</button>
+          <button style="font-size:11px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:5px 12px;color:#b0b4be;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;white-space:nowrap;">Commander damage rules</button>
+        </div>
+
+        <!-- Chat messages -->
+        <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:20px;padding-bottom:16px;">
+
+          <!-- User question -->
+          <div style="display:flex;justify-content:flex-end;">
+            <div style="max-width:72%;background:#1c1f28;border:1px solid rgba(255,255,255,.1);border-radius:14px 14px 4px 14px;padding:10px 14px;">
+              <div style="font-size:13px;color:#ededf0;line-height:1.5;">Can I counter a triggered ability?</div>
+            </div>
+          </div>
+
+          <!-- AI answer -->
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="width:8px;height:8px;border-radius:50%;background:#c98a3a;box-shadow:0 0 5px rgba(201,138,58,.4);flex:none;"></span>
+              <span style="font-size:10px;font-weight:600;color:#71767f;text-transform:uppercase;letter-spacing:.05em;">MTG Workshop AI</span>
+            </div>
+            <div style="font-size:13px;color:#ededf0;line-height:1.75;max-width:680px;">
+              <p style="margin:0 0 10px;">Yes — triggered abilities <strong>can</strong> be countered, but you need an effect that specifically targets abilities, not just spells. Cards like <strong style="color:#c98a3a;">Stifle</strong>, <strong style="color:#c98a3a;">Disallow</strong>, and <strong style="color:#c98a3a;">Repudiate</strong> work. A standard "counter target spell" effect won't — triggered abilities aren't spells once they're on the stack.</p>
+              <p style="margin:0 0 12px;">The timing window: after a triggered ability's condition is met, it goes on the stack when a player would receive priority. Players then respond in APNAP order — that's your opportunity to counter it before it resolves.</p>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <span style="font-size:10px;font-weight:600;background:rgba(201,138,58,.08);color:#c98a3a;border:1px solid rgba(201,138,58,.2);border-radius:4px;padding:2px 8px;cursor:pointer;">Rule 603.3 ↗</span>
+              <span style="font-size:10px;font-weight:600;background:rgba(201,138,58,.08);color:#c98a3a;border:1px solid rgba(201,138,58,.2);border-radius:4px;padding:2px 8px;cursor:pointer;">Rule 701.5a ↗</span>
+              <span style="font-size:10px;font-weight:600;background:rgba(201,138,58,.08);color:#c98a3a;border:1px solid rgba(201,138,58,.2);border-radius:4px;padding:2px 8px;cursor:pointer;">Rule 116.3b ↗</span>
+            </div>
+          </div>
+
+          <!-- Follow-up question -->
+          <div style="display:flex;justify-content:flex-end;">
+            <div style="max-width:72%;background:#1c1f28;border:1px solid rgba(255,255,255,.1);border-radius:14px 14px 4px 14px;padding:10px 14px;">
+              <div style="font-size:13px;color:#ededf0;line-height:1.5;">What about state-based actions — can those be countered?</div>
+            </div>
+          </div>
+
+          <!-- Streaming indicator -->
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:#c98a3a;box-shadow:0 0 5px rgba(201,138,58,.4);flex:none;"></span>
+            <div style="display:flex;gap:5px;align-items:center;padding:2px 0;">
+              <span style="width:6px;height:6px;border-radius:50%;background:#71767f;display:inline-block;animation:pulse 1.2s ease-in-out infinite;"></span>
+              <span style="width:6px;height:6px;border-radius:50%;background:#71767f;display:inline-block;animation:pulse 1.2s .3s ease-in-out infinite;"></span>
+              <span style="width:6px;height:6px;border-radius:50%;background:#71767f;display:inline-block;animation:pulse 1.2s .6s ease-in-out infinite;"></span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Input bar -->
+        <div style="flex:none;border-top:1px solid rgba(255,255,255,.07);padding-top:14px;">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input style="flex:1;background:#111318;border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#ededf0;font-family:Inter,system-ui,sans-serif;font-size:13px;padding:10px 14px;min-height:auto;outline:none;" placeholder="Ask about any Magic interaction or rule…" />
+            <button style="background:#c98a3a;color:#1a1206;border:none;border-radius:10px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;white-space:nowrap;flex:none;">Ask ✨</button>
+          </div>
+          <div style="margin-top:7px;font-size:10px;color:#71767f;text-align:center;">Answers cite the Magic Comprehensive Rules · Powered by Claude</div>
+        </div>
+
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ showCards }}" hint-placeholder-val="{{ false }}">
+      <div style="text-align:center;padding:72px 20px;color:#71767f;animation:fadeIn .3s;">
+        <div style="font-size:36px;margin-bottom:14px;line-height:1;">🔍</div>
+        <div style="font-size:17px;font-weight:600;color:#ededf0;margin-bottom:6px;">Card Search</div>
+        <div style="font-size:13px;max-width:320px;margin:0 auto;line-height:1.6;">Filter by name, type, color, CMC, or price across every set</div>
+      </div>
+    </sc-if>
+
+    <!-- Settings moved to account dropdown in toolbar -->
+
+  </main>
+
+  <!-- Bottom nav is mobile-only — shown in Mobile Preview DC -->
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:900},&quot;userState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;new&quot;,&quot;returning&quot;],&quot;default&quot;:&quot;returning&quot;,&quot;tsType&quot;:&quot;'new' | 'returning'&quot;}}">
+class Component extends DCLogic {
+  state = { tab: 'decks', settingsOpen: false };
+
+  renderVals() {
+    const { tab, settingsOpen } = this.state;
+    const userState = this.props.userState ?? 'new';
+
+    const go = (t) => () => this.setState({ tab: t });
+
+    // ── Tab context bar ──
+    const CTX = {
+      decks:    { desc: 'Browse and manage your saved decks', dot: '#c98a3a' },
+      deck:     { desc: 'Paste a decklist to analyze it, or build one from scratch with the AI wizard', dot: '#7cacf8' },
+      rules:    { desc: 'Search the Comprehensive Rules or ask the AI a plain-English rulings question', dot: '#9a86b8' },
+      cards:    { desc: 'Search every Magic card by name, type, color, CMC, or price', dot: '#3dce8a' },
+      settings: { desc: 'API keys, account settings, and preferences', dot: '#71767f' },
+    };
+    const ctx = CTX[tab] || CTX.decks;
+
+    // ── Tab styles ──
+    function ts(id) {
+      const active = tab === id;
+      return {
+        background: 'transparent',
+        border: 'none',
+        borderBottom: `2px solid ${active ? '#c98a3a' : 'transparent'}`,
+        borderRadius: 0,
+        padding: '8px 10px',
+        minHeight: 'auto',
+        color: active ? '#ededf0' : '#71767f',
+        fontSize: '13px',
+        fontWeight: 500,
+        whiteSpace: 'nowrap',
+        cursor: 'pointer',
+        fontFamily: 'Inter,system-ui,sans-serif',
+        transition: 'color .15s, border-color .15s',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '5px',
+      };
+    }
+
+    // ── Bottom nav styles ──
+    function bn(id) {
+      const active = tab === id;
+      return {
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '2px',
+        background: 'transparent',
+        border: 'none',
+        borderRadius: 0,
+        color: active ? '#c98a3a' : '#71767f',
+        padding: '4px 0',
+        minHeight: 'auto',
+        cursor: 'pointer',
+        fontFamily: 'Inter,system-ui,sans-serif',
+        transition: 'color .15s',
+      };
+    }
+
+    // ── Feature card base style ──
+    const fcBase = {
+      position: 'relative',
+      borderRadius: '12px',
+      overflow: 'hidden',
+      border: '1px solid rgba(255,255,255,.08)',
+      cursor: 'pointer',
+      minHeight: '180px',
+      transition: 'border-color .15s, transform .15s',
+    };
+
+    // ── Strip button (returning users) ──
+    const stripBtn = {
+      background: 'rgba(255,255,255,.03)',
+      border: '1px solid rgba(255,255,255,.07)',
+      borderRadius: '8px',
+      color: '#71767f',
+      padding: '10px 14px',
+      fontSize: '12px',
+      fontWeight: 500,
+      cursor: 'pointer',
+      fontFamily: 'Inter,system-ui,sans-serif',
+      textAlign: 'left',
+      minHeight: 'auto',
+      transition: 'background .15s, border-color .15s, color .15s',
+    };
+
+    // ── Mock deck data ──
+    const mockDecks = [
+      { id: '1', name: 'Nethroi Reanimator',  format: 'Commander', bracket: 3, art: 'https://cards.scryfall.io/art_crop/front/5/6/5662d0a5-3222-4ab9-9e15-f06477730b75.jpg' },
+      { id: '2', name: 'Atraxa Superfriends', format: 'Commander', bracket: 3, art: 'https://cards.scryfall.io/art_crop/front/8/a/8a2813cb-c73c-4a50-b278-2f13deb71773.jpg' },
+      { id: '3', name: 'Izzet Storm',         format: 'Legacy',    bracket: null, art: 'https://cards.scryfall.io/art_crop/front/d/d/dd6f76d4-a2b3-40e5-b6a7-b27c42caf615.jpg' },
+      { id: '4', name: 'Golgari Midrange',    format: 'Modern',    bracket: null, art: 'https://cards.scryfall.io/art_crop/front/4/f/4fe22cd8-31e6-491b-bce2-db257668eb92.jpg' },
+    ];
+
+    // Top padding: 48px toolbar + 28px context bar + 20px gap
+    const mainPaddingTop = '96px';
+
+    return {
+      // Navigation
+      goDecks:    go('decks'),
+      goDeck:     go('deck'),
+      goRules:    go('rules'),
+      goCards:    go('cards'),
+      toggleSettings: () => this.setState(s => ({ settingsOpen: !s.settingsOpen })),
+      settingsOpen,
+
+      // Context bar
+      ctxDesc: ctx.desc,
+      ctxDot:  ctx.dot,
+
+      // Tab active styles
+      ts_decks:    ts('decks'),
+      ts_deck:     ts('deck'),
+      ts_rules:    ts('rules'),
+      ts_cards:    ts('cards'),
+      ts_settings: ts('settings'),
+
+      // Bottom nav styles
+      bn_decks:    bn('decks'),
+      bn_deck:     bn('deck'),
+      bn_rules:    bn('rules'),
+      bn_cards:    bn('cards'),
+      bn_settings: bn('settings'),
+
+      // Feature card styles
+      fc_deck:  fcBase,
+      fc_rules: fcBase,
+      fc_cards: fcBase,
+      fc_ai:    fcBase,
+
+      // Strip button
+      strip_btn: stripBtn,
+
+      // Content visibility
+      showDecks:    tab === 'decks',
+      showDeck:     tab === 'deck',
+      showRules:    tab === 'rules',
+      showCards:    tab === 'cards',
+      showSettings: tab === 'settings',
+
+      // User state
+      isNewUser:   userState === 'new',
+      isReturning: userState === 'returning',
+
+      // Main layout
+      mainStyle: {
+        maxWidth: '960px',
+        margin: '0 auto',
+        padding: `${mainPaddingTop} 24px 48px`,
+      },
+
+      // Mock data
+      mockDecks,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

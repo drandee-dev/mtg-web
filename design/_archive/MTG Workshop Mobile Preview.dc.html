@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+
+<helmet>
+  <meta name="design_doc_mode" content="canvas" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes pulse { 0%,100% { opacity:.3; transform:scale(.8); } 50% { opacity:1; transform:scale(1.1); } }
+  </style>
+</helmet>
+
+<!-- ══════════════════════════════════════════
+     FRAME 1 — My Decks
+══════════════════════════════════════════ -->
+<div style="position:absolute;left:0;top:0;width:402px;">
+  <div data-drags-parent="1" style="font-size:10px;font-weight:600;color:#aaa;text-align:center;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;">1 · My Decks</div>
+  <x-import component="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+    <div style="height:100%;display:flex;flex-direction:column;background:#0c0d11;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;">
+      <div style="height:60px;flex:none;"></div>
+      <div style="flex:none;padding:4px 16px 6px;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="width:7px;height:7px;border-radius:50%;background:#c98a3a;flex:none;"></span>
+          <span style="font-size:13px;font-weight:700;color:#ededf0;letter-spacing:-.01em;">MTG Workshop</span>
+        </div>
+        <div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:rgba(255,255,255,.5);">?</div>
+      </div>
+      <div style="flex:none;padding:6px 16px 12px;display:flex;align-items:flex-end;justify-content:space-between;">
+        <div>
+          <h1 style="margin:0;font-size:26px;font-weight:700;color:#ededf0;letter-spacing:-.03em;line-height:1.1;">My Decks</h1>
+          <span style="font-size:11px;color:#71767f;">4 decks · this device</span>
+        </div>
+        <button style="background:#c98a3a;color:#1a1206;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;min-height:auto;">+ New</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:0 14px 8px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start;">
+        <div style="border-radius:12px;overflow:hidden;aspect-ratio:3/4;position:relative;">
+          <img src="https://cards.scryfall.io/art_crop/front/5/6/5662d0a5-3222-4ab9-9e15-f06477730b75.jpg" style="width:100%;height:100%;object-fit:cover;object-position:center 18%;" />
+          <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.9) 0%,transparent 55%);"></div>
+          <div style="position:absolute;bottom:8px;left:9px;right:9px;"><div style="font-size:11px;font-weight:700;color:#fff;line-height:1.3;">Nethroi Reanimator</div><div style="font-size:9px;color:rgba(255,255,255,.45);margin-top:1px;">Commander · B3</div></div>
+        </div>
+        <div style="border-radius:12px;overflow:hidden;aspect-ratio:3/4;position:relative;">
+          <img src="https://cards.scryfall.io/art_crop/front/8/a/8a2813cb-c73c-4a50-b278-2f13deb71773.jpg" style="width:100%;height:100%;object-fit:cover;object-position:center 18%;" />
+          <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.9) 0%,transparent 55%);"></div>
+          <div style="position:absolute;bottom:8px;left:9px;right:9px;"><div style="font-size:11px;font-weight:700;color:#fff;line-height:1.3;">Atraxa Superfriends</div><div style="font-size:9px;color:rgba(255,255,255,.45);margin-top:1px;">Commander · B3</div></div>
+        </div>
+        <div style="border-radius:12px;overflow:hidden;aspect-ratio:3/4;position:relative;">
+          <img src="https://cards.scryfall.io/art_crop/front/d/d/dd6f76d4-a2b3-40e5-b6a7-b27c42caf615.jpg" style="width:100%;height:100%;object-fit:cover;object-position:center 18%;" />
+          <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.9) 0%,transparent 55%);"></div>
+          <div style="position:absolute;bottom:8px;left:9px;right:9px;"><div style="font-size:11px;font-weight:700;color:#fff;line-height:1.3;">Izzet Storm</div><div style="font-size:9px;color:rgba(255,255,255,.45);margin-top:1px;">Legacy</div></div>
+        </div>
+        <div style="border-radius:12px;aspect-ratio:3/4;border:1px dashed rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;background:rgba(255,255,255,.02);">
+          <div style="font-size:26px;color:rgba(255,255,255,.2);">+</div>
+          <div style="font-size:9px;color:rgba(255,255,255,.2);">New Deck</div>
+        </div>
+      </div>
+      <div style="flex:none;background:rgba(10,11,16,.97);border-top:0.5px solid rgba(255,255,255,.12);display:flex;height:83px;align-items:flex-start;padding-top:6px;">
+        <button style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:#c98a3a;padding:4px 0 0;cursor:pointer;"><svg width="20" height="20" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/></svg><span style="font-size:9px;font-weight:600;">Decks</span></button>
+        <button style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:rgba(255,255,255,.35);padding:4px 0 0;cursor:pointer;"><svg width="20" height="20" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="1.5" width="11" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="5.5" x2="11" y2="5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><line x1="5" y1="8" x2="9" y2="8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg><span style="font-size:9px;font-weight:600;">Build</span></button>
+        <button style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:rgba(255,255,255,.35);padding:4px 0 0;cursor:pointer;"><svg width="20" height="20" viewBox="0 0 16 16" fill="none"><path d="M8 3.5v10M8 3.5C8 3.5 6.5 2 3 2v10c3.5 0 5 1.5 5 1.5M8 3.5C8 3.5 9.5 2 13 2v10c-3.5 0-5 1.5-5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-size:9px;font-weight:600;">Rules</span></button>
+        <button style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:rgba(255,255,255,.35);padding:4px 0 0;cursor:pointer;"><svg width="20" height="20" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="10" x2="14.5" y2="14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span style="font-size:9px;font-weight:600;">Cards</span></button>
+      </div>
+    </div>
+  </x-import>
+</div>
+
+<!-- ══════════════════════════════════════════
+     FRAME 2 — Deck View · Archidekt Single-Column Stack
+══════════════════════════════════════════ -->
+<div style="position:absolute;left:462px;top:0;width:402px;">
+  <div data-drags-parent="1" style="font-size:10px;font-weight:600;color:#c98a3a;text-align:center;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">2 · Deck View — Archidekt Stack ✦ Updated</div>
+  <div style="font-size:9px;color:#71767f;text-align:center;margin-bottom:6px;line-height:1.4;">1-col · category art banner · row-per-card · swipe to remove</div>
+  <x-import component="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+    <div style="height:100%;display:flex;flex-direction:column;background:#0c0d11;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden;">
+
+      <!-- Status bar -->
+      <div style="height:60px;flex:none;"></div>
+
+      <!-- Nav bar -->
+      <div style="flex:none;padding:4px 12px 5px;display:flex;align-items:center;gap:8px;">
+        <button style="background:none;border:none;color:#c98a3a;font-size:13px;font-weight:600;cursor:pointer;padding:4px;min-height:auto;">‹ Decks</button>
+        <span style="flex:1;font-size:13px;font-weight:700;color:#ededf0;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Nethroi Reanimator</span>
+        <button style="background:#c98a3a;color:#1a1206;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;min-height:auto;">Save</button>
+        <button style="background:none;border:none;color:rgba(255,255,255,.45);font-size:16px;cursor:pointer;padding:2px 4px;min-height:auto;line-height:1;">···</button>
+      </div>
+
+      <!-- Commander strip -->
+      <div style="flex:none;padding:0 12px 6px;display:flex;align-items:center;gap:9px;border-bottom:1px solid rgba(255,255,255,.06);">
+        <div style="width:30px;height:42px;border-radius:4px;overflow:hidden;flex:none;box-shadow:0 2px 6px rgba(0,0,0,.5);">
+          <img src="https://cards.scryfall.io/art_crop/front/5/6/5662d0a5-3222-4ab9-9e15-f06477730b75.jpg" style="width:100%;height:100%;object-fit:cover;object-position:center 20%;" />
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11px;font-weight:600;color:#ededf0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Nethroi, Apex of Death</div>
+          <div style="display:flex;gap:3px;margin-top:3px;align-items:center;flex-wrap:nowrap;">
+            <span style="font-size:9px;color:#71767f;">Cmdr</span>
+            <span style="font-size:9px;color:#71767f;">·</span>
+            <span style="width:11px;height:11px;border-radius:50%;background:#e9e3c0;font-size:6.5px;font-weight:700;color:#000;display:inline-flex;align-items:center;justify-content:center;flex:none;">W</span>
+            <span style="width:11px;height:11px;border-radius:50%;background:#1a1430;border:1px solid rgba(255,255,255,.2);font-size:6.5px;font-weight:700;color:#c8baeb;display:inline-flex;align-items:center;justify-content:center;flex:none;">B</span>
+            <span style="width:11px;height:11px;border-radius:50%;background:#46b06f;font-size:6.5px;font-weight:700;color:#000;display:inline-flex;align-items:center;justify-content:center;flex:none;">G</span>
+            <span style="font-size:9px;background:rgba(229,184,76,.12);color:#e5b84c;border-radius:3px;padding:1px 5px;font-weight:600;flex:none;">B3</span>
+          </div>
+        </div>
+        <div style="text-align:right;flex:none;">
+          <div style="font-size:11px;font-weight:600;color:#ededf0;">94/100</div>
+          <div style="font-size:10px;color:#71767f;">$487</div>
+        </div>
+      </div>
+
+      <!-- Category filter tabs -->
+      <div style="flex:none;height:34px;display:flex;align-items:stretch;background:#0e1016;overflow-x:auto;border-bottom:1px solid rgba(255,255,255,.07);padding:0 6px;gap:0;">
+        <button style="white-space:nowrap;font-size:11px;font-weight:500;color:rgba(255,255,255,.38);background:none;border:none;border-bottom:2px solid transparent;padding:0 9px;cursor:pointer;min-height:auto;flex:none;">All (94)</button>
+        <button style="white-space:nowrap;font-size:11px;font-weight:700;color:#ededf0;background:none;border:none;border-bottom:2px solid #c98a3a;padding:0 9px;cursor:pointer;min-height:auto;flex:none;">Creatures</button>
+        <button style="white-space:nowrap;font-size:11px;font-weight:500;color:rgba(255,255,255,.38);background:none;border:none;border-bottom:2px solid transparent;padding:0 9px;cursor:pointer;min-height:auto;flex:none;">Instants</button>
+        <button style="white-space:nowrap;font-size:11px;font-weight:500;color:rgba(255,255,255,.38);background:none;border:none;border-bottom:2px solid transparent;padding:0 9px;cursor:pointer;min-height:auto;flex:none;">Sorceries</button>
+        <button style="white-space:nowrap;font-size:11px;font-weight:500;color:rgba(255,255,255,.38);background:none;border:none;border-bottom:2px solid transparent;padding:0 9px;cursor:pointer;min-height:auto;flex:none;">Artifacts</button>
+        <button style="white-space:nowrap;font-size:11px;font-weight:500;color:rgba(255,255,255,.38);background:none;border:none;border-bottom:2px solid transparent;padding:0 9px;cursor:pointer;min-height:auto;flex:none;">Lands</button>
+      </div>
+
+      <!-- ── SCROLL BODY ── -->
+      <div style="flex:1;overflow-y:auto;overflow-x:hidden;">
+
+        <!-- ════ LIST MODE ════ -->
+        <sc-if value="{{ isListMode }}" hint-placeholder-val="{{ true }}">
+
+        <!-- ▸ GROUP: Creatures -->
+        <div>
+          <!-- Group header -->
+          <div style="display:flex;align-items:center;gap:7px;padding:8px 12px 7px;background:#0f1015;border-bottom:1px solid rgba(255,255,255,.06);position:sticky;top:0;z-index:2;">
+            <span style="font-size:12px;color:rgba(255,255,255,.3);">≡</span>
+            <span style="font-size:12px;font-weight:700;color:#ededf0;">Creatures</span>
+            <span style="font-size:10px;color:#71767f;">(10)</span>
+            <div style="flex:1;"></div>
+            <span style="font-size:10px;color:#71767f;">$47.20</span>
+            <button style="background:none;border:none;color:rgba(255,255,255,.3);font-size:14px;padding:0 2px;cursor:pointer;min-height:auto;line-height:1;">···</button>
+          </div>
+
+          <!-- Featured card art banner — Eternal Witness -->
+          <div style="position:relative;height:148px;overflow:hidden;background:#0c0d11;">
+            <img src="https://cards.scryfall.io/art_crop/front/4/f/4fe22cd8-31e6-491b-bce2-db257668eb92.jpg" style="width:100%;height:100%;object-fit:cover;object-position:center 28%;" />
+            <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(12,13,17,.05) 0%,rgba(12,13,17,.72) 100%);"></div>
+            <!-- Overlay info -->
+            <div style="position:absolute;bottom:0;left:0;right:0;padding:10px 14px 10px;">
+              <div style="display:flex;align-items:flex-end;justify-content:space-between;">
+                <div>
+                  <div style="font-size:15px;font-weight:700;color:#fff;line-height:1.2;text-shadow:0 1px 4px rgba(0,0,0,.8);">Eternal Witness</div>
+                  <div style="font-size:10px;color:rgba(255,255,255,.52);margin-top:2px;">Creature · Human Shaman</div>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+                  <span style="font-size:10px;background:rgba(0,0,0,.7);color:#3dce8a;border-radius:4px;padding:2px 7px;font-weight:700;">95%</span>
+                  <span style="font-size:9px;color:rgba(255,255,255,.4);">tap to focus</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card rows -->
+          <!-- Row 1: Eternal Witness — active/selected -->
+          <div style="display:flex;align-items:center;height:46px;padding:0 12px;gap:0;background:rgba(46,139,87,.1);border-bottom:1px solid rgba(255,255,255,.05);position:relative;">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:24px;background:#3dce8a;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:13px;font-weight:600;color:#ededf0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Eternal Witness</span>
+            <div style="display:flex;align-items:center;gap:3px;flex:none;margin-left:8px;">
+              <span style="width:13px;height:13px;border-radius:50%;background:#46b06f;display:inline-flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#000;flex:none;">G</span>
+              <span style="width:13px;height:13px;border-radius:50%;background:#555;display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#ddd;flex:none;">2</span>
+            </div>
+          </div>
+
+          <!-- Row 2: Viscera Seer -->
+          <div style="display:flex;align-items:center;height:46px;padding:0 12px;gap:0;background:rgba(100,50,160,.08);border-bottom:1px solid rgba(255,255,255,.05);">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:24px;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:13px;font-weight:500;color:#ededf0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Viscera Seer</span>
+            <div style="display:flex;align-items:center;gap:3px;flex:none;margin-left:8px;">
+              <span style="width:13px;height:13px;border-radius:50%;background:#2a1a40;border:1px solid rgba(180,140,255,.3);display:inline-flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#c8baeb;flex:none;">B</span>
+              <span style="width:13px;height:13px;border-radius:50%;background:#555;display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#ddd;flex:none;">1</span>
+            </div>
+          </div>
+
+          <!-- Row 3: Elesh Norn -->
+          <div style="display:flex;align-items:center;height:46px;padding:0 12px;gap:0;background:rgba(200,180,120,.05);border-bottom:1px solid rgba(255,255,255,.05);">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:24px;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:13px;font-weight:500;color:#ededf0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Elesh Norn, Grand Cenobite</span>
+            <div style="display:flex;align-items:center;gap:3px;flex:none;margin-left:8px;">
+              <span style="width:13px;height:13px;border-radius:50%;background:#e9e3c0;display:inline-flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#000;flex:none;">W</span>
+              <span style="width:13px;height:13px;border-radius:50%;background:#555;display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#ddd;flex:none;">7</span>
+            </div>
+          </div>
+
+          <!-- Row 4: Lurrus -->
+          <div style="display:flex;align-items:center;height:46px;padding:0 12px;gap:0;background:rgba(150,80,180,.07);border-bottom:1px solid rgba(255,255,255,.05);">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:24px;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:13px;font-weight:500;color:#ededf0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Lurrus of the Dream-Den</span>
+            <div style="display:flex;align-items:center;gap:3px;flex:none;margin-left:8px;">
+              <span style="width:13px;height:13px;border-radius:50%;background:#e9e3c0;display:inline-flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#000;flex:none;">W</span>
+              <span style="width:13px;height:13px;border-radius:50%;background:#2a1a40;border:1px solid rgba(180,140,255,.3);display:inline-flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#c8baeb;flex:none;">B</span>
+              <span style="width:13px;height:13px;border-radius:50%;background:#555;display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#ddd;flex:none;">3</span>
+            </div>
+          </div>
+
+          <!-- Row 5: Thassa's Oracle -->
+          <div style="display:flex;align-items:center;height:46px;padding:0 12px;gap:0;background:rgba(14,104,171,.08);border-bottom:1px solid rgba(255,255,255,.05);">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:24px;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:13px;font-weight:500;color:#ededf0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Thassa's Oracle</span>
+            <div style="display:flex;align-items:center;gap:3px;flex:none;margin-left:8px;">
+              <span style="width:13px;height:13px;border-radius:50%;background:#0e68ab;display:inline-flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#fff;flex:none;">U</span>
+              <span style="width:13px;height:13px;border-radius:50%;background:#555;display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#ddd;flex:none;">2</span>
+            </div>
+          </div>
+
+          <!-- Row 6: Saffi Eriksdotter -->
+          <div style="display:flex;align-items:center;height:46px;padding:0 12px;gap:0;background:rgba(46,139,87,.07);border-bottom:1px solid rgba(255,255,255,.05);">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:24px;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:13px;font-weight:500;color:#ededf0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Saffi Eriksdotter</span>
+            <div style="display:flex;align-items:center;gap:3px;flex:none;margin-left:8px;">
+              <span style="width:13px;height:13px;border-radius:50%;background:#e9e3c0;display:inline-flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#000;flex:none;">W</span>
+              <span style="width:13px;height:13px;border-radius:50%;background:#46b06f;display:inline-flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#000;flex:none;">G</span>
+              <span style="width:13px;height:13px;border-radius:50%;background:#555;display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#ddd;flex:none;">2</span>
+            </div>
+          </div>
+
+          <!-- Row 7: Sun Titan -->
+          <div style="display:flex;align-items:center;height:46px;padding:0 12px;gap:0;background:rgba(200,180,120,.04);border-bottom:1px solid rgba(255,255,255,.05);">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:24px;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:13px;font-weight:500;color:#ededf0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Sun Titan</span>
+            <div style="display:flex;align-items:center;gap:3px;flex:none;margin-left:8px;">
+              <span style="width:13px;height:13px;border-radius:50%;background:#e9e3c0;display:inline-flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#000;flex:none;">W</span>
+              <span style="width:13px;height:13px;border-radius:50%;background:#555;display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#ddd;flex:none;">6</span>
+            </div>
+          </div>
+
+          <!-- Row 8-10 shown smaller / collapsed hint -->
+          <div style="display:flex;align-items:center;height:36px;padding:0 12px;gap:0;background:rgba(255,255,255,.02);border-bottom:1px solid rgba(255,255,255,.04);">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:18px;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:12px;font-weight:400;color:rgba(237,237,240,.55);">Karmic Guide</span>
+            <span style="font-size:10px;color:#71767f;flex:none;">W · 5</span>
+          </div>
+          <div style="display:flex;align-items:center;height:36px;padding:0 12px;gap:0;background:rgba(255,255,255,.02);border-bottom:1px solid rgba(255,255,255,.04);">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:18px;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:12px;font-weight:400;color:rgba(237,237,240,.55);">Reveillark</span>
+            <span style="font-size:10px;color:#71767f;flex:none;">W · 5</span>
+          </div>
+          <div style="display:flex;align-items:center;height:36px;padding:0 12px;gap:0;border-bottom:2px solid rgba(255,255,255,.06);">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:18px;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:12px;font-weight:400;color:rgba(237,237,240,.55);">Ranger of Eos</span>
+            <span style="font-size:10px;color:#71767f;flex:none;">W · 4</span>
+          </div>
+        </div>
+
+        <!-- ▸ GROUP: Instants -->
+        <div>
+          <!-- Group header -->
+          <div style="display:flex;align-items:center;gap:7px;padding:8px 12px 7px;background:#0f1015;border-bottom:1px solid rgba(255,255,255,.06);position:sticky;top:0;z-index:2;">
+            <span style="font-size:12px;color:rgba(255,255,255,.3);">≡</span>
+            <span style="font-size:12px;font-weight:700;color:#ededf0;">Instants</span>
+            <span style="font-size:10px;color:#71767f;">(8)</span>
+            <div style="flex:1;"></div>
+            <span style="font-size:10px;color:#71767f;">$23.10</span>
+            <button style="background:none;border:none;color:rgba(255,255,255,.3);font-size:14px;padding:0 2px;cursor:pointer;min-height:auto;line-height:1;">···</button>
+          </div>
+
+          <!-- Featured art — Swords to Plowshares -->
+          <div style="position:relative;height:110px;overflow:hidden;background:#0c0d11;">
+            <img src="https://cards.scryfall.io/art_crop/front/f/a/fa553e54-e6aa-499b-ac48-0cdbf6c37734.jpg" style="width:100%;height:100%;object-fit:cover;object-position:center 35%;" />
+            <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(12,13,17,.05) 0%,rgba(12,13,17,.78) 100%);"></div>
+            <div style="position:absolute;bottom:0;left:0;right:0;padding:8px 14px 8px;">
+              <div style="display:flex;align-items:flex-end;justify-content:space-between;">
+                <div>
+                  <div style="font-size:14px;font-weight:700;color:#fff;line-height:1.2;text-shadow:0 1px 4px rgba(0,0,0,.8);">Swords to Plowshares</div>
+                  <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:1px;">Instant · CMC 1</div>
+                </div>
+                <span style="font-size:10px;background:rgba(0,0,0,.7);color:#3dce8a;border-radius:4px;padding:2px 7px;font-weight:700;flex:none;">96%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Instant rows -->
+          <div style="display:flex;align-items:center;height:46px;padding:0 12px;background:rgba(200,180,120,.06);border-bottom:1px solid rgba(255,255,255,.05);">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:24px;background:#c98a3a;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:13px;font-weight:600;color:#ededf0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Swords to Plowshares</span>
+            <div style="display:flex;align-items:center;gap:3px;flex:none;margin-left:8px;">
+              <span style="width:13px;height:13px;border-radius:50%;background:#e9e3c0;display:inline-flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#000;flex:none;">W</span>
+              <span style="width:13px;height:13px;border-radius:50%;background:#555;display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#ddd;flex:none;">1</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;height:46px;padding:0 12px;background:rgba(200,180,120,.04);border-bottom:1px solid rgba(255,255,255,.05);">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:24px;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:13px;font-weight:500;color:#ededf0;">Path to Exile</span>
+            <div style="display:flex;align-items:center;gap:3px;flex:none;margin-left:8px;">
+              <span style="width:13px;height:13px;border-radius:50%;background:#e9e3c0;display:inline-flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#000;flex:none;">W</span>
+              <span style="width:13px;height:13px;border-radius:50%;background:#555;display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#ddd;flex:none;">1</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;height:46px;padding:0 12px;background:rgba(100,50,160,.06);border-bottom:1px solid rgba(255,255,255,.05);">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:24px;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:13px;font-weight:500;color:#ededf0;">Demonic Tutor</span>
+            <div style="display:flex;align-items:center;gap:3px;flex:none;margin-left:8px;">
+              <span style="width:13px;height:13px;border-radius:50%;background:#2a1a40;border:1px solid rgba(180,140,255,.3);display:inline-flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#c8baeb;flex:none;">B</span>
+              <span style="width:13px;height:13px;border-radius:50%;background:#555;display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#ddd;flex:none;">2</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;height:46px;padding:0 12px;background:rgba(46,139,87,.06);border-bottom:1px solid rgba(255,255,255,.05);">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:24px;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:13px;font-weight:500;color:#ededf0;">Eladamri's Call</span>
+            <div style="display:flex;align-items:center;gap:3px;flex:none;margin-left:8px;">
+              <span style="width:13px;height:13px;border-radius:50%;background:#e9e3c0;display:inline-flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#000;flex:none;">W</span>
+              <span style="width:13px;height:13px;border-radius:50%;background:#46b06f;display:inline-flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#000;flex:none;">G</span>
+              <span style="width:13px;height:13px;border-radius:50%;background:#555;display:inline-flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#ddd;flex:none;">2</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;height:36px;padding:0 12px;background:rgba(255,255,255,.02);border-bottom:1px solid rgba(255,255,255,.04);">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:18px;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:12px;font-weight:400;color:rgba(237,237,240,.55);">Anguished Unmaking</span>
+            <span style="font-size:10px;color:#71767f;flex:none;">WB · 3</span>
+          </div>
+          <div style="display:flex;align-items:center;height:36px;padding:0 12px;background:rgba(255,255,255,.02);border-bottom:2px solid rgba(255,255,255,.06);">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:18px;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:12px;font-weight:400;color:rgba(237,237,240,.55);">Cyclonic Rift</span>
+            <span style="font-size:10px;color:#71767f;flex:none;">U · 2</span>
+          </div>
+        </div>
+
+        <!-- ▸ GROUP: Artifacts — partially visible (implies scroll) -->
+        <div>
+          <div style="display:flex;align-items:center;gap:7px;padding:8px 12px 7px;background:#0f1015;border-bottom:1px solid rgba(255,255,255,.06);">
+            <span style="font-size:12px;color:rgba(255,255,255,.3);">≡</span>
+            <span style="font-size:12px;font-weight:700;color:#ededf0;">Artifacts</span>
+            <span style="font-size:10px;color:#71767f;">(8)</span>
+            <div style="flex:1;"></div>
+            <span style="font-size:10px;color:#71767f;">$31.40</span>
+            <button style="background:none;border:none;color:rgba(255,255,255,.3);font-size:14px;padding:0 2px;cursor:pointer;min-height:auto;line-height:1;">···</button>
+          </div>
+          <div style="position:relative;height:72px;overflow:hidden;background:#0c0d11;">
+            <img src="https://cards.scryfall.io/art_crop/front/d/2/d25c3609-a200-4532-9df8-8e92c24544bc.jpg" style="width:100%;height:144px;object-fit:cover;object-position:center 30%;" />
+            <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(12,13,17,.0) 0%,rgba(12,13,17,.85) 100%);"></div>
+            <div style="position:absolute;bottom:7px;left:14px;">
+              <div style="font-size:13px;font-weight:700;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.9);">Sol Ring</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;height:46px;padding:0 12px;background:rgba(150,150,190,.06);border-bottom:1px solid rgba(255,255,255,.05);">
+            <span style="width:22px;font-size:11px;font-weight:700;color:#71767f;text-align:right;flex:none;">1</span>
+            <div style="width:2px;height:24px;border-radius:1px;margin:0 9px;flex:none;"></div>
+            <span style="flex:1;font-size:13px;font-weight:500;color:#ededf0;">Sol Ring</span>
+            <span style="font-size:10px;color:#71767f;flex:none;">∅ · 1</span>
+          </div>
+        </div>
+
+        <!-- Bottom padding -->
+        <div style="height:12px;"></div>
+
+        </sc-if><!-- end LIST MODE -->
+
+        <!-- ════ STACK MODE ════ -->
+        <sc-if value="{{ isStackMode }}" hint-placeholder-val="{{ false }}">
+
+        <!-- ▸ STACK: Creatures -->
+        <div>
+          <div style="display:flex;align-items:center;gap:7px;padding:8px 12px 7px;background:#0f1015;border-bottom:1px solid rgba(255,255,255,.06);position:sticky;top:0;z-index:2;">
+            <span style="font-size:12px;color:rgba(255,255,255,.3);">≡</span>
+            <span style="font-size:12px;font-weight:700;color:#ededf0;">Creatures</span>
+            <span style="font-size:10px;color:#71767f;">(10)</span>
+            <div style="flex:1;"></div>
+            <span style="font-size:10px;color:#71767f;">$47.20</span>
+            <button style="background:none;border:none;color:rgba(255,255,255,.3);font-size:14px;padding:0 2px;cursor:pointer;min-height:auto;line-height:1;">···</button>
+          </div>
+          <div style="padding:10px 12px;display:flex;flex-direction:column;gap:5px;">
+            <!-- FEATURED: Eternal Witness — full card portrait -->
+            <div style="position:relative;border-radius:10px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.75);">
+              <img src="https://cards.scryfall.io/normal/front/4/f/4fe22cd8-31e6-491b-bce2-db257668eb92.jpg" style="width:100%;display:block;" loading="lazy" />
+              <div style="position:absolute;top:9px;left:9px;background:rgba(0,0,0,.82);color:#fff;border-radius:5px;padding:3px 9px;font-size:12px;font-weight:700;line-height:1.4;">×1</div>
+              <div style="position:absolute;top:9px;right:9px;background:rgba(0,0,0,.78);color:#3dce8a;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;line-height:1.4;">95%</div>
+            </div>
+            <!-- PEEK: top 80px of each subsequent card portrait -->
+            <div style="height:80px;overflow:hidden;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.6);">
+              <img src="https://cards.scryfall.io/normal/front/f/a/fa553e54-e6aa-499b-ac48-0cdbf6c37734.jpg" style="width:100%;display:block;" loading="lazy" />
+            </div>
+            <div style="height:80px;overflow:hidden;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.6);">
+              <img src="https://cards.scryfall.io/normal/front/9/7/97f8d1ca-bc82-453a-b237-ef75ce027b8f.jpg" style="width:100%;display:block;" loading="lazy" />
+            </div>
+            <div style="height:80px;overflow:hidden;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.6);">
+              <img src="https://cards.scryfall.io/normal/front/1/d/1df8d25e-e519-4197-aa8e-ec596cb2a2d8.jpg" style="width:100%;display:block;" loading="lazy" />
+            </div>
+            <div style="height:80px;overflow:hidden;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.6);">
+              <img src="https://cards.scryfall.io/normal/front/7/4/7427e78c-4881-42bd-930c-39aae324fc58.jpg" style="width:100%;display:block;" loading="lazy" />
+            </div>
+            <div style="height:80px;overflow:hidden;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.6);opacity:.85;">
+              <img src="https://cards.scryfall.io/normal/front/d/2/d25c3609-a200-4532-9df8-8e92c24544bc.jpg" style="width:100%;display:block;" loading="lazy" />
+            </div>
+            <div style="height:80px;overflow:hidden;border-radius:8px;box-shadow:0 3px 10px rgba(0,0,0,.5);opacity:.7;">
+              <img src="https://cards.scryfall.io/normal/front/6/3/63e3de28-d6e9-4f27-a544-0434fb4b55bb.jpg" style="width:100%;display:block;" loading="lazy" />
+            </div>
+            <div style="height:80px;overflow:hidden;border-radius:8px;box-shadow:0 3px 10px rgba(0,0,0,.5);opacity:.55;">
+              <img src="https://cards.scryfall.io/normal/front/4/f/4fe22cd8-31e6-491b-bce2-db257668eb92.jpg" style="width:100%;display:block;" loading="lazy" />
+            </div>
+            <div style="height:80px;overflow:hidden;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.4);opacity:.4;">
+              <img src="https://cards.scryfall.io/normal/front/f/a/fa553e54-e6aa-499b-ac48-0cdbf6c37734.jpg" style="width:100%;display:block;" loading="lazy" />
+            </div>
+            <div style="height:80px;overflow:hidden;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.4);opacity:.28;">
+              <img src="https://cards.scryfall.io/normal/front/9/7/97f8d1ca-bc82-453a-b237-ef75ce027b8f.jpg" style="width:100%;display:block;" loading="lazy" />
+            </div>
+          </div>
+        </div>
+
+        <!-- ▸ STACK: Instants -->
+        <div style="border-top:2px solid rgba(255,255,255,.07);">
+          <div style="display:flex;align-items:center;gap:7px;padding:8px 12px 7px;background:#0f1015;border-bottom:1px solid rgba(255,255,255,.06);position:sticky;top:0;z-index:2;">
+            <span style="font-size:12px;color:rgba(255,255,255,.3);">≡</span>
+            <span style="font-size:12px;font-weight:700;color:#ededf0;">Instants</span>
+            <span style="font-size:10px;color:#71767f;">(8)</span>
+            <div style="flex:1;"></div>
+            <span style="font-size:10px;color:#71767f;">$23.10</span>
+            <button style="background:none;border:none;color:rgba(255,255,255,.3);font-size:14px;padding:0 2px;cursor:pointer;min-height:auto;line-height:1;">···</button>
+          </div>
+          <div style="padding:10px 12px;display:flex;flex-direction:column;gap:5px;">
+            <!-- FEATURED: Swords to Plowshares -->
+            <div style="position:relative;border-radius:10px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.75);">
+              <img src="https://cards.scryfall.io/normal/front/6/7/67f4c93a-49a1-4eba-83f8-2d97af2c5c0e.jpg" style="width:100%;display:block;" loading="lazy" />
+              <div style="position:absolute;top:9px;left:9px;background:rgba(0,0,0,.82);color:#fff;border-radius:5px;padding:3px 9px;font-size:12px;font-weight:700;line-height:1.4;">×1</div>
+              <div style="position:absolute;top:9px;right:9px;background:rgba(0,0,0,.78);color:#3dce8a;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;line-height:1.4;">96%</div>
+            </div>
+            <div style="height:80px;overflow:hidden;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.6);">
+              <img src="https://cards.scryfall.io/normal/front/b/0/b0e15200-c8df-4165-aaa8-6d49e70f4bcc.jpg" style="width:100%;display:block;" loading="lazy" />
+            </div>
+            <div style="height:80px;overflow:hidden;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.6);">
+              <img src="https://cards.scryfall.io/normal/front/4/a/4a25f8b5-0928-4552-8e8c-2cead98c07d4.jpg" style="width:100%;display:block;" loading="lazy" />
+            </div>
+            <div style="height:80px;overflow:hidden;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.6);opacity:.85;">
+              <img src="https://cards.scryfall.io/normal/front/9/7/97f8d1ca-bc82-453a-b237-ef75ce027b8f.jpg" style="width:100%;display:block;" loading="lazy" />
+            </div>
+            <div style="height:80px;overflow:hidden;border-radius:8px;box-shadow:0 3px 10px rgba(0,0,0,.5);opacity:.7;">
+              <img src="https://cards.scryfall.io/normal/front/1/d/1df8d25e-e519-4197-aa8e-ec596cb2a2d8.jpg" style="width:100%;display:block;" loading="lazy" />
+            </div>
+            <div style="height:80px;overflow:hidden;border-radius:8px;box-shadow:0 3px 10px rgba(0,0,0,.5);opacity:.55;">
+              <img src="https://cards.scryfall.io/normal/front/7/4/7427e78c-4881-42bd-930c-39aae324fc58.jpg" style="width:100%;display:block;" loading="lazy" />
+            </div>
+            <div style="height:80px;overflow:hidden;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.4);opacity:.4;">
+              <img src="https://cards.scryfall.io/normal/front/d/2/d25c3609-a200-4532-9df8-8e92c24544bc.jpg" style="width:100%;display:block;" loading="lazy" />
+            </div>
+            <div style="height:80px;overflow:hidden;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.4);opacity:.28;">
+              <img src="https://cards.scryfall.io/normal/front/6/3/63e3de28-d6e9-4f27-a544-0434fb4b55bb.jpg" style="width:100%;display:block;" loading="lazy" />
+            </div>
+          </div>
+        </div>
+
+        <!-- ▸ STACK: Artifacts (partial — implies scroll) -->
+        <div style="border-top:2px solid rgba(255,255,255,.07);">
+          <div style="display:flex;align-items:center;gap:7px;padding:8px 12px 7px;background:#0f1015;border-bottom:1px solid rgba(255,255,255,.06);position:sticky;top:0;z-index:2;">
+            <span style="font-size:12px;color:rgba(255,255,255,.3);">≡</span>
+            <span style="font-size:12px;font-weight:700;color:#ededf0;">Artifacts</span>
+            <span style="font-size:10px;color:#71767f;">(8)</span>
+            <div style="flex:1;"></div>
+            <span style="font-size:10px;color:#71767f;">$31.40</span>
+            <button style="background:none;border:none;color:rgba(255,255,255,.3);font-size:14px;padding:0 2px;cursor:pointer;min-height:auto;line-height:1;">···</button>
+          </div>
+          <div style="padding:10px 12px 0;display:flex;flex-direction:column;gap:5px;">
+            <!-- FEATURED: Sol Ring — partially visible at bottom of scroll -->
+            <div style="position:relative;border-radius:10px;overflow:hidden;box-shadow:0 8px 28px rgba(0,0,0,.75);">
+              <img src="https://cards.scryfall.io/normal/front/f/c/fc573f3e-9790-4e81-bdd4-53c3f1d47d58.jpg" style="width:100%;display:block;" loading="lazy" />
+              <div style="position:absolute;top:9px;left:9px;background:rgba(0,0,0,.82);color:#fff;border-radius:5px;padding:3px 9px;font-size:12px;font-weight:700;line-height:1.4;">×1</div>
+              <div style="position:absolute;top:9px;right:9px;background:rgba(0,0,0,.78);color:#3dce8a;border-radius:5px;padding:3px 9px;font-size:11px;font-weight:700;line-height:1.4;">99%</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="height:16px;"></div>
+
+        </sc-if><!-- end STACK MODE -->
+
+      </div>
+
+      <!-- FAB -->
+      <div style="position:absolute;bottom:92px;right:14px;width:46px;height:46px;border-radius:50%;background:#c98a3a;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#1a1206;box-shadow:0 4px 16px rgba(201,138,58,.45);pointer-events:none;">+</div>
+
+      <!-- Bottom tab bar -->
+      <div style="flex:none;background:rgba(10,11,16,.97);border-top:0.5px solid rgba(255,255,255,.12);display:flex;height:83px;align-items:flex-start;padding-top:6px;">
+        <button style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:rgba(255,255,255,.35);padding:4px 0 0;cursor:pointer;"><svg width="20" height="20" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/></svg><span style="font-size:9px;font-weight:600;">Decks</span></button>
+        <button style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:#c98a3a;padding:4px 0 0;cursor:pointer;"><svg width="20" height="20" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="1.5" width="11" height="13" rx="1.5" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="5.5" x2="11" y2="5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><line x1="5" y1="8" x2="9" y2="8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg><span style="font-size:9px;font-weight:600;">Build</span></button>
+        <button style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:rgba(255,255,255,.35);padding:4px 0 0;cursor:pointer;"><svg width="20" height="20" viewBox="0 0 16 16" fill="none"><path d="M8 3.5v10M8 3.5C8 3.5 6.5 2 3 2v10c3.5 0 5 1.5 5 1.5M8 3.5C8 3.5 9.5 2 13 2v10c-3.5 0-5 1.5-5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-size:9px;font-weight:600;">Rules</span></button>
+        <button style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:rgba(255,255,255,.35);padding:4px 0 0;cursor:pointer;"><svg width="20" height="20" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="10" x2="14.5" y2="14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span style="font-size:9px;font-weight:600;">Cards</span></button>
+      </div>
+    </div>
+  </x-import>
+</div>
+
+<!-- ══════════════════════════════════════════
+     FRAME 3 — AI Panel Bottom Sheet
+══════════════════════════════════════════ -->
+<div style="position:absolute;left:924px;top:0;width:402px;">
+  <div data-drags-parent="1" style="font-size:10px;font-weight:600;color:#aaa;text-align:center;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;">3 · AI Panel (bottom sheet)</div>
+  <x-import component="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+    <div style="height:100%;display:flex;flex-direction:column;background:#0c0d11;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;position:relative;overflow:hidden;">
+      <div style="height:60px;flex:none;"></div>
+      <div style="flex:none;padding:4px 12px 6px;display:flex;align-items:center;gap:8px;opacity:.4;">
+        <button style="background:none;border:none;color:#c98a3a;font-size:13px;font-weight:600;cursor:pointer;padding:4px;min-height:auto;">‹ Decks</button>
+        <span style="flex:1;font-size:13px;font-weight:700;color:#ededf0;text-align:center;">Nethroi Reanimator</span>
+        <button style="background:#c98a3a;color:#1a1206;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;min-height:auto;">Save</button>
+      </div>
+      <div style="flex:1;opacity:.3;"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px 12px;"><div style="aspect-ratio:488/680;border-radius:5px;background:#1c1f28;"></div><div style="aspect-ratio:488/680;border-radius:5px;background:#1c1f28;"></div><div style="aspect-ratio:488/680;border-radius:5px;background:#1c1f28;"></div></div></div>
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,.55);"></div>
+      <div style="position:absolute;bottom:0;left:0;right:0;background:#16181f;border-radius:20px 20px 0 0;border-top:1px solid rgba(255,255,255,.1);box-shadow:0 -8px 40px rgba(0,0,0,.6);animation:slideUp .3s ease-out both;display:flex;flex-direction:column;height:88%;">
+        <div style="display:flex;justify-content:center;padding:10px 0 2px;"><div style="width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.2);"></div></div>
+        <div style="padding:6px 16px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.07);">
+          <div><div style="font-size:14px;font-weight:700;color:#ededf0;">AI Insights</div><div style="font-size:10px;color:#71767f;margin-top:1px;">Nethroi Reanimator · Commander</div></div>
+          <div style="display:flex;background:rgba(255,255,255,.06);border-radius:6px;padding:2px;">
+            <button style="font-size:10px;font-weight:700;background:#c98a3a;color:#1a1206;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;min-height:auto;">Feed</button>
+            <button style="font-size:10px;font-weight:500;background:none;color:rgba(255,255,255,.4);border:none;border-radius:4px;padding:3px 10px;cursor:pointer;min-height:auto;">Accordion</button>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px;">
+          <div style="background:#111318;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><span style="font-size:13px;">⚡</span><span style="font-size:11px;font-weight:700;color:#ededf0;">Strategy Overview</span><span style="font-size:9px;background:rgba(61,206,138,.15);color:#3dce8a;border-radius:3px;padding:1px 5px;font-weight:600;margin-left:auto;">auto</span></div>
+            <p style="font-size:11px;color:#b0b4be;line-height:1.6;margin:0;">Nethroi leads an <strong style="color:#ededf0;">Abzan Reanimator combo</strong> strategy. Fill the yard with 0-power creatures, then recur them all in one Nethroi activation.</p>
+          </div>
+          <div style="background:#111318;border:1px solid rgba(229,184,76,.15);border-radius:10px;padding:10px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;"><span style="font-size:13px;">⚠️</span><span style="font-size:11px;font-weight:700;color:#ededf0;">Weaknesses</span><span style="font-size:9px;background:rgba(229,184,76,.15);color:#e5b84c;border-radius:3px;padding:1px 5px;font-weight:600;margin-left:auto;">2 flags</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div><div style="font-size:11px;font-weight:600;color:#e5b84c;">Low interaction</div><div style="font-size:9px;color:#71767f;">6 removal · target 8–10</div></div><button style="font-size:9px;color:#c98a3a;background:rgba(201,138,58,.08);border:1px solid rgba(201,138,58,.2);border-radius:4px;padding:2px 7px;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;font-weight:600;">Fix</button></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:11px;font-weight:600;color:#e5b84c;">Thin card draw</div><div style="font-size:9px;color:#71767f;">4 draw · target 7+</div></div><button style="font-size:9px;color:#c98a3a;background:rgba(201,138,58,.08);border:1px solid rgba(201,138,58,.2);border-radius:4px;padding:2px 7px;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;font-weight:600;">Fix</button></div>
+          </div>
+          <button style="width:100%;background:#111318;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px;font-size:12px;font-weight:600;color:#7cacf8;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;display:flex;align-items:center;justify-content:space-between;"><span>✨ Recommendations</span><span style="font-size:10px;color:rgba(255,255,255,.3);">Tap to load →</span></button>
+          <button style="width:100%;background:#111318;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px;font-size:12px;font-weight:600;color:#7cacf8;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;display:flex;align-items:center;justify-content:space-between;"><span>🔗 Combos <span style="background:rgba(61,206,138,.15);color:#3dce8a;border-radius:3px;padding:1px 5px;font-size:9px;font-weight:600;margin-left:4px;">2 found</span></span><span style="font-size:10px;color:rgba(255,255,255,.3);">Tap to load →</span></button>
+        </div>
+        <div style="height:34px;flex:none;"></div>
+      </div>
+    </div>
+  </x-import>
+</div>
+
+<!-- ══════════════════════════════════════════
+     FRAME 4 — Rules Q&A
+══════════════════════════════════════════ -->
+<div style="position:absolute;left:1386px;top:0;width:402px;">
+  <div data-drags-parent="1" style="font-size:10px;font-weight:600;color:#aaa;text-align:center;letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px;">4 · Rules Q&amp;A</div>
+  <x-import component="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" keyboard="{{ true }}" hint-size="402px,874px">
+    <div style="height:100%;display:flex;flex-direction:column;background:#0c0d11;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;">
+      <div style="height:60px;flex:none;"></div>
+      <div style="flex:none;padding:4px 16px 8px;display:flex;align-items:center;gap:10px;">
+        <button style="background:none;border:none;color:#c98a3a;font-size:13px;font-weight:600;cursor:pointer;padding:4px;min-height:auto;">‹ Back</button>
+        <span style="font-size:14px;font-weight:700;color:#ededf0;flex:1;text-align:center;">Rules Q&amp;A</span>
+        <div style="width:60px;"></div>
+      </div>
+      <div style="flex:none;padding:0 12px 10px;display:flex;gap:6px;overflow-x:auto;">
+        <button style="white-space:nowrap;font-size:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:4px 10px;color:rgba(255,255,255,.6);cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;">Counter a triggered ability?</button>
+        <button style="white-space:nowrap;font-size:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:4px 10px;color:rgba(255,255,255,.6);cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;">How does priority work?</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:0 14px 8px;display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;justify-content:flex-end;"><div style="max-width:78%;background:#1c1f28;border:1px solid rgba(255,255,255,.1);border-radius:14px 14px 4px 14px;padding:9px 12px;"><div style="font-size:13px;color:#ededf0;line-height:1.45;">Can I counter a triggered ability?</div></div></div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;align-items:center;gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:#c98a3a;flex:none;"></span><span style="font-size:9px;font-weight:600;color:#71767f;text-transform:uppercase;letter-spacing:.05em;">MTG Workshop AI</span></div>
+          <div style="font-size:12px;color:#ededf0;line-height:1.65;"><p style="margin:0 0 8px;">Yes — triggered abilities <strong>can</strong> be countered with effects that specifically target abilities, like <strong style="color:#c98a3a;">Stifle</strong> or <strong style="color:#c98a3a;">Disallow</strong>. Standard "counter target spell" won't work.</p><p style="margin:0 0 8px;">Your window: after the trigger goes on the stack, players get priority before it resolves.</p></div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;"><span style="font-size:9px;font-weight:600;background:rgba(201,138,58,.08);color:#c98a3a;border:1px solid rgba(201,138,58,.2);border-radius:4px;padding:2px 7px;">Rule 603.3 ↗</span><span style="font-size:9px;font-weight:600;background:rgba(201,138,58,.08);color:#c98a3a;border:1px solid rgba(201,138,58,.2);border-radius:4px;padding:2px 7px;">Rule 701.5a ↗</span></div>
+        </div>
+      </div>
+      <div style="flex:none;border-top:1px solid rgba(255,255,255,.07);padding:8px 12px;display:flex;gap:8px;align-items:center;background:#0c0d11;">
+        <div style="flex:1;background:#111318;border:1px solid rgba(201,138,58,.4);border-radius:20px;padding:8px 14px;font-size:12px;color:rgba(255,255,255,.4);">Ask another question…</div>
+        <button style="background:#c98a3a;color:#1a1206;border:none;border-radius:50%;width:34px;height:34px;font-size:15px;font-weight:700;cursor:pointer;min-height:auto;display:flex;align-items:center;justify-content:center;flex:none;">↑</button>
+      </div>
+    </div>
+  </x-import>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;deckViewMode&quot;: {
+    &quot;editor&quot;: &quot;enum&quot;,
+    &quot;options&quot;: [&quot;list&quot;, &quot;stack&quot;],
+    &quot;default&quot;: &quot;list&quot;,
+    &quot;section&quot;: &quot;Frame 2 · Deck View&quot;
+  }
+}">
+class Component extends DCLogic {
+  renderVals() {
+    const mode = this.props.deckViewMode ?? 'list';
+    return {
+      isListMode:  mode === 'list',
+      isStackMode: mode === 'stack',
+    };
+  }
+}
+
+</script>
+</body>
+</html>

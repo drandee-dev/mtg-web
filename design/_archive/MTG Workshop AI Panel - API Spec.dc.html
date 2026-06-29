@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:#0c0d11;color:#ededf0;font-family:Inter,system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;">
+
+  <!-- Header -->
+  <div style="background:#0e1016;border-bottom:1px solid rgba(255,255,255,.08);padding:20px 32px 16px;position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+        <span style="width:8px;height:8px;border-radius:50%;background:#c98a3a;box-shadow:0 0 6px rgba(201,138,58,.5);flex:none;"></span>
+        <span style="font-size:11px;font-weight:700;color:#71767f;text-transform:uppercase;letter-spacing:.06em;">MTG Workshop</span>
+      </div>
+      <h1 style="margin:0;font-size:20px;font-weight:700;letter-spacing:-.02em;">AI Panel — API Specification</h1>
+      <p style="margin:4px 0 0;font-size:12px;color:#71767f;">Maps each right-panel section to its backend endpoint, request shape, and Claude integration strategy.</p>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+      <span style="font-size:10px;font-weight:600;background:rgba(61,206,138,.1);color:#3dce8a;border:1px solid rgba(61,206,138,.2);border-radius:4px;padding:3px 8px;">3 existing endpoints</span>
+      <span style="font-size:10px;font-weight:600;background:rgba(124,172,248,.1);color:#7cacf8;border:1px solid rgba(124,172,248,.2);border-radius:4px;padding:3px 8px;">3 new endpoints</span>
+      <span style="font-size:10px;font-weight:600;background:rgba(255,255,255,.06);color:#b0b4be;border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:3px 8px;">1 client-side</span>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div style="max-width:960px;margin:0 auto;padding:28px 32px 60px;">
+
+    <!-- Legend -->
+    <div style="display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#71767f;"><span style="width:10px;height:10px;border-radius:50%;background:#3dce8a;flex:none;"></span>Existing endpoint — wire up as-is</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#71767f;"><span style="width:10px;height:10px;border-radius:50%;background:#7cacf8;flex:none;"></span>New endpoint — needs backend work</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#71767f;"><span style="width:10px;height:10px;border-radius:50%;background:#71767f;flex:none;"></span>Client-side — no API call</div>
+    </div>
+
+    <!-- 1. Strategy Overview -->
+    <div style="border:1px solid rgba(124,172,248,.2);border-radius:12px;margin-bottom:16px;overflow:hidden;">
+      <div style="background:rgba(124,172,248,.06);padding:14px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(124,172,248,.15);">
+        <span style="font-size:18px;">⚡</span>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:700;">Strategy Overview</div>
+          <div style="font-size:11px;color:#71767f;margin-top:1px;">Auto-loads when deck reaches 20+ cards</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;background:rgba(124,172,248,.15);color:#7cacf8;border-radius:4px;padding:3px 9px;">NEW</span>
+        <span style="font-size:10px;font-weight:700;background:rgba(201,138,58,.12);color:#c98a3a;border-radius:4px;padding:3px 9px;">Claude</span>
+      </div>
+      <div style="padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Endpoint</div>
+          <code style="display:block;background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#7cacf8;">POST /api/deck/ai/strategy</code>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Trigger</div>
+          <code style="display:block;background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#ededf0;">analysis.total_cards &gt;= 20</code>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Request</div>
+          <pre style="background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#ededf0;margin:0;overflow-x:auto;line-height:1.6;">{
+  decklist: string,
+  format: string,
+  commander?: string,
+  bracket?: number
+}</pre>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Response</div>
+          <pre style="background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#ededf0;margin:0;overflow-x:auto;line-height:1.6;">{
+  strategy: string,   // 2-3 sentence overview
+  archetype: string   // e.g. "Abzan Reanimator"
+}</pre>
+        </div>
+        <div style="grid-column:1/-1;">
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Claude prompt skeleton</div>
+          <pre style="background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#b0b4be;margin:0;overflow-x:auto;line-height:1.6;">You are an expert Magic: The Gathering deckbuilder.
+Given this {format} deck led by {commander}:
+{decklist_summary}
+
+In 2-3 sentences, describe the deck's primary strategy,
+win condition, and play style. Be specific — name the
+key cards and interactions. Start with the archetype
+name in bold.</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Weakness Check -->
+    <div style="border:1px solid rgba(61,206,138,.2);border-radius:12px;margin-bottom:16px;overflow:hidden;">
+      <div style="background:rgba(61,206,138,.05);padding:14px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(61,206,138,.12);">
+        <span style="font-size:18px;">⚠️</span>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:700;">Weakness Check</div>
+          <div style="font-size:11px;color:#71767f;margin-top:1px;">Auto-loads alongside stats. Deterministic — no Claude needed.</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;background:rgba(61,206,138,.15);color:#3dce8a;border-radius:4px;padding:3px 9px;">EXISTING</span>
+      </div>
+      <div style="padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Endpoint</div>
+          <code style="display:block;background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#3dce8a;">POST /api/deck/composition</code>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Weakness flag logic</div>
+          <code style="display:block;background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#ededf0;">categories.filter(c =&gt; c.status === 'thin')</code>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Response shape used</div>
+          <pre style="background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#ededf0;margin:0;line-height:1.6;">{
+  categories: [{
+    key: string,
+    label: string,
+    count: number,
+    target: number,
+    status: "ok" | "thin"
+  }]
+}</pre>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">UI display</div>
+          <div style="font-size:12px;color:#b0b4be;line-height:1.65;padding:8px 10px;background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;">For each <code style="font-family:'JetBrains Mono',monospace;background:rgba(255,255,255,.06);padding:1px 4px;border-radius:3px;">thin</code> category: show label in amber + count/target + a "Fix →" button that opens Recommendations pre-filtered to that role.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Recommendations -->
+    <div style="border:1px solid rgba(201,138,58,.2);border-radius:12px;margin-bottom:16px;overflow:hidden;">
+      <div style="background:rgba(201,138,58,.05);padding:14px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(201,138,58,.15);">
+        <span style="font-size:18px;">✨</span>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:700;">Recommendations</div>
+          <div style="font-size:11px;color:#71767f;margin-top:1px;">Two-step: EDHREC data + Claude 1-line reasoning per card</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;background:rgba(61,206,138,.15);color:#3dce8a;border-radius:4px;padding:3px 9px;">EXISTING</span>
+        <span style="font-size:10px;font-weight:700;background:rgba(201,138,58,.12);color:#c98a3a;border-radius:4px;padding:3px 9px;">+ Claude</span>
+      </div>
+      <div style="padding:16px 18px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
+          <div>
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Step 1 — EDHREC cards</div>
+            <code style="display:block;background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#3dce8a;margin-bottom:6px;">POST /api/deck/recommend</code>
+            <div style="font-size:11px;color:#71767f;line-height:1.5;">Returns categorized card lists with raw synergy scores from EDHREC. Show immediately — no waiting on Claude.</div>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Step 2 — Claude reasoning</div>
+            <code style="display:block;background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#3dce8a;margin-bottom:6px;">POST /api/deck/ai/explain</code>
+            <div style="font-size:11px;color:#71767f;line-height:1.5;">Pass top-N card names from Step 1. Claude returns a 1-line "why this fits" per card. Lazy-load — show synergy % while reasoning streams in.</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div>
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">ai/explain request</div>
+            <pre style="background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#ededf0;margin:0;line-height:1.6;">{
+  decklist: string,
+  format: string,
+  card_names: string[],  // top 8-12
+  bracket?: number
+}</pre>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">ai/explain response</div>
+            <pre style="background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#ededf0;margin:0;line-height:1.6;">{
+  explanations: {
+    "Sol Ring": "Ramp staple; your curve...",
+    "Eternal Witness": "Recursion for your...",
+    // ...
+  }
+}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Cut Suggestions -->
+    <div style="border:1px solid rgba(61,206,138,.2);border-radius:12px;margin-bottom:16px;overflow:hidden;">
+      <div style="background:rgba(61,206,138,.05);padding:14px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(61,206,138,.12);">
+        <span style="font-size:18px;">✂️</span>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:700;">Cut Suggestions</div>
+          <div style="font-size:11px;color:#71767f;margin-top:1px;">Claude identifies weakest cards with reasoning — endpoint already exists</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;background:rgba(61,206,138,.15);color:#3dce8a;border-radius:4px;padding:3px 9px;">EXISTING</span>
+        <span style="font-size:10px;font-weight:700;background:rgba(201,138,58,.12);color:#c98a3a;border-radius:4px;padding:3px 9px;">Claude</span>
+      </div>
+      <div style="padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Endpoint</div>
+          <code style="display:block;background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#3dce8a;">POST /api/deck/ai/cuts</code>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Response</div>
+          <pre style="background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#ededf0;margin:0;line-height:1.6;">{
+  cuts: [{
+    card: string,
+    reason: string,
+    impact: "low" | "medium"
+  }]
+}</pre>
+        </div>
+        <div style="grid-column:1/-1;">
+          <div style="font-size:11px;color:#b0b4be;line-height:1.65;padding:10px 12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);border-radius:6px;">
+            <strong style="color:#ededf0;">UX note:</strong> Show "Remove" button per card. After removing, re-run <code style="font-family:'JetBrains Mono',monospace;background:rgba(255,255,255,.06);padding:1px 4px;border-radius:3px;">cuts</code> automatically if deck is still over 100 cards. Each removed card should cross out rather than disappear immediately (give user a chance to undo).
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Combos -->
+    <div style="border:1px solid rgba(61,206,138,.2);border-radius:12px;margin-bottom:16px;overflow:hidden;">
+      <div style="background:rgba(61,206,138,.05);padding:14px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(61,206,138,.12);">
+        <span style="font-size:18px;">🔗</span>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:700;">Combos</div>
+          <div style="font-size:11px;color:#71767f;margin-top:1px;">Two-step: Commander Spellbook detection + Claude plain-English explanation</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;background:rgba(61,206,138,.15);color:#3dce8a;border-radius:4px;padding:3px 9px;">EXISTING</span>
+        <span style="font-size:10px;font-weight:700;background:rgba(201,138,58,.12);color:#c98a3a;border-radius:4px;padding:3px 9px;">+ Claude</span>
+      </div>
+      <div style="padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Step 1 — detection</div>
+          <code style="display:block;background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#3dce8a;margin-bottom:6px;">POST /api/deck/combos</code>
+          <div style="font-size:11px;color:#71767f;line-height:1.5;">Returns combos in deck + near-misses (1 card away). Show raw combo card lists immediately.</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Step 2 — Claude explanation</div>
+          <code style="display:block;background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#3dce8a;margin-bottom:6px;">POST /api/deck/ai/combos</code>
+          <div style="font-size:11px;color:#71767f;line-height:1.5;">Passes the raw combo data. Claude explains what each combo does in plain English — what it enables and how to assemble it.</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">ai/combos request</div>
+          <pre style="background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#ededf0;margin:0;line-height:1.6;">{
+  decklist: string,
+  format: string,
+  combos: ComboResult[],
+  near_misses: NearMiss[],
+  bracket?: number
+}</pre>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">ai/combos response</div>
+          <pre style="background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#ededf0;margin:0;line-height:1.6;">{
+  combos: [{
+    cards: string[],
+    explanation: string
+  }],
+  near_misses: [{
+    missing_card: string,
+    explanation: string
+  }]
+}</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. Upgrade Path -->
+    <div style="border:1px solid rgba(124,172,248,.2);border-radius:12px;margin-bottom:16px;overflow:hidden;">
+      <div style="background:rgba(124,172,248,.05);padding:14px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(124,172,248,.15);">
+        <span style="font-size:18px;">🚀</span>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:700;">Upgrade Path</div>
+          <div style="font-size:11px;color:#71767f;margin-top:1px;">Budget swaps (existing) + Power upgrades (new Claude endpoint)</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;background:rgba(61,206,138,.15);color:#3dce8a;border-radius:4px;padding:3px 9px;">EXISTING (budget)</span>
+        <span style="font-size:10px;font-weight:700;background:rgba(124,172,248,.15);color:#7cacf8;border-radius:4px;padding:3px 9px;">NEW (power)</span>
+      </div>
+      <div style="padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Budget swaps (existing)</div>
+          <code style="display:block;background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#3dce8a;margin-bottom:6px;">POST /api/deck/budget-swaps</code>
+          <div style="font-size:11px;color:#71767f;line-height:1.5;">Finds cheaper functional equivalents using price data. Pass <code style="font-family:'JetBrains Mono',monospace;background:rgba(255,255,255,.06);padding:1px 4px;border-radius:3px;">threshold</code> (e.g. $10) to define "expensive".</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Power upgrades (new)</div>
+          <code style="display:block;background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#7cacf8;margin-bottom:6px;">POST /api/deck/ai/upgrades</code>
+          <div style="font-size:11px;color:#71767f;line-height:1.5;">Claude identifies the highest-impact upgrades regardless of budget — the cards that most improve the strategy at any price.</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">ai/upgrades request</div>
+          <pre style="background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#ededf0;margin:0;line-height:1.6;">{
+  decklist: string,
+  format: string,
+  commander?: string,
+  bracket?: number,
+  mode: "power" | "budget"
+}</pre>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">ai/upgrades response</div>
+          <pre style="background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#ededf0;margin:0;line-height:1.6;">{
+  upgrades: [{
+    replaces: string,
+    replacement: string,
+    reason: string,
+    price_usd?: number
+  }]
+}</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. Draw Odds -->
+    <div style="border:1px solid rgba(255,255,255,.1);border-radius:12px;margin-bottom:16px;overflow:hidden;">
+      <div style="background:rgba(255,255,255,.03);padding:14px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,.08);">
+        <span style="font-size:18px;">🎲</span>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:700;">Draw Odds</div>
+          <div style="font-size:11px;color:#71767f;margin-top:1px;">Client-side hypergeometric calculation — no API call needed</div>
+        </div>
+        <span style="font-size:10px;font-weight:700;background:rgba(255,255,255,.08);color:#b0b4be;border-radius:4px;padding:3px 9px;">CLIENT-SIDE</span>
+      </div>
+      <div style="padding:16px 18px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Formula</div>
+          <pre style="background:#0e1016;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#ededf0;margin:0;line-height:1.6;">// Hypergeometric distribution
+// P(X >= 1) = 1 - P(X = 0)
+P = 1 - C(N-K, n) / C(N, n)
+
+N = deck_size (e.g. 99)
+K = copies in deck
+n = cards seen (hand + draws)</pre>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#71767f;margin-bottom:8px;">Inputs</div>
+          <div style="display:flex;flex-direction:column;gap:5px;font-size:12px;">
+            <div style="display:flex;justify-content:space-between;padding:5px 8px;background:#0e1016;border:1px solid rgba(255,255,255,.07);border-radius:5px;"><span style="color:#71767f;">Copies in deck</span><span>auto from decklist</span></div>
+            <div style="display:flex;justify-content:space-between;padding:5px 8px;background:#0e1016;border:1px solid rgba(255,255,255,.07);border-radius:5px;"><span style="color:#71767f;">Hand size</span><span>7 (editable)</span></div>
+            <div style="display:flex;justify-content:space-between;padding:5px 8px;background:#0e1016;border:1px solid rgba(255,255,255,.07);border-radius:5px;"><span style="color:#71767f;">Draw by turn</span><span>editable</span></div>
+            <div style="display:flex;justify-content:space-between;padding:5px 8px;background:#0e1016;border:1px solid rgba(255,255,255,.07);border-radius:5px;"><span style="color:#71767f;">Deck size</span><span>auto from decklist</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wiring summary table -->
+    <div style="margin-top:28px;">
+      <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#71767f;margin:0 0 12px;">Frontend wiring summary</h2>
+      <div style="border:1px solid rgba(255,255,255,.08);border-radius:8px;overflow:hidden;">
+        <div style="display:grid;grid-template-columns:1.2fr 2fr 1fr 1fr;background:#111318;padding:8px 14px;">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#71767f;">Section</span>
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#71767f;">api.js call</span>
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#71767f;">Trigger</span>
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#71767f;">Status</span>
+        </div>
+        <sc-for list="{{ rows }}" as="row" hint-placeholder-count="7">
+          <div style="display:grid;grid-template-columns:1.2fr 2fr 1fr 1fr;padding:9px 14px;border-top:1px solid rgba(255,255,255,.06);align-items:center;">
+            <span style="font-size:12px;font-weight:600;">{{ row.section }}</span>
+            <code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#b0b4be;">{{ row.call }}</code>
+            <span style="font-size:11px;color:#71767f;">{{ row.trigger }}</span>
+            <span style="{{ row.statusStyle }}">{{ row.status }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 960, &quot;height&quot;: 900 }
+}">
+class Component extends DCLogic {
+  renderVals() {
+    function mkStatus(s) {
+      if (s === 'Existing')     return { fontSize:'10px', fontWeight:700, background:'rgba(61,206,138,.1)',  color:'#3dce8a', border:'1px solid rgba(61,206,138,.2)',  borderRadius:'4px', padding:'2px 7px', display:'inline-block' };
+      if (s === 'New endpoint') return { fontSize:'10px', fontWeight:700, background:'rgba(124,172,248,.1)', color:'#7cacf8', border:'1px solid rgba(124,172,248,.2)', borderRadius:'4px', padding:'2px 7px', display:'inline-block' };
+      return { fontSize:'10px', fontWeight:700, background:'rgba(255,255,255,.06)', color:'#b0b4be', border:'1px solid rgba(255,255,255,.1)', borderRadius:'4px', padding:'2px 7px', display:'inline-block' };
+    }
+
+    const rows = [
+      { section: 'Strategy Overview', call: 'api.aiStrategy(decklist, format, commander)', trigger: 'Auto (20+ cards)', status: 'New endpoint', statusStyle: mkStatus('New endpoint') },
+      { section: 'Weakness Check',    call: 'api.composition(decklist, format)',           trigger: 'Auto (with stats)', status: 'Existing', statusStyle: mkStatus('Existing') },
+      { section: 'Recommendations',  call: 'api.recommend() + api.aiExplain()',            trigger: 'On demand', status: 'Existing', statusStyle: mkStatus('Existing') },
+      { section: 'Cut Suggestions',  call: 'api.aiCuts(decklist, format, bracket)',        trigger: 'On demand', status: 'Existing', statusStyle: mkStatus('Existing') },
+      { section: 'Combos',           call: 'api.combos() + api.aiCombos()',               trigger: 'On demand', status: 'Existing', statusStyle: mkStatus('Existing') },
+      { section: 'Upgrade Path',     call: 'api.budgetSwaps() + api.aiUpgrades()',        trigger: 'On demand', status: 'New endpoint', statusStyle: mkStatus('New endpoint') },
+      { section: 'Draw Odds',        call: 'hypergeometric() — no fetch',                 trigger: 'On demand', status: 'Client-side', statusStyle: mkStatus('Client-side') },
+    ];
+
+    return { rows };
+  }
+}
+
+</script>
+</body>
+</html>

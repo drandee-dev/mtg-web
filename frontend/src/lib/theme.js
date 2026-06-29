@@ -1,7 +1,7 @@
 const THEME_KEY = "mtgweb:theme";
 
 export function getStoredTheme() {
-  return localStorage.getItem(THEME_KEY) || "system";
+  return localStorage.getItem(THEME_KEY) || "dark";
 }
 
 export function setStoredTheme(theme) {

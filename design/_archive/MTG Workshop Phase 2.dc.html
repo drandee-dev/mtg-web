@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    :root {
+      --bg: #0c0d11; --bg-raised: #111318; --panel: #16181f; --panel-2: #1c1f28;
+      --border: rgba(255,255,255,.08); --border-strong: rgba(255,255,255,.14);
+      --text: #ededf0; --text-sec: #b0b4be; --muted: #71767f;
+      --accent: #c98a3a; --accent-2: #7cacf8; --good: #3dce8a; --warn: #e5b84c; --bad: #ef5350;
+      --hover: rgba(255,255,255,.05); --r: 8px; --rl: 12px;
+    }
+    @keyframes blink { 0%,100%{opacity:.3} 50%{opacity:.9} }
+    [data-theme="light"] {
+      --bg: #f4f4f7; --bg-raised: #ffffff; --panel: #ffffff; --panel-2: #eeeef2;
+      --border: rgba(0,0,0,.09); --border-strong: rgba(0,0,0,.16);
+      --text: #1a1a1e; --text-sec: #4a4a52; --muted: #72727c;
+      --hover: rgba(0,0,0,.04);
+    }
+  </style>
+</helmet>
+
+<!-- ══════════════════════════════════════════════════
+     FRAME A — LANDING · NEW USER · MOBILE
+══════════════════════════════════════════════════ -->
+<div style="position:absolute;left:0;top:0;width:390px;">
+  <div data-drags-parent="1" style="font-size:10px;font-weight:600;color:#888;letter-spacing:.07em;text-transform:uppercase;text-align:center;margin-bottom:8px;font-family:Inter,sans-serif;">A · Landing · New User · Mobile</div>
+  <div style="width:390px;height:844px;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;overflow:hidden;position:relative;border-radius:16px;box-shadow:0 16px 64px rgba(0,0,0,.8);display:flex;flex-direction:column;">
+
+    <!-- Top bar -->
+    <div style="flex:none;height:44px;display:flex;align-items:center;padding:0 16px;gap:8px;">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" style="flex:none;"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" stroke="#c98a3a" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <span style="font-size:13px;font-weight:700;color:var(--text);letter-spacing:-.01em;">MTG Workshop</span>
+      <div style="flex:1;"></div>
+      <button style="font-size:12px;font-weight:600;color:#c98a3a;background:rgba(201,138,58,.1);border:1px solid rgba(201,138,58,.25);border-radius:6px;padding:6px 12px;cursor:pointer;font-family:inherit;">Sign In</button>
+    </div>
+
+    <!-- Hero art -->
+    <div style="flex:none;height:178px;position:relative;overflow:hidden;">
+      <img src="https://cards.scryfall.io/art_crop/front/5/6/5662d0a5-3222-4ab9-9e15-f06477730b75.jpg" style="width:100%;height:100%;object-fit:cover;object-position:center 30%;display:block;" alt="" />
+      <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(12,13,17,.15) 0%,rgba(12,13,17,.65) 55%,#0c0d11 100%);"></div>
+      <div style="position:absolute;bottom:14px;left:16px;right:16px;">
+        <div style="font-size:30px;font-weight:700;line-height:1.08;letter-spacing:-.03em;">Build better<br/>MTG decks</div>
+        <div style="font-size:12px;color:var(--text-sec);margin-top:5px;">AI analysis · instant import · rules Q&amp;A</div>
+      </div>
+    </div>
+
+    <!-- Scroll body -->
+    <div style="flex:1;overflow-y:auto;padding:14px 16px 0;">
+
+      <!-- PRIMARY: Start with AI -->
+      <div style="background:var(--panel);border:1px solid rgba(201,138,58,.3);border-radius:14px;padding:16px;margin-bottom:12px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(201,138,58,.08) 0%,transparent 70%);pointer-events:none;"></div>
+        <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(201,138,58,.12);border-radius:5px;padding:3px 8px;margin-bottom:10px;">
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" stroke="#c98a3a" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          <span style="font-size:10px;font-weight:600;color:#c98a3a;letter-spacing:.04em;text-transform:uppercase;">AI-Powered</span>
+        </div>
+        <div style="font-size:19px;font-weight:700;letter-spacing:-.015em;margin-bottom:4px;">Start with AI</div>
+        <div style="font-size:12px;color:var(--text-sec);line-height:1.5;margin-bottom:12px;">Describe your deck idea in plain English</div>
+        <!-- Mini chat -->
+        <div style="background:var(--bg);border-radius:10px;padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+            <div style="background:var(--panel-2);border-radius:10px 10px 2px 10px;padding:7px 10px;font-size:11px;color:var(--text);line-height:1.4;max-width:84%;">"Build a Nethroi graveyard deck"</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:flex-start;">
+            <div style="width:20px;height:20px;border-radius:5px;background:#c98a3a;flex:none;display:flex;align-items:center;justify-content:center;">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" fill="#14100a" stroke="none"/></svg>
+            </div>
+            <div style="font-size:11px;color:var(--text);line-height:1.5;flex:1;">Found 12 synergy cards — <span style="color:#3dce8a;">Eternal Witness</span>, <span style="color:#3dce8a;">Viscera Seer</span>...</div>
+          </div>
+        </div>
+        <button style="width:100%;background:#c98a3a;color:#14100a;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">Start Building →</button>
+      </div>
+
+      <!-- Or start with label -->
+      <div style="font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;text-align:center;">Or start another way</div>
+
+      <!-- 3 secondary CTAs -->
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <!-- Import URL -->
+        <div style="flex:1;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;cursor:pointer;">
+          <div style="width:28px;height:28px;background:rgba(124,172,248,.1);border-radius:7px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#7cacf8" stroke-width="1.5" stroke-linecap="round"><path d="M6 9.5a3.5 3.5 0 0 0 4.95 0l1.75-1.75a3.5 3.5 0 0 0-4.95-4.95L6.4 4.2"/><path d="M10 6.5a3.5 3.5 0 0 0-4.95 0L3.3 8.25a3.5 3.5 0 0 0 4.95 4.95L9.6 11.8"/></svg>
+          </div>
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px;">Import URL</div>
+          <div style="font-size:10px;color:var(--muted);">Archidekt · Moxfield</div>
+        </div>
+        <!-- Paste -->
+        <div style="flex:1;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;cursor:pointer;">
+          <div style="width:28px;height:28px;background:rgba(61,206,138,.08);border-radius:7px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#3dce8a" stroke-width="1.5" stroke-linecap="round"><path d="M3 5h10M3 8h10M3 11h6"/></svg>
+          </div>
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px;">Paste List</div>
+          <div style="font-size:10px;color:var(--muted);">Any format</div>
+        </div>
+        <!-- Guided -->
+        <div style="flex:1;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;cursor:pointer;">
+          <div style="width:28px;height:28px;background:rgba(229,184,76,.08);border-radius:7px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#e5b84c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2L9 5.5H13L10 7.5L11 11L8 9L5 11L6 7.5L3 5.5H7L8 2Z"/></svg>
+          </div>
+          <div style="font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px;">Guided</div>
+          <div style="font-size:10px;color:var(--muted);">Step-by-step</div>
+        </div>
+      </div>
+
+      <!-- URL inline import -->
+      <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:10px;padding:8px 10px;display:flex;gap:8px;align-items:center;margin-bottom:10px;">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#71767f" stroke-width="1.5" stroke-linecap="round" style="flex:none;"><path d="M6 9.5a3.5 3.5 0 0 0 4.95 0l1.75-1.75a3.5 3.5 0 0 0-4.95-4.95L6.4 4.2"/><path d="M10 6.5a3.5 3.5 0 0 0-4.95 0L3.3 8.25a3.5 3.5 0 0 0 4.95 4.95L9.6 11.8"/></svg>
+        <span style="font-size:12px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">archidekt.com/decks/… or moxfield.com/…</span>
+        <button style="background:#c98a3a;color:#14100a;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">Import</button>
+      </div>
+
+    </div>
+
+    <!-- Bottom nav -->
+    <div style="flex:none;height:60px;background:#0e1016;border-top:1px solid var(--border);display:flex;align-items:center;">
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#71767f" stroke-width="1.4" stroke-linecap="round"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M1.5 6.5h13"/></svg>
+        <span style="font-size:9px;color:#71767f;font-weight:500;">Decks</span>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#71767f" stroke-width="1.4" stroke-linecap="round"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        <span style="font-size:9px;color:#71767f;font-weight:500;">Build</span>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#71767f" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M6.5 6.5a2 2 0 0 1 4 0c0 2-2.5 2-2.5 4M8 13v.5"/></svg>
+        <span style="font-size:9px;color:#71767f;font-weight:500;">Rules</span>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#71767f" stroke-width="1.4" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+        <span style="font-size:9px;color:#71767f;font-weight:500;">Cards</span>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" stroke="#c98a3a" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        <span style="font-size:9px;color:#c98a3a;font-weight:600;">AI</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     FRAME B — LANDING · NEW USER · DESKTOP
+══════════════════════════════════════════════════ -->
+<div style="position:absolute;left:470px;top:0;width:1280px;">
+  <div data-drags-parent="1" style="font-size:10px;font-weight:600;color:#888;letter-spacing:.07em;text-transform:uppercase;text-align:center;margin-bottom:8px;font-family:Inter,sans-serif;">B · Landing · New User · Desktop</div>
+  <div style="width:1280px;height:780px;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;overflow:hidden;position:relative;border-radius:12px;box-shadow:0 16px 64px rgba(0,0,0,.8);">
+
+    <!-- GlobalToolbar -->
+    <div style="height:44px;display:flex;align-items:center;padding:0 20px;border-bottom:1px solid var(--border);background:var(--bg);gap:4px;position:relative;z-index:10;">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" style="flex:none;"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" stroke="#c98a3a" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <span style="font-size:13px;font-weight:700;color:var(--text);margin-right:10px;">MTG Workshop</span>
+      <button style="font-size:13px;font-weight:500;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;padding:0 12px;height:44px;cursor:pointer;font-family:inherit;">Decks</button>
+      <button style="font-size:13px;font-weight:500;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;padding:0 12px;height:44px;cursor:pointer;font-family:inherit;">Build</button>
+      <button style="font-size:13px;font-weight:500;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;padding:0 12px;height:44px;cursor:pointer;font-family:inherit;">Rules</button>
+      <button style="font-size:13px;font-weight:500;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;padding:0 12px;height:44px;cursor:pointer;font-family:inherit;">Cards</button>
+      <div style="flex:1;"></div>
+      <button style="font-size:12px;font-weight:600;color:#c98a3a;background:rgba(201,138,58,.1);border:1px solid rgba(201,138,58,.25);border-radius:6px;padding:6px 14px;cursor:pointer;font-family:inherit;">Sign In</button>
+      <div style="width:30px;height:30px;border-radius:50%;background:var(--panel-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;margin-left:8px;">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#71767f" stroke-width="1.4"><circle cx="8" cy="5.5" r="3"/><path d="M2.5 14c0-3 2.5-5 5.5-5s5.5 2 5.5 5" stroke-linecap="round"/></svg>
+      </div>
+    </div>
+
+    <!-- Hero body -->
+    <div style="display:flex;height:736px;position:relative;overflow:hidden;">
+      <!-- Background art -->
+      <div style="position:absolute;inset:0;overflow:hidden;">
+        <img src="https://cards.scryfall.io/art_crop/front/5/6/5662d0a5-3222-4ab9-9e15-f06477730b75.jpg" style="position:absolute;right:0;width:58%;height:100%;object-fit:cover;object-position:left center;filter:blur(3px);opacity:.16;" alt="" />
+        <div style="position:absolute;inset:0;background:linear-gradient(to right,#0c0d11 42%,rgba(12,13,17,.9) 60%,rgba(12,13,17,.65) 100%);"></div>
+      </div>
+
+      <!-- Left: hero + CTAs -->
+      <div style="width:54%;padding:72px 64px;position:relative;z-index:2;display:flex;flex-direction:column;justify-content:center;">
+        <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(201,138,58,.1);border:1px solid rgba(201,138,58,.2);border-radius:20px;padding:5px 13px;margin-bottom:22px;width:fit-content;">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" stroke="#c98a3a" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          <span style="font-size:12px;font-weight:600;color:#c98a3a;">AI-Powered Deck Builder</span>
+        </div>
+        <div style="font-size:54px;font-weight:700;line-height:1.04;letter-spacing:-.035em;margin-bottom:16px;">Build better<br/>MTG decks</div>
+        <div style="font-size:17px;color:var(--text-sec);line-height:1.65;margin-bottom:36px;max-width:430px;">AI synergy analysis, instant import from any site, and a rules assistant — all in one place.</div>
+        <!-- Primary CTA -->
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:18px;">
+          <button style="display:flex;align-items:center;gap:8px;background:#c98a3a;color:#14100a;border:none;border-radius:10px;padding:14px 28px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:-.01em;">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" fill="#14100a"/></svg>
+            Start with AI
+          </button>
+          <button style="background:none;color:var(--text-sec);border:1px solid var(--border-strong);border-radius:10px;padding:13px 22px;font-size:15px;font-weight:500;cursor:pointer;font-family:inherit;">▶ See how it works</button>
+        </div>
+        <!-- Secondary CTAs -->
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:30px;flex-wrap:wrap;">
+          <span style="font-size:12px;color:var(--muted);">Or:</span>
+          <button style="display:flex;align-items:center;gap:6px;background:var(--bg-raised);color:var(--text-sec);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 9.5a3.5 3.5 0 0 0 4.95 0l1.75-1.75a3.5 3.5 0 0 0-4.95-4.95L6.4 4.2"/><path d="M10 6.5a3.5 3.5 0 0 0-4.95 0L3.3 8.25a3.5 3.5 0 0 0 4.95 4.95L9.6 11.8"/></svg>
+            Import URL
+          </button>
+          <button style="display:flex;align-items:center;gap:6px;background:var(--bg-raised);color:var(--text-sec);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 5h10M3 8h10M3 11h6"/></svg>
+            Paste Decklist
+          </button>
+          <button style="display:flex;align-items:center;gap=6px;background:var(--bg-raised);color:#e5b84c;border:1px solid rgba(229,184,76,.2);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;gap:6px;">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" stroke="#e5b84c" stroke-width="1.5" stroke-linejoin="round"/></svg>
+            Guided Wizard
+          </button>
+        </div>
+        <div style="font-size:12px;color:var(--muted);">Free to start · Scryfall-powered · EDHREC-integrated</div>
+      </div>
+
+      <!-- Right: AI Chat Preview -->
+      <div style="width:46%;display:flex;align-items:center;justify-content:center;padding:40px 48px;position:relative;z-index:2;">
+        <div style="width:100%;max-width:460px;background:var(--bg-raised);border:1px solid var(--border-strong);border-radius:16px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.55);">
+          <!-- Header -->
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;">
+            <div style="width:30px;height:30px;border-radius:8px;background:#c98a3a;display:flex;align-items:center;justify-content:center;flex:none;">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" fill="#14100a"/></svg>
+            </div>
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:600;color:var(--text);">Planeswalker AI</div>
+              <div style="font-size:10px;color:#3dce8a;">● Online</div>
+            </div>
+            <div style="font-size:10px;color:var(--muted);background:var(--bg);border-radius:4px;padding:3px 7px;">Commander</div>
+          </div>
+          <!-- Messages -->
+          <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;justify-content:flex-end;">
+              <div style="background:var(--panel-2);border-radius:12px 12px 2px 12px;padding:9px 13px;max-width:86%;font-size:13px;line-height:1.5;color:var(--text);">Build me a Nethroi graveyard recursion deck</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:flex-start;">
+              <div style="width:28px;height:28px;border-radius:7px;background:#c98a3a;flex:none;display:flex;align-items:center;justify-content:center;">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" fill="#14100a"/></svg>
+              </div>
+              <div style="flex:1;">
+                <div style="background:rgba(201,138,58,.07);border:1px solid rgba(201,138,58,.14);border-radius:2px 12px 12px 12px;padding:10px 13px;font-size:13px;line-height:1.6;color:var(--text);margin-bottom:8px;">Perfect. Nethroi excels at recursion with total power ≤10. Here are 3 key synergy cards:</div>
+                <div style="display:flex;flex-direction:column;gap:5px;">
+                  <div style="display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:6px 10px;">
+                    <img src="https://cards.scryfall.io/art_crop/front/4/f/4fe22cd8-31e6-491b-bce2-db257668eb92.jpg" style="width:32px;height:22px;border-radius:3px;object-fit:cover;" alt="" />
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:12px;font-weight:500;color:var(--text);">Eternal Witness</div>
+                      <div style="font-size:10px;color:var(--muted);">Recursion engine · CMC 3</div>
+                    </div>
+                    <div style="font-size:11px;font-weight:700;color:#3dce8a;">95%</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:6px 10px;">
+                    <img src="https://cards.scryfall.io/art_crop/front/f/a/fa553e54-e6aa-499b-ac48-0cdbf6c37734.jpg" style="width:32px;height:22px;border-radius:3px;object-fit:cover;" alt="" />
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:12px;font-weight:500;color:var(--text);">Viscera Seer</div>
+                      <div style="font-size:10px;color:var(--muted);">Sacrifice outlet · CMC 1</div>
+                    </div>
+                    <div style="font-size:11px;font-weight:700;color:#3dce8a;">93%</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px;background:var(--bg);border:1px dashed rgba(255,255,255,.09);border-radius:8px;padding:6px 10px;">
+                    <div style="width:32px;height:22px;border-radius:3px;background:var(--panel-2);display:flex;align-items:center;justify-content:center;">
+                      <div style="width:10px;height:2px;background:rgba(255,255,255,.2);border-radius:1px;animation:blink 1.2s ease-in-out infinite;"></div>
+                    </div>
+                    <div style="font-size:12px;color:var(--muted);font-style:italic;">Generating 10 more suggestions...</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Input -->
+          <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;">
+            <div style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--muted);">Describe your deck idea...</div>
+            <button style="width:34px;height:34px;background:#c98a3a;border:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#14100a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8h12M9 3l5 5-5 5"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     FRAME C — MY DECKS · RETURNING · MOBILE
+══════════════════════════════════════════════════ -->
+<div style="position:absolute;left:0;top:960px;width:390px;">
+  <div data-drags-parent="1" style="font-size:10px;font-weight:600;color:#888;letter-spacing:.07em;text-transform:uppercase;text-align:center;margin-bottom:8px;font-family:Inter,sans-serif;">C · My Decks · Returning · Mobile</div>
+  <div style="width:390px;height:844px;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;overflow:hidden;position:relative;border-radius:16px;box-shadow:0 16px 64px rgba(0,0,0,.8);display:flex;flex-direction:column;">
+
+    <!-- Top bar -->
+    <div style="flex:none;height:44px;display:flex;align-items:center;padding:0 16px;gap:8px;">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" style="flex:none;"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" stroke="#c98a3a" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <span style="font-size:15px;font-weight:700;color:var(--text);flex:1;">My Decks</span>
+      <button style="width:30px;height:30px;background:#c98a3a;border:none;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#14100a" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+      </button>
+      <div style="width:30px;height:30px;border-radius:50%;background:var(--panel-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;margin-left:6px;">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#71767f" stroke-width="1.4"><circle cx="8" cy="5.5" r="3"/><path d="M2.5 14c0-3 2.5-5 5.5-5s5.5 2 5.5 5" stroke-linecap="round"/></svg>
+      </div>
+    </div>
+
+    <!-- Filter toolbar -->
+    <div style="flex:none;padding:0 16px 10px;display:flex;gap:6px;align-items:center;">
+      <div style="flex:1;display:flex;align-items:center;gap:6px;background:var(--bg-raised);border:1px solid var(--border);border-radius:8px;padding:7px 10px;">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#71767f" stroke-width="1.5" stroke-linecap="round" style="flex:none;"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+        <span style="font-size:12px;color:var(--muted);">Search decks...</span>
+      </div>
+      <button style="display:flex;align-items:center;gap:4px;background:var(--bg-raised);border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-size:11px;color:var(--text-sec);cursor:pointer;font-family:inherit;white-space:nowrap;">All
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+      <button style="display:flex;align-items:center;gap:4px;background:var(--bg-raised);border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-size:11px;color:var(--text-sec);cursor:pointer;font-family:inherit;white-space:nowrap;">Updated
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+      </button>
+    </div>
+
+    <!-- Deck grid -->
+    <div style="flex:1;overflow-y:auto;padding:0 16px 10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start;">
+
+      <!-- Deck card 1 — normal state -->
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;">
+        <div style="height:88px;overflow:hidden;position:relative;">
+          <img src="https://cards.scryfall.io/art_crop/front/5/6/5662d0a5-3222-4ab9-9e15-f06477730b75.jpg" style="width:100%;height:100%;object-fit:cover;object-position:center 20%;display:block;" alt="" />
+          <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 40%,rgba(22,24,31,.8) 100%);"></div>
+          <div style="position:absolute;bottom:5px;left:7px;display:flex;gap:3px;">
+            <span style="width:14px;height:14px;border-radius:50%;background:#e9e3c0;font-size:8px;font-weight:700;color:#14161c;display:flex;align-items:center;justify-content:center;">W</span>
+            <span style="width:14px;height:14px;border-radius:50%;background:#1a1430;border:1px solid rgba(255,255,255,.15);font-size:8px;font-weight:700;color:#c8baeb;display:flex;align-items:center;justify-content:center;">B</span>
+            <span style="width:14px;height:14px;border-radius:50%;background:#46b06f;font-size:8px;font-weight:700;color:#14161c;display:flex;align-items:center;justify-content:center;">G</span>
+          </div>
+        </div>
+        <div style="padding:8px 9px;">
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Nethroi Reanimator</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:10px;background:rgba(229,184,76,.1);color:#e5b84c;border-radius:4px;padding:1px 6px;font-weight:600;">Commander</span>
+            <button style="background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="3.5" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="12.5" cy="8" r="1.3" fill="currentColor"/></svg>
+            </button>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px;">97/100 · 2 days ago</div>
+        </div>
+      </div>
+
+      <!-- Deck card 2 — 3-dot menu open -->
+      <div style="background:var(--panel);border:1px solid rgba(201,138,58,.3);border-radius:12px;overflow:visible;cursor:pointer;position:relative;">
+        <div style="height:88px;overflow:hidden;position:relative;border-radius:12px 12px 0 0;">
+          <div style="width:100%;height:100%;background:linear-gradient(135deg,#0f1a28,#1a0d28);"></div>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+            <span style="font-size:10px;color:rgba(255,255,255,.2);font-style:italic;">Atraxa art</span>
+          </div>
+          <div style="position:absolute;bottom:5px;left:7px;display:flex;gap:3px;">
+            <span style="width:14px;height:14px;border-radius:50%;background:#e9e3c0;font-size:8px;font-weight:700;color:#14161c;display:flex;align-items:center;justify-content:center;">W</span>
+            <span style="width:14px;height:14px;border-radius:50%;background:#4a90d9;font-size:8px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;">U</span>
+            <span style="width:14px;height:14px;border-radius:50%;background:#1a1430;border:1px solid rgba(255,255,255,.15);font-size:8px;font-weight:700;color:#c8baeb;display:flex;align-items:center;justify-content:center;">B</span>
+            <span style="width:14px;height:14px;border-radius:50%;background:#46b06f;font-size:8px;font-weight:700;color:#14161c;display:flex;align-items:center;justify-content:center;">G</span>
+          </div>
+        </div>
+        <div style="padding:8px 9px;">
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Atraxa Superfriends</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:10px;background:rgba(229,184,76,.1);color:#e5b84c;border-radius:4px;padding:1px 6px;font-weight:600;">Commander</span>
+            <button style="background:rgba(255,255,255,.08);border:none;cursor:pointer;padding:2px 4px;color:var(--accent);border-radius:4px;">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="3.5" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="12.5" cy="8" r="1.3" fill="currentColor"/></svg>
+            </button>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px;">100/100 · 1 week ago</div>
+        </div>
+        <!-- 3-dot dropdown open -->
+        <div style="position:absolute;top:88px;right:0;width:160px;background:var(--panel-2);border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:50;overflow:hidden;">
+          <div style="padding:6px 4px;">
+            <div style="padding:7px 10px;font-size:12px;color:var(--text);cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px;">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 13L5 10M11 2l3 3-9 9-4 1 1-4 9-9Z"/></svg>
+              Rename
+            </div>
+            <div style="padding:7px 10px;font-size:12px;color:var(--text);cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px;">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v9M8 11L5.5 8.5M8 11l2.5-2.5"/><line x1="2.5" y1="14" x2="13.5" y2="14"/></svg>
+              Export
+            </div>
+            <div style="padding:7px 10px;font-size:12px;color:var(--text);cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px;">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 8a6 6 0 1 0 12 0A6 6 0 0 0 2 8ZM8 5v3l2.5 1.5"/></svg>
+              Playtest
+            </div>
+            <div style="height:1px;background:var(--border);margin:4px 8px;"></div>
+            <div style="padding:7px 10px;font-size:12px;color:#ef5350;cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px;">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M4 4l8 8M12 4L4 12"/></svg>
+              Delete
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Deck card 3 -->
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;">
+        <div style="height:88px;overflow:hidden;position:relative;">
+          <div style="width:100%;height:100%;background:linear-gradient(135deg,#1e0a0a,#2a1010);"></div>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><span style="font-size:10px;color:rgba(255,255,255,.2);font-style:italic;">Art crop</span></div>
+          <div style="position:absolute;bottom:5px;left:7px;">
+            <span style="width:14px;height:14px;border-radius:50%;background:#d9534f;font-size:8px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;">R</span>
+          </div>
+        </div>
+        <div style="padding:8px 9px;">
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Mono Red Burn</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:10px;background:rgba(124,172,248,.08);color:#7cacf8;border-radius:4px;padding:1px 6px;font-weight:600;">Pauper</span>
+            <button style="background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="3.5" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="12.5" cy="8" r="1.3" fill="currentColor"/></svg>
+            </button>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px;">60/60 · 2 weeks ago</div>
+        </div>
+      </div>
+
+      <!-- Deck card 4 -->
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;">
+        <div style="height:88px;overflow:hidden;position:relative;">
+          <div style="width:100%;height:100%;background:linear-gradient(135deg,#0a1a10,#0a1020);"></div>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><span style="font-size:10px;color:rgba(255,255,255,.2);font-style:italic;">Art crop</span></div>
+          <div style="position:absolute;bottom:5px;left:7px;display:flex;gap:3px;">
+            <span style="width:14px;height:14px;border-radius:50%;background:#4a90d9;font-size:8px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;">U</span>
+            <span style="width:14px;height:14px;border-radius:50%;background:#46b06f;font-size:8px;font-weight:700;color:#14161c;display:flex;align-items:center;justify-content:center;">G</span>
+          </div>
+        </div>
+        <div style="padding:8px 9px;">
+          <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Simic Landfall</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:10px;background:rgba(229,184,76,.1);color:#e5b84c;border-radius:4px;padding:1px 6px;font-weight:600;">Commander</span>
+            <button style="background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="3.5" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="12.5" cy="8" r="1.3" fill="currentColor"/></svg>
+            </button>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px;">62/100 · Just now</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom nav (Decks active) -->
+    <div style="flex:none;height:60px;background:#0e1016;border-top:1px solid var(--border);display:flex;align-items:center;">
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#c98a3a" stroke-width="1.4" stroke-linecap="round"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M1.5 6.5h13"/></svg>
+        <span style="font-size:9px;color:#c98a3a;font-weight:600;">Decks</span>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#71767f" stroke-width="1.4" stroke-linecap="round"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        <span style="font-size:9px;color:#71767f;font-weight:500;">Build</span>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#71767f" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="6.5"/><path d="M6.5 6.5a2 2 0 0 1 4 0c0 2-2.5 2-2.5 4M8 13v.5"/></svg>
+        <span style="font-size:9px;color:#71767f;font-weight:500;">Rules</span>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#71767f" stroke-width="1.4" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+        <span style="font-size:9px;color:#71767f;font-weight:500;">Cards</span>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" stroke="#71767f" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        <span style="font-size:9px;color:#71767f;font-weight:500;">AI</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     FRAME D — MY DECKS · RETURNING · DESKTOP
+══════════════════════════════════════════════════ -->
+<div style="position:absolute;left:470px;top:960px;width:1280px;">
+  <div data-drags-parent="1" style="font-size:10px;font-weight:600;color:#888;letter-spacing:.07em;text-transform:uppercase;text-align:center;margin-bottom:8px;font-family:Inter,sans-serif;">D · My Decks · Returning · Desktop</div>
+  <div style="width:1280px;height:780px;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;overflow:hidden;position:relative;border-radius:12px;box-shadow:0 16px 64px rgba(0,0,0,.8);display:flex;flex-direction:column;">
+
+    <!-- GlobalToolbar -->
+    <div style="flex:none;height:44px;display:flex;align-items:center;padding:0 20px;border-bottom:1px solid var(--border);background:var(--bg);gap:4px;">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" style="flex:none;"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" stroke="#c98a3a" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <span style="font-size:13px;font-weight:700;color:var(--text);margin-right:10px;">MTG Workshop</span>
+      <button style="font-size:13px;font-weight:600;color:var(--text);background:none;border:none;border-bottom:2px solid #c98a3a;padding:0 12px;height:44px;cursor:pointer;font-family:inherit;">Decks</button>
+      <button style="font-size:13px;font-weight:500;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;padding:0 12px;height:44px;cursor:pointer;font-family:inherit;">Build</button>
+      <button style="font-size:13px;font-weight:500;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;padding:0 12px;height:44px;cursor:pointer;font-family:inherit;">Rules</button>
+      <button style="font-size:13px;font-weight:500;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;padding:0 12px;height:44px;cursor:pointer;font-family:inherit;">Cards</button>
+      <div style="flex:1;"></div>
+      <!-- URL import inline -->
+      <div style="display:flex;align-items:center;gap:6px;background:var(--bg-raised);border:1px solid var(--border);border-radius:8px;padding:5px 10px;width:280px;">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#71767f" stroke-width="1.5" stroke-linecap="round" style="flex:none;"><path d="M6 9.5a3.5 3.5 0 0 0 4.95 0l1.75-1.75a3.5 3.5 0 0 0-4.95-4.95L6.4 4.2"/><path d="M10 6.5a3.5 3.5 0 0 0-4.95 0L3.3 8.25a3.5 3.5 0 0 0 4.95 4.95L9.6 11.8"/></svg>
+        <span style="font-size:11px;color:var(--muted);flex:1;">Paste Archidekt or Moxfield URL...</span>
+        <button style="background:#c98a3a;color:#14100a;border:none;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;">Import</button>
+      </div>
+      <button style="display:flex;align-items:center;gap:6px;background:#c98a3a;color:#14100a;border:none;border-radius:7px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:6px;">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#14100a" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+        New Deck
+      </button>
+      <div style="width:30px;height:30px;border-radius:50%;background:var(--panel-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;margin-left:8px;">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#71767f" stroke-width="1.4"><circle cx="8" cy="5.5" r="3"/><path d="M2.5 14c0-3 2.5-5 5.5-5s5.5 2 5.5 5" stroke-linecap="round"/></svg>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div style="flex:1;overflow-y:auto;padding:20px 24px 24px;">
+
+      <!-- Header row -->
+      <div style="display:flex;align-items:center;margin-bottom:16px;gap:12px;">
+        <h1 style="font-size:20px;font-weight:700;letter-spacing:-.02em;margin:0;color:var(--text);">My Decks</h1>
+        <span style="font-size:12px;color:var(--muted);background:var(--panel-2);border-radius:20px;padding:2px 9px;">4 decks</span>
+      </div>
+
+      <!-- Filter toolbar — Archidekt-style with labeled sections -->
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:20px;display:flex;align-items:flex-end;gap:16px;">
+        <!-- Search -->
+        <div style="display:flex;flex-direction:column;gap:5px;flex:1;min-width:0;">
+          <span style="font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;">Search</span>
+          <div style="display:flex;align-items:center;gap:7px;background:var(--bg-raised);border:1px solid var(--border);border-radius:7px;padding:6px 10px;">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#71767f" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+            <span style="font-size:12px;color:var(--muted);">Search decks...</span>
+          </div>
+        </div>
+        <!-- Format -->
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <span style="font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;">Format</span>
+          <button style="display:flex;align-items:center;gap:8px;background:var(--bg-raised);border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-size:12px;color:var(--text);cursor:pointer;font-family:inherit;min-width:130px;">
+            All Formats
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto;"><path d="M4 6l4 4 4-4"/></svg>
+          </button>
+        </div>
+        <!-- Sort by -->
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <span style="font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;">Sort by</span>
+          <button style="display:flex;align-items:center;gap:8px;background:var(--bg-raised);border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-size:12px;color:var(--text);cursor:pointer;font-family:inherit;min-width:130px;">
+            Updated At
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto;"><path d="M4 6l4 4 4-4"/></svg>
+          </button>
+        </div>
+        <!-- Direction -->
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <span style="font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;">Dir</span>
+          <button style="display:flex;align-items:center;gap:6px;background:var(--bg-raised);border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-size:12px;color:var(--text);cursor:pointer;font-family:inherit;">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 2v12M12 10l-4 4-4-4"/></svg>
+            Desc
+          </button>
+        </div>
+      </div>
+
+      <!-- Deck grid — 4 columns -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
+
+        <!-- Deck 1 -->
+        <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;transition:border-color .15s;">
+          <div style="height:120px;overflow:hidden;position:relative;">
+            <img src="https://cards.scryfall.io/art_crop/front/5/6/5662d0a5-3222-4ab9-9e15-f06477730b75.jpg" style="width:100%;height:100%;object-fit:cover;object-position:center 20%;display:block;" alt="" />
+            <div style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent 30%,rgba(22,24,31,.85) 100%);"></div>
+            <div style="position:absolute;bottom:7px;left:10px;display:flex;gap:3px;">
+              <span style="width:15px;height:15px;border-radius:50%;background:#e9e3c0;font-size:9px;font-weight:700;color:#14161c;display:flex;align-items:center;justify-content:center;">W</span>
+              <span style="width:15px;height:15px;border-radius:50%;background:#1a1430;border:1px solid rgba(255,255,255,.15);font-size:9px;font-weight:700;color:#c8baeb;display:flex;align-items:center;justify-content:center;">B</span>
+              <span style="width:15px;height:15px;border-radius:50%;background:#46b06f;font-size:9px;font-weight:700;color:#14161c;display:flex;align-items:center;justify-content:center;">G</span>
+            </div>
+          </div>
+          <div style="padding:10px 12px 12px;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:5px;">Nethroi Reanimator</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-size:10px;background:rgba(229,184,76,.1);color:#e5b84c;border-radius:4px;padding:2px 7px;font-weight:600;">Commander</span>
+              <span style="font-size:10px;color:var(--muted);">97/100</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:10px;color:var(--muted);">2 days ago</span>
+              <button style="background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="3.5" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="12.5" cy="8" r="1.3" fill="currentColor"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Deck 2 — hover state with action overlay -->
+        <div style="background:var(--panel);border:1px solid rgba(201,138,58,.35);border-radius:12px;overflow:hidden;cursor:pointer;position:relative;">
+          <div style="height:120px;overflow:hidden;position:relative;">
+            <div style="width:100%;height:100%;background:linear-gradient(135deg,#0f1a28,#1a0d28);"></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><span style="font-size:10px;color:rgba(255,255,255,.2);font-style:italic;">Atraxa art</span></div>
+            <div style="position:absolute;bottom:7px;left:10px;display:flex;gap:3px;">
+              <span style="width:15px;height:15px;border-radius:50%;background:#e9e3c0;font-size:9px;font-weight:700;color:#14161c;display:flex;align-items:center;justify-content:center;">W</span>
+              <span style="width:15px;height:15px;border-radius:50%;background:#4a90d9;font-size:9px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;">U</span>
+              <span style="width:15px;height:15px;border-radius:50%;background:#1a1430;border:1px solid rgba(255,255,255,.15);font-size:9px;font-weight:700;color:#c8baeb;display:flex;align-items:center;justify-content:center;">B</span>
+              <span style="width:15px;height:15px;border-radius:50%;background:#46b06f;font-size:9px;font-weight:700;color:#14161c;display:flex;align-items:center;justify-content:center;">G</span>
+            </div>
+            <!-- Hover action overlay -->
+            <div style="position:absolute;inset:0;background:rgba(12,13,17,.7);display:flex;align-items:center;justify-content:center;gap:8px;">
+              <button style="display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;font-family:inherit;color:var(--text-sec);font-size:10px;font-weight:500;">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 13L5 10M11 2l3 3-9 9-4 1 1-4 9-9Z"/></svg>
+                Edit
+              </button>
+              <button style="display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;font-family:inherit;color:var(--text-sec);font-size:10px;font-weight:500;">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 8a6 6 0 1 0 12 0A6 6 0 0 0 2 8ZM8 5v3l2.5 1.5"/></svg>
+                Playtest
+              </button>
+              <button style="display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;font-family:inherit;color:var(--text-sec);font-size:10px;font-weight:500;">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v9M8 11L5.5 8.5M8 11l2.5-2.5"/><line x1="2.5" y1="14" x2="13.5" y2="14"/></svg>
+                Export
+              </button>
+            </div>
+          </div>
+          <div style="padding:10px 12px 12px;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:5px;">Atraxa Superfriends</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-size:10px;background:rgba(229,184,76,.1);color:#e5b84c;border-radius:4px;padding:2px 7px;font-weight:600;">Commander</span>
+              <span style="font-size:10px;color:var(--muted);">100/100</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:10px;color:var(--muted);">1 week ago</span>
+              <button style="background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="3.5" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="12.5" cy="8" r="1.3" fill="currentColor"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Deck 3 -->
+        <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;">
+          <div style="height:120px;overflow:hidden;position:relative;">
+            <div style="width:100%;height:100%;background:linear-gradient(135deg,#1e0a0a,#2a1010);"></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><span style="font-size:10px;color:rgba(255,255,255,.2);font-style:italic;">Art crop</span></div>
+            <div style="position:absolute;bottom:7px;left:10px;">
+              <span style="width:15px;height:15px;border-radius:50%;background:#d9534f;font-size:9px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;">R</span>
+            </div>
+          </div>
+          <div style="padding:10px 12px 12px;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:5px;">Mono Red Burn</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-size:10px;background:rgba(124,172,248,.08);color:#7cacf8;border-radius:4px;padding:2px 7px;font-weight:600;">Pauper</span>
+              <span style="font-size:10px;color:var(--muted);">60/60</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:10px;color:var(--muted);">2 weeks ago</span>
+              <button style="background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="3.5" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="12.5" cy="8" r="1.3" fill="currentColor"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Deck 4 -->
+        <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;">
+          <div style="height:120px;overflow:hidden;position:relative;">
+            <div style="width:100%;height:100%;background:linear-gradient(135deg,#0a1a10,#0a1020);"></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;"><span style="font-size:10px;color:rgba(255,255,255,.2);font-style:italic;">Art crop</span></div>
+            <div style="position:absolute;bottom:7px;left:10px;display:flex;gap:3px;">
+              <span style="width:15px;height:15px;border-radius:50%;background:#4a90d9;font-size:9px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;">U</span>
+              <span style="width:15px;height:15px;border-radius:50%;background:#46b06f;font-size:9px;font-weight:700;color:#14161c;display:flex;align-items:center;justify-content:center;">G</span>
+            </div>
+          </div>
+          <div style="padding:10px 12px 12px;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:5px;">Simic Landfall</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <span style="font-size:10px;background:rgba(229,184,76,.1);color:#e5b84c;border-radius:4px;padding:2px 7px;font-weight:600;">Commander</span>
+              <span style="font-size:10px;color:var(--muted);">62/100</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:10px;color:var(--good);">● Just now</span>
+              <button style="background:none;border:none;cursor:pointer;padding:2px;color:var(--muted);">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="3.5" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="12.5" cy="8" r="1.3" fill="currentColor"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     FRAME E — CARD HOVER ACTIONS · 3 STATES
+══════════════════════════════════════════════════ -->
+<div style="position:absolute;left:0;top:1940px;width:880px;">
+  <div data-drags-parent="1" style="font-size:10px;font-weight:600;color:#888;letter-spacing:.07em;text-transform:uppercase;text-align:center;margin-bottom:8px;font-family:Inter,sans-serif;">E · Card Thumbnail Hover Actions · 3 States</div>
+  <div style="width:880px;background:var(--bg);border-radius:12px;box-shadow:0 16px 64px rgba(0,0,0,.8);padding:28px 32px;font-family:Inter,system-ui,sans-serif;color:var(--text);">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:20px;">CardThumbnail component — expanded hover overlay with 3 actions</div>
+    <div style="display:flex;gap:32px;align-items:flex-start;">
+
+      <!-- State 1: Default -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <div style="font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;">Default</div>
+        <div style="width:150px;position:relative;">
+          <div style="aspect-ratio:488/680;border-radius:7px;overflow:hidden;background:var(--panel);position:relative;">
+            <img src="https://cards.scryfall.io/normal/front/5/6/5662d0a5-3222-4ab9-9e15-f06477730b75.jpg" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" />
+            <!-- Qty badge -->
+            <div style="position:absolute;top:5px;left:5px;background:rgba(0,0,0,.85);color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;">×1</div>
+            <!-- Old: tiny × remove button only -->
+            <div style="position:absolute;top:5px;right:5px;width:18px;height:18px;background:rgba(239,83,80,.25);border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+              <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="#ef5350" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4L4 12"/></svg>
+            </div>
+          </div>
+          <div style="margin-top:6px;font-size:11px;font-weight:600;color:var(--text);text-align:center;">Nethroi</div>
+          <div style="font-size:10px;color:var(--muted);text-align:center;">Current behavior</div>
+        </div>
+      </div>
+
+      <!-- Arrow -->
+      <div style="margin-top:90px;color:var(--muted);">
+        <svg width="24" height="24" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+      </div>
+
+      <!-- State 2: Hover — expanded 3-button overlay -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <div style="font-size:10px;font-weight:600;color:#c98a3a;letter-spacing:.05em;text-transform:uppercase;">Hover ✦ New</div>
+        <div style="width:150px;position:relative;">
+          <div style="aspect-ratio:488/680;border-radius:7px;overflow:hidden;background:var(--panel);position:relative;">
+            <img src="https://cards.scryfall.io/normal/front/5/6/5662d0a5-3222-4ab9-9e15-f06477730b75.jpg" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" />
+            <!-- Qty badge -->
+            <div style="position:absolute;top:5px;left:5px;background:rgba(0,0,0,.85);color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;">×1</div>
+            <!-- Hover overlay -->
+            <div style="position:absolute;bottom:0;left:0;right:0;height:52%;background:linear-gradient(to top,rgba(0,0,0,.95) 0%,rgba(0,0,0,.0) 100%);display:flex;align-items:flex-end;padding:8px 6px;">
+              <div style="display:flex;gap:5px;width:100%;">
+                <!-- Remove -->
+                <button style="flex:1;background:rgba(239,83,80,.2);border:1px solid rgba(239,83,80,.3);border-radius:6px;padding:6px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#ef5350" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4L4 12"/></svg>
+                  <span style="font-size:8px;color:#ef5350;font-weight:600;font-family:Inter,sans-serif;">Remove</span>
+                </button>
+                <!-- Considering -->
+                <button style="flex:1;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:6px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#b0b4be" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+                  <span style="font-size:8px;color:#b0b4be;font-weight:600;font-family:Inter,sans-serif;">Consider</span>
+                </button>
+                <!-- Scryfall -->
+                <button style="flex:1;background:rgba(124,172,248,.12);border:1px solid rgba(124,172,248,.2);border-radius:6px;padding:6px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#7cacf8" stroke-width="1.8" stroke-linecap="round"><path d="M7 3H3.5A1.5 1.5 0 0 0 2 4.5v8A1.5 1.5 0 0 0 3.5 14h8A1.5 1.5 0 0 0 13 12.5V9"/><path d="M9.5 2H14v4.5"/><line x1="14" y1="2" x2="7.5" y2="8.5"/></svg>
+                  <span style="font-size:8px;color:#7cacf8;font-weight:600;font-family:Inter,sans-serif;">Scryfall</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:6px;font-size:11px;font-weight:600;color:var(--text);text-align:center;">Nethroi</div>
+          <div style="font-size:10px;color:#c98a3a;text-align:center;">3 action buttons</div>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div style="width:1px;background:var(--border);align-self:stretch;margin:0 8px;"></div>
+
+      <!-- State 3: Mobile — bottom sheet -->
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <div style="font-size:10px;font-weight:600;color:#7cacf8;letter-spacing:.05em;text-transform:uppercase;">Mobile — tap to open</div>
+        <div style="width:240px;">
+          <!-- Card thumbnail row (how it looks in list view) -->
+          <div style="display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--border);border-radius:10px 10px 0 0;padding:8px 10px;">
+            <div style="width:36px;height:50px;border-radius:4px;overflow:hidden;flex:none;">
+              <img src="https://cards.scryfall.io/normal/front/5/6/5662d0a5-3222-4ab9-9e15-f06477730b75.jpg" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" />
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12px;font-weight:600;color:var(--text);">Nethroi, Apex of Death</div>
+              <div style="font-size:10px;color:var(--muted);">Cat Nightmare Beast · CMC 5</div>
+            </div>
+            <span style="font-size:11px;font-weight:700;color:var(--text-sec);">×1</span>
+          </div>
+          <!-- Bottom sheet -->
+          <div style="background:var(--panel-2);border:1px solid var(--border);border-radius:0 0 12px 12px;padding:10px;">
+            <div style="height:3px;width:32px;background:rgba(255,255,255,.2);border-radius:2px;margin:0 auto 12px;"></div>
+            <div style="display:flex;gap:8px;">
+              <button style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;background:rgba(239,83,80,.12);border:1px solid rgba(239,83,80,.2);border-radius:8px;padding:10px 6px;cursor:pointer;font-family:Inter,sans-serif;">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#ef5350" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4L4 12"/></svg>
+                <span style="font-size:10px;color:#ef5350;font-weight:600;">Remove</span>
+              </button>
+              <button style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:8px;padding:10px 6px;cursor:pointer;font-family:Inter,sans-serif;">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#b0b4be" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+                <span style="font-size:10px;color:var(--text-sec);font-weight:600;">Consider</span>
+              </button>
+              <button style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;background:rgba(124,172,248,.08);border:1px solid rgba(124,172,248,.15);border-radius:8px;padding:10px 6px;cursor:pointer;font-family:Inter,sans-serif;">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#7cacf8" stroke-width="1.6" stroke-linecap="round"><path d="M7 3H3.5A1.5 1.5 0 0 0 2 4.5v8A1.5 1.5 0 0 0 3.5 14h8A1.5 1.5 0 0 0 13 12.5V9"/><path d="M9.5 2H14v4.5"/><line x1="14" y1="2" x2="7.5" y2="8.5"/></svg>
+                <span style="font-size:10px;color:#7cacf8;font-weight:600;">Scryfall</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     FRAME F — AVATAR DROPDOWN POPUP
+══════════════════════════════════════════════════ -->
+<div style="position:absolute;left:940px;top:1940px;width:380px;">
+  <div data-drags-parent="1" style="font-size:10px;font-weight:600;color:#888;letter-spacing:.07em;text-transform:uppercase;text-align:center;margin-bottom:8px;font-family:Inter,sans-serif;">F · Avatar Dropdown Popup (New)</div>
+  <div style="background:var(--bg);border-radius:12px;box-shadow:0 16px 64px rgba(0,0,0,.8);padding:16px;font-family:Inter,system-ui,sans-serif;color:var(--text);">
+    <!-- Context: toolbar avatar -->
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+      <span style="font-size:10px;color:var(--muted);">GlobalToolbar → avatar click →</span>
+      <div style="width:30px;height:30px;border-radius:50%;background:var(--panel-2);border:2px solid #c98a3a;display:flex;align-items:center;justify-content:center;">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#71767f" stroke-width="1.4"><circle cx="8" cy="5.5" r="3"/><path d="M2.5 14c0-3 2.5-5 5.5-5s5.5 2 5.5 5" stroke-linecap="round"/></svg>
+      </div>
+    </div>
+    <!-- Dropdown panel -->
+    <div style="background:var(--panel-2);border:1px solid var(--border-strong);border-radius:12px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.5);">
+      <!-- Section 1: Actions -->
+      <div style="padding:6px 4px;">
+        <div style="padding:8px 12px;font-size:13px;color:var(--text);cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+          <span>New Deck</span>
+        </div>
+        <div style="padding:8px 12px;font-size:13px;color:var(--text);cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px;">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6 9.5a3.5 3.5 0 0 0 4.95 0l1.75-1.75a3.5 3.5 0 0 0-4.95-4.95L6.4 4.2"/><path d="M10 6.5a3.5 3.5 0 0 0-4.95 0L3.3 8.25a3.5 3.5 0 0 0 4.95 4.95L9.6 11.8"/></svg>
+          <span>Import URL</span>
+          <span style="margin-left:auto;font-size:10px;background:rgba(201,138,58,.12);color:#c98a3a;border-radius:4px;padding:1px 6px;font-weight:600;">New</span>
+        </div>
+        <div style="padding:8px 12px;font-size:13px;color:var(--text);cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px;">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 5h10M3 8h10M3 11h6"/></svg>
+          <span>Paste Decklist</span>
+        </div>
+      </div>
+      <div style="height:1px;background:var(--border);margin:0 10px;"></div>
+      <!-- Section 2: Navigation -->
+      <div style="padding:6px 4px;">
+        <div style="padding:8px 12px;font-size:13px;color:var(--text);cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px;">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+          <span>Search My Decks</span>
+        </div>
+        <div style="padding:8px 12px;font-size:13px;color:var(--text);cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px;">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M1.5 6.5h13"/></svg>
+          <span>My Decks</span>
+        </div>
+      </div>
+      <div style="height:1px;background:var(--border);margin:0 10px;"></div>
+      <!-- Section 3: Recent decks -->
+      <div style="padding:6px 4px;">
+        <div style="padding:4px 12px 6px;font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;">Recent</div>
+        <div style="padding:7px 12px;font-size:13px;color:var(--text);cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px;">
+          <div style="width:28px;height:20px;border-radius:4px;overflow:hidden;flex:none;"><img src="https://cards.scryfall.io/art_crop/front/5/6/5662d0a5-3222-4ab9-9e15-f06477730b75.jpg" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" /></div>
+          <span>Nethroi Reanimator</span>
+          <span style="margin-left:auto;font-size:10px;color:var(--muted);">97/100</span>
+        </div>
+        <div style="padding:7px 12px;font-size:13px;color:var(--text);cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px;">
+          <div style="width:28px;height:20px;border-radius:4px;overflow:hidden;flex:none;"><img src="https://cards.scryfall.io/art_crop/front/4/f/4fe22cd8-31e6-491b-bce2-db257668eb92.jpg" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" /></div>
+          <span>Atraxa Superfriends</span>
+          <span style="margin-left:auto;font-size:10px;color:var(--muted);">100/100</span>
+        </div>
+        <div style="padding:7px 12px;font-size:13px;color:var(--text);cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px;">
+          <div style="width:28px;height:20px;border-radius:4px;overflow:hidden;flex:none;"><img src="https://cards.scryfall.io/art_crop/front/f/a/fa553e54-e6aa-499b-ac48-0cdbf6c37734.jpg" style="width:100%;height:100%;object-fit:cover;display:block;" alt="" /></div>
+          <span>Mono Red Burn</span>
+          <span style="margin-left:auto;font-size:10px;color:var(--muted);">60/60</span>
+        </div>
+      </div>
+      <div style="height:1px;background:var(--border);margin:0 10px;"></div>
+      <!-- Section 4: Account -->
+      <div style="padding:6px 4px;">
+        <div style="padding:8px 12px;font-size:13px;color:var(--text);cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px;">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M3.2 12.8l1.4-1.4M11.4 4.6l1.4-1.4"/></svg>
+          <span>Account Settings</span>
+        </div>
+        <div style="padding:8px 12px;font-size:13px;color:#ef5350;cursor:pointer;border-radius:8px;display:flex;align-items:center;gap:10px;">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3h3.5A1.5 1.5 0 0 1 15 4.5v7A1.5 1.5 0 0 1 13.5 13H10M7 10l3-2-3-2M1 8h10"/></svg>
+          <span>Sign Out</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     FRAME H — ACCOUNT MODAL · SIGNED IN + OUT
+══════════════════════════════════════════════════ -->
+<div style="position:absolute;left:1400px;top:1940px;width:860px;">
+  <div data-drags-parent="1" style="font-size:10px;font-weight:600;color:#888;letter-spacing:.07em;text-transform:uppercase;text-align:center;margin-bottom:8px;font-family:Inter,sans-serif;">H · Account Modal · Signed Out + Signed In</div>
+  <div style="display:flex;gap:16px;font-family:Inter,system-ui,sans-serif;color:var(--text);">
+
+    <!-- SIGNED OUT -->
+    <div style="flex:1;background:var(--bg-raised);border:1px solid var(--border-strong);border-radius:16px;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,.6);">
+      <!-- Header -->
+      <div style="padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" style="flex:none;"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" stroke="#c98a3a" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        <span style="font-size:14px;font-weight:700;color:var(--text);">MTG Workshop</span>
+        <div style="flex:1;"></div>
+        <button style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px;">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4L4 12"/></svg>
+        </button>
+      </div>
+      <div style="padding:18px 20px 20px;display:flex;flex-direction:column;gap:16px;">
+        <!-- Cloud sync callout — prominent for signed-out -->
+        <div style="background:rgba(124,172,248,.06);border:1px solid rgba(124,172,248,.2);border-radius:10px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start;">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#7cacf8" stroke-width="1.4" stroke-linecap="round" style="flex:none;margin-top:1px;"><path d="M4 11.5a3.5 3.5 0 1 1 .5-6.97A4 4 0 1 1 11.5 9H5"/><path d="M5 11.5l-2 2 2 2"/></svg>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:#7cacf8;margin-bottom:2px;">Sign in to enable cloud sync</div>
+            <div style="font-size:11px;color:var(--muted);line-height:1.5;">Your decks are saved locally. Sign in to back them up and access from any device.</div>
+          </div>
+        </div>
+        <!-- Sign in section -->
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;">Sign In</div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--muted);margin-bottom:8px;">your@email.com</div>
+          <button style="width:100%;background:#c98a3a;color:#14100a;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Send magic link</button>
+          <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;">No password required · Check your email</div>
+        </div>
+        <!-- Theme section -->
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;">Theme</div>
+          <div style="display:flex;gap:0;background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <button style="flex:1;padding:8px;font-size:12px;font-weight:500;color:var(--text-sec);background:none;border:none;cursor:pointer;font-family:inherit;">Light</button>
+            <button style="flex:1;padding:8px;font-size:12px;font-weight:600;color:var(--text);background:var(--panel);border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);cursor:pointer;font-family:inherit;">Dark</button>
+            <button style="flex:1;padding:8px;font-size:12px;font-weight:500;color:var(--text-sec);background:none;border:none;cursor:pointer;font-family:inherit;">System</button>
+          </div>
+        </div>
+        <!-- API key -->
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+            <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;">Anthropic API Key</div>
+            <a style="font-size:10px;color:#7cacf8;text-decoration:none;cursor:pointer;">Learn more ↗</a>
+          </div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--muted);margin-bottom:6px;">sk-ant-... (optional, for AI features)</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Enables AI analysis and the Planeswalker assistant. Your key is stored locally and never sent to our servers.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIGNED IN -->
+    <div style="flex:1;background:var(--bg-raised);border:1px solid var(--border-strong);border-radius:16px;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,.6);">
+      <!-- Header -->
+      <div style="padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+        <div style="width:32px;height:32px;border-radius:50%;background:#c98a3a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#14100a;flex:none;">J</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;color:var(--text);">jane@example.com</div>
+          <div style="font-size:10px;color:#3dce8a;">● Synced</div>
+        </div>
+        <button style="background:none;border:none;cursor:pointer;color:var(--muted);padding:2px;">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4L4 12"/></svg>
+        </button>
+      </div>
+      <div style="padding:18px 20px 20px;display:flex;flex-direction:column;gap:16px;">
+        <!-- Cloud sync status — compact for signed-in -->
+        <div style="background:rgba(61,206,138,.06);border:1px solid rgba(61,206,138,.2);border-radius:10px;padding:11px 14px;display:flex;align-items:center;gap:10px;">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#3dce8a" stroke-width="1.4" stroke-linecap="round" style="flex:none;"><path d="M4 11.5a3.5 3.5 0 1 1 .5-6.97A4 4 0 1 1 11.5 9H5"/><path d="M5 11.5l-2 2 2 2"/></svg>
+          <div style="flex:1;">
+            <span style="font-size:12px;font-weight:600;color:#3dce8a;">Cloud sync active</span>
+            <span style="font-size:11px;color:var(--muted);margin-left:8px;">4 decks · Last synced just now</span>
+          </div>
+          <button style="background:none;border:none;cursor:pointer;color:var(--muted);">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M13 8a5.5 5.5 0 1 1-.88-3"/><path d="M12 2.5v3h-3" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <!-- Theme -->
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;">Theme</div>
+          <div style="display:flex;gap:0;background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <button style="flex:1;padding:8px;font-size:12px;font-weight:500;color:var(--text-sec);background:none;border:none;cursor:pointer;font-family:inherit;">Light</button>
+            <button style="flex:1;padding:8px;font-size:12px;font-weight:600;color:var(--text);background:var(--panel);border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);cursor:pointer;font-family:inherit;">Dark</button>
+            <button style="flex:1;padding:8px;font-size:12px;font-weight:500;color:var(--text-sec);background:none;border:none;cursor:pointer;font-family:inherit;">System</button>
+          </div>
+        </div>
+        <!-- API Key (set) -->
+        <div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+            <div style="font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;">Anthropic API Key</div>
+            <span style="font-size:10px;background:rgba(61,206,138,.1);color:#3dce8a;border-radius:4px;padding:1px 6px;font-weight:600;">Active</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:0;background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+            <div style="flex:1;padding:9px 12px;font-size:13px;color:var(--muted);font-family:ui-monospace,'SF Mono',Menlo,monospace;letter-spacing:.05em;">sk-ant-••••••••••••••••••••</div>
+            <button style="background:none;border:none;border-left:1px solid var(--border);padding:9px 12px;cursor:pointer;font-size:11px;color:var(--muted);font-family:inherit;white-space:nowrap;">Change</button>
+          </div>
+        </div>
+        <!-- Feedback + Sign out -->
+        <div style="display:flex;gap:8px;align-items:center;padding-top:4px;border-top:1px solid var(--border);">
+          <a style="font-size:12px;color:#7cacf8;text-decoration:none;cursor:pointer;flex:1;">Send feedback ↗</a>
+          <button style="display:flex;align-items:center;gap:6px;background:none;border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:12px;color:var(--muted);cursor:pointer;font-family:inherit;">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3h3.5A1.5 1.5 0 0 1 15 4.5v7A1.5 1.5 0 0 1 13.5 13H10M7 10l3-2-3-2M1 8h10"/></svg>
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     FRAME G — TOOLBAR REDESIGN · ARCHIDEKT-STYLE
+══════════════════════════════════════════════════ -->
+<div style="position:absolute;left:0;top:2580px;width:1280px;">
+  <div data-drags-parent="1" style="font-size:10px;font-weight:600;color:#888;letter-spacing:.07em;text-transform:uppercase;text-align:center;margin-bottom:8px;font-family:Inter,sans-serif;">G · Deck Editor Toolbar Redesign — Archidekt-Inspired</div>
+  <div style="width:1280px;background:var(--bg);border-radius:12px;box-shadow:0 16px 64px rgba(0,0,0,.8);padding:24px 24px 28px;font-family:Inter,system-ui,sans-serif;color:var(--text);">
+
+    <!-- Label -->
+    <div style="font-size:12px;color:var(--muted);margin-bottom:20px;">Labeled toolbar sections replace unlabeled icon buttons. Each section is grouped and labeled at a glance.</div>
+
+    <!-- BEFORE -->
+    <div style="margin-bottom:24px;">
+      <div style="font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;">Before — current toolbar</div>
+      <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:8px;height:44px;display:flex;align-items:center;padding:0 12px;gap:6px;opacity:.7;">
+        <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden;">
+          <button style="font-size:11px;color:var(--text);background:rgba(255,255,255,.08);border:none;padding:5px 9px;cursor:pointer;font-family:inherit;white-space:nowrap;display:flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg> Grid</button>
+          <button style="font-size:11px;color:var(--muted);background:none;border:none;padding:5px 9px;cursor:pointer;font-family:inherit;white-space:nowrap;display:flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="1.5" y="5.5" width="13" height="9" rx="1.5"/><path d="M3.5 5.5V4A1.5 1.5 0 0 1 5 2.5h8"/></svg> Stack</button>
+          <button style="font-size:11px;color:var(--muted);background:none;border:none;padding:5px 9px;cursor:pointer;font-family:inherit;white-space:nowrap;display:flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="9" y2="12"/></svg> List</button>
+        </div>
+        <button style="font-size:11px;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;padding:5px 9px;cursor:pointer;font-family:inherit;white-space:nowrap;">Sort: CMC ▾</button>
+        <button style="font-size:11px;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;padding:5px 9px;cursor:pointer;font-family:inherit;white-space:nowrap;">Group: Type ▾</button>
+        <div style="flex:1;"></div>
+        <button style="font-size:11px;color:var(--text);background:#c98a3a;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-family:inherit;font-weight:600;">Save</button>
+      </div>
+    </div>
+
+    <!-- AFTER — Archidekt-style with labeled sections -->
+    <div>
+      <div style="font-size:10px;font-weight:600;color:#c98a3a;letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;">After — redesigned with labeled sections ✦</div>
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;align-items:flex-end;gap:0;">
+
+        <!-- ADD CARD -->
+        <div style="display:flex;flex-direction:column;gap:5px;padding-right:14px;">
+          <span style="font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;">Add card</span>
+          <button style="display:flex;align-items:center;gap:6px;background:#c98a3a;color:#14100a;border:none;border-radius:7px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#14100a" stroke-width="1.8" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+            Card search
+          </button>
+        </div>
+
+        <!-- QUICK ADD -->
+        <div style="display:flex;flex-direction:column;gap:5px;padding-right:14px;">
+          <span style="font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;">Quick add</span>
+          <div style="display:flex;align-items:center;gap:0;background:var(--bg-raised);border:1px solid var(--border);border-radius:7px;overflow:hidden;">
+            <input type="text" value="Sol Ring (Ctrl + ')" readonly style="background:none;border:none;padding:7px 10px;font-size:12px;color:var(--text-sec);font-family:inherit;width:180px;outline:none;" />
+            <button style="background:none;border:none;border-left:1px solid var(--border);padding:7px 8px;cursor:pointer;color:var(--muted);">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M3.2 12.8l1.4-1.4M11.4 4.6l1.4-1.4"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Vertical divider -->
+        <div style="width:1px;background:var(--border);align-self:stretch;margin:0 14px 0 0;"></div>
+
+        <!-- VIEW AS -->
+        <div style="display:flex;flex-direction:column;gap:5px;padding-right:6px;">
+          <span style="font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;">View as</span>
+          <div style="display:flex;align-items:center;gap:0;">
+            <button style="display:flex;align-items:center;gap:6px;background:var(--bg-raised);border:1px solid var(--border);border-radius:7px 0 0 7px;border-right:none;padding:7px 10px;font-size:12px;color:var(--text);cursor:pointer;font-family:inherit;white-space:nowrap;">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#c98a3a" stroke-width="1.5" stroke-linecap="round"><rect x="1.5" y="5.5" width="13" height="9" rx="1.5"/><path d="M3.5 5.5V4A1.5 1.5 0 0 1 5 2.5h8"/></svg>
+              <span style="color:#c98a3a;font-weight:600;">Stacks</span>
+              <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+            </button>
+            <button style="background:var(--bg-raised);border:1px solid var(--border);border-left:none;border-radius:0 7px 7px 0;padding:7px 8px;cursor:pointer;color:var(--muted);">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M3.2 12.8l1.4-1.4M11.4 4.6l1.4-1.4"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- GROUP BY -->
+        <div style="display:flex;flex-direction:column;gap:5px;padding-right:6px;">
+          <span style="font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;">Group by</span>
+          <button style="display:flex;align-items:center;gap:6px;background:var(--bg-raised);border:1px solid var(--border);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--text);cursor:pointer;font-family:inherit;white-space:nowrap;">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4h10M3 8h10M3 12h10"/></svg>
+            Categories
+            <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+          </button>
+        </div>
+
+        <!-- SORT BY -->
+        <div style="display:flex;flex-direction:column;gap:5px;padding-right:14px;">
+          <span style="font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;">Sort by</span>
+          <button style="display:flex;align-items:center;gap:6px;background:var(--bg-raised);border:1px solid var(--border);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--text);cursor:pointer;font-family:inherit;white-space:nowrap;">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 4h7M2 8h5M2 12h3"/><path d="M11 2v12M14 10l-3 4-3-4"/></svg>
+            Alphabet
+            <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+          </button>
+        </div>
+
+        <!-- Vertical divider -->
+        <div style="width:1px;background:var(--border);align-self:stretch;margin:0 14px 0 0;"></div>
+
+        <!-- SYNTAX FILTER -->
+        <div style="display:flex;flex-direction:column;gap:5px;flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:5px;">
+            <span style="font-size:9px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;">Syntax filter</span>
+            <div style="width:14px;height:14px;border-radius:50%;background:var(--panel-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;" title="Filter syntax help">
+              <span style="font-size:8px;color:var(--muted);font-weight:700;">?</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:0;background:var(--bg-raised);border:1px solid var(--border);border-radius:7px;overflow:hidden;">
+            <input type="text" placeholder="Filter deck (eg. o:haste c:red)" readonly style="background:none;border:none;padding:7px 10px;font-size:12px;color:var(--muted);font-family:inherit;flex:1;outline:none;" />
+            <button style="background:none;border:none;border-left:1px solid var(--border);padding:7px 8px;cursor:pointer;color:var(--muted);">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+            </button>
+            <button style="background:none;border:none;border-left:1px solid var(--border);padding:7px 8px;cursor:pointer;color:var(--muted);">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M3.2 12.8l1.4-1.4M11.4 4.6l1.4-1.4"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Save -->
+        <div style="padding-left:14px;">
+          <div style="font-size:9px;font-weight:600;color:transparent;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;">·</div>
+          <button style="background:#c98a3a;color:#14100a;border:none;border-radius:7px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">Save</button>
+        </div>
+
+      </div>
+
+      <!-- Annotation callouts -->
+      <div style="display:flex;gap:16px;margin-top:12px;padding:0 2px;">
+        <div style="display:flex;align-items:center;gap:5px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#c98a3a;"></div>
+          <span style="font-size:11px;color:var(--text-sec);">Labeled sections replace unlabeled icon clusters</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#7cacf8;"></div>
+          <span style="font-size:11px;color:var(--text-sec);">Quick add — keyboard-shortcut input for fast card entry</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#3dce8a;"></div>
+          <span style="font-size:11px;color:var(--text-sec);">Syntax filter — power-user text search (o:haste, cmc&lt;=3)</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#e5b84c;"></div>
+          <span style="font-size:11px;color:var(--text-sec);">Per-section ⚙ settings for advanced configuration</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: {&quot;width&quot;: 2700, &quot;height&quot;: 3400},
+  &quot;theme&quot;: {
+    &quot;editor&quot;: &quot;enum&quot;,
+    &quot;options&quot;: [&quot;dark&quot;, &quot;light&quot;],
+    &quot;default&quot;: &quot;dark&quot;,
+    &quot;section&quot;: &quot;Appearance&quot;
+  },
+  &quot;showFrame&quot;: {
+    &quot;editor&quot;: &quot;enum&quot;,
+    &quot;options&quot;: [&quot;all&quot;, &quot;A&quot;, &quot;B&quot;, &quot;C&quot;, &quot;D&quot;, &quot;E&quot;, &quot;F&quot;, &quot;G&quot;, &quot;H&quot;],
+    &quot;default&quot;: &quot;all&quot;,
+    &quot;section&quot;: &quot;Appearance&quot;
+  }
+}">
+class Component extends DCLogic {
+  componentDidMount() { this._applyTheme(); }
+  componentDidUpdate() { this._applyTheme(); }
+  _applyTheme() {
+    const theme = this.props.theme ?? 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

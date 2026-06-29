@@ -36,13 +36,13 @@ const BRACKET_LABELS = {
   4: "cEDH",
 };
 
-const BRACKET_URL = "https://mtgcommander.net/index.php/the-bracket-system/";
+const BRACKET_URL = "https://mtg.wiki/page/Commander_Brackets";
 
 export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
   maybeboard, setMaybeboard,
   deckName, onSave, onClone, onExport, onPlaytest, onShare,
-  startInWizard, onWizardConsumed, onBack, notify,
+  startInWizard, onWizardConsumed, onBack, notify, serverWarmed,
 }) {
   const [mode, setMode] = useState(startInWizard ? "wizard" : "manual");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -528,6 +528,7 @@ export default function DeckView({
           format={format}
           strategy={strategy}
           strategyLoading={strategyLoading}
+          serverWarmed={serverWarmed}
         />
       </div>
 
@@ -619,6 +620,7 @@ export default function DeckView({
                 format={format}
                 strategy={strategy}
                 strategyLoading={strategyLoading}
+                serverWarmed={serverWarmed}
               />
             </div>
           </div>

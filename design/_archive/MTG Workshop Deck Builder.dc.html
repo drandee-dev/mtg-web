@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    @keyframes fadeIn    { from { opacity:0; } to { opacity:1; } }
+    @keyframes slideDown { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+  </style>
+</helmet>
+
+<div style="height:100vh;display:flex;flex-direction:column;background:#0c0d11;color:#ededf0;font-family:Inter,system-ui,sans-serif;font-size:14px;overflow:hidden;-webkit-font-smoothing:antialiased;">
+
+  <!-- ══ TOOLBAR ══ -->
+  <header style="flex:none;height:44px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid rgba(255,255,255,.08);background:#0c0d11;">
+    <span style="{{ brandDotStyle }}"></span>
+    <span style="font-size:11px;font-weight:700;color:#71767f;">MTG Workshop</span>
+    <span style="width:1px;height:18px;background:rgba(255,255,255,.1);flex:none;"></span>
+    <span style="font-size:14px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;">Nethroi Reanimator</span>
+    <span style="font-size:11px;font-weight:500;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:4px;padding:2px 7px;color:#b0b4be;flex:none;">Commander</span>
+    <button style="background:none;border:none;cursor:pointer;color:#71767f;padding:4px;min-height:auto;display:flex;align-items:center;" title="Lock/unlock deck"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="2.5" y="7" width="11" height="8.5" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M6 7V5.5a2 2 0 0 1 4 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+    <div style="flex:1;"></div>
+    <!-- View toggles -->
+    <div style="display:flex;gap:0;border:1px solid rgba(255,255,255,.1);border-radius:6px;overflow:hidden;flex:none;">
+      <button onClick="{{ setViewGrid }}"  style="{{ vt_grid }}"  title="Grid view"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/></svg> Grid</button>
+      <button onClick="{{ setViewStack }}" style="{{ vt_stack }}" title="Stack view (Archidekt-style)"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="5.5" width="13" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M3.5 5.5V4A1.5 1.5 0 0 1 5 2.5h8A1.5 1.5 0 0 1 14.5 4v1.5" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 5.5V4.5A1 1 0 0 1 5.5 3.5h8a1 1 0 0 1 1 1v1" stroke="currentColor" stroke-width="1" stroke-opacity=".4"/></svg> Stack</button>
+      <button onClick="{{ setViewList }}"  style="{{ vt_list }}"  title="List view"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><line x1="2.5" y1="4" x2="13.5" y2="4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><line x1="2.5" y1="8" x2="13.5" y2="8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><line x1="2.5" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg> List</button>
+    </div>
+    <button style="font-size:11px;color:#71767f;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:5px 9px;cursor:pointer;min-height:auto;white-space:nowrap;">Sort: CMC ▾</button>
+    <button style="font-size:11px;color:#71767f;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:5px 9px;cursor:pointer;min-height:auto;white-space:nowrap;">Group: Type ▾</button>
+    <span style="width:1px;height:18px;background:rgba(255,255,255,.1);flex:none;"></span>
+    <button style="background:none;border:none;cursor:pointer;color:#71767f;padding:4px;min-height:auto;display:flex;align-items:center;" title="Share"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M7 3H3.5A1.5 1.5 0 0 0 2 4.5v8A1.5 1.5 0 0 0 3.5 14h8A1.5 1.5 0 0 0 13 12.5V9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M9.5 2H14v4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><line x1="14" y1="2" x2="7.5" y2="8.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+    <button style="background:none;border:none;cursor:pointer;color:#71767f;padding:4px;min-height:auto;display:flex;align-items:center;" title="Clone deck"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="5.5" y="1.5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M3.5 5.5H2.5A1.5 1.5 0 0 0 1 7v7A1.5 1.5 0 0 0 2.5 15.5h7A1.5 1.5 0 0 0 11 14v-1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+    <button style="background:none;border:none;cursor:pointer;color:#71767f;padding:4px;min-height:auto;display:flex;align-items:center;" title="Export .txt"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M8 11L5.5 8.5M8 11l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><line x1="2.5" y1="14" x2="13.5" y2="14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+    <button style="{{ saveBtnStyle }}">Save</button>
+  </header>
+
+  <!-- ══ CATEGORY TABS ══ -->
+  <div style="flex:none;height:34px;display:flex;align-items:stretch;border-bottom:1px solid rgba(255,255,255,.08);background:#0e1016;padding:0 8px;gap:2px;overflow-x:auto;">
+    <button onClick="{{ setCatAll }}"          style="{{ cat_all }}">All (94)</button>
+    <button onClick="{{ setCatCreatures }}"    style="{{ cat_creatures }}">Creatures (10)</button>
+    <button onClick="{{ setCatInstants }}"     style="{{ cat_instants }}">Instants (8)</button>
+    <button onClick="{{ setCatSorceries }}"    style="{{ cat_sorceries }}">Sorceries (6)</button>
+    <button onClick="{{ setCatArtifacts }}"    style="{{ cat_artifacts }}">Artifacts (8)</button>
+    <button onClick="{{ setCatEnchantments }}" style="{{ cat_enchantments }}">Enchantments (5)</button>
+    <button onClick="{{ setCatLands }}"        style="{{ cat_lands }}">Lands (38)</button>
+  </div>
+
+  <!-- ══ 3-COLUMN BODY ══ -->
+  <div style="flex:1;overflow:hidden;display:flex;">
+
+    <!-- ── LEFT: Commander ── -->
+    <div style="{{ commanderColStyle }}">
+      <!-- Card image -->
+      <div style="border-radius:9px;overflow:hidden;aspect-ratio:488/680;background:#16181f;box-shadow:0 8px 24px rgba(0,0,0,.6);">
+        <img src="https://cards.scryfall.io/normal/front/5/6/5662d0a5-3222-4ab9-9e15-f06477730b75.jpg" alt="Nethroi" style="width:100%;height:100%;object-fit:cover;display:block;" />
+      </div>
+      <!-- Info -->
+      <div>
+        <div style="font-size:12px;font-weight:700;line-height:1.3;margin-bottom:2px;">Nethroi, Apex of Death</div>
+        <div style="font-size:10px;color:#71767f;margin-bottom:6px;line-height:1.4;">Legendary Creature — Cat Nightmare Beast</div>
+        <div style="display:flex;gap:4px;align-items:center;margin-bottom:8px;">
+          <span style="width:16px;height:16px;border-radius:50%;background:#e9e3c0;font-size:9px;font-weight:700;color:#14161c;display:flex;align-items:center;justify-content:center;flex:none;">W</span>
+          <span style="width:16px;height:16px;border-radius:50%;background:#1a1430;border:1px solid rgba(255,255,255,.15);font-size:9px;font-weight:700;color:#c8baeb;display:flex;align-items:center;justify-content:center;flex:none;">B</span>
+          <span style="width:16px;height:16px;border-radius:50%;background:#46b06f;font-size:9px;font-weight:700;color:#14161c;display:flex;align-items:center;justify-content:center;flex:none;">G</span>
+          <span style="font-size:10px;color:#71767f;margin-left:2px;">Abzan</span>
+        </div>
+        <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(229,184,76,.1);border:1px solid rgba(229,184,76,.25);border-radius:4px;padding:3px 8px;">
+          <span style="font-size:10px;font-weight:600;color:#e5b84c;">Est. Bracket 3</span>
+        </span>
+      </div>
+      <!-- Mini curve -->
+      <div>
+        <div style="font-size:9px;color:#71767f;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Mana Curve</div>
+        <div style="display:flex;align-items:flex-end;gap:2px;height:36px;">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;"><div style="background:#c98a3a;border-radius:2px 2px 0 0;width:100%;height:10px;"></div><div style="font-size:7px;color:#71767f;">0</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;"><div style="background:#c98a3a;border-radius:2px 2px 0 0;width:100%;height:22px;"></div><div style="font-size:7px;color:#71767f;">1</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;"><div style="background:#c98a3a;border-radius:2px 2px 0 0;width:100%;height:30px;"></div><div style="font-size:7px;color:#71767f;">2</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;"><div style="background:#c98a3a;border-radius:2px 2px 0 0;width:100%;height:24px;"></div><div style="font-size:7px;color:#71767f;">3</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;"><div style="background:#c98a3a;border-radius:2px 2px 0 0;width:100%;height:18px;"></div><div style="font-size:7px;color:#71767f;">4</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;"><div style="background:#c98a3a;border-radius:2px 2px 0 0;width:100%;height:10px;"></div><div style="font-size:7px;color:#71767f;">5</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;"><div style="background:#c98a3a;opacity:.5;border-radius:2px 2px 0 0;width:100%;height:8px;"></div><div style="font-size:7px;color:#71767f;">7+</div></div>
+        </div>
+      </div>
+      <!-- Color bars -->
+      <div>
+        <div style="font-size:9px;color:#71767f;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Color Demand</div>
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <div style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:50%;background:#e9e3c0;font-size:7px;font-weight:700;color:#14161c;display:flex;align-items:center;justify-content:center;flex:none;">W</span><div style="flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;"><div style="height:100%;width:38%;background:#e9e3c0;border-radius:3px;"></div></div><span style="font-size:9px;color:#71767f;font-variant-numeric:tabular-nums;flex:none;">38%</span></div>
+          <div style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:50%;background:#1a1430;border:1px solid rgba(255,255,255,.2);font-size:7px;font-weight:700;color:#c8baeb;display:flex;align-items:center;justify-content:center;flex:none;">B</span><div style="flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;"><div style="height:100%;width:45%;background:#9a86b8;border-radius:3px;"></div></div><span style="font-size:9px;color:#71767f;font-variant-numeric:tabular-nums;flex:none;">45%</span></div>
+          <div style="display:flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:50%;background:#46b06f;font-size:7px;font-weight:700;color:#14161c;display:flex;align-items:center;justify-content:center;flex:none;">G</span><div style="flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;"><div style="height:100%;width:28%;background:#46b06f;border-radius:3px;"></div></div><span style="font-size:9px;color:#71767f;font-variant-numeric:tabular-nums;flex:none;">28%</span></div>
+        </div>
+      </div>
+      <button style="font-size:10px;color:#71767f;background:none;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:5px 8px;cursor:pointer;min-height:auto;text-align:center;font-family:Inter,system-ui,sans-serif;">Change commander</button>
+    </div>
+
+    <!-- ── CENTER: Card Grid ── -->
+    <div style="overflow-y:auto;padding:10px;position:relative;background:#0c0d11;">
+      <!-- Search + action bar -->
+      <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center;">
+        <input style="flex:1;background:#111318;border:1px solid rgba(255,255,255,.08);border-radius:6px;color:#ededf0;font-family:Inter,system-ui,sans-serif;font-size:12px;padding:6px 10px;min-height:auto;outline:none;" placeholder='Search to add… "Sol Ring" or t:creature c:green cmc&lt;4' />
+        <button style="font-size:11px;color:#71767f;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:6px 10px;cursor:pointer;min-height:auto;white-space:nowrap;font-family:Inter,system-ui,sans-serif;">Filter…</button>
+        <button style="{{ wizardBtnStyle }}">✨ Wizard</button>
+        <button style="font-size:11px;color:#71767f;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:6px 10px;cursor:pointer;min-height:auto;white-space:nowrap;font-family:Inter,system-ui,sans-serif;">Consider +</button>
+      </div>
+      <!-- ── GRID VIEW ── -->
+      <sc-if value="{{ isGridView }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+          <span style="font-size:11px;font-weight:600;color:#b0b4be;">{{ groupLabel }}</span>
+          <span style="font-size:11px;color:#71767f;">({{ groupCount }})</span>
+          <div style="flex:1;height:1px;background:rgba(255,255,255,.06);"></div>
+          <span style="{{ countBadgeStyle }}">94 / 100</span>
+        </div>
+        <div style="{{ cardGridStyle }}">
+          <sc-for list="{{ displayCards }}" as="card" hint-placeholder-count="10">
+            <div style="position:relative;cursor:pointer;" onMouseEnter="{{ card.onHover }}" onMouseLeave="{{ card.offHover }}">
+              <div style="aspect-ratio:488/680;border-radius:6px;overflow:hidden;background:#16181f;position:relative;box-shadow:0 2px 8px rgba(0,0,0,.4);">
+                <img src="{{ card.art }}" alt="{{ card.name }}" loading="lazy" style="width:100%;height:100%;object-fit:cover;object-position:center 20%;" />
+                <div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.82);color:#ededf0;border-radius:3px;padding:0 5px;font-size:10px;font-weight:700;line-height:1.7;">{{ card.qty }}</div>
+                <div style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.78);color:#3dce8a;border-radius:3px;padding:0 4px;font-size:9px;font-weight:700;line-height:1.7;">{{ card.synergy }}%</div>
+                <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.85));padding:4px 5px 5px;">
+                  <div style="font-size:9px;font-weight:600;color:#ededf0;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ card.name }}</div>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- ── STACK VIEW — Archidekt-style overlapping columns by type ── -->
+      <sc-if value="{{ isStackView }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;gap:10px;align-items:flex-start;overflow-x:auto;padding-bottom:16px;">
+          <sc-for list="{{ stackGroups }}" as="group" hint-placeholder-count="6">
+            <div style="flex:none;width:140px;">
+              <!-- Column header -->
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,.1);">
+                <span style="font-size:11px;font-weight:600;color:#b0b4be;">{{ group.label }}</span>
+                <span style="font-size:10px;color:#71767f;">({{ group.count }})</span>
+              </div>
+              <!-- Stacked cards -->
+              <div style="display:flex;flex-direction:column;">
+                <sc-for list="{{ group.cards }}" as="scard" hint-placeholder-count="6">
+                  <div style="{{ scard.stackStyle }}" onMouseEnter="{{ scard.onHover }}" onMouseLeave="{{ scard.offHover }}">
+                    <img src="{{ scard.art }}" alt="{{ scard.name }}" loading="lazy" style="width:100%;height:100%;object-fit:cover;object-position:center 20%;pointer-events:none;" />
+                    <div style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.82);color:#ededf0;border-radius:3px;padding:0 5px;font-size:10px;font-weight:700;line-height:1.7;">{{ scard.qty }}</div>
+                    <div style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.78);color:#3dce8a;border-radius:3px;padding:0 4px;font-size:9px;font-weight:700;line-height:1.7;">{{ scard.synergy }}%</div>
+                    <!-- Always-visible name strip -->
+                    <div style="position:absolute;bottom:0;left:0;right:0;height:36px;background:linear-gradient(transparent,rgba(6,7,10,.95));display:flex;align-items:flex-end;padding:3px 6px 5px;">
+                      <span style="font-size:9px;font-weight:600;color:#ededf0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;">{{ scard.name }}</span>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- ── RIGHT: AI Panel ── -->
+    <div style="{{ aiPanelColStyle }}">
+
+      <!-- Stats grid -->
+      <div style="flex:none;padding:10px 12px 8px;border-bottom:1px solid rgba(255,255,255,.06);">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:7px;">
+          <div style="background:#111318;border:1px solid rgba(255,255,255,.07);border-radius:6px;padding:7px 9px;">
+            <div style="font-size:9px;color:#71767f;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:1px;">Cards</div>
+            <div style="font-size:18px;font-weight:700;color:#e5b84c;font-variant-numeric:tabular-nums;line-height:1.2;">94/100</div>
+          </div>
+          <div style="background:#111318;border:1px solid rgba(255,255,255,.07);border-radius:6px;padding:7px 9px;">
+            <div style="font-size:9px;color:#71767f;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:1px;">Avg CMC</div>
+            <div style="font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2;">3.4</div>
+          </div>
+          <div style="background:#111318;border:1px solid rgba(255,255,255,.07);border-radius:6px;padding:7px 9px;">
+            <div style="font-size:9px;color:#71767f;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:1px;">Price</div>
+            <div style="font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2;">$487</div>
+          </div>
+          <div style="background:#111318;border:1px solid rgba(255,255,255,.07);border-radius:6px;padding:7px 9px;">
+            <div style="font-size:9px;color:#71767f;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:1px;">Bracket</div>
+            <div style="font-size:18px;font-weight:700;color:#e5b84c;font-variant-numeric:tabular-nums;line-height:1.2;">3</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <span style="font-size:10px;font-weight:500;background:rgba(61,206,138,.1);color:#3dce8a;border:1px solid rgba(61,206,138,.2);border-radius:4px;padding:2px 7px;">Legality: OK</span>
+          <span style="font-size:10px;font-weight:500;background:rgba(229,184,76,.1);color:#e5b84c;border:1px solid rgba(229,184,76,.2);border-radius:4px;padding:2px 7px;">Mana: WARN</span>
+        </div>
+      </div>
+
+      <!-- Panel mode toggle -->
+      <div style="flex:none;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#71767f;">AI Panel</span>
+        <div style="display:flex;background:rgba(255,255,255,.05);border-radius:5px;padding:2px;gap:1px;">
+          <button onClick="{{ setPanelAccordion }}" style="{{ pm_accordion }}">Accordion</button>
+          <button onClick="{{ setPanelFeed }}"      style="{{ pm_feed }}">Feed</button>
+        </div>
+      </div>
+
+      <!-- Scrollable content -->
+      <div style="flex:1;overflow-y:auto;padding:8px 10px;">
+
+        <!-- ── ACCORDION MODE ── -->
+        <sc-if value="{{ isAccordion }}" hint-placeholder-val="{{ true }}">
+
+          <!-- Strategy -->
+          <div style="margin-bottom:5px;">
+            <button onClick="{{ toggleStrategy }}" style="{{ acc_strategy_btn }}">
+              <span style="display:flex;align-items:center;gap:6px;"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M9.5 1.5L4 9h5l-3 5.5L13 7H8l1.5-5.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg> <span>Strategy Overview</span><span style="font-size:9px;background:rgba(61,206,138,.15);color:#3dce8a;border-radius:3px;padding:1px 5px;font-weight:600;">auto</span></span>
+              <span style="{{ chevron_strategy }}">▾</span>
+            </button>
+            <sc-if value="{{ strategyOpen }}" hint-placeholder-val="{{ true }}">
+              <div style="border:1px solid rgba(255,255,255,.07);border-top:none;border-radius:0 0 6px 6px;background:#111318;padding:10px;animation:slideDown .15s ease-out;">
+                <p style="font-size:11px;color:#b0b4be;line-height:1.7;margin:0;">Nethroi leads an <strong style="color:#ededf0;">Abzan Reanimator combo</strong> strategy. Fill the yard with 0-power creatures, then recur them all in one activation — cascading ETBs and death triggers. Core loop: <strong style="color:#c98a3a;">Viscera Seer + Saffi Eriksdotter</strong> creates infinite sac cycles with any payoff.</p>
+              </div>
+            </sc-if>
+          </div>
+
+          <!-- Weaknesses -->
+          <div style="margin-bottom:5px;">
+            <button onClick="{{ toggleWeakness }}" style="{{ acc_weakness_btn }}">
+              <span style="display:flex;align-items:center;gap:6px;"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2.5L1.5 13.5h13L8 2.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><line x1="8" y1="7" x2="8" y2="10.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="12.3" r=".65" fill="currentColor"/></svg> <span>Weakness Check</span><span style="font-size:9px;background:rgba(229,184,76,.15);color:#e5b84c;border-radius:3px;padding:1px 5px;font-weight:600;">2 flags</span></span>
+              <span style="{{ chevron_weakness }}">▾</span>
+            </button>
+            <sc-if value="{{ weaknessOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid rgba(255,255,255,.07);border-top:none;border-radius:0 0 6px 6px;background:#111318;padding:10px;animation:slideDown .15s ease-out;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.05);margin-bottom:8px;">
+                  <div><div style="font-size:11px;font-weight:600;color:#e5b84c;">Low interaction</div><div style="font-size:10px;color:#71767f;margin-top:1px;">6 removal spells · target 8–10</div></div>
+                  <button style="font-size:10px;color:#7cacf8;background:none;border:none;cursor:pointer;padding:0;min-height:auto;font-family:Inter,system-ui,sans-serif;white-space:nowrap;">Fix →</button>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                  <div><div style="font-size:11px;font-weight:600;color:#e5b84c;">Thin card draw</div><div style="font-size:10px;color:#71767f;margin-top:1px;">4 draw effects · target 7+</div></div>
+                  <button style="font-size:10px;color:#7cacf8;background:none;border:none;cursor:pointer;padding:0;min-height:auto;font-family:Inter,system-ui,sans-serif;white-space:nowrap;">Fix →</button>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+
+          <!-- Recommendations -->
+          <div style="margin-bottom:5px;">
+            <button onClick="{{ toggleRecs }}" style="{{ acc_recs_btn }}">
+              <span style="display:flex;align-items:center;gap:6px;"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1.5l1.3 4.2H14l-3.9 2.8 1.5 4.5L8 10.4l-3.6 2.6 1.5-4.5L2 5.7h4.7L8 1.5z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg> <span>Recommendations</span></span>
+              <span style="{{ chevron_recs }}">▾</span>
+            </button>
+            <sc-if value="{{ recsOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid rgba(255,255,255,.07);border-top:none;border-radius:0 0 6px 6px;background:#111318;animation:slideDown .15s ease-out;">
+                <sc-for list="{{ mockRecs }}" as="rec" hint-placeholder-count="3">
+                  <div style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:3px;">
+                      <span style="font-size:11px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ rec.name }}</span>
+                      <span style="font-size:9px;font-weight:700;color:#3dce8a;flex:none;">{{ rec.synergy }}%</span>
+                    </div>
+                    <div style="font-size:10px;color:#71767f;line-height:1.45;margin-bottom:6px;">{{ rec.reason }}</div>
+                    <div style="display:flex;gap:5px;">
+                      <button style="font-size:10px;color:#c98a3a;background:rgba(201,138,58,.08);border:1px solid rgba(201,138,58,.22);border-radius:4px;padding:2px 10px;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;font-weight:600;">+ Add</button>
+                      <button style="font-size:10px;color:#71767f;background:none;border:1px solid rgba(255,255,255,.08);border-radius:4px;padding:2px 8px;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;">Skip</button>
+                    </div>
+                  </div>
+                </sc-for>
+                <div style="padding:8px 10px;">
+                  <button style="width:100%;font-size:10px;color:#7cacf8;background:none;border:1px solid rgba(124,172,248,.14);border-radius:5px;padding:6px;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;">Load more via EDHREC ↓</button>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+
+          <!-- Cut Suggestions -->
+          <div style="margin-bottom:5px;">
+            <button onClick="{{ toggleCuts }}" style="{{ acc_cuts_btn }}">
+              <span style="display:flex;align-items:center;gap:6px;"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="4" cy="5" r="2.3" stroke="currentColor" stroke-width="1.3"/><circle cx="4" cy="11" r="2.3" stroke="currentColor" stroke-width="1.3"/><line x1="5.8" y1="6.1" x2="15" y2="1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="5.8" y1="9.9" x2="15" y2="15" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg> <span>Cut Suggestions</span></span>
+              <span style="{{ chevron_cuts }}">▾</span>
+            </button>
+            <sc-if value="{{ cutsOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid rgba(255,255,255,.07);border-top:none;border-radius:0 0 6px 6px;background:#111318;animation:slideDown .15s ease-out;">
+                <sc-for list="{{ mockCuts }}" as="cut" hint-placeholder-count="3">
+                  <div style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:3px;">
+                      <span style="font-size:11px;font-weight:600;">{{ cut.name }}</span>
+                      <button style="font-size:10px;color:#ef5350;background:rgba(239,83,80,.08);border:1px solid rgba(239,83,80,.2);border-radius:4px;padding:2px 8px;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;font-weight:600;flex:none;">Remove</button>
+                    </div>
+                    <div style="font-size:10px;color:#71767f;line-height:1.45;">{{ cut.reason }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+
+          <!-- Combos -->
+          <div style="margin-bottom:5px;">
+            <button onClick="{{ toggleCombos }}" style="{{ acc_combos_btn }}">
+              <span style="display:flex;align-items:center;gap:6px;"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M7 9.5a4 4 0 0 0 5.5.4l1-1a4 4 0 0 0-5.6-5.6L6.8 4.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M9 6.5a4 4 0 0 0-5.5-.4l-1 1A4 4 0 0 0 8 12.7l1.1-1.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg> <span>Combos</span><span style="font-size:9px;background:rgba(61,206,138,.15);color:#3dce8a;border-radius:3px;padding:1px 5px;font-weight:600;">2 found</span></span>
+              <span style="{{ chevron_combos }}">▾</span>
+            </button>
+            <sc-if value="{{ combosOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid rgba(255,255,255,.07);border-top:none;border-radius:0 0 6px 6px;background:#111318;padding:10px;animation:slideDown .15s ease-out;">
+                <div style="padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.05);margin-bottom:8px;">
+                  <div style="display:inline-flex;font-size:9px;font-weight:700;background:rgba(61,206,138,.15);color:#3dce8a;border-radius:3px;padding:1px 6px;margin-bottom:4px;">COMBO</div>
+                  <div style="font-size:11px;font-weight:600;color:#ededf0;margin-bottom:3px;">Viscera Seer + Saffi Eriksdotter + any creature</div>
+                  <div style="font-size:10px;color:#71767f;line-height:1.5;">Infinite sacrifice loop → unlimited death triggers, ETBs, and scry with any payoff in play.</div>
+                </div>
+                <div style="background:rgba(229,184,76,.06);border:1px solid rgba(229,184,76,.14);border-radius:5px;padding:8px;">
+                  <div style="font-size:9px;font-weight:700;color:#e5b84c;margin-bottom:3px;">1 AWAY — Razaketh, the Foulblooded</div>
+                  <div style="font-size:10px;color:#71767f;margin-bottom:6px;line-height:1.4;">Enables a complete tutor loop with your existing sac outlets.</div>
+                  <button style="font-size:10px;color:#c98a3a;background:rgba(201,138,58,.08);border:1px solid rgba(201,138,58,.22);border-radius:4px;padding:3px 10px;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;font-weight:600;">+ Add Razaketh</button>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+
+          <!-- Upgrade Path -->
+          <div style="margin-bottom:5px;">
+            <button onClick="{{ toggleUpgrades }}" style="{{ acc_upgrades_btn }}">
+              <span style="display:flex;align-items:center;gap:6px;"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1.5c1.5 1.5 3 3.8 3 6.5H5c0-2.7 1.5-5 3-6.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M5 8c-.6 1.5-1.5 2.8-2 5.5h10c-.5-2.7-1.4-4-2-5.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8" cy="6.5" r="1.2" stroke="currentColor" stroke-width="1.2"/></svg> <span>Upgrade Path</span></span>
+              <span style="{{ chevron_upgrades }}">▾</span>
+            </button>
+            <sc-if value="{{ upgradesOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid rgba(255,255,255,.07);border-top:none;border-radius:0 0 6px 6px;background:#111318;padding:10px;animation:slideDown .15s ease-out;">
+                <div style="font-size:9px;font-weight:700;color:#71767f;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Budget swaps</div>
+                <div style="font-size:10px;color:#b0b4be;line-height:1.5;padding:6px 8px;background:rgba(255,255,255,.03);border-radius:5px;border:1px solid rgba(255,255,255,.06);margin-bottom:5px;"><span style="color:#ef5350;font-weight:600;">Arcane Sanctum</span> → <span style="color:#3dce8a;font-weight:600;">Sandsteppe Citadel</span> · <span style="color:#71767f;">same 3-color ETB-tapped, same price</span></div>
+                <div style="font-size:10px;color:#b0b4be;line-height:1.5;padding:6px 8px;background:rgba(255,255,255,.03);border-radius:5px;border:1px solid rgba(255,255,255,.06);margin-bottom:9px;"><span style="color:#ef5350;font-weight:600;">Wrath of God</span> → <span style="color:#3dce8a;font-weight:600;">Damnation</span> · <span style="color:#71767f;">same effect, currently cheaper</span></div>
+                <div style="font-size:9px;font-weight:700;color:#71767f;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Power upgrades</div>
+                <div style="font-size:10px;color:#b0b4be;line-height:1.5;padding:6px 8px;background:rgba(255,255,255,.03);border-radius:5px;border:1px solid rgba(255,255,255,.06);"><span style="color:#c98a3a;font-weight:600;">Survival of the Fittest (+$95)</span> · <span style="color:#71767f;">strongest single upgrade — instant-speed graveyard fill</span></div>
+              </div>
+            </sc-if>
+          </div>
+
+          <!-- Draw Odds -->
+          <div style="margin-bottom:5px;">
+            <button onClick="{{ toggleDrawOdds }}" style="{{ acc_draw_btn }}">
+              <span style="display:flex;align-items:center;gap:6px;"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="13" height="13" rx="2.5" stroke="currentColor" stroke-width="1.3"/><circle cx="5.5" cy="5.5" r=".85" fill="currentColor"/><circle cx="10.5" cy="5.5" r=".85" fill="currentColor"/><circle cx="5.5" cy="10.5" r=".85" fill="currentColor"/><circle cx="10.5" cy="10.5" r=".85" fill="currentColor"/><circle cx="8" cy="8" r=".85" fill="currentColor"/></svg> <span>Draw Odds</span></span>
+              <span style="{{ chevron_draw }}">▾</span>
+            </button>
+            <sc-if value="{{ drawOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid rgba(255,255,255,.07);border-top:none;border-radius:0 0 6px 6px;background:#111318;padding:10px;animation:slideDown .15s ease-out;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px;">
+                  <div><label style="font-size:9px;color:#71767f;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:3px;">Copies</label><input type="number" defaultValue="1" style="width:100%;background:#0c0d11;border:1px solid rgba(255,255,255,.1);border-radius:5px;color:#ededf0;font-family:Inter,system-ui,sans-serif;font-size:12px;padding:4px 8px;min-height:auto;outline:none;" /></div>
+                  <div><label style="font-size:9px;color:#71767f;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:3px;">Hand + draws</label><input type="number" defaultValue="14" style="width:100%;background:#0c0d11;border:1px solid rgba(255,255,255,.1);border-radius:5px;color:#ededf0;font-family:Inter,system-ui,sans-serif;font-size:12px;padding:4px 8px;min-height:auto;outline:none;" /></div>
+                </div>
+                <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:8px;display:flex;align-items:baseline;gap:8px;">
+                  <span style="font-size:30px;font-weight:700;color:#c98a3a;font-variant-numeric:tabular-nums;">72%</span>
+                  <span style="font-size:11px;color:#71767f;">by turn 7</span>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+
+        </sc-if>
+
+        <!-- ── FEED MODE ── -->
+        <sc-if value="{{ isFeed }}" hint-placeholder-val="{{ false }}">
+
+          <div style="background:#111318;border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:11px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;"><span><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M9.5 1.5L4 9h5l-3 5.5L13 7H8l1.5-5.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg></span><span style="font-size:11px;font-weight:700;">Strategy Overview</span><span style="font-size:9px;background:rgba(61,206,138,.15);color:#3dce8a;border-radius:3px;padding:1px 5px;font-weight:600;margin-left:auto;">auto</span></div>
+            <p style="font-size:11px;color:#b0b4be;line-height:1.65;margin:0 0 6px;">Nethroi leads an <strong style="color:#ededf0;">Abzan Reanimator combo</strong> strategy. Fill the yard with 0-power creatures, then recur them all in one activation — cascading ETB and death triggers.</p>
+            <button style="font-size:10px;color:#7cacf8;background:none;border:none;cursor:pointer;padding:0;min-height:auto;font-family:Inter,system-ui,sans-serif;">Full breakdown →</button>
+          </div>
+
+          <div style="background:#111318;border:1px solid rgba(229,184,76,.15);border-radius:8px;padding:11px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;"><span><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2.5L1.5 13.5h13L8 2.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><line x1="8" y1="7" x2="8" y2="10.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="12.3" r=".65" fill="currentColor"/></svg></span><span style="font-size:11px;font-weight:700;">Weaknesses</span><span style="font-size:9px;background:rgba(229,184,76,.15);color:#e5b84c;border-radius:3px;padding:1px 5px;font-weight:600;margin-left:auto;">2 flags</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><div><div style="font-size:11px;font-weight:600;color:#e5b84c;">Low interaction</div><div style="font-size:10px;color:#71767f;">6 removal · target 8–10</div></div><button style="font-size:10px;color:#c98a3a;background:rgba(201,138,58,.08);border:1px solid rgba(201,138,58,.2);border-radius:4px;padding:2px 8px;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;font-weight:600;">Fix</button></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;"><div><div style="font-size:11px;font-weight:600;color:#e5b84c;">Thin card draw</div><div style="font-size:10px;color:#71767f;">4 draw · target 7+</div></div><button style="font-size:10px;color:#c98a3a;background:rgba(201,138,58,.08);border:1px solid rgba(201,138,58,.2);border-radius:4px;padding:2px 8px;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;font-weight:600;">Fix</button></div>
+          </div>
+
+          <div style="background:#111318;border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:11px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;"><span><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1.5l1.3 4.2H14l-3.9 2.8 1.5 4.5L8 10.4l-3.6 2.6 1.5-4.5L2 5.7h4.7L8 1.5z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg></span><span style="font-size:11px;font-weight:700;">Recommendations</span><button style="font-size:10px;color:#7cacf8;background:none;border:none;cursor:pointer;padding:0;min-height:auto;font-family:Inter,system-ui,sans-serif;margin-left:auto;">Refresh →</button></div>
+            <sc-for list="{{ mockRecs }}" as="rec" hint-placeholder-count="3">
+              <div style="padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);display:flex;align-items:flex-start;gap:8px;">
+                <div style="flex:1;min-width:0;"><div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ rec.name }}</div><div style="font-size:10px;color:#71767f;margin-top:1px;line-height:1.4;">{{ rec.reason }}</div></div>
+                <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px;"><span style="font-size:9px;font-weight:700;color:#3dce8a;">{{ rec.synergy }}%</span><button style="font-size:10px;color:#c98a3a;background:rgba(201,138,58,.08);border:1px solid rgba(201,138,58,.2);border-radius:4px;padding:1px 7px;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;font-weight:600;">+</button></div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="background:#111318;border:1px solid rgba(61,206,138,.1);border-radius:8px;padding:11px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;"><span><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M7 9.5a4 4 0 0 0 5.5.4l1-1a4 4 0 0 0-5.6-5.6L6.8 4.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M9 6.5a4 4 0 0 0-5.5-.4l-1 1A4 4 0 0 0 8 12.7l1.1-1.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></span><span style="font-size:11px;font-weight:700;">Combos</span><span style="font-size:9px;background:rgba(61,206,138,.15);color:#3dce8a;border-radius:3px;padding:1px 5px;font-weight:600;margin-left:auto;">2 found</span></div>
+            <div style="font-size:11px;font-weight:500;color:#ededf0;margin-bottom:3px;">Viscera Seer + Saffi + any creature</div>
+            <div style="font-size:10px;color:#71767f;margin-bottom:7px;line-height:1.4;">Infinite sac loop → unlimited death triggers and ETBs.</div>
+            <div style="background:rgba(229,184,76,.06);border:1px solid rgba(229,184,76,.14);border-radius:5px;padding:7px 8px;">
+              <div style="font-size:9px;font-weight:700;color:#e5b84c;margin-bottom:3px;">1 AWAY — Razaketh, the Foulblooded</div>
+              <div style="font-size:10px;color:#71767f;margin-bottom:5px;line-height:1.4;">Tutor loop with existing sac outlets.</div>
+              <button style="font-size:10px;color:#c98a3a;background:rgba(201,138,58,.08);border:1px solid rgba(201,138,58,.22);border-radius:4px;padding:2px 10px;cursor:pointer;min-height:auto;font-family:Inter,system-ui,sans-serif;font-weight:600;">+ Add</button>
+            </div>
+          </div>
+
+          <div style="background:#111318;border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:11px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;"><span><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1.5c1.5 1.5 3 3.8 3 6.5H5c0-2.7 1.5-5 3-6.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M5 8c-.6 1.5-1.5 2.8-2 5.5h10c-.5-2.7-1.4-4-2-5.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8" cy="6.5" r="1.2" stroke="currentColor" stroke-width="1.2"/></svg></span><span style="font-size:11px;font-weight:700;">Upgrade Path</span><button style="font-size:10px;color:#7cacf8;background:none;border:none;cursor:pointer;padding:0;min-height:auto;font-family:Inter,system-ui,sans-serif;margin-left:auto;">Full plan →</button></div>
+            <div style="font-size:10px;color:#b0b4be;line-height:1.5;padding:6px 8px;background:rgba(255,255,255,.03);border-radius:5px;border:1px solid rgba(255,255,255,.06);margin-bottom:5px;"><span style="color:#ef5350;font-weight:600;">Arcane Sanctum</span> → <span style="color:#3dce8a;font-weight:600;">Sandsteppe Citadel</span> · <span style="color:#71767f;">free swap, same effect</span></div>
+            <div style="font-size:10px;color:#b0b4be;line-height:1.5;padding:6px 8px;background:rgba(255,255,255,.03);border-radius:5px;border:1px solid rgba(255,255,255,.06);"><span style="color:#c98a3a;font-weight:600;">Survival of the Fittest (+$95)</span> · <span style="color:#71767f;">strongest single upgrade for this deck</span></div>
+          </div>
+
+        </sc-if>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ FLOATING CARD PREVIEW ══ -->
+  <sc-if value="{{ showPreview }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;left:190px;top:88px;z-index:200;pointer-events:none;animation:fadeIn .1s ease-out both;">
+      <div style="background:#111318;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:7px;box-shadow:0 20px 60px rgba(0,0,0,.85);">
+        <div style="{{ previewBgStyle }}"></div>
+        <div style="padding:6px 2px 2px;">
+          <div style="font-size:11px;font-weight:700;color:#ededf0;">{{ previewName }}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px;">
+            <span style="font-size:10px;color:#71767f;">{{ previewCmc }}</span>
+            <span style="font-size:10px;font-weight:700;color:#3dce8a;">{{ previewSynergy }}% synergy</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1400, &quot;height&quot;: 900 },
+  &quot;accent&quot;: {
+    &quot;editor&quot;: &quot;enum&quot;,
+    &quot;options&quot;: [&quot;gold&quot;, &quot;emerald&quot;, &quot;sapphire&quot;, &quot;crimson&quot;],
+    &quot;default&quot;: &quot;gold&quot;,
+    &quot;section&quot;: &quot;Feel&quot;
+  },
+  &quot;density&quot;: {
+    &quot;editor&quot;: &quot;enum&quot;,
+    &quot;options&quot;: [&quot;compact&quot;, &quot;comfortable&quot;, &quot;spacious&quot;],
+    &quot;default&quot;: &quot;comfortable&quot;,
+    &quot;section&quot;: &quot;Feel&quot;
+  },
+  &quot;layout&quot;: {
+    &quot;editor&quot;: &quot;enum&quot;,
+    &quot;options&quot;: [&quot;standard&quot;, &quot;focus&quot;, &quot;immersive&quot;],
+    &quot;default&quot;: &quot;standard&quot;,
+    &quot;section&quot;: &quot;Layout&quot;
+  }
+}">
+class Component extends DCLogic {
+  state = {
+    category: 'all',
+    viewMode: 'grid',
+    panelMode: 'accordion',
+    strategyOpen: true,
+    weaknessOpen: false,
+    recsOpen: false,
+    cutsOpen: false,
+    combosOpen: false,
+    upgradesOpen: false,
+    drawOpen: false,
+    previewCard: null,
+    expandedCard: null,
+  };
+
+  renderVals() {
+    const {
+      category, viewMode, panelMode, previewCard, expandedCard,
+      strategyOpen, weaknessOpen, recsOpen, cutsOpen,
+      combosOpen, upgradesOpen, drawOpen,
+    } = this.state;
+
+    const set = (k, v) => () => this.setState({ [k]: v });
+    const tog = (k) => () => this.setState((s) => ({ [k]: !s[k] }));
+
+    // ── Tweakable props ──
+    const layout    = this.props.layout   ?? 'standard';
+    const density   = this.props.density  ?? 'comfortable';
+    const accentKey = this.props.accent   ?? 'gold';
+    const ACCENTS = {
+      gold:    { hex:'#c98a3a', rgb:'201,138,58',  fg:'#1a1206' },
+      emerald: { hex:'#3dce8a', rgb:'61,206,138',  fg:'#082414' },
+      sapphire:{ hex:'#7cacf8', rgb:'124,172,248', fg:'#07142a' },
+      crimson: { hex:'#ef5350', rgb:'239,83,80',   fg:'#1f0808' },
+    };
+    const acc        = ACCENTS[accentKey] || ACCENTS.gold;
+    const accentColor  = acc.hex;
+    const accentFg     = acc.fg;
+    const accentSoft   = `rgba(${acc.rgb},.12)`;
+    const accentBorder = `rgba(${acc.rgb},.25)`;
+    const accentGlow   = `rgba(${acc.rgb},.5)`;
+
+    const ARTS = [
+      'https://cards.scryfall.io/art_crop/front/e/b/ebbfc1b2-2407-4079-a847-6bb6b9a2c9de.jpg',
+      'https://cards.scryfall.io/art_crop/front/4/f/4fe22cd8-31e6-491b-bce2-db257668eb92.jpg',
+      'https://cards.scryfall.io/art_crop/front/b/a/ba48c787-a444-4e15-bab7-39994a6e23e7.jpg',
+      'https://cards.scryfall.io/art_crop/front/d/d/dd6f76d4-a2b3-40e5-b6a7-b27c42caf615.jpg',
+      'https://cards.scryfall.io/art_crop/front/7/4/7427e78c-4881-42bd-930c-39aae324fc58.jpg',
+      'https://cards.scryfall.io/art_crop/front/d/0/d05b3f79-74d0-4756-b7e7-1cd17685bbb7.jpg',
+      'https://cards.scryfall.io/art_crop/front/9/7/97f8d1ca-bc82-453a-b237-ef75ce027b8f.jpg',
+      'https://cards.scryfall.io/art_crop/front/f/b/fbbd5627-2f55-4101-981b-49f5f45db578.jpg',
+      'https://cards.scryfall.io/art_crop/front/6/3/63e3de28-d6e9-4f27-a544-0434fb4b55bb.jpg',
+      'https://cards.scryfall.io/art_crop/front/0/0/000db964-719d-4532-9225-35658565b35d.jpg',
+      'https://cards.scryfall.io/art_crop/front/f/a/fa553e54-e6aa-499b-ac48-0cdbf6c37734.jpg',
+      'https://cards.scryfall.io/art_crop/front/1/d/1df8d25e-e519-4197-aa8e-ec596cb2a2d8.jpg',
+      'https://cards.scryfall.io/art_crop/front/d/2/d25c3609-a200-4532-9df8-8e92c24544bc.jpg',
+      'https://cards.scryfall.io/art_crop/front/5/2/5284b87f-d249-43c2-a198-dd03e961bedb.jpg',
+    ];
+
+    const card = (name, qty, ai, cmc, synergy) => ({
+      name, qty, cmc, synergy,
+      art: ARTS[ai % ARTS.length],
+      onHover: () => this.setState({ previewCard: { name, art: ARTS[ai % ARTS.length], cmc: `CMC ${cmc}`, synergy } }),
+      offHover: () => this.setState({ previewCard: null }),
+    });
+
+    const DECK = {
+      creatures:    [card('Eternal Witness',1,1,3,95), card('Elesh Norn, Grand Cenobite',1,6,7,82), card('Avacyn, Angel of Hope',1,7,8,78), card('Lurrus of the Dream-Den',1,13,3,88), card("Thassa's Oracle",1,4,2,72), card('Cultivator Colossus',1,0,7,65), card('Saffi Eriksdotter',1,12,2,91), card('Sun Titan',1,8,6,76), card('Fiend Artisan',1,3,2,85), card('Viscera Seer',1,10,1,94)],
+      instants:     [card('Cyclonic Rift',1,8,7,88), card('Swords to Plowshares',1,9,1,82), card('Path to Exile',1,11,1,80), card('Abrupt Decay',1,3,2,75), card('Anguished Unmaking',1,12,3,78), card("Assassin's Trophy",1,2,2,74), card('Noxious Revival',1,13,1,89), card('Rootborn Defenses',1,0,3,55)],
+      sorceries:    [card('Demonic Tutor',1,9,2,95), card('Vampiric Tutor',1,10,1,93), card('Animate Dead',1,11,2,96), card('Pattern of Rebirth',1,12,4,98), card("Kodama's Reach",1,1,3,72), card('Wrath of God',1,6,4,65)],
+      artifacts:    [card('Sol Ring',1,5,1,92), card('Arcane Signet',1,4,2,88), card('Altar of Dementia',1,0,2,97), card('Phyrexian Altar',1,2,3,95), card('Skullclamp',1,13,1,91), card("Ashnod's Altar",1,3,3,96), card('Mana Crypt',1,7,0,85), card('Chrome Mox',1,8,0,72)],
+      enchantments: [card('Pattern of Rebirth',1,12,4,98), card('Animate Dead',1,11,2,96), card('Dance of the Dead',1,10,2,95), card('Survival of the Fittest',1,1,2,99), card('Phyrexian Arena',1,9,3,78)],
+      lands:        [card('Verdant Catacombs',1,0,0,85), card('Windswept Heath',1,1,0,84), card('Godless Shrine',1,2,0,82), card('Overgrown Tomb',1,3,0,83), card('Temple Garden',1,4,0,80), card('Urborg, Tomb of Yawgmoth',1,5,0,78), card('Cabal Coffers',1,6,0,75), card('Command Tower',1,7,0,90), card('Arcane Sanctum',1,8,0,65), card('Scrubland',1,9,0,88)],
+    };
+
+    const allCards = [...DECK.creatures,...DECK.instants,...DECK.sorceries,...DECK.artifacts,...DECK.enchantments,...DECK.lands];
+    const displayCards = category === 'all' ? allCards : DECK[category] || allCards;
+
+    const LABELS = { all:'All Cards', creatures:'Creatures', instants:'Instants', sorceries:'Sorceries', artifacts:'Artifacts', enchantments:'Enchantments', lands:'Lands' };
+
+    // ── Stack view groups ──
+    const CW = 140, CH = Math.round(CW * 680 / 488); // 140 × 195px
+    const SHOW_H = 36; // name strip height
+    const STACK_MGN = SHOW_H - CH;  // negative overlap margin
+
+    const mkStackCard = (c, isLast) => ({
+      ...c,
+      onHover: () => this.setState({ expandedCard: c.name, previewCard: { name: c.name, art: c.art, cmc: `CMC ${c.cmc}`, synergy: c.synergy } }),
+      offHover: () => this.setState({ expandedCard: null, previewCard: null }),
+      stackStyle: {
+        position: 'relative', borderRadius: '6px', overflow: 'hidden',
+        background: '#16181f', cursor: 'pointer', width: CW, height: CH, flexShrink: 0,
+        marginBottom: isLast ? 0 : (expandedCard === c.name ? 8 : STACK_MGN),
+        zIndex: expandedCard === c.name ? 10 : 'auto',
+        transition: 'margin-bottom .2s ease-out',
+        boxShadow: expandedCard === c.name ? '0 8px 24px rgba(0,0,0,.7)' : '0 2px 8px rgba(0,0,0,.4)',
+      },
+    });
+
+    const buildGroup = (label, cards) => ({
+      label, count: cards.length,
+      cards: cards.map((c, i) => mkStackCard(c, i === cards.length - 1)),
+    });
+
+    const allGroups = [
+      buildGroup('Creatures',    DECK.creatures),
+      buildGroup('Instants',     DECK.instants),
+      buildGroup('Sorceries',    DECK.sorceries),
+      buildGroup('Artifacts',    DECK.artifacts),
+      buildGroup('Enchantments', DECK.enchantments),
+      buildGroup('Lands',        DECK.lands),
+    ];
+    const CAT_TO_LABEL = { creatures:'Creatures', instants:'Instants', sorceries:'Sorceries', artifacts:'Artifacts', enchantments:'Enchantments', lands:'Lands' };
+    const stackGroups = category === 'all' ? allGroups : allGroups.filter(g => g.label === CAT_TO_LABEL[category]);
+
+    // ── Style factories ──
+    const CAT = { background:'transparent', border:'none', borderBottom:'2px solid transparent', padding:'0 12px', cursor:'pointer', fontFamily:'Inter,system-ui,sans-serif', fontSize:'12px', fontWeight:500, color:'#71767f', whiteSpace:'nowrap', minHeight:'auto', borderRadius:0, transition:'color .15s' };
+    const catS = (id) => category === id ? { ...CAT, color:'#ededf0', borderBottomColor: accentColor } : CAT;
+
+    const VT = { background:'transparent', border:'none', padding:'6px 11px', cursor:'pointer', fontFamily:'Inter,system-ui,sans-serif', fontSize:'12px', fontWeight:500, color:'#71767f', minHeight:'auto', transition:'color .15s, background .15s', whiteSpace:'nowrap' };
+    const vtS = (id) => viewMode === id ? { ...VT, color: accentColor, background: accentSoft, fontWeight:700 } : VT;
+
+    const PM = { background:'transparent', border:'none', borderRadius:'4px', padding:'3px 10px', cursor:'pointer', fontFamily:'Inter,system-ui,sans-serif', fontSize:'11px', fontWeight:500, color:'#71767f', minHeight:'auto', transition:'all .15s' };
+    const pmS = (id) => panelMode === id ? { ...PM, background: accentColor, color: accentFg, fontWeight:700 } : PM;
+
+    const accBtn = (isOpen) => ({
+      width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between',
+      background: isOpen ? `rgba(${acc.rgb},.08)` : '#16181f',
+      border: `1px solid ${isOpen ? accentBorder : 'rgba(255,255,255,.08)'}`,
+      borderRadius: isOpen ? '6px 6px 0 0' : '6px',
+      padding:'8px 10px', cursor:'pointer', fontFamily:'Inter,system-ui,sans-serif',
+      fontSize:'11px', fontWeight:600, color:'#ededf0', minHeight:'auto',
+      transition:'background .15s', textAlign:'left',
+    });
+    const chevron = (isOpen) => ({ color: isOpen ? accentColor : '#71767f', transition:'transform .2s', transform: isOpen ? 'rotate(180deg)' : 'none', fontSize:'11px', display:'inline-block' });
+
+    const mockRecs = [
+      { name:'Razaketh, the Foulblooded', synergy:97, reason:'Tutors for combo pieces on death — perfect with your existing sac outlets' },
+      { name:'Buried Alive',              synergy:98, reason:'Fills graveyard with 3 creatures instantly; most efficient setup card for Nethroi' },
+      { name:'Eldritch Evolution',         synergy:94, reason:'Sacrifices a creature to tutor 2 MV higher directly into play' },
+    ];
+    const mockCuts = [
+      { name:'Rootborn Defenses', reason:'Low synergy (55%) — too situational, rarely lines up with the reanimator plan' },
+      { name:'Arcane Sanctum',    reason:'ETB-tapped with no upside — replace with Sandsteppe Citadel or Caves of Koilos' },
+      { name:'Chrome Mox',        reason:'Card disadvantage rarely worth it here without a consistent fast-mana package' },
+    ];
+
+    return {
+      // Category tabs
+      setCatAll: set('category','all'), setCatCreatures: set('category','creatures'),
+      setCatInstants: set('category','instants'), setCatSorceries: set('category','sorceries'),
+      setCatArtifacts: set('category','artifacts'), setCatEnchantments: set('category','enchantments'),
+      setCatLands: set('category','lands'),
+      cat_all: catS('all'), cat_creatures: catS('creatures'), cat_instants: catS('instants'),
+      cat_sorceries: catS('sorceries'), cat_artifacts: catS('artifacts'),
+      cat_enchantments: catS('enchantments'), cat_lands: catS('lands'),
+
+      // View toggles
+      setViewGrid: set('viewMode','grid'), setViewStack: set('viewMode','stack'), setViewList: set('viewMode','list'),
+      vt_grid: vtS('grid'), vt_stack: vtS('stack'), vt_list: vtS('list'),
+
+      // Panel modes
+      setPanelAccordion: set('panelMode','accordion'), setPanelFeed: set('panelMode','feed'),
+      pm_accordion: pmS('accordion'), pm_feed: pmS('feed'),
+      isAccordion: panelMode === 'accordion',
+      isFeed:      panelMode === 'feed',
+
+      // Accordion toggles + styles
+      toggleStrategy: tog('strategyOpen'), toggleWeakness: tog('weaknessOpen'),
+      toggleRecs:     tog('recsOpen'),     toggleCuts:     tog('cutsOpen'),
+      toggleCombos:   tog('combosOpen'),   toggleUpgrades: tog('upgradesOpen'),
+      toggleDrawOdds: tog('drawOpen'),
+      strategyOpen, weaknessOpen, recsOpen, cutsOpen, combosOpen, upgradesOpen, drawOpen,
+      acc_strategy_btn: accBtn(strategyOpen), acc_weakness_btn: accBtn(weaknessOpen),
+      acc_recs_btn:     accBtn(recsOpen),     acc_cuts_btn:     accBtn(cutsOpen),
+      acc_combos_btn:   accBtn(combosOpen),   acc_upgrades_btn: accBtn(upgradesOpen),
+      acc_draw_btn:     accBtn(drawOpen),
+      chevron_strategy: chevron(strategyOpen), chevron_weakness: chevron(weaknessOpen),
+      chevron_recs:     chevron(recsOpen),     chevron_cuts:     chevron(cutsOpen),
+      chevron_combos:   chevron(combosOpen),   chevron_upgrades: chevron(upgradesOpen),
+      chevron_draw:     chevron(drawOpen),
+
+      // Cards + view modes
+      displayCards,
+      groupLabel: LABELS[category] || 'All Cards',
+      groupCount: displayCards.length,
+      countBadgeStyle: { fontSize:'11px', fontWeight:600, background:'rgba(229,184,76,.1)', color:'#e5b84c', border:'1px solid rgba(229,184,76,.2)', borderRadius:'4px', padding:'2px 8px' },
+      isGridView:  viewMode !== 'stack',
+      isStackView: viewMode === 'stack',
+      stackGroups,
+
+      // Floating preview
+      showPreview:    Boolean(previewCard),
+      previewName:    previewCard?.name    || '',
+      previewBgStyle: {
+        width: '170px', aspectRatio: '488/680', borderRadius: '6px', display: 'block',
+        backgroundImage: previewCard ? `url('${previewCard.art}')` : 'none',
+        backgroundSize: 'cover', backgroundPosition: 'center 20%',
+      },
+      previewCmc:     previewCard?.cmc     || '',
+      previewSynergy: previewCard?.synergy || '',
+
+      // ── Layout + feel ──
+      commanderColStyle: {
+        flex:'none', width:'175px',
+        display: layout !== 'standard' ? 'none' : 'flex',
+        flexDirection:'column', gap:'10px',
+        padding: density==='compact' ? '8px' : density==='spacious' ? '16px' : '12px',
+        overflowY:'auto', background:'#0a0b0f',
+        borderRight:'1px solid rgba(255,255,255,.08)',
+      },
+      aiPanelColStyle: {
+        flex:'none', width: layout === 'focus' ? '260px' : '300px',
+        display: layout === 'immersive' ? 'none' : 'flex',
+        flexDirection:'column', overflow:'hidden', background:'#0a0b0f',
+        borderLeft:'1px solid rgba(255,255,255,.08)',
+      },
+      cardGridStyle: {
+        display:'grid',
+        gridTemplateColumns:`repeat(auto-fill,minmax(${
+          density==='compact' ? '88px' : density==='spacious' ? '148px' : '110px'
+        },1fr))`,
+        gap: density==='compact' ? '5px' : density==='spacious' ? '12px' : '8px',
+      },
+      saveBtnStyle: {
+        background: accentColor, color: accentFg, border:'none',
+        borderRadius:'6px', padding:'6px 16px', fontSize:'12px',
+        fontWeight:700, cursor:'pointer', minHeight:'auto', flex:'none',
+      },
+      wizardBtnStyle: {
+        fontSize:'11px', color: accentColor, background: accentSoft,
+        border:`1px solid ${accentBorder}`, borderRadius:'6px',
+        padding:'6px 10px', cursor:'pointer', minHeight:'auto',
+        whiteSpace:'nowrap', fontFamily:'Inter,system-ui,sans-serif', fontWeight:600,
+      },
+      brandDotStyle: {
+        width:'8px', height:'8px', borderRadius:'50%',
+        background: accentColor, boxShadow:`0 0 6px ${accentGlow}`, flex:'none',
+      },
+
+      // Mock AI data
+      mockRecs,
+      mockCuts,
+    };
+  }
+}
+
+</script>
+</body>
+</html>

@@ -32,7 +32,7 @@ const TAB_ICONS = {
 export default function GlobalToolbar({
   tabs, tab, setTab, cloud, session,
   setSettingsOpen,
-  decks, onNewDeck, onImportUrl, onPasteDecklist, onSignOut,
+  decks, onNewDeck, onImportUrl, onSearchDecks, onOpenDeck, onPasteDecklist, onSignOut,
   avatarMenuOpen, setAvatarMenuOpen,
 }) {
   const initials = cloud
@@ -82,6 +82,8 @@ export default function GlobalToolbar({
               session={session}
               onNewDeck={onNewDeck}
               onImportUrl={onImportUrl}
+              onSearchDecks={onSearchDecks}
+              onOpenDeck={onOpenDeck}
               onPasteDecklist={onPasteDecklist}
               setTab={setTab}
               onAccountSettings={() => { setAvatarMenuOpen(false); setSettingsOpen(true); }}

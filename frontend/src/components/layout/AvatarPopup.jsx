@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from "react";
 import { disassembleDecklist, getCardImage } from "../../lib/api";
 
 export default function AvatarPopup({
-  decks, session, onNewDeck, onImportUrl, onPasteDecklist,
+  decks, session, onNewDeck, onImportUrl, onSearchDecks, onOpenDeck, onPasteDecklist,
   setTab, onAccountSettings, onSignOut, onClose,
 }) {
   const ref = useRef(null);
@@ -46,13 +46,9 @@ export default function AvatarPopup({
 
       {/* Section 2: Navigation */}
       <div className="avp-section">
-        <button className="avp-row" onClick={() => { setTab("decks"); onClose(); }}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
-          <span>Search My Decks</span>
-        </button>
-        <button className="avp-row" onClick={() => { setTab("decks"); onClose(); }}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M1.5 6.5h13"/></svg>
-          <span>My Decks</span>
+        <button className="avp-search-shell" onClick={() => { onSearchDecks?.(); onClose(); }}>
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="var(--muted)" strokeWidth="1.5" strokeLinecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+          <span className="avp-search-placeholder">Search my decks…</span>
         </button>
       </div>
 
@@ -63,7 +59,7 @@ export default function AvatarPopup({
           <div className="avp-section">
             <div className="avp-section-label">Recent</div>
             {recentDecks.map((deck) => (
-              <RecentDeckRow key={deck.id} deck={deck} setTab={setTab} onClose={onClose} />
+              <RecentDeckRow key={deck.id} deck={deck} onOpenDeck={onOpenDeck} onClose={onClose} />
             ))}
           </div>
         </>
@@ -88,7 +84,7 @@ export default function AvatarPopup({
   );
 }
 
-function RecentDeckRow({ deck, setTab, onClose }) {
+function RecentDeckRow({ deck, onOpenDeck, onClose }) {
   const { commander } = disassembleDecklist(deck.decklist_text);
   const [art, setArt] = useState(null);
   const cmdrName = commander ? commander.split(" && ")[0] : null;
@@ -113,7 +109,7 @@ function RecentDeckRow({ deck, setTab, onClose }) {
   return (
     <button
       className="avp-row"
-      onClick={() => { setTab("deck"); onClose(); }}
+      onClick={() => { onOpenDeck?.(deck); onClose(); }}
     >
       <div className="avp-deck-art">
         {art ? <img src={art} alt="" /> : <div className="avp-deck-art-placeholder" />}

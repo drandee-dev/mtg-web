@@ -26,12 +26,21 @@ const TABS = [
 const VALID_TABS = new Set(TABS.map(([id]) => id));
 const TAB_ALIASES = { analyze: "deck", build: "deck" };
 
+// Unicode-safe base64. Plain btoa/atob throw on non-ASCII bytes, so share links
+// for decks with accented card names (e.g. "Jötun Grunt") would otherwise break.
+function _b64encode(str) {
+  return btoa(String.fromCharCode(...new TextEncoder().encode(str)));
+}
+function _b64decode(b64) {
+  return new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+}
+
 function _loadSharedDeck() {
   try {
     const params = new URLSearchParams(window.location.search);
     const encoded = params.get("deck");
     if (!encoded) return null;
-    const decoded = atob(encoded);
+    const decoded = _b64decode(encoded);
     const fmt = params.get("fmt") || "commander";
     const cmd = params.get("cmd") || "";
     window.history.replaceState({}, "", window.location.pathname);
@@ -59,6 +68,7 @@ export default function App() {
   const [serverStatus, setServerStatus] = useState("checking");
   const [healthRetry, setHealthRetry] = useState(0);
   const [serverAi, setServerAi] = useState(true);
+  const [serverWarmed, setServerWarmed] = useState(false);
   const [deckText, setDeckText] = useState(_shared?.deckText || "");
   const [format, setFormat] = useState(_shared?.format || "commander");
   const [commander, setCommander] = useState(_shared?.commander || "");
@@ -68,6 +78,10 @@ export default function App() {
 
   const savedDeckText = useRef(deckText);
   const [startInWizard, setStartInWizard] = useState(false);
+  // Pending action to run when the Decks tab mounts, set by avatar-menu shortcuts:
+  // "import" opens the import panel, "search" focuses the deck-search box. null = none.
+  const [decksIntent, setDecksIntent] = useState(null);
+  const clearDecksIntent = useCallback(() => setDecksIntent(null), []);
 
   const newDeck = useCallback(() => {
     setDeckText("");
@@ -136,7 +150,7 @@ export default function App() {
     async function check(attempt) {
       try {
         const h = await api.health();
-        if (!cancelled) { setServerStatus("ready"); setServerAi(Boolean(h?.ai_available)); }
+        if (!cancelled) { setServerStatus("ready"); setServerAi(Boolean(h?.ai_available)); setServerWarmed(Boolean(h?.warmed)); }
       } catch {
         if (cancelled) return;
         if (attempt === 0) setServerStatus("waking");
@@ -262,7 +276,7 @@ export default function App() {
   const shareDeck = useCallback(() => {
     const full = assembleDecklist(deckText, commander);
     if (!full.trim()) return notify("No deck to share.");
-    const encoded = btoa(full);
+    const encoded = _b64encode(full);
     const params = new URLSearchParams({ deck: encoded, fmt: format });
     if (commander) params.set("cmd", commander);
     const url = `${window.location.origin}${window.location.pathname}?${params}`;
@@ -295,7 +309,9 @@ export default function App() {
         setSettingsOpen={setSettingsOpen}
         decks={decks}
         onNewDeck={newDeck}
-        onImportUrl={() => setTab("decks")}
+        onImportUrl={() => { setDecksIntent("import"); setTab("decks"); }}
+        onSearchDecks={() => { setDecksIntent("search"); setTab("decks"); }}
+        onOpenDeck={openDeck}
         onPasteDecklist={newDeck}
         onSignOut={() => { supabase.auth.signOut(); notify("Signed out."); }}
         avatarMenuOpen={avatarMenuOpen}
@@ -330,6 +346,7 @@ export default function App() {
             onWizardConsumed={() => setStartInWizard(false)}
             onBack={() => setTab("decks")}
             notify={notify}
+            serverWarmed={serverWarmed}
           />
         )}
         {tab === "decks" && (
@@ -346,6 +363,8 @@ export default function App() {
             notify={notify}
             refresh={refresh}
             setTab={setTab}
+            decksIntent={decksIntent}
+            onIntentConsumed={clearDecksIntent}
           />
         )}
         {tab === "rules" && <Rules aiAvailable={aiAvailable} notify={notify} />}

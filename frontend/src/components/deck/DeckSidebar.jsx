@@ -37,6 +37,7 @@ export default function DeckSidebar({
   upgrades, upgradeMode, setUpgradeMode,
   commander, format,
   strategy, strategyLoading,
+  serverWarmed,
 }) {
   const [panelMode, setPanelMode] = useState(
     () => localStorage.getItem("mtgweb:panelMode") || "accordion"
@@ -90,6 +91,10 @@ export default function DeckSidebar({
             </span>
           </div>
         </div>
+      )}
+
+      {!serverWarmed && (
+        <div className="sidebar-warming-pill">⚡ Still warming up — first analysis may take a moment</div>
       )}
 
       {/* Panel mode toggle */}
