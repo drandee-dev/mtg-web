@@ -41,7 +41,7 @@ const BRACKET_URL = "https://mtg.wiki/page/Commander_Brackets";
 export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
   maybeboard, setMaybeboard,
-  deckName, onSave, onClone, onExport, onPlaytest, onShare,
+  deckName, deckId, onSave, onClone, onExport, onPlaytest, onShare,
   startInWizard, onWizardConsumed, onBack, notify, serverWarmed,
 }) {
   const [mode, setMode] = useState(startInWizard ? "wizard" : "manual");
@@ -468,6 +468,7 @@ export default function DeckView({
             decklist={decklist}
             commander={commander}
             format={format}
+            deckId={deckId}
             filter={deckFilter}
             setFilter={setDeckFilter}
             typeFilter={categoryFilter}

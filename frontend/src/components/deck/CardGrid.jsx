@@ -1,9 +1,11 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { getCardImage } from "../../lib/api";
 import { parseDeckText, groupCards } from "../../lib/deckParser";
 import { canHover } from "../../lib/hooks";
+// canHover gates desktop-only drag affordances; touch uses the ⋯ menus instead.
 import CardThumbnail from "./CardThumbnail";
 import StackView from "./StackView";
+import TextStackView from "./TextStackView";
 import CardListRow from "./CardListRow";
 import CardBottomSheet from "./CardBottomSheet";
 import ViewToggle from "./ViewToggle";
@@ -37,10 +39,13 @@ function deckCompleteness(totalCards, commander, format) {
   return { label: `${totalCards} / 60+`, status, title: "Constructed decks are a 60-card minimum" };
 }
 
-export default function CardGrid({ decklist, commander, format, filter, setFilter, typeFilter, onRemove, onConsider, addCard, onCardSearch, onSave, saveState, onTypeCounts, notify }) {
+export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, typeFilter, onRemove, onConsider, addCard, onCardSearch, onSave, saveState, onTypeCounts, notify }) {
   const [quickAdd, setQuickAdd] = useState("");
   const [viewMode, setViewMode] = useState(
     () => localStorage.getItem("mtgweb:viewMode") || "grid"
+  );
+  const [stackMode, setStackMode] = useState(
+    () => localStorage.getItem("mtgweb:stackMode") || "image"
   );
   const [sortBy, setSortBy] = useState(
     () => localStorage.getItem("mtgweb:sortBy") || "name"
@@ -49,6 +54,24 @@ export default function CardGrid({ decklist, commander, format, filter, setFilte
     () => localStorage.getItem("mtgweb:groupBy") || "type"
   );
   const [metaMap, setMetaMap] = useState({});
+  // Per-groupBy column order overrides: { [groupBy]: [label, ...] }. Reordering a
+  // column persists only for the mode it was reordered in.
+  const [columnOrder, setColumnOrder] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("mtgweb:colOrder") || "{}"); }
+    catch { return {}; }
+  });
+  // Per-deck category overrides (role mode only): { [cardName]: bucketLabel }.
+  // Keyed by deck id so a card moved in one deck doesn't move in another. Unsaved
+  // decks share the "current" bucket until first save. Read from localStorage via
+  // useMemo (bumping catVersion forces a re-read after a write).
+  const catKey = `mtgweb:cat:${deckId || "current"}`;
+  const [catVersion, setCatVersion] = useState(0);
+  const categoryOverrides = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem(catKey) || "{}"); }
+    catch { return {}; }
+    // catVersion is an intentional cache-bust: it forces a re-read after a write.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catKey, catVersion]);
   const [expandedId, setExpandedId] = useState(null);
   const [previewCard, setPreviewCard] = useState(null);
   const [collapsed, setCollapsed] = useState(() => {
@@ -61,6 +84,14 @@ export default function CardGrid({ decklist, commander, format, filter, setFilte
   useEffect(() => {
     localStorage.setItem("mtgweb:viewMode", viewMode);
   }, [viewMode]);
+
+  useEffect(() => {
+    localStorage.setItem("mtgweb:stackMode", stackMode);
+  }, [stackMode]);
+
+  useEffect(() => {
+    localStorage.setItem("mtgweb:colOrder", JSON.stringify(columnOrder));
+  }, [columnOrder]);
 
   useEffect(() => {
     localStorage.setItem("mtgweb:sortBy", sortBy);
@@ -94,6 +125,7 @@ export default function CardGrid({ decklist, commander, format, filter, setFilte
       for (const [name, d] of entries) {
         meta[name] = {
           type_line: d?.type_line || "",
+          mana_cost: d?.mana_cost || "",
           roles: d?.roles || [],
           cmc: d?.cmc ?? 0,
           color_identity: d?.color_identity || [],
@@ -145,9 +177,82 @@ export default function CardGrid({ decklist, commander, format, filter, setFilte
     : filteredCards.length > 0
       ? { "All Cards": filteredCards }
       : {};
+
+  // Card moves between columns are only meaningful for Role grouping — Type, Color,
+  // CMC, etc. are computed truths, so dragging a card there has nothing to persist.
+  const cardDragEnabled = groupBy === "role";
+
+  // Relocate cards that have a per-deck override to their chosen column.
+  const overriddenGroups = (() => {
+    if (!cardDragEnabled || Object.keys(categoryOverrides).length === 0) return rawGroups;
+    const present = new Set(filteredCards.map((c) => c.name));
+    const next = {};
+    for (const [bucket, list] of Object.entries(rawGroups)) {
+      const kept = list.filter((c) => !categoryOverrides[c.name]);
+      if (kept.length) next[bucket] = kept;
+    }
+    const placed = new Set(); // guard against a multi-role card being added twice
+    for (const list of Object.values(rawGroups)) {
+      for (const c of list) {
+        const target = categoryOverrides[c.name];
+        if (target && present.has(c.name) && !placed.has(c.name)) {
+          (next[target] ??= []).push(c);
+          placed.add(c.name);
+        }
+      }
+    }
+    return next;
+  })();
+
+  // Apply the user's saved column order for this grouping; new columns append in
+  // groupCards' natural order.
+  const savedOrder = columnOrder[groupBy] || [];
+  const orderedLabels = [
+    ...savedOrder.filter((l) => overriddenGroups[l]),
+    ...Object.keys(overriddenGroups).filter((l) => !savedOrder.includes(l)),
+  ];
   const groups = Object.fromEntries(
-    Object.entries(rawGroups).map(([type, list]) => [type, sortCards(list)])
+    orderedLabels.map((label) => [label, sortCards(overriddenGroups[label])])
   );
+
+  // Expose the current displayed column order to the reorder handler without
+  // re-deriving it inside a setter. Updated in an effect (not during render) so the
+  // ref is fresh for the next drag event.
+  const displayLabelsRef = useRef([]);
+  useEffect(() => { displayLabelsRef.current = orderedLabels; });
+
+  const handleCardMove = useCallback((cardName, targetBucket) => {
+    if (groupBy !== "role") return;
+    let next;
+    try { next = JSON.parse(localStorage.getItem(catKey) || "{}"); } catch { next = {}; }
+    next[cardName] = targetBucket;
+    localStorage.setItem(catKey, JSON.stringify(next));
+    setCatVersion((v) => v + 1);
+  }, [groupBy, catKey]);
+
+  const handleColumnReorder = useCallback((fromLabel, toLabel) => {
+    setColumnOrder((prev) => {
+      const base = (prev[groupBy] && prev[groupBy].length) ? prev[groupBy] : displayLabelsRef.current;
+      const arr = base.filter((l) => l !== fromLabel);
+      const idx = arr.indexOf(toLabel);
+      if (idx === -1) arr.push(fromLabel);
+      else arr.splice(idx, 0, fromLabel);
+      return { ...prev, [groupBy]: arr };
+    });
+  }, [groupBy]);
+
+  // Touch fallback for column reorder: nudge a column one slot left (-1) or right (+1).
+  const handleColumnNudge = useCallback((label, dir) => {
+    setColumnOrder((prev) => {
+      const base = (prev[groupBy] && prev[groupBy].length) ? [...prev[groupBy]] : [...displayLabelsRef.current];
+      for (const l of displayLabelsRef.current) if (!base.includes(l)) base.push(l);
+      const i = base.indexOf(label);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= base.length) return prev;
+      [base[i], base[j]] = [base[j], base[i]];
+      return { ...prev, [groupBy]: base };
+    });
+  }, [groupBy]);
 
   const handlePreview = useCallback((name) => setPreviewCard(name), []);
   const closePreview = useCallback(() => setPreviewCard(null), []);
@@ -202,6 +307,18 @@ export default function CardGrid({ decklist, commander, format, filter, setFilte
             <span className="cg-tb-label">View as</span>
             <ViewToggle mode={viewMode} setMode={setViewMode} />
           </div>
+          {/* Stack sub-mode: image vs text rows (only when Stacks is active) */}
+          {viewMode === "stack" && (
+            <div className="cg-tb-group">
+              <span className="cg-tb-label">Stack as</span>
+              <div className="ai-panel-toggle" role="group" aria-label="Stack display mode">
+                <button className={stackMode === "image" ? "active" : ""}
+                  aria-pressed={stackMode === "image"} onClick={() => setStackMode("image")}>Image</button>
+                <button className={stackMode === "text" ? "active" : ""}
+                  aria-pressed={stackMode === "text"} onClick={() => setStackMode("text")}>Text</button>
+              </div>
+            </div>
+          )}
           {/* Group by */}
           <div className="cg-tb-group">
             <span className="cg-tb-label">Group by</span>
@@ -267,9 +384,38 @@ export default function CardGrid({ decklist, commander, format, filter, setFilte
         </div>
       </div>
 
-      {/* Stack view: Archidekt-style overlapping columns */}
+      {/* Stack view: Archidekt-style columns — image (overlapping art) or text rows */}
       {viewMode === "stack" && (
-        <StackView groups={Object.entries(groups)} onCardClick={handleThumbnailExpand} onRemove={onRemove} onConsider={onConsider} />
+        <>
+          {cardDragEnabled && canHover && (
+            <p className="stack-drag-hint">Drag cards between columns to recategorize · drag a column header to reorder</p>
+          )}
+          {stackMode === "text" ? (
+            <TextStackView
+              groups={Object.entries(groups)}
+              metaMap={metaMap}
+              onCardClick={handleThumbnailExpand}
+              onRemove={onRemove}
+              onConsider={onConsider}
+              cardDragEnabled={cardDragEnabled}
+              onColumnReorder={handleColumnReorder}
+              onColumnNudge={handleColumnNudge}
+              onCardMove={handleCardMove}
+            />
+          ) : (
+            <StackView
+              groups={Object.entries(groups)}
+              metaMap={metaMap}
+              onCardClick={handleThumbnailExpand}
+              onRemove={onRemove}
+              onConsider={onConsider}
+              cardDragEnabled={cardDragEnabled}
+              onColumnReorder={handleColumnReorder}
+              onColumnNudge={handleColumnNudge}
+              onCardMove={handleCardMove}
+            />
+          )}
+        </>
       )}
 
       {/* Grid and List views: groups stacked vertically */}

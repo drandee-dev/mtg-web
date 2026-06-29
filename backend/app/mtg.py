@@ -125,6 +125,7 @@ def card_image(name: str) -> dict[str, Any]:
         "thumb": _image_from_record(rec, "small"),
         "art_crop": _image_from_record(rec, "art_crop"),
         "type_line": front_type,
+        "mana_cost": rec.get("mana_cost", ""),
         "color_identity": rec.get("color_identity", []),
         "cmc": rec.get("cmc", 0),
         "price_usd": extract_price(rec),

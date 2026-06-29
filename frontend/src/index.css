@@ -1900,25 +1900,54 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .cmdr-strip-price { font-size: 10px; color: var(--muted); }
 }
 
-/* ── Stack view ── */
-.stack-view { display: flex; gap: .6rem; align-items: flex-start; overflow-x: auto; padding-bottom: 1rem; }
-.stack-column { flex: none; width: 140px; }
+/* ── Stack view (shared) ── */
+.stack-view { display: flex; gap: .7rem; align-items: flex-start; overflow-x: auto; padding-bottom: 1rem; }
+.stack-column { flex: none; }
+.stack-column-image { width: 180px; }
+.stack-column-text { width: 232px; }
+.stack-drag-hint { font-size: .68rem; color: var(--muted); margin: 0 0 .5rem; }
+
+/* Shared column header — drag handle + label + qty/price meta */
 .stack-column-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: .4rem; padding-bottom: .3rem; border-bottom: 1px solid rgba(255,255,255,.1);
+  display: flex; align-items: center; gap: .35rem;
+  margin-bottom: .45rem; padding: .15rem .35rem .35rem;
+  border-bottom: 1px solid var(--border-strong);
+  cursor: grab; user-select: none;
 }
-.stack-column-label { font-size: .7rem; font-weight: 600; color: var(--text-secondary); }
-.stack-column-count { font-size: .6rem; color: var(--muted); }
+.stack-column-header:active { cursor: grabbing; }
+.stack-column-grip { font-size: .8rem; color: var(--muted); line-height: 1; letter-spacing: -1px; }
+.stack-column-label {
+  font-size: .72rem; font-weight: 600; color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;
+}
+.stack-column-meta { display: flex; align-items: center; gap: .4rem; flex: none; }
+.stack-column-count {
+  font-size: .6rem; font-weight: 700; color: var(--text-secondary);
+  background: var(--hover); border-radius: 4px; padding: .05rem .3rem;
+}
+.stack-column-price { font-size: .6rem; color: var(--muted); }
+.stack-column-droptarget {
+  outline: 1px dashed var(--accent); outline-offset: 3px; border-radius: var(--radius);
+}
+
+/* ── Image stack — overlapping art with Archidekt-style push-down hover ── */
 .stack-cards { display: flex; flex-direction: column; }
 .stack-card-wrap {
-  position: relative; width: 140px; height: 195px; border-radius: 6px;
+  position: relative; width: 180px; height: 251px; border-radius: 7px;
   overflow: hidden; cursor: pointer; z-index: 0;
-  transition: margin-bottom .2s ease-out, z-index 0s;
+  transition: margin-bottom .18s ease-out, box-shadow .18s ease-out;
 }
-.stack-card-wrap:not(:last-child) { margin-bottom: -159px; }
-.stack-card-wrap:hover { z-index: 10; margin-bottom: 8px !important; }
+.stack-card-wrap:not(:last-child) { margin-bottom: -211px; }
+.stack-card-wrap[draggable="true"] { cursor: grab; }
+/* Hover releases the negative margin so siblings below slide down, revealing the
+   full card; an accent ring + lift marks the active card. */
+.stack-card-wrap:hover,
+.stack-card-wrap:focus-visible {
+  z-index: 10; margin-bottom: 10px !important;
+  box-shadow: 0 0 0 1.5px var(--accent), var(--shadow-lg);
+}
 .stack-card-wrap img {
-  width: 100%; height: 100%; object-fit: cover; object-position: center 20%; pointer-events: none;
+  width: 100%; height: 100%; object-fit: cover; object-position: center top; pointer-events: none;
 }
 .stack-card-qty {
   position: absolute; top: 4px; left: 4px;
@@ -1938,6 +1967,66 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .stack-card-name span {
   font-size: .55rem; font-weight: 600; color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;
+}
+
+/* ── Text stack — Archidekt-style scannable rows ── */
+.stack-column-text { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: .3rem; }
+.ts-rows { display: flex; flex-direction: column; gap: 1px; }
+.ts-row {
+  display: flex; align-items: center; gap: .4rem;
+  height: 26px; padding: 0 .4rem; border-radius: 4px; cursor: pointer;
+  transition: background .12s;
+}
+.ts-row[draggable="true"] { cursor: grab; }
+.ts-row:hover, .ts-row:focus-visible { background: var(--hover); outline: none; }
+.ts-qty {
+  flex: none; min-width: 15px; text-align: right;
+  font-size: .68rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.ts-name {
+  flex: 1; min-width: 0; font-size: .74rem; color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ts-row:hover .ts-name, .ts-row:focus-visible .ts-name { color: var(--text); }
+.ts-row-actions { flex: none; display: none; align-items: center; gap: 2px; }
+.ts-row:hover .ts-row-actions, .ts-row:focus-within .ts-row-actions { display: flex; }
+.ts-row-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; padding: 0; min-height: auto;
+  background: var(--hover-strong); color: var(--text-secondary);
+  border: none; border-radius: 4px; cursor: pointer;
+}
+.ts-row-btn:hover { background: var(--accent-soft); color: var(--accent); }
+.ts-row-remove:hover { background: var(--bad-soft); color: var(--bad); }
+
+/* ── Mana pips (CSS circles, no font dependency) ── */
+.ts-mana { flex: none; display: inline-flex; gap: 2px; align-items: center; }
+.ts-pip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 50%;
+  font-size: 9px; font-weight: 700; line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.18);
+}
+.ts-pip-generic { background: #cdc7bd; color: #2b2823; }
+.ts-pip-w { background: #f7f5e9; color: #2b2823; }
+.ts-pip-u { background: #9ecbe8; color: #0d2a3d; }
+.ts-pip-b { background: #33302b; color: #cfc9c2; }
+.ts-pip-r { background: #eea08a; color: #3d1410; }
+.ts-pip-g { background: #9ed5ad; color: #123d20; }
+.ts-pip-c { background: #c8c2d4; color: #2b2533; }
+.ts-pip-x { background: #b9b3aa; color: #2b2823; font-style: italic; }
+
+/* ── Touch fallbacks (drag-and-drop / hover don't exist on touch) ── */
+/* ⋯ "move to category" menu on image cards — pointer devices use drag instead. */
+.stack-card-movemenu { position: absolute; top: 3px; right: 3px; z-index: 5; }
+.stack-card-movemenu .more-menu-btn {
+  background: rgba(0,0,0,.72); color: var(--text); border-radius: 4px; width: 22px; height: 22px;
+}
+/* On touch (.stack-touch, set from the same canHover signal the JS uses) row actions
+   can't be hover-revealed, so keep them always visible. */
+.stack-touch .ts-row-actions { display: flex; }
+@media (max-width: 500px) {
+  .stack-column-text { width: 208px; }
 }
 
 /* ── AI panel toggle ── */

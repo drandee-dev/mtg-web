@@ -11,6 +11,8 @@
 | My Decks (returning) | `my-decks-mobile.png` | `my-decks-desktop.png` | Deck hero grid with art/format/count/time, filter toolbar (search, format, sort), inline URL import, + New Deck |
 | Deck Builder (empty) | `deck-builder-mobile.png` | `deck-builder-desktop.png` | Format selector, commander input, wizard toggle, empty card grid with type filters |
 | Deck Builder (loaded) | `deck-open-mobile.png` | `deck-open-desktop.png` | Commander column with card art + bracket estimate, card grid, sidebar with AI analysis |
+| Stack View (image) | `stack-image-role-mobile.png` | `stack-image-role-desktop.png` | 180px overlapping card columns grouped by role, push-down hover, price totals, drag handle (desktop) / ⋯ menu (mobile) |
+| Stack View (text) | `stack-text-role-mobile.png` | `stack-text-role-desktop.png` | Archidekt-faithful text rows: qty + name + mana pips, per-column price totals, Image/Text sub-toggle |
 | Rules Q&A | `rules-mobile.png` | `rules-desktop.png` | Chat-style rules question input with AI-powered answers |
 | Card Search | `card-search-mobile.png` | `card-search-desktop.png` | Search by name, type, oracle text (regex), color identity, max CMC |
 

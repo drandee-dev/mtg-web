@@ -1,17 +1,51 @@
 import { useState } from "react";
 import { canHover, useCardImage } from "../../lib/hooks";
+import StackColumn from "./StackColumn";
+import MoreMenu from "./MoreMenu";
 
-export default function StackView({ groups, onCardClick, onRemove, onConsider, synergyMap = {} }) {
+function columnTotals(cards, metaMap) {
+  let qty = 0;
+  let price = 0;
+  for (const c of cards) {
+    qty += c.qty;
+    const p = metaMap?.[c.name]?.price_usd;
+    if (p != null) price += p * c.qty;
+  }
+  return { qty, price };
+}
+
+export default function StackView({
+  groups,
+  metaMap = {},
+  onCardClick,
+  onRemove,
+  onConsider,
+  synergyMap = {},
+  cardDragEnabled = false,
+  onColumnReorder,
+  onColumnNudge,
+  onCardMove,
+}) {
+  const labels = groups.map(([label]) => label);
   return (
-    <div className="stack-view">
-      {groups.map(([label, cards]) => {
-        const count = cards.reduce((s, c) => s + c.qty, 0);
+    <div className={`stack-view ${canHover ? "" : "stack-touch"}`}>
+      {groups.map(([label, cards], i) => {
+        const { qty, price } = columnTotals(cards, metaMap);
+        const moveTargets = labels.filter((l) => l !== label);
         return (
-          <div className="stack-column" key={label}>
-            <div className="stack-column-header">
-              <span className="stack-column-label">{label}</span>
-              <span className="stack-column-count">({count})</span>
-            </div>
+          <StackColumn
+            key={label}
+            label={label}
+            count={qty}
+            price={price}
+            cardDragEnabled={cardDragEnabled}
+            onColumnReorder={onColumnReorder}
+            onCardMove={onCardMove}
+            onColumnNudge={onColumnNudge}
+            canMoveLeft={i > 0}
+            canMoveRight={i < groups.length - 1}
+            className="stack-column-image"
+          >
             <div className="stack-cards">
               {cards.map((c) => (
                 <StackCard
@@ -22,20 +56,28 @@ export default function StackView({ groups, onCardClick, onRemove, onConsider, s
                   onCardClick={onCardClick}
                   onRemove={onRemove}
                   onConsider={onConsider}
+                  cardDragEnabled={cardDragEnabled}
+                  moveTargets={cardDragEnabled ? moveTargets : null}
+                  onCardMove={onCardMove}
                 />
               ))}
             </div>
-          </div>
+          </StackColumn>
         );
       })}
     </div>
   );
 }
 
-function StackCard({ name, qty, synergy, onCardClick, onRemove, onConsider }) {
+function StackCard({ name, qty, synergy, onCardClick, onRemove, onConsider, cardDragEnabled, moveTargets, onCardMove }) {
   const data = useCardImage(name);
   const img = data?.image || data?.art_crop || null;
   const [expanded, setExpanded] = useState(false);
+  // Drag is pointer-only; on touch, offer a ⋯ "move to" menu instead.
+  const showMoveMenu = !canHover && moveTargets && moveTargets.length > 0;
+  const moveItems = showMoveMenu
+    ? moveTargets.map((t) => ({ label: `Move to ${t}`, onClick: () => onCardMove?.(name, t) }))
+    : [];
 
   function handleClick() {
     if (canHover) { onCardClick?.(name); return; }
@@ -48,6 +90,11 @@ function StackCard({ name, qty, synergy, onCardClick, onRemove, onConsider }) {
       className="stack-card-wrap"
       role="listitem"
       tabIndex={0}
+      draggable={cardDragEnabled && canHover}
+      onDragStart={cardDragEnabled && canHover ? (e) => {
+        e.dataTransfer.setData("text/plain", `card:${name}`);
+        e.dataTransfer.effectAllowed = "move";
+      } : undefined}
       onClick={handleClick}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onCardClick?.(name); } }}
       aria-label={`${qty}x ${name}`}
@@ -60,6 +107,11 @@ function StackCard({ name, qty, synergy, onCardClick, onRemove, onConsider }) {
       )}
       {qty > 1 && <span className="stack-card-qty">{qty}</span>}
       {synergy != null && <span className="stack-card-synergy">{Math.round(synergy * 100)}%</span>}
+      {showMoveMenu && (
+        <div className="stack-card-movemenu" onClick={(e) => e.stopPropagation()}>
+          <MoreMenu items={moveItems} label={`Move ${name} to another category`} />
+        </div>
+      )}
       <div className="stack-card-name"><span>{name}</span></div>
       {canHover && (
         <div className="card-hover-overlay">

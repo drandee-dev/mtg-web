@@ -33,6 +33,11 @@ e2e-*.mjs
 e2e-*.py
 test_models.py
 
+# Playwright test artifacts (results JSON, trace files, test output)
+frontend/e2e/results.json
+frontend/test-results/
+frontend/playwright-report/
+
 # Design reference screenshots (binary, regenerate locally with Playwright)
 design/reference/
 design/code-handoff-*.png

@@ -382,6 +382,7 @@ export default function App() {
             maybeboard={maybeboard}
             setMaybeboard={setMaybeboard}
             deckName={currentDeck?.name || null}
+            deckId={currentDeck?.id || null}
             onSave={saveCurrentDeck}
             onClone={cloneCurrentDeck}
             onExport={exportCurrentDeck}

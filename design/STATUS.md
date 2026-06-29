@@ -25,12 +25,27 @@
 | Rules Q&A | Existing | Rules.jsx chat interface |
 | Mobile deck view | Existing | Responsive layout with bottom nav |
 
+## Phase 3: Archidekt-style stack view + testing (June 2026)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Text stack (Archidekt-faithful) | Done | 26px rows: qty + name + CSS mana pips, per-column price totals |
+| Image stack improvements | Done | 180px columns, push-down hover (cards below slide down), accent ring |
+| Image/Text sub-toggle | Done | Appears only when Stacks view active, styled like AI panel toggle |
+| Drag-and-drop: column reorder | Done | All group-by modes, counter-based dragLeave, localStorage persistence |
+| Drag-and-drop: card move | Done | Role mode only, per-deck overrides in localStorage keyed by deck id |
+| Mobile touch menus | Done | ⋯ menus replace drag (column left/right + card "move to category"), row actions always visible |
+| ManaCost.jsx pips | Done | CSS circles, WUBRG colors, hybrid/Phyrexian support, no font dependency |
+| Backend mana_cost | Done | Added to /api/cards/image response |
+| E2E test suite | Done | 56 Playwright tests (desktop + mobile), hermetic mock, Codex runner |
+
 ## Ready for next design iteration
 
-All Phase 2 frames are implemented. Areas that could benefit from design refinement:
+All Phase 2+3 are implemented. Areas that could benefit from design refinement:
 - Playtest mode UI (no design spec yet)
 - Deck sharing/export flow
 - Onboarding wizard (referenced in landing CTAs but not spec'd)
+- Mobile: toolbar avatar overlaps deck-nav ⋯ button (z-index stacking)
 
 ## Design ↔ Code round-trip (2026-06-28)
 
@@ -47,8 +62,8 @@ See `COMMS.md` for full discussion thread.
 
 | Bug | Description | Code status |
 |-----|-------------|-------------|
-| Paste List no back button | Import panel hides landing with no obvious return — add `← Back` for new users | Pending |
-| Mobile "Import URL" opens paste panel | Should focus the inline URL bar below, not open text-paste form | Pending |
-| Desktop "Import URL" opens paste panel | Should expand inline URL input in-place with Enter/Escape/✕ support | Pending |
+| Paste List no back button | Import panel hides landing with no obvious return — add `← Back` for new users | Done |
+| Mobile "Import URL" opens paste panel | Should focus the inline URL bar below, not open text-paste form | Done |
+| Desktop "Import URL" opens paste panel | Should expand inline URL input in-place with Enter/Escape/✕ support | Done |
 
 Patched `MyDecks.jsx` provided in `design/Landing page bug fixes/design_handoff_landing_fixes/`. Also requires 3 new CSS classes in `index.css`. See `COMMS.md` → Design → Code (2026-06-29) for full spec.
