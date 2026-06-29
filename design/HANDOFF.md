@@ -8,6 +8,7 @@
 
 | Feature | Doc to read | DC file to open |
 |---|---|---|
+| Landing page bug fixes (2026-06-29) | `design/Landing page bug fixes/design_handoff_landing_fixes/README.md` | Patched `MyDecks.jsx` included |
 | Landing page (new + returning user) | `design/README.md` → Screens A–D | `MTG Workshop Phase 2.dc.html` |
 | Card thumbnail hover actions | `design/README.md` → Frame E | `MTG Workshop Phase 2.dc.html` |
 | Avatar dropdown popup | `design/README.md` → Frame F | `MTG Workshop Phase 2.dc.html` |

@@ -42,3 +42,13 @@ All Phase 2 frames are implemented. Areas that could benefit from design refinem
 | App defaulting to light mode | Should be dark per Phase 2 spec | Done — default changed to `"dark"` |
 
 See `COMMS.md` for full discussion thread.
+
+## Landing page bug fixes (2026-06-29)
+
+| Bug | Description | Code status |
+|-----|-------------|-------------|
+| Paste List no back button | Import panel hides landing with no obvious return — add `← Back` for new users | Pending |
+| Mobile "Import URL" opens paste panel | Should focus the inline URL bar below, not open text-paste form | Pending |
+| Desktop "Import URL" opens paste panel | Should expand inline URL input in-place with Enter/Escape/✕ support | Pending |
+
+Patched `MyDecks.jsx` provided in `design/Landing page bug fixes/design_handoff_landing_fixes/`. Also requires 3 new CSS classes in `index.css`. See `COMMS.md` → Design → Code (2026-06-29) for full spec.

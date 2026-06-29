@@ -37,38 +37,6 @@ All four items implemented:
 
 All `design/reference/` screenshots updated. See `CURRENT-STATE.md` for the visual sitemap.
 
-### Design → Code (2026-06-28)
-
-Reviewed `design/code-handoff-avatar-menu.png` + live reference screenshots. Two answers, two new bugs found.
-
-**1. Avatar menu — drop "My Decks", restyle "Search My Decks"**
-
-Remove the "My Decks" row entirely — it's reachable via brand logo, top-nav tab, and mobile bottom-nav. Having it directly above "Search My Decks" is what makes the pair look redundant.
-
-Restyle "Search My Decks" as a compact input shell instead of a nav row:
-- `--panel-2` bg, `--border` outline, `border-radius: 6px`, `height: 32px`, `padding: 0 10px`
-- Magnifying-glass icon (`--muted`) + placeholder `Search my decks…` (`--muted`, normal weight)
-- On click: dismiss popup → switch to My Decks tab → `focus()` the search input
-- Hover: subtle `--accent` border at 40% opacity
-
-No new spec needed — targeted edit to the Frame F component.
-
-**2. Cold-start — scoped pill in DeckSidebar only**
-
-Keep the 1–2s overlay as-is. For the "AI fired during warm window" case, add one small conditional inside DeckSidebar:
-- Render above the first AI accordion only when `backendWarm === false`
-- Text: `⚡ Still warming up — first analysis may take a moment`
-- Style: `--warn` bg at 10–12% opacity, `--warn` text, `font-size: 11px`, `border-radius: 4px`, `padding: 4px 8px`
-- Auto-dismiss when health check resolves. Only show if the user has already opened an AI section.
-
-**3. Reference screenshots are wrong**
-
-`landing-new-user-mobile.png` and `landing-new-user-desktop.png` both show the Deck Builder empty state, not the landing page. Please recapture the actual new-user landing view (hero art, AI preview, CTAs) and replace both files.
-
-**4. App is defaulting to light mode — should be dark**
-
-All content areas in the reference screenshots are white/light-gray. Phase 2 spec has `--bg: #0c0d11` as the dark default. Check theme initialisation in `App.jsx` — it should seed to `"dark"` unless the user has a saved preference. Fix, then regenerate all `design/reference/` screenshots.
-
 ### Design → Code (2026-06-29)
 
 Three bugs found on the new-user landing page (`MyDecks.jsx` — `NewUserLanding` component + `MyDecks` return).
@@ -154,4 +122,36 @@ const [showDesktopUrl, setShowDesktopUrl] = useState(false);
 }
 ```
 
-**The fully patched file is at:** `design/Landing page bug fixes/design_handoff_landing_fixes/MyDecks.jsx` — drop-in replacement for `frontend/src/components/MyDecks.jsx`.
+**The fully patched file is at:** `design_handoff_landing_fixes/MyDecks.jsx` — drop-in replacement for `frontend/src/components/MyDecks.jsx`.
+
+### Design → Code (2026-06-28)
+
+Reviewed `design/code-handoff-avatar-menu.png` + live reference screenshots. Two answers, two new bugs found.
+
+**1. Avatar menu — drop "My Decks", restyle "Search My Decks"**
+
+Remove the "My Decks" row entirely — it's reachable via brand logo, top-nav tab, and mobile bottom-nav. Having it directly above "Search My Decks" is what makes the pair look redundant.
+
+Restyle "Search My Decks" as a compact input shell instead of a nav row:
+- `--panel-2` bg, `--border` outline, `border-radius: 6px`, `height: 32px`, `padding: 0 10px`
+- Magnifying-glass icon (`--muted`) + placeholder `Search my decks…` (`--muted`, normal weight)
+- On click: dismiss popup → switch to My Decks tab → `focus()` the search input
+- Hover: subtle `--accent` border at 40% opacity
+
+No new spec needed — targeted edit to the Frame F component.
+
+**2. Cold-start — scoped pill in DeckSidebar only**
+
+Keep the 1–2s overlay as-is. For the "AI fired during warm window" case, add one small conditional inside DeckSidebar:
+- Render above the first AI accordion only when `backendWarm === false`
+- Text: `⚡ Still warming up — first analysis may take a moment`
+- Style: `--warn` bg at 10–12% opacity, `--warn` text, `font-size: 11px`, `border-radius: 4px`, `padding: 4px 8px`
+- Auto-dismiss when health check resolves. Only show if the user has already opened an AI section.
+
+**3. Reference screenshots are wrong**
+
+`landing-new-user-mobile.png` and `landing-new-user-desktop.png` both show the Deck Builder empty state, not the landing page. Please recapture the actual new-user landing view (hero art, AI preview, CTAs) and replace both files.
+
+**4. App is defaulting to light mode — should be dark**
+
+All content areas in the reference screenshots are white/light-gray. Phase 2 spec has `--bg: #0c0d11` as the dark default. Check theme initialisation in `App.jsx` — it should seed to `"dark"` unless the user has a saved preference. Fix, then regenerate all `design/reference/` screenshots.
