@@ -71,7 +71,7 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
     setBusy(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/?auth_callback=1`,
+        redirectTo: window.location.origin,
       });
       if (error) throw error;
       notify("Password reset link sent — check your email.");
