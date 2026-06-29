@@ -157,6 +157,9 @@ export default function App() {
   useEffect(() => {
     function handler(e) {
       if (deckText && deckText !== savedDeckText.current) { e.preventDefault(); }
+      if (supabaseEnabled && localStorage.getItem("mtgweb:rememberMe") === "false") {
+        supabase.auth.signOut();
+      }
     }
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);

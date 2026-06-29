@@ -3,13 +3,27 @@ import { supabase, supabaseEnabled } from "../lib/supabase";
 
 const KEY_STORE = "mtgweb:anthropicKey";
 
+const REMEMBER_EMAIL_KEY = "mtgweb:rememberedEmail";
+const REMEMBER_ME_KEY = "mtgweb:rememberMe";
+
 export default function Settings({ session, notify }) {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => localStorage.getItem(REMEMBER_EMAIL_KEY) || "");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem(REMEMBER_ME_KEY) !== "false");
   const [authMode, setAuthMode] = useState("signin");
   const [apiKey, setApiKey] = useState(localStorage.getItem(KEY_STORE) || "");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  function saveRememberMe(emailValue) {
+    if (rememberMe) {
+      localStorage.setItem(REMEMBER_EMAIL_KEY, emailValue);
+      localStorage.setItem(REMEMBER_ME_KEY, "true");
+    } else {
+      localStorage.removeItem(REMEMBER_EMAIL_KEY);
+      localStorage.setItem(REMEMBER_ME_KEY, "false");
+    }
+  }
 
   async function handlePasswordAuth() {
     if (!email.trim()) return notify("Enter your email.");
@@ -23,6 +37,7 @@ export default function Settings({ session, notify }) {
           options: { emailRedirectTo: `${window.location.origin}/?auth_callback=1` },
         });
         if (error) throw error;
+        saveRememberMe(email.trim());
         notify("Check your email to confirm your account.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -30,6 +45,7 @@ export default function Settings({ session, notify }) {
           password,
         });
         if (error) throw error;
+        saveRememberMe(email.trim());
         notify("Signed in!");
       }
     } catch (e) {

@@ -1107,6 +1107,15 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   cursor: pointer; padding: 0; min-height: auto;
 }
 .account-auth-toggle:hover { text-decoration: underline; }
+.account-remember-me {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--muted); cursor: pointer;
+  margin: 6px 0 2px; text-transform: none;
+}
+.account-remember-me input[type="checkbox"] {
+  width: 14px; height: 14px; margin: 0; cursor: pointer;
+  accent-color: var(--accent);
+}
 .account-key-header { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .account-key-badge {
   font-size: 10px; font-weight: 600; background: rgba(61,206,138,.1);

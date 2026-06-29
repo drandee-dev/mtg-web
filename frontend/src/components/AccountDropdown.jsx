@@ -3,10 +3,13 @@ import { supabase } from "../lib/supabase";
 import ThemeSwitcher from "./ThemeSwitcher";
 
 const KEY_STORE = "mtgweb:anthropicKey";
+const REMEMBER_EMAIL_KEY = "mtgweb:rememberedEmail";
+const REMEMBER_ME_KEY = "mtgweb:rememberMe";
 
 export default function AccountDropdown({ session, supabaseEnabled, deckCount = 0, onClose, notify }) {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => localStorage.getItem(REMEMBER_EMAIL_KEY) || "");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem(REMEMBER_ME_KEY) !== "false");
   const [authMode, setAuthMode] = useState("signin"); // "signin" | "signup" | "magic" | "forgot"
   const [apiKey, setApiKey] = useState(localStorage.getItem(KEY_STORE) || "");
   const [editingKey, setEditingKey] = useState(!localStorage.getItem(KEY_STORE));
@@ -21,6 +24,16 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
     return () => document.removeEventListener("pointerdown", handler);
   }, [onClose]);
 
+  function saveRememberMe(emailValue) {
+    if (rememberMe) {
+      localStorage.setItem(REMEMBER_EMAIL_KEY, emailValue);
+      localStorage.setItem(REMEMBER_ME_KEY, "true");
+    } else {
+      localStorage.removeItem(REMEMBER_EMAIL_KEY);
+      localStorage.setItem(REMEMBER_ME_KEY, "false");
+    }
+  }
+
   async function handlePasswordAuth() {
     if (!email.trim()) return notify("Enter your email.");
     if (!password) return notify("Enter your password.");
@@ -33,6 +46,7 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
           options: { emailRedirectTo: `${window.location.origin}/?auth_callback=1` },
         });
         if (error) throw error;
+        saveRememberMe(email.trim());
         notify("Check your email to confirm your account.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -40,6 +54,7 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
           password,
         });
         if (error) throw error;
+        saveRememberMe(email.trim());
         notify("Signed in!");
       }
     } catch (e) {
@@ -215,6 +230,16 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
                     className="account-email-input"
                     onKeyDown={(e) => e.key === "Enter" && handlePasswordAuth()}
                   />
+                  {authMode === "signin" && (
+                    <label className="account-remember-me">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                      />
+                      <span>Remember me</span>
+                    </label>
+                  )}
                   <button onClick={handlePasswordAuth} disabled={busy} className="account-magic-link-btn">
                     {busy ? "Working..." : authMode === "signup" ? "Create Account" : "Sign In"}
                   </button>
