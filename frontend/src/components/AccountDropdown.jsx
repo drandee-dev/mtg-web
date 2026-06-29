@@ -6,6 +6,8 @@ const KEY_STORE = "mtgweb:anthropicKey";
 
 export default function AccountDropdown({ session, supabaseEnabled, deckCount = 0, onClose, notify }) {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authMode, setAuthMode] = useState("signin"); // "signin" | "signup" | "magic" | "forgot"
   const [apiKey, setApiKey] = useState(localStorage.getItem(KEY_STORE) || "");
   const [editingKey, setEditingKey] = useState(!localStorage.getItem(KEY_STORE));
   const [busy, setBusy] = useState(false);
@@ -19,6 +21,34 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
     return () => document.removeEventListener("pointerdown", handler);
   }, [onClose]);
 
+  async function handlePasswordAuth() {
+    if (!email.trim()) return notify("Enter your email.");
+    if (!password) return notify("Enter your password.");
+    setBusy(true);
+    try {
+      if (authMode === "signup") {
+        const { error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: { emailRedirectTo: `${window.location.origin}/?auth_callback=1` },
+        });
+        if (error) throw error;
+        notify("Check your email to confirm your account.");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (error) throw error;
+        notify("Signed in!");
+      }
+    } catch (e) {
+      notify(`${authMode === "signup" ? "Sign-up" : "Sign-in"} failed: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function sendLink() {
     if (!email.trim()) return notify("Enter your email.");
     setBusy(true);
@@ -31,6 +61,22 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
       notify("Check your email for the sign-in link.");
     } catch (e) {
       notify(`Sign-in failed: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendPasswordReset() {
+    if (!email.trim()) return notify("Enter your email first.");
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/?auth_callback=1`,
+      });
+      if (error) throw error;
+      notify("Password reset link sent — check your email.");
+    } catch (e) {
+      notify(`Reset failed: ${e.message}`);
     } finally {
       setBusy(false);
     }
@@ -106,18 +152,84 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
           {/* Sign in (signed-out only) */}
           {supabaseEnabled && !session && (
             <div>
-              <div className="account-section-title">Sign In</div>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
-                className="account-email-input"
-              />
-              <button onClick={sendLink} disabled={busy} className="account-magic-link-btn">
-                {busy ? "Sending..." : "Send magic link"}
-              </button>
-              <div className="account-magic-hint">No password required · Check your email</div>
+              {authMode === "magic" ? (
+                <>
+                  <div className="account-section-title">Magic Link</div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="account-email-input"
+                  />
+                  <button onClick={sendLink} disabled={busy} className="account-magic-link-btn">
+                    {busy ? "Sending..." : "Send magic link"}
+                  </button>
+                  <div className="account-magic-hint">We'll email you a one-tap sign-in link</div>
+                  <button className="account-auth-toggle" onClick={() => setAuthMode("signin")}>
+                    ← Back to password sign-in
+                  </button>
+                </>
+              ) : authMode === "forgot" ? (
+                <>
+                  <div className="account-section-title">Reset Password</div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="account-email-input"
+                  />
+                  <button onClick={sendPasswordReset} disabled={busy} className="account-magic-link-btn">
+                    {busy ? "Sending..." : "Send reset link"}
+                  </button>
+                  <div className="account-magic-hint">We'll email you a link to set a new password</div>
+                  <button className="account-auth-toggle" onClick={() => setAuthMode("signin")}>
+                    ← Back to sign-in
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="account-auth-tabs">
+                    <button
+                      className={`account-auth-tab ${authMode === "signin" ? "active" : ""}`}
+                      onClick={() => setAuthMode("signin")}
+                    >Sign In</button>
+                    <button
+                      className={`account-auth-tab ${authMode === "signup" ? "active" : ""}`}
+                      onClick={() => setAuthMode("signup")}
+                    >Create Account</button>
+                  </div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="account-email-input"
+                  />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={authMode === "signup" ? "Choose a password" : "Password"}
+                    className="account-email-input"
+                    onKeyDown={(e) => e.key === "Enter" && handlePasswordAuth()}
+                  />
+                  <button onClick={handlePasswordAuth} disabled={busy} className="account-magic-link-btn">
+                    {busy ? "Working..." : authMode === "signup" ? "Create Account" : "Sign In"}
+                  </button>
+                  <div className="account-auth-links">
+                    {authMode === "signin" && (
+                      <button className="account-auth-toggle" onClick={() => setAuthMode("forgot")}>
+                        Forgot password?
+                      </button>
+                    )}
+                    <button className="account-auth-toggle" onClick={() => setAuthMode("magic")}>
+                      Use magic link instead
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 

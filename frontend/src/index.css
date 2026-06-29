@@ -1086,6 +1086,27 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .account-callout-sub { font-size: 11px; color: var(--muted); }
 .account-callout-text { font-size: 11px; color: var(--muted); line-height: 1.5; }
 .account-magic-hint { font-size: 11px; color: var(--muted); text-align: center; margin-top: 8px; }
+.account-auth-tabs {
+  display: flex; gap: 0; margin-bottom: 10px;
+  background: var(--bg-raised); border: 1px solid var(--border);
+  border-radius: 8px; padding: 3px; overflow: hidden;
+}
+.account-auth-tab {
+  flex: 1; padding: 6px 0; font-size: 12px; font-weight: 600;
+  background: none; border: none; border-radius: 6px;
+  color: var(--muted); cursor: pointer; min-height: auto;
+  transition: background .15s, color .15s;
+}
+.account-auth-tab:hover { color: var(--text); }
+.account-auth-tab.active { background: var(--bg-card); color: var(--text); }
+.account-auth-links {
+  display: flex; gap: 12px; justify-content: center; margin-top: 10px;
+}
+.account-auth-toggle {
+  background: none; border: none; font-size: 11px; color: var(--accent-2);
+  cursor: pointer; padding: 0; min-height: auto;
+}
+.account-auth-toggle:hover { text-decoration: underline; }
 .account-key-header { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .account-key-badge {
   font-size: 10px; font-weight: 600; background: rgba(61,206,138,.1);

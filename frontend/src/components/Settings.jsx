@@ -5,9 +5,39 @@ const KEY_STORE = "mtgweb:anthropicKey";
 
 export default function Settings({ session, notify }) {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authMode, setAuthMode] = useState("signin");
   const [apiKey, setApiKey] = useState(localStorage.getItem(KEY_STORE) || "");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  async function handlePasswordAuth() {
+    if (!email.trim()) return notify("Enter your email.");
+    if (!password) return notify("Enter your password.");
+    setBusy(true);
+    try {
+      if (authMode === "signup") {
+        const { error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+          options: { emailRedirectTo: `${window.location.origin}/?auth_callback=1` },
+        });
+        if (error) throw error;
+        notify("Check your email to confirm your account.");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (error) throw error;
+        notify("Signed in!");
+      }
+    } catch (e) {
+      notify(`${authMode === "signup" ? "Sign-up" : "Sign-in"} failed: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function sendLink() {
     if (!email.trim()) return notify("Enter your email.");
@@ -15,7 +45,7 @@ export default function Settings({ session, notify }) {
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: { emailRedirectTo: window.location.origin },
+        options: { emailRedirectTo: `${window.location.origin}/?auth_callback=1` },
       });
       if (error) throw error;
       notify("Check your email for the sign-in link.");
@@ -55,11 +85,29 @@ export default function Settings({ session, notify }) {
         )}
         {supabaseEnabled && !session && (
           <>
-            <p className="muted small">Enter your email — we'll send a one-tap sign-in link. Same account works on phone and desktop.</p>
+            <p className="muted small">
+              {authMode === "signup"
+                ? "Create an account to sync your decks across devices."
+                : "Sign in to sync your decks across devices."}
+            </p>
             <label>Email</label>
             <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@example.com" />
-            <div className="row" style={{ marginTop: ".5rem" }}>
-              <button className="primary" onClick={sendLink} disabled={busy}>Send magic link</button>
+            <label>Password</label>
+            <input value={password} onChange={(e) => setPassword(e.target.value)} type="password"
+              placeholder={authMode === "signup" ? "Choose a password" : "Password"}
+              onKeyDown={(e) => e.key === "Enter" && handlePasswordAuth()} />
+            <div className="row" style={{ marginTop: ".5rem", gap: ".5rem" }}>
+              <button className="primary" onClick={handlePasswordAuth} disabled={busy}>
+                {busy ? "Working..." : authMode === "signup" ? "Create Account" : "Sign In"}
+              </button>
+            </div>
+            <div className="row" style={{ marginTop: ".25rem", gap: ".75rem" }}>
+              <button className="ghost small" onClick={() => setAuthMode(authMode === "signup" ? "signin" : "signup")}>
+                {authMode === "signup" ? "Already have an account? Sign in" : "Need an account? Create one"}
+              </button>
+              <button className="ghost small" onClick={sendLink} disabled={busy}>
+                Use magic link
+              </button>
             </div>
           </>
         )}
