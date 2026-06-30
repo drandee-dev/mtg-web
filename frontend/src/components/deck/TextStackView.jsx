@@ -1,4 +1,5 @@
 import { canHover } from "../../lib/hooks";
+import { useColumnCount, packMasonry } from "../../lib/masonry";
 import ManaCost from "./ManaCost";
 import StackColumn from "./StackColumn";
 import MoreMenu from "./MoreMenu";
@@ -14,6 +15,13 @@ function columnTotals(cards, metaMap) {
   return { qty, price };
 }
 
+// Header + row height (26px + 1px gap) per card, plus container padding.
+const HEADER_H = 34;
+const ROW_H = 27;
+function estimateColHeight(cardCount) {
+  return HEADER_H + cardCount * ROW_H + 10;
+}
+
 // Archidekt-style text columns: compact rows of qty · name · mana pips. Cards are
 // listed (not overlapped), so a whole category reads as a scannable list.
 export default function TextStackView({
@@ -26,46 +34,96 @@ export default function TextStackView({
   onColumnReorder,
   onColumnNudge,
   onCardMove,
+  commanderColumn = null,
+  onChangeCommander,
 }) {
+  const [containerRef, columnCount] = useColumnCount(232, 11.2);
   const labels = groups.map(([label]) => label);
+
+  const items = [];
+  if (commanderColumn && commanderColumn.length > 0) {
+    const cmdrPrice = commanderColumn.reduce((sum, c) => sum + (metaMap?.[c.name]?.price_usd || 0), 0);
+    items.push({
+      key: "__commander__",
+      estimatedHeight: estimateColHeight(commanderColumn.length),
+      node: (
+        <StackColumn
+          label="Commander"
+          isCommander
+          count={commanderColumn.length}
+          price={cmdrPrice}
+          className="stack-column-text"
+          menuItems={onChangeCommander ? [{ label: "Change commander", onClick: onChangeCommander }] : null}
+        >
+          <div className="ts-rows" role="list">
+            {commanderColumn.map((c) => (
+              <TextRow
+                key={c.name}
+                name={c.name}
+                qty={c.qty}
+                manaCost={metaMap?.[c.name]?.mana_cost || ""}
+                onCardClick={onCardClick}
+                onRemove={null}
+                onConsider={null}
+                cardDragEnabled={false}
+                moveTargets={null}
+              />
+            ))}
+          </div>
+        </StackColumn>
+      ),
+    });
+  }
+
+  groups.forEach(([label, cards], i) => {
+    const { qty, price } = columnTotals(cards, metaMap);
+    const moveTargets = labels.filter((l) => l !== label);
+    items.push({
+      key: label,
+      estimatedHeight: estimateColHeight(cards.length),
+      node: (
+        <StackColumn
+          label={label}
+          count={qty}
+          price={price}
+          cardDragEnabled={cardDragEnabled}
+          onColumnReorder={onColumnReorder}
+          onCardMove={onCardMove}
+          onColumnNudge={onColumnNudge}
+          canMoveLeft={i > 0}
+          canMoveRight={i < groups.length - 1}
+          className="stack-column-text"
+        >
+          <div className="ts-rows" role="list">
+            {cards.map((c) => (
+              <TextRow
+                key={c.name}
+                name={c.name}
+                qty={c.qty}
+                manaCost={metaMap?.[c.name]?.mana_cost || ""}
+                onCardClick={onCardClick}
+                onRemove={onRemove}
+                onConsider={onConsider}
+                cardDragEnabled={cardDragEnabled}
+                moveTargets={cardDragEnabled ? moveTargets : null}
+                onCardMove={onCardMove}
+              />
+            ))}
+          </div>
+        </StackColumn>
+      ),
+    });
+  });
+
+  const buckets = packMasonry(items, columnCount);
+
   return (
-    <div className={`stack-view text-stack-view ${canHover ? "" : "stack-touch"}`}>
-      {groups.map(([label, cards], i) => {
-        const { qty, price } = columnTotals(cards, metaMap);
-        const moveTargets = labels.filter((l) => l !== label);
-        return (
-          <StackColumn
-            key={label}
-            label={label}
-            count={qty}
-            price={price}
-            cardDragEnabled={cardDragEnabled}
-            onColumnReorder={onColumnReorder}
-            onCardMove={onCardMove}
-            onColumnNudge={onColumnNudge}
-            canMoveLeft={i > 0}
-            canMoveRight={i < groups.length - 1}
-            className="stack-column-text"
-          >
-            <div className="ts-rows" role="list">
-              {cards.map((c) => (
-                <TextRow
-                  key={c.name}
-                  name={c.name}
-                  qty={c.qty}
-                  manaCost={metaMap?.[c.name]?.mana_cost || ""}
-                  onCardClick={onCardClick}
-                  onRemove={onRemove}
-                  onConsider={onConsider}
-                  cardDragEnabled={cardDragEnabled}
-                  moveTargets={cardDragEnabled ? moveTargets : null}
-                  onCardMove={onCardMove}
-                />
-              ))}
-            </div>
-          </StackColumn>
-        );
-      })}
+    <div ref={containerRef} className={`stack-view text-stack-view ${canHover ? "" : "stack-touch"}`}>
+      {buckets.map((bucket, i) => (
+        <div className="stack-masonry-col" key={i}>
+          {bucket.map((item) => <div key={item.key}>{item.node}</div>)}
+        </div>
+      ))}
     </div>
   );
 }

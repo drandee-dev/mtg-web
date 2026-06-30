@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { canHover, useCardImage } from "../../lib/hooks";
+import { useColumnCount, packMasonry } from "../../lib/masonry";
 import StackColumn from "./StackColumn";
 import MoreMenu from "./MoreMenu";
 
@@ -14,6 +15,15 @@ function columnTotals(cards, metaMap) {
   return { qty, price };
 }
 
+// Header + first full card + a sliver per additional overlapped card. Only used to
+// rank columns by estimated height for masonry bucketing — doesn't need to be exact.
+const HEADER_H = 34;
+const CARD_H = 293;
+const OVERLAP_SLIVER = 40;
+function estimateColHeight(cardCount) {
+  return HEADER_H + CARD_H + Math.max(0, cardCount - 1) * OVERLAP_SLIVER;
+}
+
 export default function StackView({
   groups,
   metaMap = {},
@@ -25,46 +35,95 @@ export default function StackView({
   onColumnReorder,
   onColumnNudge,
   onCardMove,
+  commanderColumn = null,
+  onChangeCommander,
 }) {
+  const [containerRef, columnCount] = useColumnCount(210, 11.2);
   const labels = groups.map(([label]) => label);
+
+  const items = [];
+  if (commanderColumn && commanderColumn.length > 0) {
+    const cmdrPrice = commanderColumn.reduce((sum, c) => sum + (metaMap?.[c.name]?.price_usd || 0), 0);
+    items.push({
+      key: "__commander__",
+      estimatedHeight: estimateColHeight(commanderColumn.length),
+      node: (
+        <StackColumn
+          label="Commander"
+          isCommander
+          count={commanderColumn.length}
+          price={cmdrPrice}
+          className="stack-column-image"
+          menuItems={onChangeCommander ? [{ label: "Change commander", onClick: onChangeCommander }] : null}
+        >
+          <div className="stack-cards">
+            {commanderColumn.map((c) => (
+              <StackCard
+                key={c.name}
+                name={c.name}
+                qty={c.qty}
+                onCardClick={onCardClick}
+                onRemove={null}
+                onConsider={null}
+                cardDragEnabled={false}
+                moveTargets={null}
+              />
+            ))}
+          </div>
+        </StackColumn>
+      ),
+    });
+  }
+
+  groups.forEach(([label, cards], i) => {
+    const { qty, price } = columnTotals(cards, metaMap);
+    const moveTargets = labels.filter((l) => l !== label);
+    items.push({
+      key: label,
+      estimatedHeight: estimateColHeight(cards.length),
+      node: (
+        <StackColumn
+          label={label}
+          count={qty}
+          price={price}
+          cardDragEnabled={cardDragEnabled}
+          onColumnReorder={onColumnReorder}
+          onCardMove={onCardMove}
+          onColumnNudge={onColumnNudge}
+          canMoveLeft={i > 0}
+          canMoveRight={i < groups.length - 1}
+          className="stack-column-image"
+        >
+          <div className="stack-cards">
+            {cards.map((c) => (
+              <StackCard
+                key={c.name}
+                name={c.name}
+                qty={c.qty}
+                synergy={synergyMap[c.name]}
+                onCardClick={onCardClick}
+                onRemove={onRemove}
+                onConsider={onConsider}
+                cardDragEnabled={cardDragEnabled}
+                moveTargets={cardDragEnabled ? moveTargets : null}
+                onCardMove={onCardMove}
+              />
+            ))}
+          </div>
+        </StackColumn>
+      ),
+    });
+  });
+
+  const buckets = packMasonry(items, columnCount);
+
   return (
-    <div className={`stack-view ${canHover ? "" : "stack-touch"}`}>
-      {groups.map(([label, cards], i) => {
-        const { qty, price } = columnTotals(cards, metaMap);
-        const moveTargets = labels.filter((l) => l !== label);
-        return (
-          <StackColumn
-            key={label}
-            label={label}
-            count={qty}
-            price={price}
-            cardDragEnabled={cardDragEnabled}
-            onColumnReorder={onColumnReorder}
-            onCardMove={onCardMove}
-            onColumnNudge={onColumnNudge}
-            canMoveLeft={i > 0}
-            canMoveRight={i < groups.length - 1}
-            className="stack-column-image"
-          >
-            <div className="stack-cards">
-              {cards.map((c) => (
-                <StackCard
-                  key={c.name}
-                  name={c.name}
-                  qty={c.qty}
-                  synergy={synergyMap[c.name]}
-                  onCardClick={onCardClick}
-                  onRemove={onRemove}
-                  onConsider={onConsider}
-                  cardDragEnabled={cardDragEnabled}
-                  moveTargets={cardDragEnabled ? moveTargets : null}
-                  onCardMove={onCardMove}
-                />
-              ))}
-            </div>
-          </StackColumn>
-        );
-      })}
+    <div ref={containerRef} className={`stack-view ${canHover ? "" : "stack-touch"}`}>
+      {buckets.map((bucket, i) => (
+        <div className="stack-masonry-col" key={i}>
+          {bucket.map((item) => <div key={item.key}>{item.node}</div>)}
+        </div>
+      ))}
     </div>
   );
 }
@@ -112,16 +171,14 @@ function StackCard({ name, qty, synergy, onCardClick, onRemove, onConsider, card
           <MoreMenu items={moveItems} label={`Move ${name} to another category`} />
         </div>
       )}
-      <div className="stack-card-name"><span>{name}</span></div>
+      {onRemove && (
+        <button className="card-corner-remove" onClick={(e) => { e.stopPropagation(); onRemove(name); }}
+          aria-label={`Remove ${name} from deck`}>
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4L4 12"/></svg>
+        </button>
+      )}
       {canHover && (
         <div className="card-hover-overlay">
-          {onRemove && (
-            <button className="card-hover-btn card-hover-remove"
-              onClick={(e) => { e.stopPropagation(); onRemove(name); }}>
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 4l8 8M12 4L4 12"/></svg>
-              <span>Remove</span>
-            </button>
-          )}
           {onConsider && (
             <button className="card-hover-btn card-hover-consider"
               onClick={(e) => { e.stopPropagation(); onConsider(name); }}>

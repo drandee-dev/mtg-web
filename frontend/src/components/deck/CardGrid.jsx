@@ -39,7 +39,7 @@ function deckCompleteness(totalCards, commander, format) {
   return { label: `${totalCards} / 60+`, status, title: "Constructed decks are a 60-card minimum" };
 }
 
-export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, typeFilter, onRemove, onConsider, addCard, onCardSearch, onSave, saveState, onTypeCounts, notify }) {
+export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, typeFilter, onRemove, onConsider, addCard, onCardSearch, onSave, saveState, onTypeCounts, notify, onChangeCommander }) {
   const [quickAdd, setQuickAdd] = useState("");
   const [viewMode, setViewMode] = useState(
     () => localStorage.getItem("mtgweb:viewMode") || "grid"
@@ -81,6 +81,12 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
 
   const { cards, totalCards } = parseDeckText(decklist);
 
+  // Commander(s) render as a fixed, crowned leading column — they live outside the
+  // decklist text, so they're injected here rather than grouped from `cards`.
+  const isCmdrFmt = format === "commander" || format === "paupercommander";
+  const commanderNames = isCmdrFmt ? (commander || "").split(" && ").filter(Boolean) : [];
+  const commanderCards = commanderNames.map((name) => ({ name, qty: 1 }));
+
   useEffect(() => {
     localStorage.setItem("mtgweb:viewMode", viewMode);
   }, [viewMode]);
@@ -112,7 +118,7 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
 
   // Resolve full card metadata (type, roles, cmc, color, price) for all cards
   useEffect(() => {
-    const names = [...new Set(cards.map((c) => c.name))];
+    const names = [...new Set([...cards.map((c) => c.name), ...commanderNames])];
     let cancelled = false;
     Promise.all(
       names.map(async (name) => {
@@ -137,7 +143,7 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
       setMetaMap(meta);
     });
     return () => { cancelled = true; };
-  }, [decklist]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [decklist, commander]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sortCards = useCallback((list) => {
     const sorted = [...list];
@@ -401,6 +407,8 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
               onColumnReorder={handleColumnReorder}
               onColumnNudge={handleColumnNudge}
               onCardMove={handleCardMove}
+              commanderColumn={commanderCards}
+              onChangeCommander={onChangeCommander}
             />
           ) : (
             <StackView
@@ -413,12 +421,53 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
               onColumnReorder={handleColumnReorder}
               onColumnNudge={handleColumnNudge}
               onCardMove={handleCardMove}
+              commanderColumn={commanderCards}
+              onChangeCommander={onChangeCommander}
             />
           )}
         </>
       )}
 
-      {/* Grid and List views: groups stacked vertically */}
+      {/* Grid and List views: commander leads, then groups stacked vertically */}
+      {viewMode !== "stack" && commanderCards.length > 0 && (
+        <div className="card-group">
+          <div className="group-header" style={{ cursor: "default" }}>
+            <span className="stack-column-crown" aria-hidden="true">♛</span>
+            <h3>Commander</h3>
+            <span className="count">({commanderCards.length})</span>
+          </div>
+          {viewMode === "grid" ? (
+            <div className="card-grid" role="list">
+              {commanderCards.map((c) => (
+                <CardThumbnail
+                  key={c.name}
+                  name={c.name}
+                  qty={c.qty}
+                  onRemove={null}
+                  onConsider={null}
+                  onExpand={() => handleThumbnailExpand(c.name)}
+                  useArtCrop={!canHover}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="card-list" role="list">
+              {commanderCards.map((c) => (
+                <CardListRow
+                  key={c.name}
+                  name={c.name}
+                  qty={c.qty}
+                  typeLine={metaMap[c.name]?.type_line}
+                  price={metaMap[c.name]?.price_usd}
+                  isMdfc={metaMap[c.name]?.is_mdfc}
+                  onRemove={null}
+                  onPreview={handlePreview}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {viewMode !== "stack" && Object.entries(groups).map(([type, groupCards]) => (
         <div key={type} className="card-group">
           <button className="group-header" onClick={() => toggleCollapse(type)} aria-expanded={!collapsed.has(type)}>

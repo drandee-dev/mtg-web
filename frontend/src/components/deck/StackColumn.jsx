@@ -23,6 +23,8 @@ export default function StackColumn({
   canMoveLeft,
   canMoveRight,
   className = "",
+  isCommander = false,
+  menuItems = null,
   children,
 }) {
   const [dropHint, setDropHint] = useState(false);
@@ -75,26 +77,37 @@ export default function StackColumn({
   if (canMoveLeft) nudgeItems.push({ label: "Move column left", icon: "‹", onClick: () => onColumnNudge?.(label, -1) });
   if (canMoveRight) nudgeItems.push({ label: "Move column right", icon: "›", onClick: () => onColumnNudge?.(label, 1) });
 
+  // The commander column is fixed in place: not draggable, not a drop target.
+  const dndProps = isCommander ? {} : {
+    onDragOver: handleDragOver,
+    onDrop: handleDrop,
+    onDragEnter: handleDragEnter,
+    onDragLeave: handleDragLeave,
+  };
+
   return (
     <div
       className={`stack-column ${className} ${dropHint ? "stack-column-droptarget" : ""}`}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
+      {...dndProps}
     >
       <div
         className="stack-column-header"
-        draggable={canHover}
-        onDragStart={canHover ? handleDragStartColumn : undefined}
-        title={canHover ? "Drag to reorder column" : undefined}
+        draggable={canHover && !isCommander}
+        onDragStart={canHover && !isCommander ? handleDragStartColumn : undefined}
+        title={canHover && !isCommander ? "Drag to reorder column" : undefined}
+        style={isCommander ? { cursor: "default" } : undefined}
       >
-        {canHover && <span className="stack-column-grip" aria-hidden="true">⠿</span>}
+        {isCommander
+          ? <span className="stack-column-crown" aria-hidden="true">♛</span>
+          : canHover && <span className="stack-column-grip" aria-hidden="true">⠿</span>}
         <span className="stack-column-label">{label}</span>
         <span className="stack-column-meta">
           <span className="stack-column-count">{count}</span>
           {price > 0 && <span className="stack-column-price">${price.toFixed(2)}</span>}
-          {!canHover && nudgeItems.length > 0 && (
+          {menuItems && menuItems.length > 0 && (
+            <MoreMenu items={menuItems} label={`${label} options`} />
+          )}
+          {!isCommander && !canHover && nudgeItems.length > 0 && (
             <MoreMenu items={nudgeItems} label={`Reorder ${label} column`} />
           )}
         </span>

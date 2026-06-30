@@ -9,35 +9,6 @@ import MoreMenu from "./MoreMenu";
 import Maybeboard from "./Maybeboard";
 import { parseDeckText } from "../../lib/deckParser";
 
-const COLOR_COMBO_NAMES = {
-  "": "Colorless",
-  "W": "Mono-White", "U": "Mono-Blue", "B": "Mono-Black", "R": "Mono-Red", "G": "Mono-Green",
-  "WU": "Azorius", "WB": "Orzhov", "WR": "Boros", "WG": "Selesnya",
-  "UB": "Dimir", "UR": "Izzet", "UG": "Simic",
-  "BR": "Rakdos", "BG": "Golgari",
-  "RG": "Gruul",
-  "WUB": "Esper", "WUR": "Jeskai", "WUG": "Bant",
-  "WBR": "Mardu", "WBG": "Abzan", "WRG": "Naya",
-  "UBR": "Grixis", "UBG": "Sultai", "URG": "Temur",
-  "BRG": "Jund",
-  "WUBR": "Yore-Tiller", "WUBG": "Witch-Maw", "WURG": "Ink-Treader", "WBRG": "Dune-Brood", "UBRG": "Glint-Eye",
-  "WUBRG": "5-Color",
-};
-const WUBRG_ORDER = "WUBRG";
-function colorKey(colors) {
-  return WUBRG_ORDER.split("").filter((c) => colors.includes(c)).join("");
-}
-const COLOR_HEX = { W: "#f9faf4", U: "#0e68ab", B: "#150b00", R: "#d3202a", G: "#00733e" };
-
-const BRACKET_LABELS = {
-  1: "Precon",
-  2: "Core",
-  3: "Optimized",
-  4: "cEDH",
-};
-
-const BRACKET_URL = "https://mtg.wiki/page/Commander_Brackets";
-
 export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
   maybeboard, setMaybeboard,
@@ -134,7 +105,7 @@ export default function DeckView({
     notify?.(`Added ${name}`);
   }
 
-  function removeCard(name) {
+  function removeCard(name, { silent = false } = {}) {
     setDecklist((prev) => {
       const lines = prev.split("\n");
       const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -142,7 +113,7 @@ export default function DeckView({
       if (idx >= 0) lines.splice(idx, 1);
       return lines.join("\n");
     });
-    notify?.(`Removed ${name}`);
+    if (!silent) notify?.(`Removed ${name}`);
   }
 
   function swapCard(oldName, newName) {
@@ -151,12 +122,14 @@ export default function DeckView({
     skip(oldName);
   }
 
+  // Moving a card to Considering also pulls it out of the deck (silent remove so
+  // there's a single, subtle toast rather than two).
   function addToConsidering(name) {
-    setMaybeboard?.((prev) => {
-      const has = (prev || "").split("\n").some((l) => l.trim().replace(/^\d+\s+/, "").toLowerCase() === name.toLowerCase());
-      if (has) return prev;
-      return `${(prev || "").replace(/\s*$/, "")}\n1 ${name}`.trim();
-    });
+    const prev = maybeboard || "";
+    const has = prev.split("\n").some((l) => l.trim().replace(/^\d+\s+/, "").toLowerCase() === name.toLowerCase());
+    if (!has) setMaybeboard?.(`${prev.replace(/\s*$/, "")}\n1 ${name}`.trim());
+    removeCard(name, { silent: true });
+    notify?.(`Moved ${name} to Considering`);
   }
 
   async function handleSave() {
@@ -368,92 +341,9 @@ export default function DeckView({
         ))}
       </div>
 
-      {/* Main layout: 3-column when commander is set, 2-column otherwise */}
-      <div className={hasCommander ? "deck-layout-3col" : "deck-layout"}>
-        {/* Commander left column */}
-        {hasCommander && (
-          <div className="cmdr-col">
-            {cmdrData?.image ? (
-              <img className="cmdr-col-card" src={cmdrData.image} alt={commander} loading="lazy" />
-            ) : (
-              <div className="cmdr-col-card" style={{ aspectRatio: "488/680", background: "var(--panel-2)", borderRadius: "var(--radius-lg)" }} />
-            )}
-            <div className="cmdr-col-name">{commander.replace(" && ", " + ")}</div>
-            <div className="cmdr-col-type">
-              {result?.bracket?.bracket != null ? (
-                <a href={BRACKET_URL} target="_blank" rel="noopener noreferrer" className="bracket-link">
-                  Est. Bracket: {BRACKET_LABELS[result.bracket.bracket] || result.bracket.bracket} ({result.bracket.bracket})
-                </a>
-              ) : isCommanderFmt ? (
-                <span className="muted">Bracket: analyzing…</span>
-              ) : null}
-            </div>
-            <div className="cmdr-col-badges">
-              {(() => {
-                const ci = cmdrData?.color_identity || [];
-                const key = colorKey(ci);
-                const name = COLOR_COMBO_NAMES[key];
-                const colors = WUBRG_ORDER.split("").filter((c) => ci.includes(c));
-                const grad = colors.length >= 2
-                  ? `linear-gradient(90deg, ${colors.map((c, i) => `${COLOR_HEX[c]} ${(i / (colors.length - 1)) * 100}%`).join(", ")})`
-                  : colors.length === 1 ? COLOR_HEX[colors[0]] : "var(--muted)";
-                return (
-                  <>
-                    <span className="color-swatch" style={{ background: grad }} />
-                    {name && <span className="color-combo-name">{name}</span>}
-                  </>
-                );
-              })()}
-            </div>
-            {/* Mini mana curve */}
-            {result?.stats?.curve && (
-              <div>
-                <div className="cmdr-mini-label">Mana Curve</div>
-                <div className="cmdr-mini-curve">
-                  {[0, 1, 2, 3, 4, 5, 6, 7].map((cmc) => {
-                    const curve = result.stats.curve;
-                    const v = cmc === 7
-                      ? Object.entries(curve).reduce((s, [k, val]) => s + (Number(k) >= 7 ? val : 0), 0)
-                      : (curve[cmc] || 0);
-                    const max = Math.max(...Object.values(curve), 1);
-                    return (
-                      <div key={cmc} className="cmdr-mini-bar">
-                        <div className="cmdr-mini-bar-fill" style={{ height: `${(v / max) * 100}%` }} />
-                        <span className="cmdr-mini-bar-lbl">{cmc === 7 ? "7+" : cmc}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Color demand bars */}
-            {result?.mana?.pip_demand_pct && (() => {
-              const pct = result.mana.pip_demand_pct;
-              const colors = WUBRG_ORDER.split("").filter((c) => pct[c]);
-              if (!colors.length) return null;
-              return (
-                <div>
-                  <div className="cmdr-mini-label">Color Demand</div>
-                  {colors.map((c) => (
-                    <div key={c} className="cmdr-color-row">
-                      <span className={`pip pip-${c}`} style={{ width: 14, height: 14, fontSize: ".55rem" }}>{c}</span>
-                      <div className="cmdr-color-bar">
-                        <div className="cmdr-color-fill" style={{ width: `${pct[c]}%`, background: COLOR_HEX[c] }} />
-                      </div>
-                      <span className="cmdr-color-pct">{pct[c]}%</span>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-
-            <div style={{ textAlign: "center", marginTop: ".5rem" }}>
-              <button className="ghost small" onClick={() => setCommander("")} style={{ fontSize: ".75rem" }}>Change commander</button>
-            </div>
-          </div>
-        )}
-
+      {/* Main layout: deck grid + AI sidebar. The commander now renders as a
+          crowned leading column inside the grid (CardGrid), not a side panel. */}
+      <div className="deck-layout">
         <div className="deck-main">
           <DeckInput
             ref={searchRef}
@@ -480,6 +370,7 @@ export default function DeckView({
             saveState={saveState}
             onTypeCounts={setTypeCounts}
             notify={notify}
+            onChangeCommander={locked ? null : () => setCommander("")}
           />
 
         </div>

@@ -79,19 +79,16 @@ export default function CardThumbnail({ name, qty, onRemove, onConsider, expande
           <div className="card-thumb-placeholder">{name}</div>
         )}
         <span className="qty-badge" aria-label={`${qty} copies`}>{qty}</span>
-        {/* Desktop hover overlay — Remove / Consider / Scryfall */}
+        {/* Desktop corner remove ✕ — touch keeps the swipe-to-remove gesture instead */}
+        {canHover && onRemove && (
+          <button className="card-corner-remove" onClick={(e) => { e.stopPropagation(); onRemove(name); }}
+            aria-label={`Remove ${name} from deck`}>
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4L4 12"/></svg>
+          </button>
+        )}
+        {/* Desktop hover overlay — Consider / Scryfall */}
         {canHover && (
           <div className="card-hover-overlay">
-            {onRemove && (
-              <button
-                className="card-hover-btn card-hover-remove"
-                onClick={(e) => { e.stopPropagation(); onRemove(name); }}
-                aria-label={`Remove ${name} from deck`}
-              >
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 4l8 8M12 4L4 12"/></svg>
-                <span>Remove</span>
-              </button>
-            )}
             {onConsider && (
               <button
                 className="card-hover-btn card-hover-consider"
