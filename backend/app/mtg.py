@@ -73,9 +73,19 @@ def _rules() -> dict[str, Any]:
 
 
 def data_as_of() -> str | None:
-    """ISO date of the bulk card data (file mtime) — for a 'prices as of' note."""
+    """ISO date of the bulk card data — for a 'prices as of' note.
+
+    Prefers the data-as-of.txt marker written by vercel_build.py (bundling
+    resets file mtimes); falls back to the bulk file's mtime for local dev.
+    """
     import datetime
 
+    marker = config.BULK_PATH.with_name("data-as-of.txt")
+    try:
+        text = marker.read_text(encoding="utf-8").strip()
+        return datetime.date.fromisoformat(text).isoformat()
+    except (OSError, ValueError):
+        pass
     try:
         ts = config.BULK_PATH.stat().st_mtime
     except OSError:

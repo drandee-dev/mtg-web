@@ -34,6 +34,14 @@ import download_data  # noqa: E402
 download_data.download_bulk()
 download_data.download_rules()
 
+# Record the download date in a marker file — Vercel's bundler resets file
+# mtimes, so mtg.data_as_of() can't rely on stat() inside the deployment.
+import datetime  # noqa: E402
+
+marker = Path(os.environ["MTG_DATA_DIR"]) / "data-as-of.txt"
+marker.write_text(datetime.date.today().isoformat(), encoding="utf-8")
+print(f"Wrote data-as-of marker: {marker.read_text(encoding='utf-8')}")
+
 print("Pre-building pickle caches (bulk index + parsed rules)...")
 from app import mtg  # noqa: E402  (bootstraps mtg_utils on import)
 
