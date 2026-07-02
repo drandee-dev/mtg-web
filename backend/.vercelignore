@@ -1,0 +1,7 @@
+# Keep the function bundle lean — data/ is written fresh by vercel_build.py.
+.venv
+__pycache__
+*.pyc
+test_models.py
+render-build.sh
+ai_usage.json

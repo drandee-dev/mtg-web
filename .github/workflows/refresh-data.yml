@@ -1,0 +1,21 @@
+# Weekly backend redeploy so the bundled Scryfall data (card prices) stays fresh.
+# The deploy hook rebuilds the Vercel backend project, whose build step
+# (backend/vercel_build.py) always downloads current bulk data.
+name: Refresh card data
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # Mondays 09:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  redeploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel deploy hook
+        run: |
+          if [ -z "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}" ]; then
+            echo "VERCEL_DEPLOY_HOOK_URL secret is not set — skipping."
+            exit 0
+          fi
+          curl -sf -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}"

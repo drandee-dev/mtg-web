@@ -35,8 +35,12 @@ _DEFAULT_SRC = _BUNDLED_SRC if (_BUNDLED_SRC / "mtg_utils").is_dir() else _SIBLI
 MTG_UTILS_SRC = _env_path("MTG_UTILS_SRC", _DEFAULT_SRC)
 
 # Shared Scryfall bulk data + Comprehensive Rules text.
+# Priority: env var > bundled data in backend/data (written by vercel_build.py
+# at deploy time) > sibling mtg-deck-builder repo (local dev).
 # On Render: set MTG_DATA_DIR to the persistent disk mount (e.g. /data).
-DATA_DIR = _env_path("MTG_DATA_DIR", _MTG / "data")
+_BUNDLED_DATA = _BACKEND / "data"
+_DEFAULT_DATA = _BUNDLED_DATA if (_BUNDLED_DATA / "default-cards.json").is_file() else _MTG / "data"
+DATA_DIR = _env_path("MTG_DATA_DIR", _DEFAULT_DATA)
 BULK_PATH = _env_path("MTG_BULK_PATH", DATA_DIR / "default-cards.json")
 
 

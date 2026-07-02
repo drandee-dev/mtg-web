@@ -1,0 +1,10 @@
+[project]
+name = "mtg-web-backend"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+# Vercel deploys app/main.py:app as a single Python Function (auto-detected
+# entrypoint). The build script downloads + strips Scryfall data and pre-builds
+# the pickle caches so cold starts load pickles instead of parsing raw JSON.
+[tool.vercel.scripts]
+build = "python vercel_build.py"

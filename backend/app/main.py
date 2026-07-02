@@ -18,7 +18,7 @@ import threading
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import Body, FastAPI, HTTPException, Query, Request
+from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
@@ -139,7 +139,18 @@ def _get_user_from_jwt(request: Request) -> tuple[str, str]:
 
 
 def _client_ip(request: Request) -> str:
-    """Extract the real client IP, respecting X-Forwarded-For behind a reverse proxy."""
+    """Extract the real client IP for rate-limit keying.
+
+    Prefer platform-set headers that clients cannot spoof (Vercel's
+    x-vercel-forwarded-for / x-real-ip). The first X-Forwarded-For entry is
+    client-controlled on some hosts, which would let anonymous callers rotate
+    fake IPs past the daily AI limit — only fall back to it last (Render
+    normalizes it; local dev has no proxy at all).
+    """
+    for header in ("x-vercel-forwarded-for", "x-real-ip"):
+        value = (request.headers.get(header) or "").strip()
+        if value:
+            return value.split(",")[0].strip()
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         return forwarded.split(",")[0].strip()
@@ -236,6 +247,7 @@ def health() -> dict:
 
 @app.get("/api/rules/search")
 def rules_search(
+    response: Response,
     rule: Annotated[str | None, Query(description="Exact rule number, e.g. 702.19a")] = None,
     term: Annotated[str | None, Query(description="Glossary term, e.g. trample")] = None,
     grep: Annotated[str | None, Query(description="Regex over rule text")] = None,
@@ -246,13 +258,17 @@ def rules_search(
     if grep:
         _safe_regex(grep, "grep pattern")
     try:
-        return mtg.rules_search(rule=rule, term=term, grep=grep, limit=limit)
+        result = mtg.rules_search(rule=rule, term=term, grep=grep, limit=limit)
     except FileNotFoundError as e:
         raise HTTPException(503, "Rules data not loaded.") from e
+    # Rules text changes a few times a year — safe to cache at the CDN for a day.
+    response.headers["Cache-Control"] = "public, s-maxage=86400, stale-while-revalidate=86400"
+    return result
 
 
 @app.get("/api/cards/search")
 def cards_search(
+    response: Response,
     name: Annotated[str | None, Query(description="Name substring")] = None,
     oracle: Annotated[str | None, Query(description="Regex over oracle text")] = None,
     type: Annotated[str | None, Query(alias="type", description="Type-line substring")] = None,  # noqa: A002
@@ -283,6 +299,8 @@ def cards_search(
         )
     except Exception as e:  # noqa: BLE001 - surface filter/regex errors cleanly
         raise HTTPException(400, "Invalid search parameters.") from e
+    # Short CDN cache: absorbs repeat queries while keeping price sorts fresh.
+    response.headers["Cache-Control"] = "public, s-maxage=600, stale-while-revalidate=600"
     return {"count": len(results), "results": results}
 
 
@@ -615,6 +633,7 @@ def planeswalker_chat(request: Request, payload: ChatPayload) -> dict:
 
 @app.get("/api/cards/image")
 def card_image(
+    response: Response,
     name: Annotated[str | None, Query(description="Single card name")] = None,
     names: Annotated[str | None, Query(description="Pipe-separated card names for a batch")] = None,
 ) -> dict:
@@ -623,6 +642,8 @@ def card_image(
     `?name=Sol Ring` → {name, found, image, thumb}.
     `?names=A|B|C`   → {"images": {A: {...}, B: {...}, ...}}.
     """
+    # Image URLs for a printing are effectively immutable — cache a day at the CDN.
+    response.headers["Cache-Control"] = "public, s-maxage=86400, stale-while-revalidate=86400"
     if names:
         wanted = [n.strip() for n in names.split("|") if n.strip()]
         return {"images": mtg.card_images(wanted)}

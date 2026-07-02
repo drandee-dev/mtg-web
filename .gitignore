@@ -45,8 +45,10 @@ design/code-handoff-*.png
 # Codex agent config (local-only)
 .codex/
 
-# Scryfall bulk data (too large for git)
+# Scryfall bulk data + build-time pickle caches (too large for git)
 *.json.parsed.pkl
+*.idx.pkl
+*.txt.parsed.pkl
 default-cards.json
 default-cards.sidecar.json
 ai_usage.json
