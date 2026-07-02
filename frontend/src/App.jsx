@@ -6,7 +6,7 @@ import { makeStore } from "./lib/store";
 import { downloadFile } from "./lib/hooks";
 import GlobalToolbar from "./components/layout/GlobalToolbar";
 import BottomNav from "./components/layout/BottomNav";
-import ColdStartOverlay from "./components/ColdStartOverlay";
+import ServerStatusBanner from "./components/ServerStatusBanner";
 import DeckView from "./components/deck/DeckView";
 import MyDecks from "./components/MyDecks";
 import Rules from "./components/Rules";
@@ -196,8 +196,10 @@ export default function App() {
       } catch {
         if (cancelled) return;
         if (attempt === 0) setServerStatus("waking");
-        if (attempt < 15) {
-          setTimeout(() => check(attempt + 1), 10000);
+        // Serverless backend: no cold-start wake to wait out — a failing health
+        // check means a real outage, so give up after ~25s instead of 150s.
+        if (attempt < 5) {
+          setTimeout(() => check(attempt + 1), 5000);
         } else {
           setServerStatus("offline");
         }
@@ -344,8 +346,10 @@ export default function App() {
         Skip to content
       </a>
 
-      {(serverStatus === "waking" || serverStatus === "checking" || serverStatus === "offline") && (
-        <ColdStartOverlay status={serverStatus} onRetry={() => setHealthRetry((n) => n + 1)} />
+      {/* Non-blocking: the app renders immediately; the banner only appears if the
+          first health check fails ("waking") or all retries are exhausted ("offline"). */}
+      {(serverStatus === "waking" || serverStatus === "offline") && (
+        <ServerStatusBanner status={serverStatus} onRetry={() => setHealthRetry((n) => n + 1)} />
       )}
 
       <GlobalToolbar

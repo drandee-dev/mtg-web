@@ -1,8 +1,20 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { api, disassembleDecklist, getCardImage, FORMATS } from "../lib/api";
 import ExportDeckModal from "./ExportDeckModal";
 
 const WUBRG_COLORS = ["W", "U", "B", "R", "G"];
+
+// Commander art + color identity never change for a given card, so cache them in
+// localStorage keyed by commander name — decks paint instantly on return visits.
+const META_CACHE_KEY = "mtgweb:commanderMeta";
+
+function readMetaCache() {
+  try { return JSON.parse(localStorage.getItem(META_CACHE_KEY)) || {}; } catch { return {}; }
+}
+
+function writeMetaCache(cache) {
+  try { localStorage.setItem(META_CACHE_KEY, JSON.stringify(cache)); } catch { /* quota — skip */ }
+}
 
 const HERO_ART = "https://cards.scryfall.io/art_crop/front/8/a/8a2813cb-c73c-4a50-b278-2f13deb71773.jpg";
 
@@ -348,7 +360,7 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
   const [importFormat, setImportFormat] = useState("commander");
   const [busy, setBusy] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [deckMeta, setDeckMeta] = useState({});
+  const [fetchedMeta, setFetchedMeta] = useState({});
   const [deckSearch, setDeckSearch] = useState("");
   const [formatFilter, setFormatFilter] = useState("all");
   const [sortBy, setSortBy] = useState("updated");
@@ -365,30 +377,50 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
     onIntentConsumed?.();
   }, [decksIntent, onIntentConsumed]);
 
+  // Cached commanders resolve at render time (instant paint); the rest are listed
+  // in `missing` for the fetch effect below.
+  const { cachedMeta, missing } = useMemo(() => {
+    const cache = readMetaCache();
+    const cachedMeta = {};
+    const missing = [];
+    for (const deck of decks) {
+      const { commander } = disassembleDecklist(deck.decklist_text);
+      if (!commander) continue;
+      const cmdrName = commander.split(" && ")[0];
+      if (cache[cmdrName]) cachedMeta[deck.id] = cache[cmdrName];
+      else missing.push([deck.id, cmdrName]);
+    }
+    return { cachedMeta, missing };
+  }, [decks]);
+
+  const deckMeta = useMemo(() => ({ ...cachedMeta, ...fetchedMeta }), [cachedMeta, fetchedMeta]);
+
   useEffect(() => {
+    if (missing.length === 0) return;
     let cancelled = false;
-    async function resolve() {
-      const meta = {};
-      for (const deck of decks) {
-        const { commander } = disassembleDecklist(deck.decklist_text);
-        if (!commander) continue;
-        const cmdrName = commander.split(" && ")[0];
+    (async () => {
+      const cache = readMetaCache();
+      let dirty = false;
+      for (const [id, cmdrName] of missing) {
+        if (cancelled) break;
         try {
           const data = await getCardImage(cmdrName);
           if (data?.found) {
-            meta[deck.id] = {
+            const entry = {
               art_crop: data.art_crop,
               color_identity: data.color_identity,
               bracket: null,
             };
+            cache[cmdrName] = entry;
+            dirty = true;
+            if (!cancelled) setFetchedMeta((m) => ({ ...m, [id]: entry }));
           }
         } catch { /* ignore */ }
       }
-      if (!cancelled) setDeckMeta(meta);
-    }
-    resolve();
+      if (dirty) writeMetaCache(cache);
+    })();
     return () => { cancelled = true; };
-  }, [decks]);
+  }, [missing]);
 
   async function doImport() {
     if (!importText.trim()) return notify("Paste a decklist to import.");

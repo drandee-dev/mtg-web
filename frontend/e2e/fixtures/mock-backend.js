@@ -1,5 +1,5 @@
 // Hermetic backend mock for E2E tests. Intercepts every /api/** call so the suite
-// runs without a live FastAPI server — the cold-start overlay dismisses immediately
+// runs without a live FastAPI server — the health check passes immediately
 // and card metadata (mana cost, roles, price) is available for the stack views.
 //
 // Card images are inline SVG data URIs (no external network), colored by identity so

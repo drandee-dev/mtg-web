@@ -5,19 +5,17 @@ import { TEST_DECK_TEXT, TEST_COMMANDER } from "./test-data.js";
 
 export async function waitForAppReady(page) {
   await page.waitForSelector(".app", { timeout: 15000 });
-  // Wait for either the app to load or the cold-start overlay to appear
-  await Promise.race([
-    page.waitForSelector('[role="tabpanel"]', { timeout: 15000 }),
-    page.waitForSelector(".cold-start-overlay", { timeout: 15000 }),
-  ]);
+  // The app renders immediately now (no blocking overlay) — just wait for a tab panel
+  await page.waitForSelector('[role="tabpanel"]', { timeout: 15000 });
 }
 
+// Kept for spec compatibility: the blocking cold-start overlay was replaced by a
+// non-blocking .server-banner, so there is nothing to dismiss — but if the banner
+// is up (mock health not answered yet), wait briefly for it to clear.
 export async function dismissColdStart(page) {
-  const overlay = page.locator(".cold-start-overlay");
-  if (await overlay.isVisible({ timeout: 2000 }).catch(() => false)) {
-    // Cold start overlay is present — wait for it to disappear or skip
-    // In test mode the backend may not be running, so we just wait briefly
-    await overlay.waitFor({ state: "hidden", timeout: 30000 }).catch(() => {});
+  const banner = page.locator(".server-banner");
+  if (await banner.isVisible().catch(() => false)) {
+    await banner.waitFor({ state: "hidden", timeout: 30000 }).catch(() => {});
   }
 }
 
