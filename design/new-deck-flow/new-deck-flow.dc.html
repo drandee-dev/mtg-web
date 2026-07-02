@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTG Workshop — New Deck Flow Redesign (mockup)</title>
+<style>
+  :root {
+    --bg: #0c0d11; --bg-raised: #111318; --panel: #16181f; --panel-2: #1c1f28;
+    --border: rgba(255,255,255,.08); --border-strong: rgba(255,255,255,.14);
+    --text: #ededf0; --text-secondary: #b0b4be; --muted: #71767f;
+    --accent: #c98a3a; --accent-soft: rgba(201,138,58,.12); --accent-2: #7cacf8;
+    --good: #3dce8a; --good-soft: rgba(61,206,138,.12);
+    --warn: #e5b84c; --bad: #ef5350;
+    --radius: 8px; --radius-lg: 12px;
+    --hover: rgba(255,255,255,.05); --hover-strong: rgba(255,255,255,.08);
+    --shadow-md: 0 4px 12px rgba(0,0,0,.4); --shadow-lg: 0 8px 30px rgba(0,0,0,.5);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); font-family: Inter, system-ui, sans-serif; font-size: 14px; }
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+  input, select { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 7px 10px; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+
+  /* ---------- mockup frame switcher ---------- */
+  .mock-nav { position: sticky; top: 0; z-index: 200; display: flex; gap: 6px; padding: 10px 16px; background: #000; border-bottom: 1px solid var(--border-strong); }
+  .mock-nav button { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-secondary); font-size: 12.5px; }
+  .mock-nav button.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .mock-note { padding: 8px 16px; font-size: 12px; color: var(--muted); background: #000; }
+  .frame { display: none; min-height: calc(100vh - 90px); }
+  .frame.active { display: block; }
+  .annot { position: relative; display: inline-block; }
+  .annot-tag { position: absolute; z-index: 90; background: var(--accent); color: #14100a; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; white-space: nowrap; }
+
+  /* ---------- global toolbar ---------- */
+  .toolbar { display: flex; align-items: center; gap: 20px; height: 52px; padding: 0 18px; background: rgba(17,19,24,.92); border-bottom: 1px solid var(--border); backdrop-filter: blur(8px); position: relative; }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; }
+  .logo svg { color: var(--accent); }
+  .toolbar-nav { display: flex; gap: 4px; margin: 0 auto; }
+  .toolbar-nav button { padding: 7px 14px; border-radius: var(--radius); color: var(--text-secondary); font-weight: 500; }
+  .toolbar-nav button.on { color: var(--text); background: var(--hover-strong); }
+  .toolbar-nav button:hover { background: var(--hover); }
+  .avatar-btn { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg,#c98a3a,#8a5a22); display: grid; place-items: center; font-weight: 700; font-size: 14px; color: #14100a; }
+
+  /* ---------- NEW avatar dropdown ---------- */
+  .acct-menu { position: absolute; top: 48px; right: 12px; width: 264px; background: var(--panel); border: 1px solid var(--border-strong); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden; z-index: 100; }
+  .acct-sec { padding: 6px; }
+  .acct-sec + .acct-sec { border-top: 1px solid var(--border); }
+  .acct-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border-radius: var(--radius); color: var(--text); font-size: 13.5px; text-align: left; }
+  .acct-item:hover { background: var(--hover-strong); }
+  .acct-item svg { color: var(--text-secondary); flex: none; }
+  .acct-item .kbd { margin-left: auto; font-size: 10.5px; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  .acct-label { padding: 8px 12px 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .acct-recents { max-height: 236px; overflow-y: auto; }
+  .recent-deck { display: flex; align-items: center; gap: 10px; width: 100%; padding: 5px 10px; border-radius: var(--radius); text-align: left; }
+  .recent-deck:hover { background: var(--hover-strong); }
+  .recent-thumb { width: 34px; height: 34px; border-radius: 6px; flex: none; background-size: cover; background-position: center 20%; border: 1px solid var(--border-strong); }
+  .recent-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .recent-fmt { font-size: 11px; color: var(--muted); }
+  .acct-user { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+  .acct-user .em { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .acct-user .sync { font-size: 11px; color: var(--good); }
+  .acct-signout { color: var(--bad) !important; }
+  .acct-signout svg { color: var(--bad); }
+
+  /* ---------- My Decks controls row ---------- */
+  .decks-page { max-width: 1180px; margin: 0 auto; padding: 26px 20px; }
+  .decks-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+  .decks-head h1 { font-size: 20px; }
+  .decks-count { color: var(--muted); font-size: 13px; }
+  .decks-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .decks-filter { position: relative; flex: 1; min-width: 220px; max-width: 340px; }
+  .decks-filter input { width: 100%; padding-left: 32px; }
+  .decks-filter svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+  .ctrl-group { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .seg { display: flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .seg button { padding: 7px 11px; color: var(--text-secondary); display: grid; place-items: center; }
+  .seg button.on { background: var(--accent-soft); color: var(--accent); }
+  .new-deck-cta { display: inline-flex; align-items: center; gap: 7px; padding: 8px 16px; background: var(--accent); color: #14100a; font-weight: 600; border-radius: var(--radius); margin-left: auto; }
+  .new-deck-cta:hover { filter: brightness(1.08); }
+
+  /* deck grid */
+  .deck-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+  .deck-card { border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; background: var(--panel); transition: border-color .15s; cursor: pointer; }
+  .deck-card:hover { border-color: var(--border-strong); }
+  .deck-art { height: 108px; background-size: cover; background-position: center 22%; position: relative; }
+  .deck-art .meta { position: absolute; bottom: 6px; right: 8px; font-size: 10.5px; color: rgba(255,255,255,.85); text-shadow: 0 1px 3px #000; }
+  .pips { display: flex; height: 6px; }
+  .pips i { flex: 1; }
+  .deck-body { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; }
+  .deck-body .nm { font-weight: 600; font-size: 13.5px; }
+  .deck-body .fm { font-size: 11.5px; color: var(--muted); }
+  .newdeck-tile { display: grid; place-items: center; min-height: 168px; border: 1.5px dashed var(--border-strong); border-radius: var(--radius-lg); color: var(--muted); gap: 0; cursor: pointer; }
+  .newdeck-tile:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .newdeck-tile .plus { font-size: 26px; line-height: 1; }
+
+  /* ---------- deck view header ---------- */
+  .deck-header { padding: 18px 22px 0; }
+  .dh-top { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  .dh-title-wrap { min-width: 0; }
+  .dh-title { display: flex; align-items: center; gap: 8px; font-size: 21px; font-weight: 700; }
+  .dh-title .edit { color: var(--muted); opacity: 0; transition: opacity .12s; }
+  .dh-title:hover .edit { opacity: 1; }
+  .dh-stats { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 7px; font-size: 12.5px; color: var(--text-secondary); }
+  .dh-stats .sep { color: var(--muted); opacity: .5; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+  .badge-legal { background: var(--good-soft); color: var(--good); }
+  .badge-bracket { background: var(--accent-soft); color: var(--accent); }
+  .dh-actions { display: flex; gap: 8px; margin-left: auto; align-items: center; }
+  .btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: var(--radius); border: 1px solid var(--border-strong); background: var(--panel-2); font-weight: 500; font-size: 13px; }
+  .btn:hover { background: var(--hover-strong); }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #14100a; font-weight: 600; }
+  .btn-primary:hover { filter: brightness(1.08); background: var(--accent); }
+  .btn-icon { padding: 8px 10px; }
+  .dh-toolbar { display: flex; align-items: center; gap: 14px; margin-top: 16px; padding: 10px 0; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .dh-toolbar .tb { display: flex; flex-direction: column; gap: 3px; }
+  .dh-toolbar .tb b { color: var(--text-secondary); font-weight: 500; font-size: 12.5px; }
+  .fakesel { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 12.5px; }
+
+  /* ---------- empty deck state ---------- */
+  .empty-deck { display: grid; place-items: center; padding: 60px 20px; }
+  .empty-inner { text-align: center; max-width: 420px; }
+  .empty-inner h2 { font-size: 17px; margin-bottom: 6px; }
+  .empty-inner p { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+  .empty-actions { display: grid; gap: 10px; }
+  .empty-action { display: flex; align-items: center; gap: 13px; padding: 13px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg); text-align: left; transition: border-color .12s, background .12s; }
+  .empty-action:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .empty-action .ico { width: 36px; height: 36px; border-radius: var(--radius); background: var(--panel-2); display: grid; place-items: center; flex: none; color: var(--accent); }
+  .empty-action .t { font-weight: 600; font-size: 13.5px; }
+  .empty-action .d { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  /* ---------- import modal ---------- */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: grid; place-items: center; z-index: 150; }
+  .modal { width: min(560px, 92vw); background: var(--panel); border: 1px solid var(--border-strong); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden; }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  .modal-head h3 { font-size: 15px; }
+  .modal-tabs { display: flex; gap: 4px; padding: 10px 18px 0; }
+  .modal-tabs button { padding: 8px 14px; border-radius: var(--radius) var(--radius) 0 0; color: var(--text-secondary); font-size: 13px; font-weight: 500; border-bottom: 2px solid transparent; }
+  .modal-tabs button.on { color: var(--accent); border-bottom-color: var(--accent); background: var(--accent-soft); }
+  .modal-body { padding: 16px 18px 18px; }
+  .modal-body textarea { width: 100%; height: 190px; resize: vertical; font-family: ui-monospace, monospace; font-size: 12.5px; background: var(--bg-raised); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; }
+  .modal-body textarea:focus { outline: none; border-color: var(--accent); }
+  .modal-hint { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+  .modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 0 18px 16px; }
+  .url-row { display: flex; gap: 8px; }
+  .url-row input { flex: 1; }
+  .src-badges { display: flex; gap: 8px; margin-top: 12px; }
+  .src-badge { font-size: 11px; color: var(--text-secondary); border: 1px solid var(--border); padding: 3px 9px; border-radius: 999px; }
+</style>
+</head>
+<body>
+
+<div class="mock-nav">
+  <button class="active" data-frame="f-decks">1 · My Decks + dropdown</button>
+  <button data-frame="f-empty">2 · New deck (empty editor)</button>
+  <button data-frame="f-modal">3 · Import cards modal</button>
+  <button data-frame="f-header">4 · Deck-view header</button>
+</div>
+<div class="mock-note" id="mock-note">Frame 1 — My Decks page: controls row (filter / sort / view-as), New Deck CTA + tile, and the new avatar dropdown (click the avatar). Folders intentionally excluded (future phase).</div>
+
+<!-- ============ FRAME 1: MY DECKS + AVATAR DROPDOWN ============ -->
+<div class="frame active" id="f-decks">
+  <div class="toolbar">
+    <div class="logo">
+      <svg width="17" height="17" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      MTG Workshop
+    </div>
+    <nav class="toolbar-nav">
+      <button class="on">My Decks</button><button>Card Search</button><button>Rules</button>
+    </nav>
+    <button class="avatar-btn" id="avatar-toggle">A</button>
+
+    <!-- NEW avatar dropdown -->
+    <div class="acct-menu" id="acct-menu">
+      <div class="acct-sec">
+        <button class="acct-item" data-note="→ opens empty deck editor (Frame 2)">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+          New deck <span class="kbd">N</span>
+        </button>
+        <button class="acct-item">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14" stroke-linecap="round"/></svg>
+          Search my decks <span class="kbd">/</span>
+        </button>
+        <button class="acct-item">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M2 4.5h4l1.5 2H14v6.5H2z"/></svg>
+          My decks
+        </button>
+      </div>
+      <div class="acct-sec">
+        <div class="acct-label">Recent decks</div>
+        <div class="acct-recents">
+          <button class="recent-deck"><span class="recent-thumb" style="background-image:linear-gradient(135deg,#2c4a2e,#151d16)"></span><span><span class="recent-name">Angry demon cat</span><br><span class="recent-fmt">Commander</span></span></button>
+          <button class="recent-deck"><span class="recent-thumb" style="background-image:linear-gradient(135deg,#4a3a2c,#1d1715)"></span><span><span class="recent-name">eddie</span><br><span class="recent-fmt">Commander</span></span></button>
+          <button class="recent-deck"><span class="recent-thumb" style="background-image:linear-gradient(135deg,#6a6f76,#1a1c20)"></span><span><span class="recent-name">la dispute</span><br><span class="recent-fmt">Commander</span></span></button>
+          <button class="recent-deck"><span class="recent-thumb" style="background-image:linear-gradient(135deg,#23314e,#12151d)"></span><span><span class="recent-name">Nazgul but more on theme</span><br><span class="recent-fmt">Commander</span></span></button>
+          <button class="recent-deck"><span class="recent-thumb" style="background-image:linear-gradient(135deg,#2c4356,#131a20)"></span><span><span class="recent-name">Counter Blitz Upgraded</span><br><span class="recent-fmt">Commander</span></span></button>
+          <button class="recent-deck"><span class="recent-thumb" style="background-image:linear-gradient(135deg,#463357,#171220)"></span><span><span class="recent-name">Hei Bei Enchantress</span><br><span class="recent-fmt">Commander</span></span></button>
+        </div>
+      </div>
+      <div class="acct-sec">
+        <div class="acct-user">
+          <div class="avatar-btn" style="width:28px;height:28px;font-size:12px">A</div>
+          <div style="min-width:0">
+            <div class="em">andres.j.martinez@outlook.com</div>
+            <div class="sync">● Synced · 6 decks</div>
+          </div>
+        </div>
+        <button class="acct-item acct-signout">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 14H3V2h3M10 11l3-3-3-3M13 8H6"/></svg>
+          Sign out
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="decks-page">
+    <div class="decks-head">
+      <h1>My Decks</h1>
+      <span class="decks-count">6 decks</span>
+    </div>
+    <div class="decks-controls">
+      <div class="decks-filter">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14" stroke-linecap="round"/></svg>
+        <input placeholder="Filter decks by name…">
+      </div>
+      <div class="ctrl-group">
+        Sort
+        <select><option>Recently updated</option><option>Name A–Z</option><option>Format</option><option>Price</option></select>
+      </div>
+      <div class="ctrl-group">
+        <div class="seg">
+          <button class="on" title="Grid">▦</button>
+          <button title="List">☰</button>
+        </div>
+      </div>
+      <button class="new-deck-cta">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+        New Deck
+      </button>
+    </div>
+
+    <div class="deck-grid">
+      <div class="newdeck-tile">
+        <div style="text-align:center">
+          <div class="plus">＋</div>
+          <div style="font-size:13px;font-weight:600;margin-top:6px">New Deck</div>
+          <div style="font-size:11.5px;margin-top:2px">Blank, paste, or import</div>
+        </div>
+      </div>
+      <div class="deck-card">
+        <div class="deck-art" style="background-image:linear-gradient(135deg,#2c4a2e,#0f130f)"><span class="meta">100 cards · 21h ago</span></div>
+        <div class="pips"><i style="background:#1b1b1b"></i><i style="background:#2e7d4f"></i></div>
+        <div class="deck-body"><div><div class="nm">Angry demon cat</div><div class="fm">Commander</div></div><button style="color:var(--muted)">⋯</button></div>
+      </div>
+      <div class="deck-card">
+        <div class="deck-art" style="background-image:linear-gradient(135deg,#4a3a2c,#13100e)"><span class="meta">100 cards · 27h ago</span></div>
+        <div class="pips"><i style="background:#e5e0d0"></i><i style="background:#2e7d4f"></i></div>
+        <div class="deck-body"><div><div class="nm">eddie</div><div class="fm">Commander</div></div><button style="color:var(--muted)">⋯</button></div>
+      </div>
+      <div class="deck-card">
+        <div class="deck-art" style="background-image:linear-gradient(135deg,#6a6f76,#131418)"><span class="meta">100 cards · 28h ago</span></div>
+        <div class="pips"><i style="background:#e5e0d0"></i><i style="background:#1b1b1b"></i></div>
+        <div class="deck-body"><div><div class="nm">la dispute</div><div class="fm">Commander</div></div><button style="color:var(--muted)">⋯</button></div>
+      </div>
+      <div class="deck-card">
+        <div class="deck-art" style="background-image:linear-gradient(135deg,#23314e,#0e1016)"><span class="meta">100 cards · 57d ago</span></div>
+        <div class="pips"><i style="background:#3d6da8"></i><i style="background:#1b1b1b"></i></div>
+        <div class="deck-body"><div><div class="nm">Nazgul but more on theme</div><div class="fm">Commander</div></div><button style="color:var(--muted)">⋯</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ FRAME 2: EMPTY DECK EDITOR ============ -->
+<div class="frame" id="f-empty">
+  <div class="toolbar">
+    <div class="logo"><svg width="17" height="17" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg> MTG Workshop</div>
+    <nav class="toolbar-nav"><button class="on">My Decks</button><button>Card Search</button><button>Rules</button></nav>
+    <button class="avatar-btn">A</button>
+  </div>
+
+  <div class="deck-header">
+    <div class="dh-top">
+      <div class="dh-title-wrap">
+        <div class="dh-title">Untitled Deck <button class="edit" title="Rename">✎</button></div>
+        <div class="dh-stats">
+          <span>Commander</span><span class="sep">·</span><span>0 cards</span>
+        </div>
+      </div>
+      <div class="dh-actions">
+        <button class="btn btn-primary" data-open-modal="paste">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 11V2M4.5 7.5L8 11l3.5-3.5M2.5 13.5h11"/></svg>
+          Import cards
+        </button>
+        <button class="btn btn-icon" title="More">⋯</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="empty-deck">
+    <div class="empty-inner">
+      <h2>Your deck is empty</h2>
+      <p>Add cards any way you like — every option below is one click away.</p>
+      <div class="empty-actions">
+        <button class="empty-action" data-open-modal="paste">
+          <span class="ico">📋</span>
+          <span><span class="t">Paste a decklist</span><br><span class="d">From Arena, Moxfield, Archidekt, or any text export</span></span>
+        </button>
+        <button class="empty-action" data-open-modal="url">
+          <span class="ico">🔗</span>
+          <span><span class="t">Import from URL</span><br><span class="d">Moxfield or Archidekt deck link</span></span>
+        </button>
+        <button class="empty-action">
+          <span class="ico">🔍</span>
+          <span><span class="t">Search for cards</span><br><span class="d">Build card-by-card with search &amp; filters</span></span>
+        </button>
+        <button class="empty-action">
+          <span class="ico">✨</span>
+          <span><span class="t">Guided build</span><br><span class="d">Pick a commander — AI helps fill each category</span></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ FRAME 3: IMPORT MODAL (standalone view) ============ -->
+<div class="frame" id="f-modal">
+  <div style="padding:60px 20px; display:grid; place-items:center; background:rgba(0,0,0,.4); min-height:70vh">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>Import cards</h3>
+        <button style="color:var(--muted)">✕</button>
+      </div>
+      <div class="modal-tabs">
+        <button class="on" data-tab="paste">Paste decklist</button>
+        <button data-tab="url">From URL</button>
+      </div>
+      <div class="modal-body" id="tab-paste">
+        <textarea placeholder="1 Nethroi, Apex of Death
+1 Sol Ring
+1 Birds of Paradise
+1 Swiftfoot Boots
+…"></textarea>
+        <div class="modal-hint">Accepts Arena exports, Moxfield/Archidekt text, plain “N Card Name” lines, and (SET) codes. Commander detected from “Commander” header or first legendary.</div>
+      </div>
+      <div class="modal-body" id="tab-url" style="display:none">
+        <div class="url-row">
+          <input placeholder="https://archidekt.com/decks/… or https://moxfield.com/decks/…">
+        </div>
+        <div class="src-badges"><span class="src-badge">Archidekt</span><span class="src-badge">Moxfield</span></div>
+        <div class="modal-hint" style="margin-top:12px">Deck must be public. Name and format are imported automatically.</div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn">Cancel</button>
+        <button class="btn btn-primary">Import</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ FRAME 4: DECK VIEW HEADER (populated deck) ============ -->
+<div class="frame" id="f-header">
+  <div class="toolbar">
+    <div class="logo"><svg width="17" height="17" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg> MTG Workshop</div>
+    <nav class="toolbar-nav"><button class="on">My Decks</button><button>Card Search</button><button>Rules</button></nav>
+    <button class="avatar-btn">A</button>
+  </div>
+
+  <div class="deck-header">
+    <div class="dh-top">
+      <div class="dh-title-wrap">
+        <div class="dh-title">Angry demon cat <button class="edit" title="Rename">✎</button></div>
+        <div class="dh-stats">
+          <span>Commander</span>
+          <span class="sep">·</span>
+          <span class="badge badge-legal">✓ Legal</span>
+          <span class="badge badge-bracket">Bracket: Core (2)</span>
+          <span class="sep">·</span>
+          <span class="badge badge-legal">100/100</span>
+          <span class="sep">·</span>
+          <span>Est. <b style="color:var(--text)">$431.67</b></span>
+          <span class="sep">·</span>
+          <span style="color:var(--muted)">Updated 27h ago</span>
+        </div>
+      </div>
+      <div class="dh-actions">
+        <button class="btn" data-open-modal="paste">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 11V2M4.5 7.5L8 11l3.5-3.5M2.5 13.5h11"/></svg>
+          Import cards
+        </button>
+        <button class="btn">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M5 3l8 5-8 5V3z"/></svg>
+          Playtest
+        </button>
+        <button class="btn btn-icon" title="Share / Clone / Export / Lock / Delete">⋯</button>
+        <button class="btn btn-primary">Save</button>
+      </div>
+    </div>
+
+    <!-- THE single toolbar: this IS CardGrid's existing cg-toolbar, restyled and
+         relocated under the header. NOT a second row — cg-toolbar's current
+         contents merge here; Save + completeness move UP into the header. -->
+    <div class="dh-toolbar">
+      <div class="tb"><span>Add card</span><span class="fakesel">🔍 Card search</span></div>
+      <div class="tb"><span>Quick add</span><span class="fakesel" style="min-width:150px;color:var(--muted)">Card name + Enter</span></div>
+      <span style="width:1px;height:30px;background:var(--border)"></span>
+      <div class="tb"><span>View as</span><span class="fakesel">🂠 Stacks ▾</span></div>
+      <div class="tb"><span>Stack as</span><span class="fakesel">Image | Text</span></div>
+      <div class="tb"><span>Group by</span><span class="fakesel">Type ▾</span></div>
+      <div class="tb"><span>Sort by</span><span class="fakesel">Alphabet ▾</span></div>
+      <div class="tb" style="margin-left:auto"><span>Filter deck</span><span class="fakesel" style="min-width:180px;color:var(--muted)">eg. Sol Ring</span></div>
+    </div>
+  </div>
+
+  <div style="padding:30px 22px; color:var(--muted); font-size:13px; line-height:1.7">
+    ↓ category tabs (All / Creatures / Instants / …) stay here, then the existing masonry stack view — both unchanged ↓<br>
+    <b style="color:var(--text-secondary)">Consolidation notes:</b><br>
+    · The old commander strip's stats (count /100, price, bracket) now live in the header stats row — strip's remaining job (commander identity) is covered by the crowned commander column in the grid.<br>
+    · CardGrid's cg-toolbar right side (completeness badge → header stats row as "✓ 100/100"; Save button → header actions).<br>
+    · DeckInput search bar stays hidden until "Card search" / search-for-cards is invoked (current toggleSearch behavior).
+  </div>
+</div>
+
+<!-- shared live import modal (opened from frames 2/4) -->
+<div class="modal-overlay" id="live-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Import cards</h3>
+      <button id="live-modal-close" style="color:var(--muted)">✕</button>
+    </div>
+    <div class="modal-tabs">
+      <button class="on" data-livetab="paste">Paste decklist</button>
+      <button data-livetab="url">From URL</button>
+    </div>
+    <div class="modal-body" id="livetab-paste">
+      <textarea placeholder="1 Nethroi, Apex of Death
+1 Sol Ring
+…"></textarea>
+      <div class="modal-hint">Accepts Arena exports, Moxfield/Archidekt text, plain “N Card Name” lines.</div>
+    </div>
+    <div class="modal-body" id="livetab-url" style="display:none">
+      <div class="url-row"><input placeholder="https://archidekt.com/decks/… or https://moxfield.com/decks/…"></div>
+      <div class="src-badges"><span class="src-badge">Archidekt</span><span class="src-badge">Moxfield</span></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="live-modal-cancel">Cancel</button>
+      <button class="btn btn-primary">Import</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // frame switcher
+  const notes = {
+    "f-decks": "Frame 1 — My Decks page: controls row (filter / sort / view-as), New Deck CTA + tile, and the new avatar dropdown (click the avatar). Folders intentionally excluded (future phase).",
+    "f-empty": "Frame 2 — clicking New Deck lands here instantly: empty editor with 4 one-click paths (paste / URL / search / guided). 'Import cards' is the primary header button. Clicking paste/URL opens the modal.",
+    "f-modal": "Frame 3 — the Import Cards modal, static view. Two tabs: Paste decklist / From URL. Same modal serves the empty state AND populated decks (merge/append).",
+    "f-header": "Frame 4 — populated deck header + ONE consolidated toolbar. The toolbar row IS CardGrid's existing cg-toolbar relocated (Add card / Quick add / View as / Stack as / Group by / Sort by / Filter) — no doubling. Save + completeness badge move up into the header; commander-strip stats fold into the stats row."
+  };
+  document.querySelectorAll(".mock-nav button").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll(".mock-nav button").forEach(x => x.classList.remove("active"));
+    document.querySelectorAll(".frame").forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    document.getElementById(b.dataset.frame).classList.add("active");
+    document.getElementById("mock-note").textContent = notes[b.dataset.frame];
+  }));
+
+  // avatar dropdown toggle
+  const menu = document.getElementById("acct-menu");
+  menu.style.display = "none";
+  document.getElementById("avatar-toggle").addEventListener("click", (e) => {
+    e.stopPropagation();
+    menu.style.display = menu.style.display === "none" ? "block" : "none";
+  });
+  document.addEventListener("click", (e) => { if (!menu.contains(e.target)) menu.style.display = "none"; });
+
+  // static modal tabs (frame 3)
+  document.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-tab]").forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+    document.getElementById("tab-paste").style.display = b.dataset.tab === "paste" ? "block" : "none";
+    document.getElementById("tab-url").style.display = b.dataset.tab === "url" ? "block" : "none";
+  }));
+
+  // live modal (frames 2/4)
+  const liveModal = document.getElementById("live-modal");
+  document.querySelectorAll("[data-open-modal]").forEach(b => b.addEventListener("click", () => {
+    liveModal.style.display = "grid";
+    const wantUrl = b.dataset.openModal === "url";
+    document.querySelectorAll("[data-livetab]").forEach(x => x.classList.toggle("on", (x.dataset.livetab === "url") === wantUrl));
+    document.getElementById("livetab-paste").style.display = wantUrl ? "none" : "block";
+    document.getElementById("livetab-url").style.display = wantUrl ? "block" : "none";
+  }));
+  document.getElementById("live-modal-close").addEventListener("click", () => liveModal.style.display = "none");
+  document.getElementById("live-modal-cancel").addEventListener("click", () => liveModal.style.display = "none");
+  liveModal.addEventListener("click", (e) => { if (e.target === liveModal) liveModal.style.display = "none"; });
+  document.querySelectorAll("[data-livetab]").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll("[data-livetab]").forEach(x => x.classList.remove("on"));
+    b.classList.add("on");
+    document.getElementById("livetab-paste").style.display = b.dataset.livetab === "paste" ? "block" : "none";
+    document.getElementById("livetab-url").style.display = b.dataset.livetab === "url" ? "block" : "none";
+  }));
+</script>
+</body>
+</html>
