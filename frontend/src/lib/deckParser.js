@@ -134,3 +134,16 @@ export function groupCards(cards, mode, metaMap) {
 }
 
 export { TYPE_ORDER };
+
+/** Deck-size status badge: {label, status, title}. `totalCards` excludes the commander. */
+export function deckCompleteness(totalCards, commander, format) {
+  const isCmdr = format === "commander" || format === "paupercommander";
+  if (isCmdr) {
+    const cmdrCount = commander ? commander.split(" && ").filter(Boolean).length : 0;
+    const total = totalCards + cmdrCount;
+    const status = total > 100 ? "bad" : total === 100 ? "good" : "warn";
+    return { label: `${total} / 100`, status, title: "Commander decks are exactly 100 cards" };
+  }
+  const status = totalCards >= 60 ? "good" : "warn";
+  return { label: `${totalCards} / 60+`, status, title: "Constructed decks are a 60-card minimum" };
+}

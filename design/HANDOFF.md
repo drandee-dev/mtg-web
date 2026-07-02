@@ -8,7 +8,7 @@
 
 | Feature | Doc to read | DC file to open |
 |---|---|---|
-| **New deck flow redesign (2026-07-01) — AWAITING APPROVAL** | `design/new-deck-flow/README.md` | `design/new-deck-flow/new-deck-flow.dc.html` |
+| New deck flow redesign (2026-07-01) — **IMPLEMENTED**, see `STATUS.md` | `design/new-deck-flow/README.md` | `design/new-deck-flow/new-deck-flow.dc.html` |
 | Landing page bug fixes (2026-06-29) | `design/Landing page bug fixes/design_handoff_landing_fixes/README.md` | Patched `MyDecks.jsx` included |
 | Landing page (new + returning user) | `design/README.md` → Screens A–D | `MTG Workshop Phase 2.dc.html` |
 | Card thumbnail hover actions | `design/README.md` → Frame E | `MTG Workshop Phase 2.dc.html` |

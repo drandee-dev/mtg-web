@@ -67,3 +67,17 @@ See `COMMS.md` for full discussion thread.
 | Desktop "Import URL" opens paste panel | Should expand inline URL input in-place with Enter/Escape/✕ support | Done |
 
 Patched `MyDecks.jsx` provided in `design/Landing page bug fixes/design_handoff_landing_fixes/`. Also requires 3 new CSS classes in `index.css`. See `COMMS.md` → Design → Code (2026-06-29) for full spec.
+
+## New deck flow redesign (2026-07-01)
+
+Spec: `design/new-deck-flow/README.md` · Prototype: `new-deck-flow.dc.html` · All frames implemented, 19/19 Playwright checks passed.
+
+| Frame | Description | Code status |
+|-------|-------------|-------------|
+| 1 — MyDecks controls | Filter/sort bar + New Deck CTA already existed; New Deck tile moved to lead the grid | Done |
+| 1b — Avatar dropdown | Already existed (quick actions, recents, account); recents 3→6 with scroll cap; Paste/Import-URL rows now open the new-deck editor with the import modal | Done |
+| 2 — Empty deck editor | New empty state in DeckView: Paste / Import URL / Search cards / Guided build action cards; category tabs hidden while empty | Done |
+| 3 — Import cards modal | New `ImportCardsModal.jsx` (paste + URL tabs). Empty deck → replace (adopts commander/format); populated → merge/append | Done |
+| 4 — Deck header + single toolbar | Header: title + stats row (format select, completeness badge, bracket, est. price, lock) + actions (Import cards / Playtest / Considering / Save / ⋯ with Wizard+Lock). Save + completeness removed from cg-toolbar — exactly one control set in DOM. `deckCompleteness` moved to `lib/deckParser.js` | Done |
+
+Mobile nav/commander strip untouched (spec was desktop-scoped). Visual snapshot baselines need `npm run test:update-snapshots`.

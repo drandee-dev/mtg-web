@@ -1,19 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, assembleDecklist, getCardImage, FORMATS } from "../../lib/api";
+import { api, assembleDecklist, disassembleDecklist, getCardImage, FORMATS } from "../../lib/api";
 import CommanderInput from "../CommanderInput";
 import Wizard from "../Wizard";
 import CardGrid from "./CardGrid";
 import DeckInput from "./DeckInput";
 import DeckSidebar from "./DeckSidebar";
+import ImportCardsModal from "./ImportCardsModal";
 import MoreMenu from "./MoreMenu";
 import Maybeboard from "./Maybeboard";
-import { parseDeckText } from "../../lib/deckParser";
+import { parseDeckText, deckCompleteness } from "../../lib/deckParser";
 
 export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
   maybeboard, setMaybeboard,
   deckName, deckId, onSave, onClone, onExport, onPlaytest, onShare,
-  startInWizard, onWizardConsumed, onBack, notify, serverWarmed,
+  startInWizard, onWizardConsumed, startImport, onImportConsumed, onBack, notify, serverWarmed,
 }) {
   const [mode, setMode] = useState(startInWizard ? "wizard" : "manual");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -25,6 +26,14 @@ export default function DeckView({
       onWizardConsumed?.();
     }
   }, [startInWizard, onWizardConsumed]);
+  const [importOpen, setImportOpen] = useState(null); // null | "paste" | "url"
+
+  useEffect(() => {
+    if (startImport) {
+      setImportOpen(startImport);
+      onImportConsumed?.();
+    }
+  }, [startImport, onImportConsumed]);
   const [result, setResult] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [recs, setRecs] = useState(null);
@@ -209,6 +218,47 @@ export default function DeckView({
     }
   }
 
+  // Fold imported decklist text into the current deck. Empty deck → replace
+  // (adopting the imported commander/maybeboard); populated deck → append,
+  // adopting the imported commander only if none is set yet.
+  function mergeImportedText(text) {
+    const { commander: impCmdr, deckText: impMain, maybeboard: impMaybe } = disassembleDecklist(text || "");
+    const mainLines = (impMain || "").trim();
+    if (!mainLines && !impCmdr) throw new Error("no cards found in the import");
+    const wasEmpty = !decklist.trim() && !commander;
+    if (wasEmpty) {
+      setDecklist(mainLines);
+      if (impCmdr) setCommander(impCmdr);
+      if (impMaybe) setMaybeboard(impMaybe);
+    } else {
+      if (mainLines) setDecklist((prev) => (prev.trim() ? `${prev.replace(/\s*$/, "")}\n${mainLines}` : mainLines));
+      if (impCmdr && !commander) setCommander(impCmdr);
+    }
+    const n = parseDeckText(mainLines).totalCards;
+    notify?.(wasEmpty ? `Imported ${n} cards.` : `Added ${n} cards to the deck.`);
+    return wasEmpty;
+  }
+
+  async function handleImportText(text) {
+    try {
+      mergeImportedText(text);
+    } catch (e) {
+      notify?.(`Import failed: ${e.message}`);
+      throw e;
+    }
+  }
+
+  async function handleImportUrl(url) {
+    try {
+      const res = await api.importUrl((url || "").trim());
+      const wasEmpty = mergeImportedText(res.decklist || "");
+      if (wasEmpty && res.format) setFormat(res.format);
+    } catch (e) {
+      notify?.(`Import failed: ${e.message}`);
+      throw e;
+    }
+  }
+
   function handleWizardFinish(dl, cmd) {
     setDecklist(dl.split("\n").filter((l) => !/^\s*(Commander|Deck)\s*$/i.test(l)).join("\n"));
     setCommander(cmd);
@@ -232,6 +282,9 @@ export default function DeckView({
 
   const hasCommander = isCommanderFmt && commander;
   const considerCount = parseDeckText(maybeboard || "").cards.length;
+  const totalCards = parseDeckText(decklist).totalCards;
+  const deckEmpty = !decklist.trim() && !commander;
+  const completeness = deckCompleteness(totalCards, commander, format);
 
   const CATEGORY_TABS = [
     ["all", "All"],
@@ -270,36 +323,44 @@ export default function DeckView({
         </div>
       </div>
 
-      {/* Desktop toolbar */}
+      {/* Desktop header: title + stats row (left) · actions (right).
+          Completeness/price/bracket live here — NOT in the card-grid toolbar. */}
       <div className="deck-toolbar">
         <div className="deck-toolbar-top">
-          <h2 className="deck-title">{deckName || "Untitled deck"}</h2>
-          <div className="row" style={{ gap: ".4rem", alignItems: "center" }}>
-            <button
-              className={`deck-lock-btn ghost small${locked ? " locked" : ""}`}
-              onClick={() => setLocked((l) => !l)}
-              aria-label={locked ? "Unlock deck for editing" : "Lock deck (view only)"}
-              title={locked ? "Unlock deck" : "Lock deck"}
-            >
-              {locked ? "🔒" : "🔓"}
+          <div className="dh-left">
+            <h2 className="deck-title">{deckName || "Untitled deck"}</h2>
+            <div className="dh-stats">
+              <select
+                className="dh-format"
+                value={format}
+                onChange={(e) => setFormat(e.target.value)}
+                disabled={locked}
+                aria-label="Deck format"
+              >
+                {FORMATS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+              </select>
+              <span className={`badge ${completeness.status}`} title={completeness.title}>{completeness.label}</span>
+              {result?.bracket?.bracket != null && (
+                <span className="dh-stat" title="Estimated bracket">Bracket {result.bracket.bracket}</span>
+              )}
+              {result?.breakdown?.price_usd != null && (
+                <span className="dh-stat" title="Estimated deck price">Est. ${Math.round(result.breakdown.price_usd)}</span>
+              )}
+              {locked && <span className="dh-stat dh-locked" title="Deck is locked (view only)">🔒 Locked</span>}
+            </div>
+          </div>
+          <div className="row dh-actions" style={{ gap: ".4rem", alignItems: "center" }}>
+            <button className="ghost small" onClick={() => setImportOpen("paste")} disabled={locked}>
+              ⤓ Import cards
             </button>
-            <select value={format} onChange={(e) => setFormat(e.target.value)} style={{ width: "auto" }} disabled={locked}>
-              {FORMATS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-            </select>
-            <button onClick={() => setMode("wizard")} className="ghost small" style={{ borderColor: "var(--accent)" }}>
-              ✨ Wizard
-            </button>
+            <button className="ghost small" onClick={onPlaytest}>▶ Playtest</button>
             <button className="ghost small" onClick={() => setMaybeOpen(true)}>
               Considering ({considerCount})
             </button>
             <button
               className={`primary small${saveState === "saved" ? " btn-saved" : ""}`}
               disabled={saveState === "saving"}
-              onClick={async () => {
-                setSaveState("saving");
-                try { await onSave(); setSaveState("saved"); setTimeout(() => setSaveState("idle"), 2000); }
-                catch { setSaveState("idle"); }
-              }}
+              onClick={handleSave}
             >
               {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved!" : "Save"}
             </button>
@@ -307,7 +368,8 @@ export default function DeckView({
               { label: "Share link", icon: "🔗", onClick: onShare },
               { label: "Clone deck", icon: "⎘", onClick: onClone },
               { label: "Export .txt", icon: "↓", onClick: onExport },
-              { label: "Playtest", icon: "▶", onClick: onPlaytest },
+              { label: "Wizard", icon: "✨", onClick: () => setMode("wizard") },
+              { label: locked ? "Unlock deck" : "Lock deck (view only)", icon: locked ? "🔓" : "🔒", onClick: () => setLocked((l) => !l) },
             ]} />
           </div>
         </div>
@@ -348,18 +410,20 @@ export default function DeckView({
         </div>
       )}
 
-      {/* Category tabs bar */}
-      <div className="category-tabs">
-        {CATEGORY_TABS.map(([id, label]) => (
-          <button
-            key={id}
-            className={`category-tab${categoryFilter === id ? " active" : ""}`}
-            onClick={() => setCategoryFilter(id)}
-          >
-            {label}{typeCounts[id] != null ? ` (${typeCounts[id]})` : ""}
-          </button>
-        ))}
-      </div>
+      {/* Category tabs bar (noise on an empty deck — hidden until cards exist) */}
+      {!deckEmpty && (
+        <div className="category-tabs">
+          {CATEGORY_TABS.map(([id, label]) => (
+            <button
+              key={id}
+              className={`category-tab${categoryFilter === id ? " active" : ""}`}
+              onClick={() => setCategoryFilter(id)}
+            >
+              {label}{typeCounts[id] != null ? ` (${typeCounts[id]})` : ""}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Main layout: deck grid + AI sidebar. The commander now renders as a
           crowned leading column inside the grid (CardGrid), not a side panel. */}
@@ -374,25 +438,62 @@ export default function DeckView({
             locked={locked}
             open={searchOpen}
           />
-          <CardGrid
-            decklist={decklist}
-            commander={commander}
-            format={format}
-            deckId={deckId}
-            filter={deckFilter}
-            setFilter={setDeckFilter}
-            typeFilter={categoryFilter}
-            onRemove={locked ? null : removeCard}
-            onConsider={locked ? null : addToConsidering}
-            addCard={locked ? null : addCard}
-            onCardSearch={locked ? null : toggleSearch}
-            onSave={locked ? null : handleSave}
-            saveState={saveState}
-            onTypeCounts={setTypeCounts}
-            notify={notify}
-            onChangeCommander={locked ? null : () => setCommander("")}
-            setCardQty={locked ? null : setCardQty}
-          />
+          {deckEmpty && !searchOpen ? (
+            <div className="empty-deck">
+              <div className="empty-deck-inner">
+                <h3>Your deck is empty</h3>
+                <p className="muted">Add cards any way you like — every option is one click away.</p>
+                <div className="empty-actions">
+                  <button className="empty-action" onClick={() => setImportOpen("paste")}>
+                    <span className="empty-action-ico">📋</span>
+                    <span className="empty-action-txt">
+                      <span className="empty-action-t">Paste a decklist</span>
+                      <span className="empty-action-d">From Arena, Moxfield, Archidekt, or any text export</span>
+                    </span>
+                  </button>
+                  <button className="empty-action" onClick={() => setImportOpen("url")}>
+                    <span className="empty-action-ico">🔗</span>
+                    <span className="empty-action-txt">
+                      <span className="empty-action-t">Import from URL</span>
+                      <span className="empty-action-d">Moxfield or Archidekt deck link</span>
+                    </span>
+                  </button>
+                  <button className="empty-action" onClick={toggleSearch}>
+                    <span className="empty-action-ico">🔍</span>
+                    <span className="empty-action-txt">
+                      <span className="empty-action-t">Search for cards</span>
+                      <span className="empty-action-d">Build card-by-card with search &amp; filters</span>
+                    </span>
+                  </button>
+                  <button className="empty-action" onClick={() => setMode("wizard")}>
+                    <span className="empty-action-ico">✨</span>
+                    <span className="empty-action-txt">
+                      <span className="empty-action-t">Guided build</span>
+                      <span className="empty-action-d">Pick a commander — AI helps fill each category</span>
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <CardGrid
+              decklist={decklist}
+              commander={commander}
+              format={format}
+              deckId={deckId}
+              filter={deckFilter}
+              setFilter={setDeckFilter}
+              typeFilter={categoryFilter}
+              onRemove={locked ? null : removeCard}
+              onConsider={locked ? null : addToConsidering}
+              addCard={locked ? null : addCard}
+              onCardSearch={locked ? null : toggleSearch}
+              onTypeCounts={setTypeCounts}
+              notify={notify}
+              onChangeCommander={locked ? null : () => setCommander("")}
+              setCardQty={locked ? null : setCardQty}
+            />
+          )}
 
         </div>
 
@@ -444,6 +545,13 @@ export default function DeckView({
           serverWarmed={serverWarmed}
         />
       </div>
+
+      <ImportCardsModal
+        open={importOpen}
+        onClose={() => setImportOpen(null)}
+        onImportText={handleImportText}
+        onImportUrl={handleImportUrl}
+      />
 
       <Maybeboard
         open={maybeOpen}

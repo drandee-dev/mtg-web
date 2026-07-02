@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { api, disassembleDecklist, getCardImage, FORMATS } from "../lib/api";
-import { downloadFile } from "../lib/hooks";
+import ExportDeckModal from "./ExportDeckModal";
 
 const WUBRG_COLORS = ["W", "U", "B", "R", "G"];
 
@@ -31,9 +31,11 @@ function relativeTime(iso) {
   return `${months} month${months !== 1 ? "s" : ""} ago`;
 }
 
-function DeckHero({ deck, meta, onOpen, onPlaytest, onDelete, onRename, onExport }) {
+function DeckHero({ deck, meta, onOpen, onPlaytest, onDelete, onRename, onClone, onExport }) {
   const art = meta?.art_crop;
   const colors = meta?.color_identity || [];
+  // Equal-width segment per identity color (colorless commanders get a C segment).
+  const barColors = meta ? (colors.length > 0 ? WUBRG_COLORS.filter((c) => colors.includes(c)) : ["C"]) : [];
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -58,29 +60,15 @@ function DeckHero({ deck, meta, onOpen, onPlaytest, onDelete, onRename, onExport
         aria-label={`Open ${deck.name}`}>
         {art ? <img src={art} alt="" loading="lazy" /> : <div className="deck-card-art-ph" />}
         <div className="deck-card-art-gradient" />
-        {colors.length > 0 && (
-          <div className="deck-card-pips">
-            {WUBRG_COLORS.filter((c) => colors.includes(c)).map((c) => (
-              <span key={c} className={`pip pip-${c}`}>{c}</span>
-            ))}
-          </div>
-        )}
-        {/* Hover action overlay */}
-        <div className="deck-card-hover">
-          <button className="deck-card-hover-btn" onClick={(e) => { e.stopPropagation(); onOpen(deck); }}>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"><path d="M2 13L5 10M11 2l3 3-9 9-4 1 1-4 9-9Z"/></svg>
-            Edit
-          </button>
-          <button className="deck-card-hover-btn" onClick={(e) => { e.stopPropagation(); onPlaytest?.(deck); }}>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"><path d="M2 8a6 6 0 1 0 12 0A6 6 0 0 0 2 8ZM8 5v3l2.5 1.5"/></svg>
-            Playtest
-          </button>
-          <button className="deck-card-hover-btn" onClick={(e) => { e.stopPropagation(); onExport(deck, "txt"); }}>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"><path d="M8 2v9M8 11L5.5 8.5M8 11l2.5-2.5"/><line x1="2.5" y1="14" x2="13.5" y2="14"/></svg>
-            Export
-          </button>
-        </div>
       </div>
+      {/* WUBRG color identity bar (Archidekt-style) */}
+      {barColors.length > 0 && (
+        <div className="deck-card-colorbar" aria-label={`Colors: ${barColors.join(", ")}`}>
+          {barColors.map((c) => (
+            <span key={c} className={`deck-card-colorseg colorseg-${c}`}>{c}</span>
+          ))}
+        </div>
+      )}
       {/* Body */}
       <div className="deck-card-body">
         <div className="deck-card-name">{deck.name}</div>
@@ -100,8 +88,9 @@ function DeckHero({ deck, meta, onOpen, onPlaytest, onDelete, onRename, onExport
             {menuOpen && (
               <div className="deck-card-menu">
                 <button className="deck-card-menu-item" onClick={() => { setMenuOpen(false); onRename(deck); }}>Rename</button>
-                <button className="deck-card-menu-item" onClick={() => { setMenuOpen(false); onExport(deck, "txt"); }}>Export .txt</button>
-                <button className="deck-card-menu-item" onClick={() => { setMenuOpen(false); onExport(deck, "json"); }}>Export .json</button>
+                <button className="deck-card-menu-item" onClick={() => { setMenuOpen(false); onClone(deck); }}>Clone deck</button>
+                <div className="deck-card-menu-divider" />
+                <button className="deck-card-menu-item" onClick={() => { setMenuOpen(false); onExport(deck); }}>Export…</button>
                 <button className="deck-card-menu-item" onClick={() => { setMenuOpen(false); onPlaytest?.(deck); }}>Playtest</button>
                 <div className="deck-card-menu-divider" />
                 <button className="deck-card-menu-item deck-card-menu-danger" onClick={() => { setMenuOpen(false); onDelete(deck.id); }}>Delete</button>
@@ -364,6 +353,7 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
   const [formatFilter, setFormatFilter] = useState("all");
   const [sortBy, setSortBy] = useState("updated");
   const [sortDir, setSortDir] = useState("desc");
+  const [exportModalDeck, setExportModalDeck] = useState(null);
   const searchRef = useRef(null);
 
   // Run a pending avatar-menu intent once the Decks tab mounts: "import" opens the
@@ -461,27 +451,23 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
     reader.readAsText(file);
   }
 
-  async function exportDeck(deck, format) {
-    if (format === "txt") {
-      try {
-        const { text } = await api.exportText(deck.decklist_text, deck.format);
-        downloadFile(`${deck.name || "deck"}.txt`, text);
-      } catch (e) {
-        notify(`Export failed: ${e.message}`);
-      }
-    } else {
-      const payload = { name: deck.name, format: deck.format, decklist_text: deck.decklist_text };
-      downloadFile(`${deck.name || "deck"}.json`, JSON.stringify(payload, null, 2), "application/json");
-    }
-  }
-
   async function rename(deck) {
     const name = prompt("Rename deck:", deck.name);
     if (name && name !== deck.name) await onSave({ ...deck, name });
   }
 
+  // Clone: create a NEW deck (no id) with the same contents, like App.jsx's clone.
+  async function clone(deck) {
+    const name = prompt("Name the copy:", `${deck.name || "Untitled deck"} (copy)`);
+    if (!name) return;
+    await onSave({ name: name.trim(), format: deck.format, decklist_text: deck.decklist_text });
+    notify("Deck cloned.");
+  }
+
   return (
     <div>
+      <ExportDeckModal deck={exportModalDeck} onClose={() => setExportModalDeck(null)} notify={notify} />
+
       {/* Import panel (collapsible) */}
       {showImport && (
         <div className="panel" style={{ marginBottom: "1rem" }}>
@@ -593,8 +579,17 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
             </div>
           </div>
 
-          {/* Deck hero grid */}
+          {/* Deck hero grid — New Deck tile leads (Archidekt-style) */}
           <div className="hero-grid">
+            {onNewDeck && (
+              <div className="deck-card-new" onClick={onNewDeck} role="button" tabIndex={0}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNewDeck(); } }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: "2rem", lineHeight: 1, color: "var(--muted)" }}>+</div>
+                  <div style={{ fontSize: ".7rem", marginTop: ".3rem", color: "var(--muted)" }}>New Deck</div>
+                </div>
+              </div>
+            )}
             {decks
               .filter((d) => {
                 if (deckSearch && !d.name?.toLowerCase().includes(deckSearch.toLowerCase())) return false;
@@ -617,18 +612,10 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
                 onPlaytest={onPlaytest}
                 onDelete={onDelete}
                 onRename={rename}
-                onExport={exportDeck}
+                onClone={clone}
+                onExport={setExportModalDeck}
               />
             ))}
-            {onNewDeck && (
-              <div className="deck-card-new" onClick={onNewDeck} role="button" tabIndex={0}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNewDeck(); } }}>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "2rem", lineHeight: 1, color: "var(--muted)" }}>+</div>
-                  <div style={{ fontSize: ".7rem", marginTop: ".3rem", color: "var(--muted)" }}>New Deck</div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Feature strip for returning users */}

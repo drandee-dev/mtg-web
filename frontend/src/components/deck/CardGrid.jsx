@@ -27,19 +27,7 @@ const GROUPS = [
   { id: "price", label: "Price range" },
 ];
 
-function deckCompleteness(totalCards, commander, format) {
-  const isCmdr = format === "commander" || format === "paupercommander";
-  if (isCmdr) {
-    const cmdrCount = commander ? commander.split(" && ").filter(Boolean).length : 0;
-    const total = totalCards + cmdrCount;
-    const status = total > 100 ? "bad" : total === 100 ? "good" : "warn";
-    return { label: `${total} / 100`, status, title: "Commander decks are exactly 100 cards" };
-  }
-  const status = totalCards >= 60 ? "good" : "warn";
-  return { label: `${totalCards} / 60+`, status, title: "Constructed decks are a 60-card minimum" };
-}
-
-export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, typeFilter, onRemove, onConsider, addCard, onCardSearch, onSave, saveState, onTypeCounts, notify, onChangeCommander, setCardQty }) {
+export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, typeFilter, onRemove, onConsider, addCard, onCardSearch, onTypeCounts, notify, onChangeCommander, setCardQty }) {
   const [quickAdd, setQuickAdd] = useState("");
   const [viewMode, setViewMode] = useState(
     () => localStorage.getItem("mtgweb:viewMode") || "grid"
@@ -370,22 +358,6 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
                 )}
               </div>
             </div>
-          )}
-        </div>
-        {/* Right: completeness + Save */}
-        <div className="cg-toolbar-right">
-          {(() => {
-            const c = deckCompleteness(totalCards, commander, format);
-            return <span className={`badge ${c.status}`} title={c.title}>{c.label}</span>;
-          })()}
-          {onSave && (
-            <button
-              className={`primary small cg-tb-save${saveState === "saved" ? " btn-saved" : ""}`}
-              disabled={saveState === "saving"}
-              onClick={onSave}
-            >
-              {saveState === "saving" ? "…" : saveState === "saved" ? "Saved" : "Save"}
-            </button>
           )}
         </div>
       </div>

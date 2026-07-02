@@ -44,10 +44,9 @@ test.describe("My Decks", () => {
     await waitForAppReady(page);
     await dismissColdStart(page);
 
-    // The deck card's hover overlay has Edit / Playtest / Export — use Edit to open
-    // in the editor (clicking the art centre can land on the Playtest button).
-    await page.locator(".deck-card").first().hover();
-    await page.locator('.deck-card-hover-btn:has-text("Edit")').first().click();
+    // Clicking the deck card's art opens it in the editor (the old hover
+    // overlay with Edit/Playtest/Export buttons was removed).
+    await page.locator(".deck-card .deck-card-art").first().click();
 
     await expect(page).toHaveURL(/tab=deck/);
     await expect(page.locator(".card-grid-container")).toBeVisible({ timeout: 10000 });

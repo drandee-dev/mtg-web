@@ -112,12 +112,15 @@ export default function App() {
 
   const savedDeckText = useRef(deckText);
   const [startInWizard, setStartInWizard] = useState(false);
+  // Pending import-modal tab ("paste" | "url") to open once the new-deck editor
+  // mounts, set by avatar-menu shortcuts. null = none.
+  const [startImport, setStartImport] = useState(null);
   // Pending action to run when the Decks tab mounts, set by avatar-menu shortcuts:
   // "import" opens the import panel, "search" focuses the deck-search box. null = none.
   const [decksIntent, setDecksIntent] = useState(null);
   const clearDecksIntent = useCallback(() => setDecksIntent(null), []);
 
-  const newDeck = useCallback(() => {
+  const newDeck = useCallback((importTab = null) => {
     setDeckText("");
     setCommander("");
     setMaybeboard("");
@@ -125,6 +128,7 @@ export default function App() {
     setCurrentDeck(null);
     savedDeckText.current = "";
     setStartInWizard(false);
+    setStartImport(typeof importTab === "string" ? importTab : null);
     setTab("deck");
   }, []);
 
@@ -136,6 +140,7 @@ export default function App() {
     setCurrentDeck(null);
     savedDeckText.current = "";
     setStartInWizard(true);
+    setStartImport(null);
     setTab("deck");
   }, []);
 
@@ -354,10 +359,10 @@ export default function App() {
         setSettingsOpen={setSettingsOpen}
         decks={decks}
         onNewDeck={newDeck}
-        onImportUrl={() => { setDecksIntent("import"); setTab("decks"); }}
+        onImportUrl={() => newDeck("url")}
         onSearchDecks={() => { setDecksIntent("search"); setTab("decks"); }}
         onOpenDeck={openDeck}
-        onPasteDecklist={newDeck}
+        onPasteDecklist={() => newDeck("paste")}
         onSignOut={() => { supabase.auth.signOut(); notify("Signed out."); }}
         avatarMenuOpen={avatarMenuOpen}
         setAvatarMenuOpen={setAvatarMenuOpen}
@@ -390,6 +395,8 @@ export default function App() {
             onShare={shareDeck}
             startInWizard={startInWizard}
             onWizardConsumed={() => setStartInWizard(false)}
+            startImport={startImport}
+            onImportConsumed={() => setStartImport(null)}
             onBack={() => setTab("decks")}
             notify={notify}
             serverWarmed={serverWarmed}

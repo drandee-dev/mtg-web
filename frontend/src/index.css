@@ -469,7 +469,8 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 }
 .card-rail-qty .card-rail-btn + .card-rail-btn { border-top: 1px solid rgba(255,255,255,.14); }
 .card-rail-btn {
-  width: 28px; height: 28px; min-height: auto; border: none; cursor: pointer;
+  /* padding: 0 — the global button padding leaves no content box at 28px, crushing the icon */
+  width: 28px; height: 28px; min-height: auto; padding: 0; border: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   background: rgba(12,13,17,.88); color: #fff;
   backdrop-filter: blur(2px); transition: background .12s, color .12s;
@@ -2151,21 +2152,15 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   background: linear-gradient(to bottom, transparent 30%, rgba(12,13,17,.7) 100%);
   pointer-events: none;
 }
-.deck-card-pips { position: absolute; bottom: 7px; left: 10px; display: flex; gap: 3px; }
-.deck-card-pips .pip { width: 15px; height: 15px; font-size: .6rem; }
-.deck-card-hover {
-  position: absolute; inset: 0; background: rgba(12,13,17,.7);
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  opacity: 0; transition: opacity .15s;
+/* WUBRG identity bar between art and body — equal-width segment per color */
+.deck-card-colorbar { display: flex; height: 16px; }
+.deck-card-colorseg {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  font-size: .58rem; font-weight: 700; color: #14161c; letter-spacing: .02em;
 }
-.deck-card-art:hover .deck-card-hover, .deck-card-art:focus-within .deck-card-hover { opacity: 1; }
-.deck-card-hover-btn {
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
-  padding: 8px 10px; cursor: pointer; font-family: inherit;
-  color: var(--text-secondary); font-size: 10px; font-weight: 500; min-height: auto;
-}
-.deck-card-hover-btn:hover { color: var(--text); border-color: var(--accent); }
+.colorseg-W { background: var(--mtg-w); } .colorseg-U { background: var(--mtg-u); }
+.colorseg-B { background: var(--mtg-b); } .colorseg-R { background: var(--mtg-r); }
+.colorseg-G { background: var(--mtg-g); } .colorseg-C { background: var(--mtg-c); }
 .deck-card-body { padding: 10px 12px 12px; }
 .deck-card-name {
   font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px;
@@ -2371,3 +2366,95 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .wizard-split { display: grid; grid-template-columns: 1fr 320px; gap: .8rem; align-items: start; }
   .wizard-left, .wizard-right { display: block !important; }
 }
+
+/* ===== Deck header stats row (new-deck-flow redesign) ===== */
+.dh-left { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+.dh-stats { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; font-size: .78rem; color: var(--text-secondary); }
+.dh-format { width: auto; padding: .25rem .5rem; font-size: .78rem; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); }
+.dh-stat { color: var(--text-secondary); white-space: nowrap; }
+.dh-stat + .dh-stat::before { content: "·"; color: var(--muted); margin-right: .45rem; opacity: .6; }
+.dh-locked { color: var(--warn); }
+
+/* ===== Empty-deck state ===== */
+.empty-deck { display: grid; place-items: center; padding: 3rem 1rem; }
+.empty-deck-inner { text-align: center; max-width: 420px; width: 100%; }
+.empty-deck-inner h3 { margin: 0 0 .3rem; font-size: 1.05rem; }
+.empty-deck-inner p { margin: 0 0 1.2rem; font-size: .82rem; }
+.empty-actions { display: grid; gap: .6rem; text-align: left; }
+.empty-action {
+  display: flex; align-items: center; gap: .8rem; width: 100%;
+  padding: .8rem 1rem; background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); cursor: pointer; color: var(--text);
+  transition: border-color .12s, background .12s;
+}
+.empty-action:hover { border-color: var(--accent); background: var(--accent-soft); }
+.empty-action-ico {
+  width: 36px; height: 36px; flex: none; display: grid; place-items: center;
+  background: var(--panel-2); border-radius: var(--radius); font-size: 1rem;
+}
+.empty-action-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.empty-action-t { font-weight: 600; font-size: .85rem; }
+.empty-action-d { font-size: .74rem; color: var(--muted); }
+
+/* ===== Import cards modal ===== */
+.icm-overlay {
+  position: fixed; inset: 0; z-index: 130; background: rgba(0,0,0,.6);
+  display: grid; place-items: center; padding: 1rem;
+}
+.icm-panel {
+  width: min(540px, 100%); background: var(--panel);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.icm-head { display: flex; align-items: center; justify-content: space-between; padding: .8rem 1.1rem; border-bottom: 1px solid var(--border); }
+.icm-head h3 { margin: 0; font-size: .95rem; }
+.icm-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .9rem; padding: .2rem .4rem; }
+.icm-close:hover { color: var(--text); }
+.icm-tabs { display: flex; gap: 2px; padding: .6rem 1.1rem 0; }
+.icm-tabs button {
+  background: none; border: none; cursor: pointer; color: var(--text-secondary);
+  font-size: .82rem; font-weight: 500; padding: .45rem .8rem;
+  border-bottom: 2px solid transparent; border-radius: var(--radius) var(--radius) 0 0;
+}
+.icm-tabs button.on { color: var(--accent); border-bottom-color: var(--accent); background: var(--accent-soft); }
+.icm-body { padding: .9rem 1.1rem; }
+.icm-body textarea {
+  width: 100%; height: 180px; resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem;
+  background: var(--bg-raised); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: .6rem .7rem;
+}
+.icm-body textarea:focus, .icm-body input:focus { outline: none; border-color: var(--accent); }
+.icm-body input { width: 100%; }
+.icm-hint { margin-top: .5rem; font-size: .72rem; color: var(--muted); }
+.icm-srcs { display: flex; gap: .4rem; margin-top: .6rem; }
+.icm-src { font-size: .7rem; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 999px; padding: .15rem .55rem; }
+.icm-foot { display: flex; justify-content: flex-end; gap: .5rem; padding: 0 1.1rem .9rem; }
+
+/* ===== Export deck modal (Archidekt-style copy/paste) ===== */
+.edm-overlay {
+  position: fixed; inset: 0; z-index: 130; background: rgba(0,0,0,.6);
+  display: grid; place-items: center; padding: 1rem;
+}
+.edm-panel {
+  width: min(540px, 100%); background: var(--panel);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.edm-head { display: flex; align-items: center; justify-content: space-between; padding: .8rem 1.1rem; border-bottom: 1px solid var(--border); }
+.edm-head h3 { margin: 0; font-size: .95rem; }
+.edm-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .9rem; padding: .2rem .4rem; }
+.edm-close:hover { color: var(--text); }
+.edm-body { padding: .9rem 1.1rem; }
+.edm-body textarea {
+  width: 100%; height: 220px; resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem;
+  background: var(--bg-raised); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: .6rem .7rem;
+}
+.edm-body textarea:focus { outline: none; border-color: var(--accent); }
+.edm-hint { margin-top: .5rem; font-size: .72rem; color: var(--muted); }
+.edm-foot { display: flex; justify-content: flex-end; gap: .5rem; padding: 0 1.1rem .9rem; flex-wrap: wrap; }
+
+/* Avatar recent-decks list: cap height once it holds more than a few rows */
+.avp-recents-scroll { max-height: 228px; overflow-y: auto; }

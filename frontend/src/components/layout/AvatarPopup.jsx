@@ -21,7 +21,7 @@ export default function AvatarPopup({
   const recentDecks = (decks || [])
     .slice()
     .sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""))
-    .slice(0, 3);
+    .slice(0, 6);
 
   return (
     <div ref={ref} className="avatar-popup">
@@ -58,9 +58,11 @@ export default function AvatarPopup({
           {/* Section 3: Recent decks */}
           <div className="avp-section">
             <div className="avp-section-label">Recent</div>
-            {recentDecks.map((deck) => (
-              <RecentDeckRow key={deck.id} deck={deck} onOpenDeck={onOpenDeck} onClose={onClose} />
-            ))}
+            <div className="avp-recents-scroll">
+              {recentDecks.map((deck) => (
+                <RecentDeckRow key={deck.id} deck={deck} onOpenDeck={onOpenDeck} onClose={onClose} />
+              ))}
+            </div>
           </div>
         </>
       )}

@@ -4,7 +4,10 @@ import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
 async function openPlaytest(page) {
   await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-  await deckMenuAction(page, "Playtest");
+  // Desktop header has a direct "▶ Playtest" button; mobile keeps it in the ⋯ menu.
+  const directBtn = page.locator('.dh-actions button:has-text("Playtest")');
+  if (await directBtn.isVisible()) await directBtn.click();
+  else await deckMenuAction(page, "Playtest");
   await page.locator('h2:has-text("Playtest")').waitFor({ timeout: 8000 });
 }
 
@@ -26,7 +29,9 @@ test.describe("Playtest", () => {
     await openPlaytest(page);
     await page.locator('button:has-text("Close")').click();
     await expect(page.locator('h2:has-text("Playtest")')).toHaveCount(0);
-    await expect(page.locator('.badge:has-text("/ 100")').first()).toBeVisible();
+    // The completeness badge lives in the desktop-only header, so assert on the
+    // card grid (visible at every breakpoint) to confirm we're back on the deck.
+    await expect(page.locator(".card-grid-container")).toBeVisible();
   });
 
   // No visual snapshot here: the opening hand is randomly shuffled, so a screenshot

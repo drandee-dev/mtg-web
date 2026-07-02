@@ -6,8 +6,9 @@ test.describe("Deck Builder", () => {
   test("shared deck link loads cards into the grid", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await expect(page.locator(".card-grid-container")).toBeVisible();
-    // Commander-format completeness badge appears once cards are parsed.
-    await expect(page.locator('.badge:has-text("/ 100")').first()).toBeVisible({ timeout: 10000 });
+    // Commander-format completeness badge appears once cards are parsed. It lives
+    // in the desktop-only header (hidden on mobile), so assert attachment, not visibility.
+    await expect(page.locator('.badge:has-text("/ 100")').first()).toBeAttached({ timeout: 10000 });
   });
 
   test("card groups render for the loaded deck", async ({ page }) => {
@@ -25,7 +26,7 @@ test.describe("Deck Builder", () => {
 
   test("visual: deck view with cards (grid)", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    await page.locator('.badge:has-text("/ 100")').first().waitFor({ timeout: 10000 });
+    await page.locator('.badge:has-text("/ 100")').first().waitFor({ state: "attached", timeout: 10000 });
     await page.waitForTimeout(800);
     await expect(page).toHaveScreenshot("deck-view-cards.png", { fullPage: true });
   });
