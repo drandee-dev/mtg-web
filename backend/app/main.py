@@ -500,12 +500,21 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
             fmt_map = {1: "standard", 2: "modern", 3: "commander", 4: "legacy", 5: "vintage", 6: "pauper", 7: "pioneer"}
             if isinstance(fmt, int):
                 fmt = fmt_map.get(fmt, "commander")
+            # Archidekt marks each category (Sideboard, Maybeboard, Cut Cards, custom
+            # categories, etc.) with includedInDeck — respect it instead of importing
+            # every card in the deck's card pool. Only a card's first category is its
+            # primary one and decides deck membership; the rest are just tags.
+            excluded_categories = {
+                c.get("name") for c in (data.get("categories") or []) if c.get("includedInDeck") is False
+            }
             lines = []
             for card_data in data.get("cards") or []:
                 cname = ((card_data.get("card") or {}).get("oracleCard") or {}).get("name", "")
                 qty = card_data.get("quantity", 1)
                 categories = card_data.get("categories") or []
                 if not cname:
+                    continue
+                if categories and categories[0] in excluded_categories:
                     continue
                 if "Commander" in categories:
                     lines.insert(0, f"Commander\n{qty} {cname}\nDeck")
