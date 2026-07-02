@@ -11,14 +11,11 @@ Run locally:  uvicorn app.main:app --reload --port 8000
 
 from __future__ import annotations
 
-import datetime
-import json
 import logging
 import os
 import re
 import threading
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import Body, FastAPI, HTTPException, Query, Request
@@ -26,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
-from app import config, mtg
+from app import config, mtg, usage
 
 log = logging.getLogger("mtg-web")
 
@@ -43,11 +40,6 @@ if not _ADMIN_EMAIL:
 _AI_RATE_LIMIT = int(os.environ.get("AI_RATE_LIMIT_PER_DAY", "25"))
 _AI_MONTHLY_BUDGET_CENTS = int(os.environ.get("AI_MONTHLY_BUDGET_CENTS", "1000"))
 _SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
-
-_USAGE_FILE = Path(os.environ.get("AI_USAGE_FILE", "ai_usage.json"))
-
-_INPUT_COST_CENTS_PER_M = 300
-_OUTPUT_COST_CENTS_PER_M = 1500
 
 # Max input lengths for validation
 _MAX_DECKLIST_LEN = 50_000
@@ -119,35 +111,6 @@ def _safe_regex(pattern: str, label: str = "pattern") -> re.Pattern:
         raise HTTPException(400, f"Invalid {label}: {exc}") from exc
 
 
-def _load_usage() -> dict:
-    """Load both monthly budget and daily per-user counts from disk."""
-    try:
-        if _USAGE_FILE.exists():
-            data = json.loads(_USAGE_FILE.read_text())
-            if data.get("month") == datetime.date.today().strftime("%Y-%m"):
-                return data
-    except Exception:
-        pass
-    return {"month": datetime.date.today().strftime("%Y-%m"), "total_cents": 0.0,
-            "calls": 0, "daily": {}}
-
-
-def _save_usage(data: dict) -> None:
-    try:
-        _USAGE_FILE.write_text(json.dumps(data))
-    except Exception:
-        log.warning("Could not save AI usage file.")
-
-
-def _record_ai_usage(input_tokens: int, output_tokens: int) -> None:
-    data = _load_usage()
-    cost = (input_tokens / 1_000_000 * _INPUT_COST_CENTS_PER_M
-            + output_tokens / 1_000_000 * _OUTPUT_COST_CENTS_PER_M)
-    data["total_cents"] = data.get("total_cents", 0) + cost
-    data["calls"] = data.get("calls", 0) + 1
-    _save_usage(data)
-
-
 def _get_user_from_jwt(request: Request) -> tuple[str, str]:
     """Verify the Supabase JWT from the Authorization header.
     Returns (role, email). Falls back to anonymous if no token or invalid.
@@ -175,9 +138,6 @@ def _get_user_from_jwt(request: Request) -> tuple[str, str]:
         return "anonymous", ""
 
 
-_usage_lock = threading.Lock()
-
-
 def _client_ip(request: Request) -> str:
     """Extract the real client IP, respecting X-Forwarded-For behind a reverse proxy."""
     forwarded = request.headers.get("x-forwarded-for")
@@ -195,26 +155,16 @@ def _check_ai_access(request: Request) -> None:
 
     role, email = _get_user_from_jwt(request)
 
-    with _usage_lock:
-        usage = _load_usage()
-        if usage.get("total_cents", 0) >= _AI_MONTHLY_BUDGET_CENTS:
-            raise HTTPException(429, "AI budget reached for this month. Deterministic features still work.")
+    if usage.monthly_total_cents() >= _AI_MONTHLY_BUDGET_CENTS:
+        raise HTTPException(429, "AI budget reached for this month. Deterministic features still work.")
 
-        if role == "admin":
-            return
+    if role == "admin":
+        return
 
-        limit_key = email if email else _client_ip(request)
-        today = datetime.date.today().isoformat()
-        daily = usage.get("daily", {})
-        user_day = daily.get(limit_key, {})
-        if user_day.get("date") != today:
-            user_day = {"date": today, "count": 0}
-        if user_day["count"] >= _AI_RATE_LIMIT:
-            raise HTTPException(429, f"Daily AI limit reached ({_AI_RATE_LIMIT} calls/day). Try again tomorrow.")
-        user_day["count"] += 1
-        daily[limit_key] = user_day
-        usage["daily"] = daily
-        _save_usage(usage)
+    limit_key = email if email else _client_ip(request)
+    if usage.daily_call_count(limit_key) >= _AI_RATE_LIMIT:
+        raise HTTPException(429, f"Daily AI limit reached ({_AI_RATE_LIMIT} calls/day). Try again tomorrow.")
+    usage.record_attempt(limit_key)
 
 
 def _validate_decklist(payload: dict) -> tuple[str, str]:
@@ -254,7 +204,7 @@ async def lifespan(_: FastAPI):
     Best-effort: if data files are missing in a given environment, the server still
     boots and individual endpoints surface a clear error.
     """
-    mtg.on_ai_usage = _record_ai_usage
+    mtg.on_ai_usage = usage.record_cost
     threading.Thread(target=_warm_in_background, name="warm", daemon=True).start()
     yield
 
@@ -271,8 +221,8 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health() -> dict:
-    usage = _load_usage()
-    budget_pct = max(0, 100 - int(usage.get("total_cents", 0) / max(_AI_MONTHLY_BUDGET_CENTS, 1) * 100))
+    total_cents = usage.monthly_total_cents()
+    budget_pct = max(0, 100 - int(total_cents / max(_AI_MONTHLY_BUDGET_CENTS, 1) * 100))
     has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
     return {
         "status": "ok",
@@ -280,7 +230,7 @@ def health() -> dict:
         "data_as_of": mtg.data_as_of(),
         "ai_available": has_key and budget_pct > 0,
         "ai_budget_remaining_pct": budget_pct,
-        "ai_calls_this_month": usage.get("calls", 0),
+        "ai_calls_this_month": usage.monthly_call_count(),
     }
 
 

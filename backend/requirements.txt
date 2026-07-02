@@ -5,8 +5,9 @@ uvicorn[standard]>=0.30
 # AI features (Phase 2: Rules Q&A, deck suggestions)
 anthropic>=0.52
 
-# Auth (Supabase JWT verification)
+# Auth (Supabase JWT verification) + AI usage tracking (Supabase table)
 pyjwt>=2.8
+supabase>=2.9
 
 # Pulled in transitively by mtg_utils (the reused deck/card/rules library)
 click>=8.0
