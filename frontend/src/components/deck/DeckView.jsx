@@ -122,6 +122,26 @@ export default function DeckView({
     skip(oldName);
   }
 
+  // Set a card's copy count, normalizing it to a single `N Name` line (collapses any
+  // duplicate lines parseDeckText would have summed). qty <= 0 removes the card.
+  function setCardQty(name, qty) {
+    setDecklist((prev) => {
+      const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(`^\\s*\\d+\\s+${esc}\\s*$`, "i");
+      const out = [];
+      let placed = false;
+      for (const l of prev.split("\n")) {
+        if (re.test(l)) {
+          if (!placed && qty > 0) { out.push(`${qty} ${name}`); placed = true; }
+        } else {
+          out.push(l);
+        }
+      }
+      if (!placed && qty > 0) out.push(`${qty} ${name}`);
+      return out.join("\n");
+    });
+  }
+
   // Moving a card to Considering also pulls it out of the deck (silent remove so
   // there's a single, subtle toast rather than two).
   function addToConsidering(name) {
@@ -371,6 +391,7 @@ export default function DeckView({
             onTypeCounts={setTypeCounts}
             notify={notify}
             onChangeCommander={locked ? null : () => setCommander("")}
+            setCardQty={locked ? null : setCardQty}
           />
 
         </div>

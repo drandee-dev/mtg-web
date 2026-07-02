@@ -1,7 +1,9 @@
+import { useDraggable } from "@dnd-kit/core";
 import { canHover } from "../../lib/hooks";
 import { useColumnCount, packMasonry } from "../../lib/masonry";
 import ManaCost from "./ManaCost";
 import StackColumn from "./StackColumn";
+import StackDndContext from "./StackDndContext";
 import MoreMenu from "./MoreMenu";
 
 function columnTotals(cards, metaMap) {
@@ -22,6 +24,8 @@ function estimateColHeight(cardCount) {
   return HEADER_H + cardCount * ROW_H + 10;
 }
 
+const GHOST_MAX_ROWS = 8;
+
 // Archidekt-style text columns: compact rows of qty · name · mana pips. Cards are
 // listed (not overlapped), so a whole category reads as a scannable list.
 export default function TextStackView({
@@ -37,8 +41,11 @@ export default function TextStackView({
   commanderColumn = null,
   onChangeCommander,
 }) {
-  const [containerRef, columnCount] = useColumnCount(232, 11.2);
+  const [containerRef, columnCount] = useColumnCount(216, 11.2);
   const labels = groups.map(([label]) => label);
+
+  // Card descriptors carried in drag data so the ghost can render mana pips.
+  const withMana = (cards) => cards.map((c) => ({ ...c, manaCost: metaMap?.[c.name]?.mana_cost || "" }));
 
   const items = [];
   if (commanderColumn && commanderColumn.length > 0) {
@@ -62,6 +69,7 @@ export default function TextStackView({
                 name={c.name}
                 qty={c.qty}
                 manaCost={metaMap?.[c.name]?.mana_cost || ""}
+                columnLabel="Commander"
                 onCardClick={onCardClick}
                 onRemove={null}
                 onConsider={null}
@@ -86,13 +94,11 @@ export default function TextStackView({
           label={label}
           count={qty}
           price={price}
-          cardDragEnabled={cardDragEnabled}
-          onColumnReorder={onColumnReorder}
-          onCardMove={onCardMove}
           onColumnNudge={onColumnNudge}
           canMoveLeft={i > 0}
           canMoveRight={i < groups.length - 1}
           className="stack-column-text"
+          dragData={{ type: "column", label, cards: withMana(cards) }}
         >
           <div className="ts-rows" role="list">
             {cards.map((c) => (
@@ -101,6 +107,7 @@ export default function TextStackView({
                 name={c.name}
                 qty={c.qty}
                 manaCost={metaMap?.[c.name]?.mana_cost || ""}
+                columnLabel={label}
                 onCardClick={onCardClick}
                 onRemove={onRemove}
                 onConsider={onConsider}
@@ -115,20 +122,58 @@ export default function TextStackView({
     });
   });
 
-  const buckets = packMasonry(items, columnCount);
+  const cols = Math.max(1, Math.min(columnCount, items.length));
+  const buckets = packMasonry(items, cols);
 
   return (
-    <div ref={containerRef} className={`stack-view text-stack-view ${canHover ? "" : "stack-touch"}`}>
-      {buckets.map((bucket, i) => (
-        <div className="stack-masonry-col" key={i}>
-          {bucket.map((item) => <div key={item.key}>{item.node}</div>)}
-        </div>
-      ))}
+    <StackDndContext onColumnReorder={onColumnReorder} onCardMove={onCardMove} renderGhost={renderTextGhost}>
+      <div ref={containerRef} className={`stack-view text-stack-view ${canHover ? "" : "stack-touch"}`}>
+        {buckets.map((bucket, i) => (
+          <div className="stack-masonry-col" key={i}>
+            {bucket.map((item) => <div key={item.key}>{item.node}</div>)}
+          </div>
+        ))}
+      </div>
+    </StackDndContext>
+  );
+}
+
+// ── Drag ghosts (text view) ────────────────────────────────────────────────────
+function renderTextGhost(active) {
+  if (active.type === "column") return <ColumnTextGhost label={active.label} cards={active.cards} />;
+  if (active.type === "card") return <ColumnTextGhost cards={[{ name: active.name, qty: active.qty, manaCost: active.manaCost }]} />;
+  return null;
+}
+
+function GhostRow({ name, qty, manaCost }) {
+  return (
+    <div className="ts-row">
+      <span className="ts-qty">{qty}</span>
+      <span className="ts-name">{name}</span>
+      <ManaCost cost={manaCost} />
     </div>
   );
 }
 
-function TextRow({ name, qty, manaCost, onCardClick, onRemove, onConsider, cardDragEnabled, moveTargets, onCardMove }) {
+function ColumnTextGhost({ cards }) {
+  const shown = cards.slice(0, GHOST_MAX_ROWS);
+  return (
+    <div className="stack-drag-ghost stack-column stack-column-text">
+      <div className="ts-rows">
+        {shown.map((c) => <GhostRow key={c.name} name={c.name} qty={c.qty} manaCost={c.manaCost} />)}
+      </div>
+    </div>
+  );
+}
+
+function TextRow({ name, qty, manaCost, columnLabel, onCardClick, onRemove, onConsider, cardDragEnabled, moveTargets, onCardMove }) {
+  const dragDisabled = !cardDragEnabled || !canHover;
+  const { setNodeRef, listeners, isDragging } = useDraggable({
+    id: `card:${columnLabel}:${name}`,
+    data: { type: "card", name, columnLabel, qty, manaCost },
+    disabled: dragDisabled,
+  });
+
   const showMoveMenu = !canHover && moveTargets && moveTargets.length > 0;
   const moveItems = showMoveMenu
     ? moveTargets.map((t) => ({ label: `Move to ${t}`, onClick: () => onCardMove?.(name, t) }))
@@ -136,14 +181,12 @@ function TextRow({ name, qty, manaCost, onCardClick, onRemove, onConsider, cardD
 
   return (
     <div
-      className="ts-row"
+      ref={setNodeRef}
+      className={`ts-row ${isDragging ? "stack-card-dragging" : ""}`}
       role="listitem"
       tabIndex={0}
-      draggable={cardDragEnabled && canHover}
-      onDragStart={cardDragEnabled && canHover ? (e) => {
-        e.dataTransfer.setData("text/plain", `card:${name}`);
-        e.dataTransfer.effectAllowed = "move";
-      } : undefined}
+      style={dragDisabled ? undefined : { touchAction: "none" }}
+      {...(dragDisabled ? {} : listeners)}
       onClick={() => onCardClick?.(name)}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onCardClick?.(name); } }}
       aria-label={`${qty}x ${name}`}
@@ -151,7 +194,7 @@ function TextRow({ name, qty, manaCost, onCardClick, onRemove, onConsider, cardD
       <span className="ts-qty">{qty}</span>
       <span className="ts-name">{name}</span>
       <ManaCost cost={manaCost} />
-      <span className="ts-row-actions">
+      <span className="ts-row-actions" onPointerDown={(e) => e.stopPropagation()}>
         {showMoveMenu && (
           <span onClick={(e) => e.stopPropagation()}>
             <MoreMenu items={moveItems} label={`Move ${name} to another category`} />

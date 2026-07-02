@@ -1,7 +1,10 @@
 import { useState } from "react";
+import { useDraggable } from "@dnd-kit/core";
 import { canHover, useCardImage } from "../../lib/hooks";
 import { useColumnCount, packMasonry } from "../../lib/masonry";
 import StackColumn from "./StackColumn";
+import StackDndContext from "./StackDndContext";
+import CardActionRail from "./CardActionRail";
 import MoreMenu from "./MoreMenu";
 
 function columnTotals(cards, metaMap) {
@@ -24,6 +27,9 @@ function estimateColHeight(cardCount) {
   return HEADER_H + CARD_H + Math.max(0, cardCount - 1) * OVERLAP_SLIVER;
 }
 
+// Cap the picked-up-stack ghost so a 30-card column doesn't render a 1400px ghost.
+const GHOST_MAX_CARDS = 6;
+
 export default function StackView({
   groups,
   metaMap = {},
@@ -35,10 +41,11 @@ export default function StackView({
   onColumnReorder,
   onColumnNudge,
   onCardMove,
+  onSetQty,
   commanderColumn = null,
   onChangeCommander,
 }) {
-  const [containerRef, columnCount] = useColumnCount(210, 11.2);
+  const [containerRef, columnCount] = useColumnCount(200, 11.2);
   const labels = groups.map(([label]) => label);
 
   const items = [];
@@ -62,6 +69,7 @@ export default function StackView({
                 key={c.name}
                 name={c.name}
                 qty={c.qty}
+                columnLabel="Commander"
                 onCardClick={onCardClick}
                 onRemove={null}
                 onConsider={null}
@@ -86,13 +94,11 @@ export default function StackView({
           label={label}
           count={qty}
           price={price}
-          cardDragEnabled={cardDragEnabled}
-          onColumnReorder={onColumnReorder}
-          onCardMove={onCardMove}
           onColumnNudge={onColumnNudge}
           canMoveLeft={i > 0}
           canMoveRight={i < groups.length - 1}
           className="stack-column-image"
+          dragData={{ type: "column", label, cards }}
         >
           <div className="stack-cards">
             {cards.map((c) => (
@@ -101,9 +107,11 @@ export default function StackView({
                 name={c.name}
                 qty={c.qty}
                 synergy={synergyMap[c.name]}
+                columnLabel={label}
                 onCardClick={onCardClick}
                 onRemove={onRemove}
                 onConsider={onConsider}
+                onSetQty={onSetQty}
                 cardDragEnabled={cardDragEnabled}
                 moveTargets={cardDragEnabled ? moveTargets : null}
                 onCardMove={onCardMove}
@@ -115,24 +123,76 @@ export default function StackView({
     });
   });
 
-  const buckets = packMasonry(items, columnCount);
+  // Don't make more columns than there are categories — empty buckets would render
+  // dead space. Fewer columns then flex-grow to fill the width (see .stack-masonry-col).
+  const cols = Math.max(1, Math.min(columnCount, items.length));
+  const buckets = packMasonry(items, cols);
 
   return (
-    <div ref={containerRef} className={`stack-view ${canHover ? "" : "stack-touch"}`}>
-      {buckets.map((bucket, i) => (
-        <div className="stack-masonry-col" key={i}>
-          {bucket.map((item) => <div key={item.key}>{item.node}</div>)}
-        </div>
-      ))}
+    <StackDndContext onColumnReorder={onColumnReorder} onCardMove={onCardMove} renderGhost={renderImageGhost}>
+      <div ref={containerRef} className={`stack-view ${canHover ? "" : "stack-touch"}`}>
+        {buckets.map((bucket, i) => (
+          <div className="stack-masonry-col" key={i}>
+            {bucket.map((item) => <div key={item.key}>{item.node}</div>)}
+          </div>
+        ))}
+      </div>
+    </StackDndContext>
+  );
+}
+
+// ── Drag ghosts (image view) ──────────────────────────────────────────────────
+function renderImageGhost(active) {
+  if (active.type === "column") return <ColumnImageGhost cards={active.cards} />;
+  if (active.type === "card") return <CardImageGhost name={active.name} />;
+  return null;
+}
+
+function GhostCardImg({ name }) {
+  const data = useCardImage(name);
+  const img = data?.image || data?.art_crop || null;
+  return (
+    <div className="stack-card-wrap">
+      {img ? <img src={img} alt="" /> : <div className="card-thumb-placeholder">{name}</div>}
     </div>
   );
 }
 
-function StackCard({ name, qty, synergy, onCardClick, onRemove, onConsider, cardDragEnabled, moveTargets, onCardMove }) {
+function ColumnImageGhost({ cards }) {
+  const shown = cards.slice(0, GHOST_MAX_CARDS);
+  return (
+    <div className="stack-drag-ghost">
+      <div className="stack-cards">
+        {shown.map((c) => <GhostCardImg key={c.name} name={c.name} />)}
+      </div>
+    </div>
+  );
+}
+
+function CardImageGhost({ name }) {
+  return (
+    <div className="stack-drag-ghost">
+      <div className="stack-cards">
+        <GhostCardImg name={name} />
+      </div>
+    </div>
+  );
+}
+
+function StackCard({ name, qty, synergy, columnLabel, onCardClick, onRemove, onConsider, onSetQty, cardDragEnabled, moveTargets, onCardMove }) {
   const data = useCardImage(name);
   const img = data?.image || data?.art_crop || null;
   const [expanded, setExpanded] = useState(false);
-  // Drag is pointer-only; on touch, offer a ⋯ "move to" menu instead.
+
+  // Card move (drag to another category) is role-mode + pointer only. On touch,
+  // offer a ⋯ "move to" menu instead.
+  const dragDisabled = !cardDragEnabled || !canHover;
+  const { setNodeRef, listeners, isDragging } = useDraggable({
+    id: `card:${columnLabel}:${name}`,
+    data: { type: "card", name, columnLabel },
+    disabled: dragDisabled,
+  });
+
   const showMoveMenu = !canHover && moveTargets && moveTargets.length > 0;
   const moveItems = showMoveMenu
     ? moveTargets.map((t) => ({ label: `Move to ${t}`, onClick: () => onCardMove?.(name, t) }))
@@ -146,52 +206,33 @@ function StackCard({ name, qty, synergy, onCardClick, onRemove, onConsider, card
 
   return (
     <div
-      className="stack-card-wrap"
+      ref={setNodeRef}
+      className={`stack-card-wrap ${isDragging ? "stack-card-dragging" : ""}`}
       role="listitem"
       tabIndex={0}
-      draggable={cardDragEnabled && canHover}
-      onDragStart={cardDragEnabled && canHover ? (e) => {
-        e.dataTransfer.setData("text/plain", `card:${name}`);
-        e.dataTransfer.effectAllowed = "move";
-      } : undefined}
+      style={{
+        ...(expanded ? { marginBottom: 8, zIndex: 10 } : undefined),
+        ...(dragDisabled ? undefined : { touchAction: "none" }),
+      }}
+      {...(dragDisabled ? {} : listeners)}
       onClick={handleClick}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onCardClick?.(name); } }}
       aria-label={`${qty}x ${name}`}
-      style={expanded ? { marginBottom: 8, zIndex: 10 } : undefined}
     >
       {img ? (
         <img src={img} alt={`${qty}x ${name}`} loading="lazy" />
       ) : (
         <div className="card-thumb-placeholder">{name}</div>
       )}
-      {qty > 1 && <span className="stack-card-qty">{qty}</span>}
+      {(qty > 1 || onSetQty) && <span className="stack-card-qty">{qty}</span>}
       {synergy != null && <span className="stack-card-synergy">{Math.round(synergy * 100)}%</span>}
       {showMoveMenu && (
         <div className="stack-card-movemenu" onClick={(e) => e.stopPropagation()}>
           <MoreMenu items={moveItems} label={`Move ${name} to another category`} />
         </div>
       )}
-      {onRemove && (
-        <button className="card-corner-remove" onClick={(e) => { e.stopPropagation(); onRemove(name); }}
-          aria-label={`Remove ${name} from deck`}>
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4L4 12"/></svg>
-        </button>
-      )}
       {canHover && (
-        <div className="card-hover-overlay">
-          {onConsider && (
-            <button className="card-hover-btn card-hover-consider"
-              onClick={(e) => { e.stopPropagation(); onConsider(name); }}>
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
-              <span>Consider</span>
-            </button>
-          )}
-          <button className="card-hover-btn card-hover-scryfall"
-            onClick={(e) => { e.stopPropagation(); window.open(`https://scryfall.com/search?q=${encodeURIComponent(name)}`, "_blank", "noopener"); }}>
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M7 3H3.5A1.5 1.5 0 0 0 2 4.5v8A1.5 1.5 0 0 0 3.5 14h8A1.5 1.5 0 0 0 13 12.5V9"/><path d="M9.5 2H14v4.5"/><line x1="14" y1="2" x2="7.5" y2="8.5"/></svg>
-            <span>Scryfall</span>
-          </button>
-        </div>
+        <CardActionRail name={name} qty={qty} onSetQty={onSetQty} onRemove={onRemove} onConsider={onConsider} />
       )}
     </div>
   );

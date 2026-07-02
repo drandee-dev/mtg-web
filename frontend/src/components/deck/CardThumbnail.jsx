@@ -1,7 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import { canHover, useCardImage } from "../../lib/hooks";
+import CardActionRail from "./CardActionRail";
 
-export default function CardThumbnail({ name, qty, onRemove, onConsider, expanded, onExpand, useArtCrop }) {
+export default function CardThumbnail({ name, qty, onRemove, onConsider, onSetQty, expanded, onExpand, useArtCrop }) {
   const data = useCardImage(name);
   const img = useArtCrop ? (data?.art_crop || data?.image || null) : (data?.image || null);
   const [swipeX, setSwipeX] = useState(0);
@@ -79,35 +80,9 @@ export default function CardThumbnail({ name, qty, onRemove, onConsider, expande
           <div className="card-thumb-placeholder">{name}</div>
         )}
         <span className="qty-badge" aria-label={`${qty} copies`}>{qty}</span>
-        {/* Desktop corner remove ✕ — touch keeps the swipe-to-remove gesture instead */}
-        {canHover && onRemove && (
-          <button className="card-corner-remove" onClick={(e) => { e.stopPropagation(); onRemove(name); }}
-            aria-label={`Remove ${name} from deck`}>
-            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4L4 12"/></svg>
-          </button>
-        )}
-        {/* Desktop hover overlay — Consider / Scryfall */}
+        {/* Desktop control rail; touch keeps the swipe-to-remove gesture instead */}
         {canHover && (
-          <div className="card-hover-overlay">
-            {onConsider && (
-              <button
-                className="card-hover-btn card-hover-consider"
-                onClick={(e) => { e.stopPropagation(); onConsider(name); }}
-                aria-label={`Move ${name} to considering`}
-              >
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
-                <span>Consider</span>
-              </button>
-            )}
-            <button
-              className="card-hover-btn card-hover-scryfall"
-              onClick={(e) => { e.stopPropagation(); window.open(`https://scryfall.com/search?q=${encodeURIComponent(name)}`, "_blank", "noopener"); }}
-              aria-label={`Open ${name} on Scryfall`}
-            >
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M7 3H3.5A1.5 1.5 0 0 0 2 4.5v8A1.5 1.5 0 0 0 3.5 14h8A1.5 1.5 0 0 0 13 12.5V9"/><path d="M9.5 2H14v4.5"/><line x1="14" y1="2" x2="7.5" y2="8.5"/></svg>
-              <span>Scryfall</span>
-            </button>
-          </div>
+          <CardActionRail name={name} qty={qty} onSetQty={onSetQty} onRemove={onRemove} onConsider={onConsider} />
         )}
       </div>
     </div>

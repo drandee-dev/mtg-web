@@ -1,101 +1,58 @@
-import { useRef, useState } from "react";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { canHover } from "../../lib/hooks";
 import MoreMenu from "./MoreMenu";
 
 // Shared column shell for both image and text stacks. Owns the column header
-// (drag handle + label + qty + price total) and all drag-and-drop wiring, so the
-// two stack views only render their card bodies.
+// (drag handle + label + qty + price total). Drag-and-drop is handled by dnd-kit:
+// the header is a draggable (data carried via `dragData`), and the whole column is
+// a droppable (data { type: "column-dropzone", label }). The parent StackDndContext
+// routes drops to onColumnReorder / onCardMove.
 //
-// Drag payloads are namespaced strings:
-//   "col:<label>"   — a whole category column being reordered
-//   "card:<name>"   — a single card being moved to another category (role mode only)
-//
-// Drag is a pointer-only affordance (HTML5 DnD doesn't fire on touch), so on touch
-// devices the header shows a ⋯ menu to nudge the column left/right instead.
+// Drag is a pointer-only affordance, so on touch (canHover === false) dnd is
+// disabled and the header shows a ⋯ menu to nudge the column left/right instead.
 export default function StackColumn({
   label,
   count,
   price,
-  cardDragEnabled,
-  onColumnReorder,
-  onCardMove,
   onColumnNudge,
   canMoveLeft,
   canMoveRight,
   className = "",
   isCommander = false,
   menuItems = null,
+  dragData = null,
   children,
 }) {
-  const [dropHint, setDropHint] = useState(false);
-  // Enter/leave can fire for nested children; count depth so the highlight only
-  // clears when the drag truly leaves the column (not when crossing a child border).
-  const dragDepth = useRef(0);
+  // Commander column is fixed in place; touch keeps the ⋯ nudge menu instead of drag.
+  const dndDisabled = isCommander || !canHover;
 
-  function hasPayload(e) {
-    return (e.dataTransfer?.types || []).includes("text/plain");
-  }
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `drop:${label}`,
+    data: { type: "column-dropzone", label },
+    disabled: dndDisabled,
+  });
 
-  function handleDragStartColumn(e) {
-    e.dataTransfer.setData("text/plain", `col:${label}`);
-    e.dataTransfer.effectAllowed = "move";
-  }
-
-  function handleDragOver(e) {
-    if (!hasPayload(e)) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  }
-
-  function handleDragEnter(e) {
-    if (!hasPayload(e)) return;
-    dragDepth.current += 1;
-    setDropHint(true);
-  }
-
-  function handleDragLeave(e) {
-    if (!hasPayload(e)) return;
-    dragDepth.current -= 1;
-    if (dragDepth.current <= 0) { dragDepth.current = 0; setDropHint(false); }
-  }
-
-  function handleDrop(e) {
-    const raw = e.dataTransfer.getData("text/plain");
-    dragDepth.current = 0;
-    setDropHint(false);
-    if (!raw) return;
-    e.preventDefault();
-    if (raw.startsWith("col:")) {
-      const from = raw.slice(4);
-      if (from !== label) onColumnReorder?.(from, label);
-    } else if (raw.startsWith("card:") && cardDragEnabled) {
-      onCardMove?.(raw.slice(5), label);
-    }
-  }
+  const { setNodeRef: setDragRef, listeners, isDragging } = useDraggable({
+    id: `colhdr:${label}`,
+    data: dragData || { type: "column", label },
+    disabled: dndDisabled,
+  });
 
   const nudgeItems = [];
   if (canMoveLeft) nudgeItems.push({ label: "Move column left", icon: "‹", onClick: () => onColumnNudge?.(label, -1) });
   if (canMoveRight) nudgeItems.push({ label: "Move column right", icon: "›", onClick: () => onColumnNudge?.(label, 1) });
 
-  // The commander column is fixed in place: not draggable, not a drop target.
-  const dndProps = isCommander ? {} : {
-    onDragOver: handleDragOver,
-    onDrop: handleDrop,
-    onDragEnter: handleDragEnter,
-    onDragLeave: handleDragLeave,
-  };
-
   return (
     <div
-      className={`stack-column ${className} ${dropHint ? "stack-column-droptarget" : ""}`}
-      {...dndProps}
+      ref={setDropRef}
+      className={`stack-column ${className} ${isOver ? "stack-column-droptarget" : ""} ${isDragging ? "stack-column-dragging" : ""}`}
     >
       <div
+        ref={setDragRef}
         className="stack-column-header"
-        draggable={canHover && !isCommander}
-        onDragStart={canHover && !isCommander ? handleDragStartColumn : undefined}
-        title={canHover && !isCommander ? "Drag to reorder column" : undefined}
-        style={isCommander ? { cursor: "default" } : undefined}
+        title={!dndDisabled ? "Drag to reorder column" : undefined}
+        style={isCommander ? { cursor: "default" } : (canHover ? { cursor: "grab", touchAction: "none" } : undefined)}
+        {...(dndDisabled ? {} : listeners)}
       >
         {isCommander
           ? <span className="stack-column-crown" aria-hidden="true">♛</span>
@@ -105,7 +62,9 @@ export default function StackColumn({
           <span className="stack-column-count">{count}</span>
           {price > 0 && <span className="stack-column-price">${price.toFixed(2)}</span>}
           {menuItems && menuItems.length > 0 && (
-            <MoreMenu items={menuItems} label={`${label} options`} />
+            <span onPointerDown={(e) => e.stopPropagation()}>
+              <MoreMenu items={menuItems} label={`${label} options`} />
+            </span>
           )}
           {!isCommander && !canHover && nudgeItems.length > 0 && (
             <MoreMenu items={nudgeItems} label={`Reorder ${label} column`} />

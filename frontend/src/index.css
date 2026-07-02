@@ -449,55 +449,33 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   display: flex; align-items: center; justify-content: center; height: 100%;
   font-size: .75rem; color: var(--muted); text-align: center; padding: .3rem;
 }
-.qty-badge {
-  position: absolute; top: 4px; left: 4px;
-  background: rgba(0,0,0,.75); color: var(--text); border-radius: 4px;
-  padding: 0 6px; font-size: .75rem; font-weight: 700; line-height: 1.6;
+/* .qty-badge (grid) shares the corner-triangle styling with .stack-card-qty — see
+   the combined rule in the stack section. */
+/* Card action rail — Archidekt-style vertical controls on the right edge, revealed
+   on hover/focus: quantity stepper (+ / −, − removes the card at 0) then Considering
+   and Scryfall icon buttons. Replaces the old top-right ✕ + bottom gradient overlay. */
+.card-rail {
+  position: absolute; top: 50%; right: .4rem; transform: translateY(-50%); z-index: 6;
+  display: flex; flex-direction: column; align-items: center; gap: .4rem;
+  opacity: 0; transition: opacity .14s; pointer-events: none;
 }
-/* Card hover overlay — quick actions (Consider / Scryfall). Remove lives as a
-   small corner ✕ instead (Archidekt-style), not a labeled row button. */
-.card-hover-overlay {
-  position: absolute; bottom: 0; left: 0; right: 0; height: 52%;
-  background: linear-gradient(to top, rgba(0,0,0,.95) 0%, rgba(0,0,0,0) 100%);
-  display: flex; align-items: flex-end; gap: 5px; padding: 8px 6px;
-  opacity: 0; transition: opacity .15s; pointer-events: none;
+.card-thumb:hover .card-rail,
+.card-thumb:focus-within .card-rail,
+.stack-card-wrap:hover .card-rail,
+.stack-card-wrap:focus-within .card-rail { opacity: 1; pointer-events: auto; }
+.card-rail-qty {
+  display: flex; flex-direction: column; border-radius: 8px; overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,.55);
 }
-.card-thumb:hover .card-hover-overlay,
-.card-thumb:focus-within .card-hover-overlay,
-.stack-card-wrap:hover .card-hover-overlay,
-.stack-card-wrap:focus-within .card-hover-overlay { opacity: 1; pointer-events: auto; }
-.card-hover-btn {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
-  border-radius: 6px; padding: 6px 4px; cursor: pointer; min-height: auto;
-  font-family: inherit; transition: filter .12s;
-}
-.card-hover-btn span { font-size: 8px; font-weight: 600; }
-.card-hover-btn:hover { filter: brightness(1.25); }
-.card-hover-consider {
-  background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15); color: var(--text-secondary);
-}
-.card-hover-scryfall {
-  background: rgba(124,172,248,.12); border: 1px solid rgba(124,172,248,.2); color: var(--accent-2);
-}
-
-/* Corner remove ✕ — Archidekt-style small icon button, top-right. Hover-revealed
-   on desktop (paired with the hover overlay); always visible on touch stack view,
-   which previously had no remove affordance at all (touch grid view keeps its
-   existing swipe-to-remove instead — see .card-thumb-swipe-wrap). */
-.card-corner-remove {
-  position: absolute; top: 5px; right: 5px; z-index: 5;
-  width: 20px; height: 20px; border-radius: 50%; min-height: auto;
+.card-rail-qty .card-rail-btn + .card-rail-btn { border-top: 1px solid rgba(255,255,255,.14); }
+.card-rail-btn {
+  width: 28px; height: 28px; min-height: auto; border: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(0,0,0,.72); color: var(--text); border: none; cursor: pointer;
-  opacity: 0; transition: opacity .15s, background .12s, color .12s;
-  pointer-events: none;
+  background: rgba(12,13,17,.88); color: #fff;
+  backdrop-filter: blur(2px); transition: background .12s, color .12s;
 }
-.card-thumb:hover .card-corner-remove,
-.card-thumb:focus-within .card-corner-remove,
-.stack-card-wrap:hover .card-corner-remove,
-.stack-card-wrap:focus-within .card-corner-remove { opacity: 1; pointer-events: auto; }
-.card-corner-remove:hover { background: var(--bad); color: #fff; }
-.stack-touch .card-corner-remove { opacity: 1; pointer-events: auto; }
+.card-rail-btn:hover { background: var(--accent); color: #15110a; }
+.card-rail-action { border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.55); }
 
 
 /* Card list — compact text rows */
@@ -569,6 +547,12 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   gap: .75rem; margin: .4rem 0 .6rem; flex-wrap: wrap;
   background: var(--panel); border: 1px solid var(--border);
   border-radius: 10px; padding: 10px 14px;
+}
+/* Deck working area: a contained board, visually separated from the deck-builder
+   toolbar above it (Archidekt-style). */
+.deck-board {
+  border: 1px solid var(--border); border-radius: 10px;
+  background: rgba(255,255,255,.018); padding: .85rem .85rem .4rem;
 }
 .cg-toolbar-controls { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; flex: 1; min-width: 0; }
 .cg-toolbar-right { display: flex; align-items: center; gap: 10px; }
@@ -907,6 +891,65 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   box-shadow: var(--shadow-lg); }
 .card-modal-empty { background: var(--panel-2); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: 1rem 1.2rem; color: var(--muted); }
+
+/* ── Card detail modal (Archidekt-style) — centered panel on desktop ── */
+.cdm-overlay {
+  position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.78);
+  backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+}
+.cdm-panel {
+  position: relative; display: flex; gap: 1.25rem;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); padding: 1.25rem; max-width: 760px; width: 100%; max-height: 88vh;
+}
+.cdm-handle { display: none; }
+.cdm-close {
+  position: absolute; top: .6rem; right: .6rem; z-index: 2;
+  width: 28px; height: 28px; border-radius: 50%; border: none; min-height: auto;
+  background: var(--hover); color: var(--text); cursor: pointer; font-size: .75rem;
+  display: flex; align-items: center; justify-content: center; transition: background .12s, color .12s;
+}
+.cdm-close:hover { background: var(--bad); color: #fff; }
+.cdm-art { flex: none; width: 300px; max-width: 42%; }
+.cdm-art img { width: 100%; border-radius: 4.8% / 3.4%; display: block; box-shadow: var(--shadow-md); }
+.cdm-art-placeholder {
+  width: 100%; aspect-ratio: 488/680; border-radius: var(--radius-lg);
+  background: var(--panel-2); display: flex; align-items: center; justify-content: center; color: var(--muted);
+}
+.cdm-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .55rem; padding-right: 1.5rem; overflow-y: auto; }
+.cdm-head { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
+.cdm-name { font-size: 1.15rem; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+.cdm-cmdr-tag { font-size: .6rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.cdm-type { margin: 0; }
+.cdm-meta { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; min-height: 1.2rem; }
+.cdm-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .4rem 0; border-top: 1px solid var(--border); }
+.cdm-row-label { font-size: .65rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .06em; }
+.cdm-stepper { display: flex; align-items: center; gap: .25rem; }
+.cdm-stepper button {
+  width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border); min-height: auto;
+  background: var(--panel-2); color: var(--text); cursor: pointer; font-size: 1.1rem; line-height: 1;
+  display: flex; align-items: center; justify-content: center; transition: border-color .12s;
+}
+.cdm-stepper button:disabled { opacity: .35; cursor: not-allowed; }
+.cdm-stepper button:not(:disabled):hover { border-color: var(--accent); }
+.cdm-qty-val { min-width: 2rem; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cdm-cat-select { min-width: 9rem; width: auto; }
+.cdm-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: auto; padding-top: .7rem; border-top: 1px solid var(--border); }
+.cdm-actions a.ghost { text-decoration: none; display: inline-flex; align-items: center; }
+
+@media (max-width: 699px) {
+  .cdm-overlay { align-items: flex-end; padding: 0; }
+  .cdm-panel {
+    flex-direction: column; gap: .75rem; max-width: none; max-height: 92vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: .5rem 1rem 1.25rem;
+    animation: cdmSheetUp .25s ease-out;
+  }
+  .cdm-handle { display: block; width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); margin: .15rem auto .2rem; }
+  .cdm-art { width: 56%; max-width: 200px; align-self: center; }
+  .cdm-body { padding-right: 0; }
+  .cdm-actions { margin-top: .4rem; }
+}
+@keyframes cdmSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
 /* Commander autocomplete dropdown */
 .autocomplete { position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
@@ -1925,9 +1968,13 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
    different columns mid-hover. Bucket assignment depends only on deck composition,
    so it's stable across hover/focus; each `.stack-masonry-col` is an independent
    flex column, so one card's hover-driven height change only affects its own column. */
+/* Columns flex-grow to fill the board width (capped at category count in JS), so
+   there's no awkward one-sided gap on the right; cards are centered when a column is
+   wider than the card. All sizing is rem-based so it scales with the user's font size
+   (accessibility) rather than fixed pixels. */
 .stack-view { display: flex; gap: .7rem; align-items: flex-start; padding-bottom: 1rem; }
-.stack-masonry-col { display: flex; flex-direction: column; gap: .9rem; flex: none; width: 210px; }
-.text-stack-view .stack-masonry-col { width: 232px; }
+.stack-masonry-col { display: flex; flex-direction: column; gap: .9rem; flex: 1 1 12rem; min-width: 12rem; }
+.text-stack-view .stack-masonry-col { flex: 1 1 13rem; min-width: 13rem; }
 .stack-column-image, .stack-column-text { width: 100%; }
 .stack-column-crown { font-size: .9rem; line-height: 1; color: var(--accent); filter: drop-shadow(0 0 4px rgba(201,138,58,.5)); }
 .stack-drag-hint { font-size: .68rem; color: var(--muted); margin: 0 0 .5rem; }
@@ -1952,35 +1999,56 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 }
 .stack-column-price { font-size: .6rem; color: var(--muted); }
 .stack-column-droptarget {
-  outline: 1px dashed var(--accent); outline-offset: 3px; border-radius: var(--radius);
+  outline: 2px dashed var(--accent); outline-offset: 3px; border-radius: var(--radius);
+  background: rgba(201,138,58,.06);
 }
 
+/* ── dnd-kit drag-and-drop ─────────────────────────────────────────────────────
+   Source column/card dims while its opaque copy floats in the DragOverlay. */
+.stack-column-dragging { opacity: .35; }
+.stack-card-dragging { opacity: .3; }
+/* The floating "picked up" ghost: fully opaque, lifted with a shadow + slight tilt,
+   Archidekt-style. Rendered in DragOverlay (portaled), so it escapes column overflow. */
+.stack-drag-overlay { cursor: grabbing; }
+.stack-drag-ghost {
+  width: 210px; pointer-events: none;
+  transform: rotate(-2deg); transform-origin: top left;
+  filter: drop-shadow(0 14px 28px rgba(0,0,0,.6));
+}
+.stack-drag-ghost.stack-column-text { width: 232px; transform: rotate(-1.5deg); }
+.stack-drag-ghost .stack-card-wrap { box-shadow: 0 0 0 1.5px var(--accent); }
+
 /* ── Image stack — overlapping art with Archidekt-style push-down hover ── */
-.stack-cards { display: flex; flex-direction: column; }
+.stack-cards { display: flex; flex-direction: column; align-items: center; align-self: stretch; }
 .stack-card-wrap {
-  position: relative; width: 210px; height: 293px; border-radius: 7px;
+  position: relative; width: 13.5rem; height: 18.8rem; border-radius: 4.8% / 3.4%;
   overflow: hidden; cursor: pointer; z-index: 0;
   transition: margin-bottom .18s ease-out, box-shadow .18s ease-out;
 }
-.stack-card-wrap:not(:last-child) { margin-bottom: -253px; }
+.stack-card-wrap:not(:last-child) { margin-bottom: -16.2rem; }
 .stack-card-wrap[draggable="true"] { cursor: grab; }
 /* Hover releases the negative margin so siblings below slide down, revealing the
    full card; an accent ring + lift marks the active card. */
 .stack-card-wrap:hover,
 .stack-card-wrap:focus-visible {
-  z-index: 10; margin-bottom: 10px !important;
+  z-index: 10; margin-bottom: .6rem !important;
   box-shadow: 0 0 0 1.5px var(--accent), var(--shadow-lg);
 }
 .stack-card-wrap img {
   width: 100%; height: 100%; object-fit: cover; object-position: center top; pointer-events: none;
 }
-.stack-card-qty {
-  position: absolute; top: 4px; left: 4px;
-  background: rgba(0,0,0,.82); color: var(--text); border-radius: 3px;
-  padding: 0 5px; font-size: .6rem; font-weight: 700; line-height: 1.7;
+/* Quantity indicator — Archidekt-style folded-corner triangle, top-right. The dark
+   half-gradient forms the triangle; the number sits in its top-right. rem-sized. */
+.stack-card-qty, .qty-badge {
+  position: absolute; top: 0; right: 0; left: auto; z-index: 4;
+  width: 2.4rem; height: 2.4rem; padding: .2rem .32rem 0 0;
+  background: linear-gradient(to bottom left, rgba(8,9,13,.94) 50%, transparent 50%);
+  color: #fff; font-size: .92rem; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums; border-radius: 0;
+  display: flex; align-items: flex-start; justify-content: flex-end; pointer-events: none;
 }
 .stack-card-synergy {
-  position: absolute; top: 4px; right: 4px;
+  position: absolute; top: 4px; left: 4px;
   background: rgba(0,0,0,.78); color: var(--good); border-radius: 3px;
   padding: 0 4px; font-size: .55rem; font-weight: 700; line-height: 1.7;
 }
@@ -2042,7 +2110,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
    can't be hover-revealed, so keep them always visible. */
 .stack-touch .ts-row-actions { display: flex; }
 @media (max-width: 500px) {
-  .text-stack-view .stack-masonry-col { width: 208px; }
+  .text-stack-view .stack-masonry-col { min-width: 11rem; max-width: 100%; }
 }
 
 /* ── AI panel toggle ── */
@@ -2259,17 +2327,16 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .cg-toolbar { padding: 8px 10px; gap: .5rem; }
   .cg-toolbar-controls { gap: 10px; }
   .card-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
-  .card-thumb { aspect-ratio: 488 / 680; border-radius: 5px; }
-  .card-thumb img { border-radius: 5px; object-fit: cover; }
-  .card-hover-overlay { display: none; }
-  .qty-badge { font-size: 8px; padding: 1px 4px; border-radius: 3px; top: 3px; left: 3px; }
+  .card-thumb { aspect-ratio: 488 / 680; border-radius: 4.8% / 3.4%; }
+  .card-thumb img { border-radius: 4.8% / 3.4%; object-fit: cover; }
+  .stack-card-qty, .qty-badge { width: 1.9rem; height: 1.9rem; font-size: .8rem; padding: .15rem .24rem 0 0; }
   .category-tabs { height: 32px; padding: 0 8px; border-top: 1px solid var(--border);
     -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .category-tabs::-webkit-scrollbar { display: none; }
   .category-tab { font-size: 11px; padding: 0 10px; }
-  .stack-masonry-col { width: 158px; }
-  .stack-card-wrap { width: 158px; height: 220px; }
-  .stack-card-wrap:not(:last-child) { margin-bottom: -180px; }
+  .stack-masonry-col { flex: 1 1 10rem; min-width: 10rem; max-width: 13rem; }
+  .stack-card-wrap { width: 10rem; height: 13.9rem; }
+  .stack-card-wrap:not(:last-child) { margin-bottom: -11.9rem; }
   .card-list-row { grid-template-columns: 24px 28px 1fr auto auto; }
   .card-list-type { display: none; }
   .hero-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }

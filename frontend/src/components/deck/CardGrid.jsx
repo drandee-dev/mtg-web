@@ -7,7 +7,7 @@ import CardThumbnail from "./CardThumbnail";
 import StackView from "./StackView";
 import TextStackView from "./TextStackView";
 import CardListRow from "./CardListRow";
-import CardBottomSheet from "./CardBottomSheet";
+import CardDetailModal from "./CardDetailModal";
 import ViewToggle from "./ViewToggle";
 import CardPreview from "../CardPreview";
 
@@ -39,7 +39,7 @@ function deckCompleteness(totalCards, commander, format) {
   return { label: `${totalCards} / 60+`, status, title: "Constructed decks are a 60-card minimum" };
 }
 
-export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, typeFilter, onRemove, onConsider, addCard, onCardSearch, onSave, saveState, onTypeCounts, notify, onChangeCommander }) {
+export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, typeFilter, onRemove, onConsider, addCard, onCardSearch, onSave, saveState, onTypeCounts, notify, onChangeCommander, setCardQty }) {
   const [quickAdd, setQuickAdd] = useState("");
   const [viewMode, setViewMode] = useState(
     () => localStorage.getItem("mtgweb:viewMode") || "grid"
@@ -390,6 +390,8 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
         </div>
       </div>
 
+      {/* Deck working area — contained board, visually separated from the toolbar above */}
+      <div className="deck-board">
       {/* Stack view: Archidekt-style columns — image (overlapping art) or text rows */}
       {viewMode === "stack" && (
         <>
@@ -421,6 +423,7 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
               onColumnReorder={handleColumnReorder}
               onColumnNudge={handleColumnNudge}
               onCardMove={handleCardMove}
+              onSetQty={setCardQty}
               commanderColumn={commanderCards}
               onChangeCommander={onChangeCommander}
             />
@@ -445,6 +448,7 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
                   qty={c.qty}
                   onRemove={null}
                   onConsider={null}
+                  onSetQty={null}
                   onExpand={() => handleThumbnailExpand(c.name)}
                   useArtCrop={!canHover}
                 />
@@ -485,6 +489,7 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
                   qty={c.qty}
                   onRemove={onRemove}
                   onConsider={onConsider}
+                  onSetQty={setCardQty}
                   onExpand={() => handleThumbnailExpand(c.name)}
                   useArtCrop={!canHover}
                 />
@@ -517,29 +522,30 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
         </p>
       )}
 
-      {/* Full-size card preview: bottom sheet on touch, modal on desktop */}
-      {previewCard && !canHover && (
-        <CardBottomSheet
-          name={previewCard}
-          onClose={closePreview}
-          onRemove={onRemove}
-          onAddToConsidering={onConsider}
-        />
-      )}
-      {previewCard && canHover && (
-        <div className="card-modal" onClick={closePreview} role="dialog" aria-modal="true" aria-label={previewCard}>
-          <CardPreviewModal name={previewCard} />
-        </div>
-      )}
+      </div>{/* /.deck-board */}
+
+      {/* Card detail modal — centered on desktop, bottom sheet on mobile (CSS) */}
+      {previewCard && (() => {
+        const isCmdr = commanderNames.includes(previewCard);
+        const currentCategory = cardDragEnabled
+          ? (Object.entries(groups).find(([, list]) => list.some((c) => c.name === previewCard))?.[0] || null)
+          : null;
+        return (
+          <CardDetailModal
+            name={previewCard}
+            qty={cards.find((c) => c.name === previewCard)?.qty ?? 1}
+            isCommander={isCmdr}
+            onClose={closePreview}
+            onRemove={isCmdr ? null : onRemove}
+            onConsider={isCmdr ? null : onConsider}
+            onSetQty={isCmdr ? null : setCardQty}
+            categories={cardDragEnabled ? Object.keys(groups) : null}
+            currentCategory={currentCategory}
+            onMove={handleCardMove}
+            onChangeCommander={isCmdr ? onChangeCommander : null}
+          />
+        );
+      })()}
     </div>
   );
-}
-
-function CardPreviewModal({ name }) {
-  const [img, setImg] = useState(null);
-  useEffect(() => {
-    getCardImage(name).then((d) => setImg(d?.image || null));
-  }, [name]);
-  if (!img) return <div className="card-modal-empty">Loading…</div>;
-  return <img src={img} alt={name} width="488" height="680" loading="lazy" />;
 }
