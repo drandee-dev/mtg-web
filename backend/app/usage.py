@@ -45,43 +45,57 @@ def _day_start() -> str:
 
 
 def monthly_total_cents() -> float:
+    # Fail open like the write paths: a Supabase outage or misconfigured key
+    # must not 500 /api/health (the frontend treats that as "backend down").
     if not _client:
         return 0.0
-    resp = (
-        _client.table("ai_usage_events")
-        .select("cost_cents")
-        .eq("kind", "cost")
-        .gte("created_at", _month_start())
-        .execute()
-    )
-    return sum(row["cost_cents"] for row in resp.data)
+    try:
+        resp = (
+            _client.table("ai_usage_events")
+            .select("cost_cents")
+            .eq("kind", "cost")
+            .gte("created_at", _month_start())
+            .execute()
+        )
+        return sum(row["cost_cents"] for row in resp.data)
+    except Exception:
+        log.exception("Usage query failed — budget cap not enforced this request.")
+        return 0.0
 
 
 def monthly_call_count() -> int:
     if not _client:
         return 0
-    resp = (
-        _client.table("ai_usage_events")
-        .select("id", count="exact")
-        .eq("kind", "cost")
-        .gte("created_at", _month_start())
-        .execute()
-    )
-    return resp.count or 0
+    try:
+        resp = (
+            _client.table("ai_usage_events")
+            .select("id", count="exact")
+            .eq("kind", "cost")
+            .gte("created_at", _month_start())
+            .execute()
+        )
+        return resp.count or 0
+    except Exception:
+        log.exception("Usage query failed — reporting zero monthly calls.")
+        return 0
 
 
 def daily_call_count(limit_key: str) -> int:
     if not _client:
         return 0
-    resp = (
-        _client.table("ai_usage_events")
-        .select("id", count="exact")
-        .eq("kind", "attempt")
-        .eq("limit_key", limit_key)
-        .gte("created_at", _day_start())
-        .execute()
-    )
-    return resp.count or 0
+    try:
+        resp = (
+            _client.table("ai_usage_events")
+            .select("id", count="exact")
+            .eq("kind", "attempt")
+            .eq("limit_key", limit_key)
+            .gte("created_at", _day_start())
+            .execute()
+        )
+        return resp.count or 0
+    except Exception:
+        log.exception("Usage query failed — daily rate limit not enforced this request.")
+        return 0
 
 
 def record_attempt(limit_key: str) -> None:
