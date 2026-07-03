@@ -116,6 +116,20 @@ def _image_from_record(rec: dict | None, size: str = "normal") -> str | None:
     return (uris or {}).get(size)
 
 
+def _back_face(rec: dict | None) -> tuple[str | None, str]:
+    """(back image URL, back type_line) for transform/modal_dfc cards.
+
+    Front-face images live either at the record root (image_uris) or in
+    card_faces[0]; the back face only ever exists in card_faces[1].
+    """
+    faces = (rec or {}).get("card_faces") or []
+    if len(faces) < 2:
+        return None, ""
+    back = faces[1] or {}
+    img = (back.get("image_uris") or {}).get("normal")
+    return img, back.get("type_line", "")
+
+
 def card_image(name: str) -> dict[str, Any]:
     """Resolve a (possibly partial-cased/diacritic) card name to its images.
     Returns {name, found, image, thumb}; found=False for tokens/unknowns so the UI
@@ -128,6 +142,7 @@ def card_image(name: str) -> dict[str, Any]:
     layout = rec.get("layout", "")
     is_mdfc = layout in ("modal_dfc", "transform")
     front_type = full_type.split("//")[0].strip() if is_mdfc else full_type
+    back_image, back_type = _back_face(rec) if is_mdfc else (None, "")
     return {
         "name": rec.get("name", name),
         "found": True,
@@ -141,6 +156,8 @@ def card_image(name: str) -> dict[str, Any]:
         "price_usd": extract_price(rec),
         "rarity": (rec.get("rarity") or "common").lower(),
         "is_mdfc": is_mdfc,
+        "back_image": back_image,
+        "back_type_line": back_type,
         "roles": _classify_roles(rec),
     }
 
@@ -548,15 +565,17 @@ def _ai_call(
 
 def _ai_call_stream(
     system: str,
-    user_msg: str,
+    user_msg: str | None = None,
     *,
+    messages: list[dict] | None = None,
     api_key: str | None = None,
     max_tokens: int = 1500,
     cache_user_msg: bool = False,
 ):
     """Streaming variant of _ai_call. Yields SSE-formatted chunks for text responses,
     or heartbeat events for structured (JSON) responses. The final event includes
-    the complete text and token usage.
+    the complete text and token usage. Supports multi-turn via the messages param,
+    or single-turn via user_msg (mirrors _ai_call).
     """
     import anthropic
     import json as _json
@@ -566,12 +585,13 @@ def _ai_call_stream(
         yield f"data: {_json.dumps({'status': 'error', 'message': 'No API key available.'})}\n\n"
         return
 
-    if cache_user_msg:
-        messages = [{"role": "user", "content": [
-            {"type": "text", "text": user_msg, "cache_control": {"type": "ephemeral"}},
-        ]}]
-    else:
-        messages = [{"role": "user", "content": user_msg}]
+    if messages is None:
+        if cache_user_msg:
+            messages = [{"role": "user", "content": [
+                {"type": "text", "text": user_msg, "cache_control": {"type": "ephemeral"}},
+            ]}]
+        else:
+            messages = [{"role": "user", "content": user_msg}]
 
     client = anthropic.Anthropic(api_key=key)
     for model in (_AI_MODEL, _AI_MODEL_FALLBACK):

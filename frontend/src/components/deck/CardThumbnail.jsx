@@ -4,7 +4,11 @@ import CardActionRail from "./CardActionRail";
 
 export default function CardThumbnail({ name, qty, onRemove, onConsider, onSetQty, expanded, onExpand, useArtCrop }) {
   const data = useCardImage(name);
-  const img = useArtCrop ? (data?.art_crop || data?.image || null) : (data?.image || null);
+  // border_crop normalizes the scan borders that vary per printing (see StackView);
+  // onError falls back to the plain scan.
+  const img = useArtCrop
+    ? (data?.art_crop || data?.image || null)
+    : (data?.border_crop || data?.image || null);
   const [swipeX, setSwipeX] = useState(0);
   const touchRef = useRef({ startX: 0, startY: 0, swiping: false });
 
@@ -75,7 +79,12 @@ export default function CardThumbnail({ name, qty, onRemove, onConsider, onSetQt
         style={swipeX !== 0 ? { transform: `translateX(${swipeX}px)`, transition: "none" } : undefined}
       >
         {img ? (
-          <img src={img} alt={`${qty}x ${name}`} width="130" height="181" loading="lazy" />
+          <img
+            src={img}
+            alt={`${qty}x ${name}`}
+            width="130" height="181" loading="lazy"
+            onError={(e) => { if (data?.image && e.currentTarget.src !== data.image) e.currentTarget.src = data.image; }}
+          />
         ) : (
           <div className="card-thumb-placeholder">{name}</div>
         )}

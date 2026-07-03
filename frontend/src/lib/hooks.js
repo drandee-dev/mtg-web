@@ -1,9 +1,21 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { getCardImage } from "./api";
 
 export const canHover =
   typeof window !== "undefined" &&
   window.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
+
+// Live media-query hook — re-evaluates on viewport/input changes (unlike the
+// canHover snapshot above).
+export function useMediaQuery(query) {
+  const subscribe = useCallback((onChange) => {
+    const mq = window.matchMedia?.(query);
+    if (!mq) return () => {};
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [query]);
+  return useSyncExternalStore(subscribe, () => window.matchMedia?.(query).matches ?? false);
+}
 
 export function useCardImage(name) {
   const [data, setData] = useState(null);

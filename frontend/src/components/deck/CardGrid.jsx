@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { getCardImage } from "../../lib/api";
 import { parseDeckText, groupCards } from "../../lib/deckParser";
+import { parseDeckFilter, cardMatchesFilter } from "../../lib/deckFilter";
 import { canHover } from "../../lib/hooks";
 // canHover gates desktop-only drag affordances; touch uses the ⋯ menus instead.
 import CardThumbnail from "./CardThumbnail";
+import CardTypeahead from "./CardTypeahead";
 import StackView from "./StackView";
 import TextStackView from "./TextStackView";
 import CardListRow from "./CardListRow";
@@ -27,8 +29,8 @@ const GROUPS = [
   { id: "price", label: "Price range" },
 ];
 
-export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, typeFilter, onRemove, onConsider, addCard, onCardSearch, onTypeCounts, notify, onChangeCommander, setCardQty }) {
-  const [quickAdd, setQuickAdd] = useState("");
+export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, onRemove, onConsider, addCard, onCardSearch, notify, onChangeCommander, setCardQty }) {
+  const [filterHelpOpen, setFilterHelpOpen] = useState(false);
   const [viewMode, setViewMode] = useState(
     () => localStorage.getItem("mtgweb:viewMode") || "grid"
   );
@@ -145,26 +147,12 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
     return sorted;
   }, [sortBy, metaMap]);
 
-  useEffect(() => {
-    if (!onTypeCounts || Object.keys(metaMap).length === 0) return;
-    const counts = { all: totalCards };
-    for (const card of cards) {
-      const tl = (metaMap[card.name]?.type_line || "").toLowerCase();
-      for (const type of ["creature", "instant", "sorcery", "artifact", "enchantment", "land"]) {
-        if (tl.includes(type)) { counts[type] = (counts[type] || 0) + card.qty; break; }
-      }
-    }
-    onTypeCounts(counts);
-  }, [metaMap, cards, totalCards]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const filteredCards = cards.filter((c) => {
-    if (filter && !c.name.toLowerCase().includes(filter.toLowerCase())) return false;
-    if (typeFilter && typeFilter !== "all") {
-      const tl = (metaMap[c.name]?.type_line || "").toLowerCase();
-      if (!tl.includes(typeFilter)) return false;
-    }
-    return true;
-  });
+  // Filter syntax (name substring, t:, mv:, c:, usd:) — documented by the
+  // Filter "?" popover; matched against metaMap client-side.
+  const filterTerms = useMemo(() => parseDeckFilter(filter), [filter]);
+  const filteredCards = filterTerms.length === 0
+    ? cards
+    : cards.filter((c) => cardMatchesFilter(c.name, metaMap[c.name], filterTerms));
 
   const rawGroups = Object.keys(metaMap).length > 0
     ? groupCards(filteredCards, groupBy, metaMap)
@@ -281,18 +269,11 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
               </button>
             </div>
           )}
-          {/* Quick add */}
+          {/* Quick add — predictive typeahead */}
           {addCard && (
             <div className="cg-tb-group cg-tb-quickadd-group">
               <span className="cg-tb-label">Quick add</span>
-              <input
-                className="cg-tb-quickadd"
-                value={quickAdd}
-                onChange={(e) => setQuickAdd(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && quickAdd.trim()) { addCard(quickAdd.trim()); setQuickAdd(""); } }}
-                placeholder="Card name + Enter"
-                aria-label="Quick add a card by name"
-              />
+              <CardTypeahead compact addCard={addCard} notify={notify} placeholder="Card name…" />
             </div>
           )}
           {addCard && <div className="cg-tb-divider" />}
@@ -343,14 +324,35 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
             <div className="cg-tb-group cg-tb-filter">
               <span className="cg-tb-label">
                 Filter
-                <span className="cg-tb-help" title="Filters cards in your deck by name. Type part of a card name.">?</span>
+                <button
+                  className="cg-tb-help"
+                  aria-label="Filter syntax help"
+                  aria-expanded={filterHelpOpen}
+                  onClick={() => setFilterHelpOpen((o) => !o)}
+                >?</button>
+                {filterHelpOpen && (
+                  <div className="filter-help-pop" role="tooltip">
+                    <div className="fhp-title">Filter the deck</div>
+                    <table>
+                      <tbody>
+                        <tr><td><code>lightning</code></td><td>name contains</td></tr>
+                        <tr><td><code>t:creature</code></td><td>type line contains</td></tr>
+                        <tr><td><code>mv:3</code> · <code>mv:&gt;=4</code></td><td>mana value</td></tr>
+                        <tr><td><code>c:gw</code> · <code>c:c</code></td><td>color identity within</td></tr>
+                        <tr><td><code>usd:&gt;5</code></td><td>price above $5</td></tr>
+                        <tr><td><code>t:instant mv:&lt;2</code></td><td>terms combine (AND)</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </span>
               <div className="cg-tb-filter-wrap">
                 <input
                   className="cg-tb-filter-input"
                   value={filter || ""}
                   onChange={(e) => setFilter(e.target.value)}
-                  placeholder="Filter deck (eg. Sol Ring)"
+                  onFocus={() => setFilterHelpOpen(false)}
+                  placeholder="Filter… t:creature mv:<4"
                   aria-label="Filter cards in deck"
                 />
                 {filter && (

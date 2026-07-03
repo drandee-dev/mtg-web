@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useCardImage, useEscapeKey } from "../../lib/hooks";
 import ManaCost from "./ManaCost";
 
@@ -22,6 +22,7 @@ export default function CardDetailModal({
   onChangeCommander,
 }) {
   const data = useCardImage(name);
+  const [showBack, setShowBack] = useState(false);
   useEscapeKey(Boolean(name), onClose);
 
   useEffect(() => {
@@ -30,9 +31,17 @@ export default function CardDetailModal({
     return () => { document.body.style.overflow = ""; };
   }, [name]);
 
+  // New card → always open on the front face.
+  useEffect(() => {
+    setShowBack(false); // eslint-disable-line react-hooks/set-state-in-effect
+  }, [name]);
+
   if (!name) return null;
 
   const price = data?.price_usd;
+  const hasBack = Boolean(data?.back_image);
+  const artSrc = showBack && hasBack ? data.back_image : data?.image;
+  const typeLine = showBack && hasBack ? (data?.back_type_line || data?.type_line) : data?.type_line;
 
   return (
     <div className="cdm-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={name}>
@@ -41,9 +50,17 @@ export default function CardDetailModal({
         <button className="cdm-close" onClick={onClose} aria-label="Close">✕</button>
 
         <div className="cdm-art">
-          {data?.image
-            ? <img src={data.image} alt={name} />
+          {artSrc
+            ? <img src={artSrc} alt={showBack ? `${name} (back face)` : name} />
             : <div className="cdm-art-placeholder">Loading…</div>}
+          {hasBack && (
+            <button
+              className="cdm-flip"
+              onClick={() => setShowBack((b) => !b)}
+              aria-label={showBack ? "Show front face" : "Show back face"}
+              title={showBack ? "Show front face" : "Show back face"}
+            >⟳</button>
+          )}
         </div>
 
         <div className="cdm-body">
@@ -51,7 +68,7 @@ export default function CardDetailModal({
             <h3 className="cdm-name">{name}</h3>
             {isCommander && <span className="cdm-cmdr-tag">♛ Commander</span>}
           </div>
-          {data?.type_line && <p className="cdm-type muted small">{data.type_line}</p>}
+          {typeLine && <p className="cdm-type muted small">{typeLine}</p>}
           <div className="cdm-meta">
             {data?.mana_cost && <ManaCost cost={data.mana_cost} />}
             {price != null && <span className="badge small">${price.toFixed(2)}</span>}

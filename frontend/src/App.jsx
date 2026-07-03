@@ -13,6 +13,8 @@ import Rules from "./components/Rules";
 import CardSearch from "./components/CardSearch";
 import AccountDropdown from "./components/AccountDropdown";
 import Feedback from "./components/Feedback";
+
+const FEEDBACK_ENABLED = Boolean(import.meta.env.VITE_FORMSPREE_ID);
 import Playtest from "./components/Playtest";
 import Planeswalker from "./components/Planeswalker";
 
@@ -99,6 +101,10 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  // DOM node of the Planeswalker hub's Insights tab — DeckView portals its
+  // DeckSidebar into it (set/cleared by the hub's ref callback).
+  const [pwInsightsEl, setPwInsightsEl] = useState(null);
   const [serverStatus, setServerStatus] = useState("checking");
   const [healthRetry, setHealthRetry] = useState(0);
   const [serverAi, setServerAi] = useState(true);
@@ -370,6 +376,7 @@ export default function App() {
         onSignOut={() => { supabase.auth.signOut(); notify("Signed out."); }}
         avatarMenuOpen={avatarMenuOpen}
         setAvatarMenuOpen={setAvatarMenuOpen}
+        onFeedback={FEEDBACK_ENABLED ? () => setFeedbackOpen(true) : null}
       />
 
       <main id="main-content" role="tabpanel">
@@ -404,6 +411,7 @@ export default function App() {
             onBack={() => setTab("decks")}
             notify={notify}
             serverWarmed={serverWarmed}
+            pwInsightsEl={pwInsightsEl}
           />
         )}
         {tab === "decks" && (
@@ -464,8 +472,11 @@ export default function App() {
         addCard={addCardToDecklist}
         addToConsidering={addToConsidering}
         notify={notify}
+        deckId={currentDeck?.id || null}
+        insightsAvailable={tab === "deck" && !playtesting}
+        onInsightsSlot={setPwInsightsEl}
       />
-      <Feedback notify={notify} />
+      <Feedback open={feedbackOpen} onClose={() => setFeedbackOpen(false)} notify={notify} />
     </div>
   );
 }

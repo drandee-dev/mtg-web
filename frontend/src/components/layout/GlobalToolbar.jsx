@@ -33,7 +33,7 @@ export default function GlobalToolbar({
   tabs, tab, setTab, cloud, session,
   setSettingsOpen,
   decks, onNewDeck, onImportUrl, onSearchDecks, onOpenDeck, onPasteDecklist, onSignOut,
-  avatarMenuOpen, setAvatarMenuOpen,
+  avatarMenuOpen, setAvatarMenuOpen, onFeedback,
 }) {
   const initials = cloud
     ? session.user.email.slice(0, 2).toUpperCase()
@@ -88,6 +88,7 @@ export default function GlobalToolbar({
               setTab={setTab}
               onAccountSettings={() => { setAvatarMenuOpen(false); setSettingsOpen(true); }}
               onSignOut={onSignOut}
+              onFeedback={onFeedback}
               onClose={() => setAvatarMenuOpen(false)}
             />
           )}

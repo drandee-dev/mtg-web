@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { api, assembleDecklist, disassembleDecklist, getCardImage, FORMATS } from "../../lib/api";
 import CommanderInput from "../CommanderInput";
 import Wizard from "../Wizard";
 import CardGrid from "./CardGrid";
-import DeckInput from "./DeckInput";
+import CardTypeahead from "./CardTypeahead";
 import DeckSidebar from "./DeckSidebar";
 import ImportCardsModal from "./ImportCardsModal";
 import MoreMenu from "./MoreMenu";
@@ -15,10 +16,10 @@ export default function DeckView({
   maybeboard, setMaybeboard,
   deckName, deckId, onSave, onClone, onExport, onPlaytest, onShare,
   startInWizard, onWizardConsumed, startImport, onImportConsumed, onBack, notify, serverWarmed,
+  pwInsightsEl,
 }) {
   const [mode, setMode] = useState(startInWizard ? "wizard" : "manual");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [typeCounts, setTypeCounts] = useState({});
+  const [textEditOpen, setTextEditOpen] = useState(false);
 
   useEffect(() => {
     if (startInWizard) {
@@ -45,7 +46,6 @@ export default function DeckView({
   const [upgradeMode, setUpgradeMode] = useState("budget");
   const [strategy, setStrategy] = useState(null);
   const [strategyLoading, setStrategyLoading] = useState(false);
-  const [aiSheetOpen, setAiSheetOpen] = useState(false);
   const [busy, setBusy] = useState("");
   const [cat, setCat] = useState("high_synergy");
   const [activePanel, setActivePanel] = useState(null);
@@ -286,15 +286,54 @@ export default function DeckView({
   const deckEmpty = !decklist.trim() && !commander;
   const completeness = deckCompleteness(totalCards, commander, format);
 
-  const CATEGORY_TABS = [
-    ["all", "All"],
-    ["creature", "Creatures"],
-    ["instant", "Instants"],
-    ["sorcery", "Sorceries"],
-    ["artifact", "Artifacts"],
-    ["enchantment", "Enchantments"],
-    ["land", "Lands"],
-  ];
+  // One props object for every DeckSidebar render (desktop layout + the
+  // Planeswalker hub's mobile Insights portal) — keep wiring in one place.
+  const sidebarProps = {
+    result,
+    isAnalyzing,
+    activePanel,
+    busy,
+    onPanelClick: (id) => {
+      if (activePanel === id) { setActivePanel(null); return; }
+      if (id === "DrawOdds") { setActivePanel("DrawOdds"); return; }
+      if (id === "Upgrades") {
+        setActivePanel("Upgrades");
+        if (upgradeMode === "budget" && !budgetSwaps) {
+          loadPanel("Upgrades", api.budgetSwaps, setBudgetSwaps);
+        } else if (upgradeMode === "power" && !upgrades) {
+          loadPanel("Upgrades", (dl, fmt) => api.aiUpgrades(dl, fmt, commander, null, "power"), setUpgrades);
+        }
+        return;
+      }
+      const map = {
+        Recommendations: [api.recommend, setRecs],
+        Cuts: [api.aiCuts, setCuts],
+        Combos: [api.combos, setCombos],
+        Composition: [api.composition, setComp],
+      };
+      if (map[id]) loadPanel(id, ...map[id]);
+    },
+    recs,
+    recCat: cat,
+    setRecCat: setCat,
+    skipped,
+    onSkip: skip,
+    onAddCard: addCard,
+    combos,
+    comp,
+    budgetSwaps,
+    onSwapCard: swapCard,
+    cuts,
+    onRemoveCard: removeCard,
+    upgrades,
+    upgradeMode,
+    setUpgradeMode,
+    commander,
+    format,
+    strategy,
+    strategyLoading,
+    serverWarmed,
+  };
 
   return (
     <div>
@@ -315,10 +354,15 @@ export default function DeckView({
             {saveState === "saving" ? "…" : saveState === "saved" ? "Saved" : "Save"}
           </button>
           <MoreMenu items={[
+            ...(locked ? [] : [{ label: "Import cards", icon: "⤓", onClick: () => setImportOpen("paste") }]),
+            { label: `Considering (${considerCount})`, icon: "☆", onClick: () => setMaybeOpen(true) },
             { label: "Share link", icon: "🔗", onClick: onShare },
             { label: "Clone deck", icon: "⎘", onClick: onClone },
             { label: "Export .txt", icon: "↓", onClick: onExport },
+            ...(locked ? [] : [{ label: textEditOpen ? "Hide text editor" : "Edit as text", icon: "✎", onClick: () => setTextEditOpen((o) => !o) }]),
             { label: "Playtest", icon: "▶", onClick: onPlaytest },
+            { label: "Wizard", icon: "✨", onClick: () => setMode("wizard") },
+            { label: locked ? "Unlock deck" : "Lock deck (view only)", icon: locked ? "🔓" : "🔒", onClick: () => setLocked((l) => !l) },
           ]} />
         </div>
       </div>
@@ -368,15 +412,21 @@ export default function DeckView({
               { label: "Share link", icon: "🔗", onClick: onShare },
               { label: "Clone deck", icon: "⎘", onClick: onClone },
               { label: "Export .txt", icon: "↓", onClick: onExport },
+              ...(locked ? [] : [{ label: textEditOpen ? "Hide text editor" : "Edit as text", icon: "✎", onClick: () => setTextEditOpen((o) => !o) }]),
               { label: "Wizard", icon: "✨", onClick: () => setMode("wizard") },
               { label: locked ? "Unlock deck" : "Lock deck (view only)", icon: locked ? "🔓" : "🔒", onClick: () => setLocked((l) => !l) },
             ]} />
           </div>
         </div>
-        {isCommanderFmt && !commander && (
-          <CommanderInput commander={commander} setCommander={setCommander} />
-        )}
       </div>
+
+      {/* Commander picker — outside the desktop-only toolbar so mobile can set
+          or change a commander too (the toolbar is display:none under 700px). */}
+      {isCommanderFmt && !commander && (
+        <div className="cmdr-input-row">
+          <CommanderInput commander={commander} setCommander={setCommander} />
+        </div>
+      )}
 
       {/* Mobile commander strip */}
       {hasCommander && (
@@ -410,34 +460,27 @@ export default function DeckView({
         </div>
       )}
 
-      {/* Category tabs bar (noise on an empty deck — hidden until cards exist) */}
-      {!deckEmpty && (
-        <div className="category-tabs">
-          {CATEGORY_TABS.map(([id, label]) => (
-            <button
-              key={id}
-              className={`category-tab${categoryFilter === id ? " active" : ""}`}
-              onClick={() => setCategoryFilter(id)}
-            >
-              {label}{typeCounts[id] != null ? ` (${typeCounts[id]})` : ""}
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* Main layout: deck grid + AI sidebar. The commander now renders as a
           crowned leading column inside the grid (CardGrid), not a side panel. */}
       <div className="deck-layout">
         <div className="deck-main">
-          <DeckInput
-            ref={searchRef}
-            decklist={decklist}
-            setDecklist={setDecklist}
-            addCard={addCard}
-            notify={notify}
-            locked={locked}
-            open={searchOpen}
-          />
+          {/* Predictive card search — opened by the toolbar "Card search" button,
+              the mobile + FAB, and the empty-deck action. */}
+          {searchOpen && !locked && (
+            <div className="deck-search-panel" ref={searchRef}>
+              <CardTypeahead addCard={addCard} notify={notify} autoFocus placeholder="Search cards to add…" />
+            </div>
+          )}
+          {/* Raw decklist editor — "Edit as text" in the deck ⋯ menu */}
+          {textEditOpen && !locked && (
+            <textarea
+              className="deck-text-editor"
+              value={decklist}
+              onChange={(e) => setDecklist(e.target.value)}
+              placeholder={"1 Sol Ring\n1 Llanowar Elves\n..."}
+              aria-label="Edit decklist as text"
+            />
+          )}
           {deckEmpty && !searchOpen ? (
             <div className="empty-deck">
               <div className="empty-deck-inner">
@@ -483,12 +526,10 @@ export default function DeckView({
               deckId={deckId}
               filter={deckFilter}
               setFilter={setDeckFilter}
-              typeFilter={categoryFilter}
               onRemove={locked ? null : removeCard}
               onConsider={locked ? null : addToConsidering}
               addCard={locked ? null : addCard}
               onCardSearch={locked ? null : toggleSearch}
-              onTypeCounts={setTypeCounts}
               notify={notify}
               onChangeCommander={locked ? null : () => setCommander("")}
               setCardQty={locked ? null : setCardQty}
@@ -498,53 +539,12 @@ export default function DeckView({
         </div>
 
         {/* Right sidebar — all panel content renders inline in accordion */}
-        <DeckSidebar
-          result={result}
-          isAnalyzing={isAnalyzing}
-          activePanel={activePanel}
-          busy={busy}
-          onPanelClick={(id) => {
-            if (activePanel === id) { setActivePanel(null); return; }
-            if (id === "DrawOdds") { setActivePanel("DrawOdds"); return; }
-            if (id === "Upgrades") {
-              setActivePanel("Upgrades");
-              if (upgradeMode === "budget" && !budgetSwaps) {
-                loadPanel("Upgrades", api.budgetSwaps, setBudgetSwaps);
-              } else if (upgradeMode === "power" && !upgrades) {
-                loadPanel("Upgrades", (dl, fmt) => api.aiUpgrades(dl, fmt, commander, null, "power"), setUpgrades);
-              }
-              return;
-            }
-            const map = {
-              Recommendations: [api.recommend, setRecs],
-              Cuts: [api.aiCuts, setCuts],
-              Combos: [api.combos, setCombos],
-              Composition: [api.composition, setComp],
-            };
-            if (map[id]) loadPanel(id, ...map[id]);
-          }}
-          recs={recs}
-          recCat={cat}
-          setRecCat={setCat}
-          skipped={skipped}
-          onSkip={skip}
-          onAddCard={addCard}
-          combos={combos}
-          comp={comp}
-          budgetSwaps={budgetSwaps}
-          onSwapCard={swapCard}
-          cuts={cuts}
-          onRemoveCard={removeCard}
-          upgrades={upgrades}
-          upgradeMode={upgradeMode}
-          setUpgradeMode={setUpgradeMode}
-          commander={commander}
-          format={format}
-          strategy={strategy}
-          strategyLoading={strategyLoading}
-          serverWarmed={serverWarmed}
-        />
+        <DeckSidebar {...sidebarProps} />
       </div>
+
+      {/* Mobile: the Planeswalker hub's Insights tab exposes a slot element —
+          portal the same sidebar into it (single source of props, no dup wiring). */}
+      {pwInsightsEl && createPortal(<DeckSidebar {...sidebarProps} />, pwInsightsEl)}
 
       <ImportCardsModal
         open={importOpen}
@@ -564,13 +564,16 @@ export default function DeckView({
         notify={notify}
       />
 
-      {/* Mobile FAB — scroll to search and focus */}
+      {/* Mobile FAB — open the search panel, scroll to it, and focus */}
       {!locked && (
         <button
           className="deck-fab"
           onClick={() => {
-            searchRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-            setTimeout(() => searchRef.current?.querySelector("input")?.focus(), 300);
+            setSearchOpen(true);
+            setTimeout(() => {
+              searchRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              searchRef.current?.querySelector("input")?.focus();
+            }, 60);
           }}
           aria-label="Add cards"
         >
@@ -578,75 +581,6 @@ export default function DeckView({
         </button>
       )}
 
-      {/* Mobile AI FAB */}
-      <button
-        className="deck-fab-ai"
-        onClick={() => setAiSheetOpen(true)}
-        aria-label="AI Insights"
-      >
-        ⚡
-      </button>
-
-      {/* Mobile AI Bottom Sheet */}
-      {aiSheetOpen && (
-        <div className="ai-sheet-backdrop" onClick={() => setAiSheetOpen(false)}>
-          <div className="ai-sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="ai-sheet-handle" />
-            <div className="ai-sheet-header">
-              <span style={{ fontWeight: 600, fontSize: ".85rem" }}>AI Insights</span>
-              <span className="muted" style={{ fontSize: ".7rem" }}>{deckName || "Untitled deck"}</span>
-            </div>
-            <div className="ai-sheet-body">
-              <DeckSidebar
-                result={result}
-                isAnalyzing={isAnalyzing}
-                activePanel={activePanel}
-                busy={busy}
-                onPanelClick={(id) => {
-                  if (activePanel === id) { setActivePanel(null); return; }
-                  if (id === "DrawOdds") { setActivePanel("DrawOdds"); return; }
-                  if (id === "Upgrades") {
-                    setActivePanel("Upgrades");
-                    if (upgradeMode === "budget" && !budgetSwaps) {
-                      loadPanel("Upgrades", api.budgetSwaps, setBudgetSwaps);
-                    } else if (upgradeMode === "power" && !upgrades) {
-                      loadPanel("Upgrades", (dl, fmt) => api.aiUpgrades(dl, fmt, commander, null, "power"), setUpgrades);
-                    }
-                    return;
-                  }
-                  const map = {
-                    Recommendations: [api.recommend, setRecs],
-                    Cuts: [api.aiCuts, setCuts],
-                    Combos: [api.combos, setCombos],
-                    Composition: [api.composition, setComp],
-                  };
-                  if (map[id]) loadPanel(id, ...map[id]);
-                }}
-                recs={recs}
-                recCat={cat}
-                setRecCat={setCat}
-                skipped={skipped}
-                onSkip={skip}
-                onAddCard={addCard}
-                combos={combos}
-                comp={comp}
-                budgetSwaps={budgetSwaps}
-                onSwapCard={swapCard}
-                cuts={cuts}
-                onRemoveCard={removeCard}
-                upgrades={upgrades}
-                upgradeMode={upgradeMode}
-                setUpgradeMode={setUpgradeMode}
-                commander={commander}
-                format={format}
-                strategy={strategy}
-                strategyLoading={strategyLoading}
-                serverWarmed={serverWarmed}
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

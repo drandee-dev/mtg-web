@@ -3,7 +3,7 @@ import { disassembleDecklist, getCardImage } from "../../lib/api";
 
 export default function AvatarPopup({
   decks, session, onNewDeck, onImportUrl, onSearchDecks, onOpenDeck, onPasteDecklist,
-  setTab, onAccountSettings, onSignOut, onClose,
+  setTab, onAccountSettings, onSignOut, onFeedback, onClose,
 }) {
   const ref = useRef(null);
 
@@ -71,6 +71,12 @@ export default function AvatarPopup({
 
       {/* Section 4: Account */}
       <div className="avp-section">
+        {onFeedback && (
+          <button className="avp-row" onClick={() => { onFeedback(); onClose(); }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M14 10a1.5 1.5 0 0 1-1.5 1.5H6l-3.5 3V3.5A1.5 1.5 0 0 1 4 2h8.5A1.5 1.5 0 0 1 14 3.5V10z"/><path d="M5.5 6h5M5.5 8.5h3"/></svg>
+            <span>Send Feedback</span>
+          </button>
+        )}
         <button className="avp-row" onClick={() => { onAccountSettings?.(); onClose(); }}>
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M3.2 12.8l1.4-1.4M11.4 4.6l1.4-1.4"/></svg>
           <span>Account Settings</span>

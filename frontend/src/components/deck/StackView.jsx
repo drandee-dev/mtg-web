@@ -148,12 +148,23 @@ function renderImageGhost(active) {
   return null;
 }
 
+// border_crop first: scans vary in baked-in border thickness (IKO-era borders are
+// huge), which made equal-size boxes LOOK different sizes. border_crop normalizes
+// the card face across printings; onError falls back to the plain scan.
+function cardImgSrc(data) {
+  return data?.border_crop || data?.image || data?.art_crop || null;
+}
+
+function fallbackToNormal(e, data) {
+  if (data?.image && e.currentTarget.src !== data.image) e.currentTarget.src = data.image;
+}
+
 function GhostCardImg({ name }) {
   const data = useCardImage(name);
-  const img = data?.image || data?.art_crop || null;
+  const img = cardImgSrc(data);
   return (
     <div className="stack-card-wrap">
-      {img ? <img src={img} alt="" /> : <div className="card-thumb-placeholder">{name}</div>}
+      {img ? <img src={img} alt="" onError={(e) => fallbackToNormal(e, data)} /> : <div className="card-thumb-placeholder">{name}</div>}
     </div>
   );
 }
@@ -181,7 +192,7 @@ function CardImageGhost({ name }) {
 
 function StackCard({ name, qty, synergy, columnLabel, onCardClick, onRemove, onConsider, onSetQty, cardDragEnabled, moveTargets, onCardMove }) {
   const data = useCardImage(name);
-  const img = data?.image || data?.art_crop || null;
+  const img = cardImgSrc(data);
   const [expanded, setExpanded] = useState(false);
 
   // Card move (drag to another category) is role-mode + pointer only. On touch,
@@ -220,7 +231,7 @@ function StackCard({ name, qty, synergy, columnLabel, onCardClick, onRemove, onC
       aria-label={`${qty}x ${name}`}
     >
       {img ? (
-        <img src={img} alt={`${qty}x ${name}`} loading="lazy" />
+        <img src={img} alt={`${qty}x ${name}`} loading="lazy" onError={(e) => fallbackToNormal(e, data)} />
       ) : (
         <div className="card-thumb-placeholder">{name}</div>
       )}

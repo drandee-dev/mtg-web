@@ -288,6 +288,9 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .deck-layout { display: grid; grid-template-columns: 1fr 22rem; gap: 1rem; align-items: start; }
 .deck-main { min-width: 0; }
 .deck-toolbar { margin-bottom: .75rem; position: relative; z-index: 10; }
+/* Commander picker row — sits below the toolbar (and below the mobile deck nav,
+   where the toolbar is hidden) so both breakpoints can set a commander. */
+.cmdr-input-row { position: relative; z-index: 9; margin-bottom: .75rem; }
 .deck-toolbar-top {
   display: flex; align-items: center; justify-content: space-between; gap: .75rem;
   flex-wrap: wrap; margin-bottom: .4rem;
@@ -571,20 +574,34 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   font-family: inherit; white-space: nowrap; min-height: auto;
 }
 .cg-tb-search-btn:hover { filter: brightness(1.1); }
-.cg-tb-quickadd {
-  background: var(--bg-raised); border: 1px solid var(--border); border-radius: 7px;
-  padding: 7px 10px; font-size: 12px; color: var(--text); font-family: inherit;
-  width: 160px; outline: none; min-height: auto;
-}
-.cg-tb-quickadd:focus { border-color: var(--accent); }
-.cg-tb-quickadd::placeholder { color: var(--muted); }
 .cg-tb-help {
-  width: 14px; height: 14px; border-radius: 50%; background: var(--panel-2);
+  width: 15px; height: 15px; border-radius: 50%; background: var(--panel-2);
   border: 1px solid var(--border); display: inline-flex; align-items: center;
   justify-content: center; font-size: 8px; font-weight: 700; color: var(--muted);
-  cursor: help; text-transform: none; letter-spacing: 0;
+  cursor: pointer; text-transform: none; letter-spacing: 0; padding: 0; min-height: auto;
 }
+.cg-tb-help:hover, .cg-tb-help[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
 .cg-tb-filter { flex: 1; min-width: 140px; }
+.cg-tb-filter .cg-tb-label { position: relative; }
+/* Filter syntax popover — documents what the deck filter matches */
+.filter-help-pop {
+  position: absolute; top: calc(100% + 6px); right: -8px; z-index: 30;
+  width: 250px; padding: .6rem .7rem; text-transform: none; letter-spacing: 0;
+  background: var(--panel); border: 1px solid var(--border-strong);
+  border-radius: var(--radius); box-shadow: var(--shadow-lg);
+}
+.filter-help-pop .fhp-title {
+  font-size: .68rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em; margin-bottom: .35rem;
+}
+.filter-help-pop table { width: 100%; border-collapse: collapse; }
+.filter-help-pop td { padding: .18rem 0; font-size: .72rem; color: var(--text-secondary); font-weight: 400; vertical-align: top; }
+.filter-help-pop td:first-child { width: 108px; padding-right: .4rem; }
+.filter-help-pop tr + tr td { border-top: 1px solid var(--border); }
+.filter-help-pop code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .68rem;
+  background: rgba(255,255,255,.06); padding: .02rem .22rem; border-radius: 3px;
+}
 .cg-tb-filter-wrap {
   display: flex; align-items: center; background: var(--bg-raised);
   border: 1px solid var(--border); border-radius: 7px; overflow: hidden;
@@ -614,65 +631,32 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .view-toggle-btn:hover { background: var(--hover); }
 .view-toggle-btn.active { color: var(--accent); background: var(--accent-soft); border-color: rgba(201,138,58,.3); }
 
-/* DeckInput search results */
-/* DeckInput — compact search bar with syntax filters */
-.deck-input { position: relative; margin-bottom: .5rem; }
-.deck-input-bar {
-  display: flex; gap: .3rem; align-items: center;
+/* ── Predictive card search (CardTypeahead) ──
+   Used in the toolbar Quick add (compact) and the deck search panel opened by
+   the "Card search" button / mobile + FAB. Dropdown reuses .deck-input-result*. */
+.deck-search-panel {
+  position: relative; margin-bottom: .5rem; scroll-margin-top: 3.5rem;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: .55rem;
 }
-.deck-input-field {
-  flex: 1; min-height: 34px; padding: .35rem .6rem; font-size: .85rem;
+.deck-text-editor { width: 100%; margin-bottom: .5rem; }
+.card-typeahead { position: relative; }
+.cta-input-wrap { position: relative; display: flex; align-items: center; }
+.cta-input-wrap input { width: 100%; padding-right: 1.8rem; }
+.card-typeahead.compact .cta-input-wrap input {
+  width: 170px; min-height: auto; padding: 7px 1.6rem 7px 10px; font-size: 12px;
+  background: var(--bg-raised); border: 1px solid var(--border); border-radius: 7px;
 }
-.deck-input-row2 {
-  display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-top: .2rem;
+.cta-spinner {
+  position: absolute; right: .55rem; width: 11px; height: 11px; border-radius: 50%;
+  border: 2px solid var(--accent-soft); border-top-color: var(--accent);
+  animation: ctaSpin .8s linear infinite; pointer-events: none;
 }
-/* Filter chips */
-.filter-chips-row {
-  display: flex; align-items: center; gap: .25rem; flex-wrap: wrap;
-  margin-top: .25rem; padding: .1rem 0;
-}
-.filter-chip {
-  padding: .15rem .45rem; min-height: auto; font-size: .7rem; font-weight: 600;
-  border-radius: 999px; border: 1px solid var(--border); background: var(--panel-2);
-  color: var(--muted); cursor: pointer; transition: all .15s; letter-spacing: .02em;
-  text-transform: uppercase;
-}
-.filter-chip:hover { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
-.filter-chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-.filter-chip.clear { border-color: var(--bad); color: var(--bad); background: var(--bad-soft); text-transform: none; font-weight: 500; }
-.filter-chip.clear:hover { background: rgba(239,83,80,.2); }
-.filter-active-tag {
-  display: inline-flex; align-items: center; gap: .2rem;
-  padding: .1rem .35rem .1rem .45rem; border-radius: 999px;
-  background: var(--accent-soft); border: 1px solid var(--accent);
-  color: var(--accent); font-size: .68rem; font-weight: 600;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-}
-.filter-active-x {
-  background: none; border: none; color: var(--accent); cursor: pointer;
-  font-size: .6rem; padding: 0 .1rem; min-height: auto; min-width: auto;
-  opacity: .7; transition: opacity .15s; line-height: 1;
-}
-.filter-active-x:hover { opacity: 1; }
+@keyframes ctaSpin { to { transform: rotate(360deg); } }
+.deck-input-result.hi { background: var(--hover); }
+.deck-input-result.hi .deck-input-result-add { opacity: 1; }
+.cta-empty { padding: .45rem .6rem; font-size: .78rem; color: var(--muted); }
 
-.deck-input-syntax-hint {
-  font-size: .7rem; opacity: .7; flex: 1; min-width: 0;
-}
-.deck-filter-bar {
-  display: flex; align-items: center; gap: .2rem; flex: none;
-}
-.deck-filter-field {
-  width: 130px; min-height: 26px; padding: .2rem .45rem; font-size: .78rem;
-  background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius);
-  color: var(--text);
-}
-.deck-filter-field::placeholder { color: var(--muted); }
-.deck-filter-field:focus { border-color: var(--accent); outline: none; }
-.deck-input-syntax-hint code {
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  background: rgba(255,255,255,.06); padding: .05rem .25rem; border-radius: 3px;
-  font-size: .7rem;
-}
 .deck-input-results {
   position: absolute; left: 0; right: 0; top: 100%; z-index: 18;
   background: var(--panel); border: 1px solid var(--border); border-radius: 0 0 var(--radius) var(--radius);
@@ -911,8 +895,18 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   display: flex; align-items: center; justify-content: center; transition: background .12s, color .12s;
 }
 .cdm-close:hover { background: var(--bad); color: #fff; }
-.cdm-art { flex: none; width: 300px; max-width: 42%; }
+.cdm-art { flex: none; width: 300px; max-width: 42%; position: relative; }
 .cdm-art img { width: 100%; border-radius: 4.8% / 3.4%; display: block; box-shadow: var(--shadow-md); }
+/* Double-faced cards: corner flip control (Archidekt-style) */
+.cdm-flip {
+  position: absolute; top: 8px; right: 8px; z-index: 2;
+  width: 34px; height: 34px; min-height: auto; padding: 0; border-radius: 50%;
+  background: rgba(8,9,13,.82); border: 1px solid var(--border-strong);
+  color: var(--text); font-size: 1rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .15s, border-color .15s;
+}
+.cdm-flip:hover { transform: rotate(180deg); border-color: var(--accent); background: rgba(8,9,13,.92); }
 .cdm-art-placeholder {
   width: 100%; aspect-ratio: 488/680; border-radius: var(--radius-lg);
   background: var(--panel-2); display: flex; align-items: center; justify-content: center; color: var(--muted);
@@ -987,7 +981,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 
 /* Planeswalker chat panel */
 .planeswalker-btn {
-  position: fixed; bottom: 1.2rem; right: 4rem; z-index: 900;
+  position: fixed; bottom: 1.2rem; right: 1.2rem; z-index: 900;
   width: 46px; height: 46px; border-radius: 50%;
   background: var(--panel-2); color: var(--bg); border: 1.5px solid var(--border);
   padding: 0; overflow: hidden;
@@ -1007,10 +1001,60 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 }
 .planeswalker-panel {
   position: fixed; bottom: 4.5rem; right: 1rem; z-index: 950;
-  width: min(420px, calc(100vw - 2rem)); height: min(500px, 60vh);
+  width: min(420px, calc(100vw - 2rem)); height: min(560px, 70dvh);
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
   display: flex; flex-direction: column;
   box-shadow: var(--shadow-lg);
+}
+/* Chat | Insights tab strip (Insights renders only in deck view on mobile) */
+.pw-tabs {
+  display: flex; gap: 2px; padding: .35rem .6rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.pw-tabs button {
+  flex: 1; background: none; border: none; border-radius: var(--radius) var(--radius) 0 0;
+  border-bottom: 2px solid transparent; min-height: 36px; padding: .3rem .6rem;
+  font-size: .8rem; font-weight: 600; color: var(--muted); cursor: pointer;
+}
+.pw-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--accent-soft); }
+/* Quick-action prompt chips */
+.pw-chips {
+  display: flex; gap: .35rem; padding: .4rem .6rem 0; flex: none;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.pw-chips::-webkit-scrollbar { display: none; }
+.pw-chip {
+  flex: none; min-height: 32px; padding: .25rem .65rem;
+  font-size: .74rem; font-weight: 500; white-space: nowrap;
+  background: var(--panel-2); color: var(--text-secondary);
+  border: 1px solid var(--border); border-radius: 999px; cursor: pointer;
+}
+.pw-chip:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.pw-chip:disabled { opacity: .45; cursor: default; }
+/* [[Card Name]] chips inside bot replies */
+.pw-cardname { color: var(--accent-2); font-weight: 600; }
+.pw-cardchip {
+  display: inline-flex; align-items: center; gap: .15rem;
+  background: var(--accent-soft); border: 1px solid var(--border);
+  border-radius: 6px; padding: 0 .1rem 0 .35rem; margin: 0 .1rem;
+  white-space: nowrap;
+}
+.pw-cardchip-name { color: var(--accent-2); font-weight: 600; font-size: .95em; }
+.pw-cardchip-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; min-height: auto; padding: 0;
+  background: transparent; border: none; border-radius: 4px;
+  color: var(--text-secondary); font-size: .85em; cursor: pointer;
+}
+.pw-cardchip-btn:hover { background: var(--hover-strong); color: var(--accent); }
+/* Markdown blocks in bot replies */
+.pw-text p { margin: 0 0 .45rem; }
+.pw-text p:last-child { margin-bottom: 0; }
+.pw-text ul, .pw-text ol { margin: 0 0 .45rem; padding-left: 1.15rem; }
+.pw-text li { margin-bottom: .25rem; }
+.pw-text code {
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 4px; padding: 0 .25rem; font-size: .9em;
 }
 .planeswalker-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -1018,6 +1062,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 }
 .planeswalker-messages {
   flex: 1; overflow-y: auto; padding: .6rem;
+  overscroll-behavior: contain;
 }
 .pw-msg { margin-bottom: .6rem; }
 .pw-label { font-size: .7rem; color: var(--muted); margin-bottom: .15rem; }
@@ -1034,10 +1079,12 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   flex: 1; text-align: center; color: var(--muted); font-size: .85rem; padding: .3rem 0;
 }
 
-@media (max-width: 500px) {
+@media (max-width: 699px) {
   .planeswalker-panel {
-    bottom: 0; right: 0; left: 0; width: 100%; height: 70vh;
-    border-radius: .6rem .6rem 0 0;
+    bottom: 0; right: 0; left: 0; width: 100%;
+    height: min(85dvh, 640px);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0);
   }
 }
 
@@ -1228,15 +1275,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   box-shadow: var(--shadow-sm);
 }
 
-/* Feedback button */
-.feedback-btn {
-  position: fixed; bottom: 1.2rem; right: 1.2rem; z-index: 900;
-  width: 40px; height: 40px; border-radius: 50%;
-  background: var(--panel-2); color: var(--muted); border: 1px solid var(--border);
-  font-size: 1.1rem; font-weight: bold; cursor: pointer;
-  box-shadow: var(--shadow-sm); transition: background .15s, color .15s;
-}
-.feedback-btn:hover { background: var(--panel); color: var(--text); }
+/* Feedback modal — opened from the avatar menu (floating button removed) */
 .feedback-modal {
   position: fixed; inset: 0; z-index: 1000;
   background: rgba(0,0,0,.65); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center;
@@ -1813,19 +1852,6 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 }
 
 /* ── Category tabs bar (deck builder) ── */
-.category-tabs {
-  height: 34px; display: flex; align-items: stretch;
-  border-bottom: 1px solid var(--border); background: #0e1016;
-  padding: 0 .5rem; gap: 2px; overflow-x: auto;
-}
-.category-tab {
-  white-space: nowrap; font-size: .7rem; font-weight: 500;
-  color: var(--muted); background: none; border: none;
-  border-bottom: 2px solid transparent; padding: 0 .6rem;
-  cursor: pointer; min-height: auto; transition: color .15s;
-}
-.category-tab:hover { color: var(--text-secondary); }
-.category-tab.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
 
 /* ── Commander column mini widgets ── */
 .cmdr-mini-label {
@@ -2208,46 +2234,12 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .feed-card-title { font-size: .7rem; font-weight: 600; }
 .feed-card-body { font-size: .65rem; }
 
-/* Mobile AI bottom sheet */
-.deck-fab-ai {
-  display: none; position: fixed; z-index: 48;
-  bottom: calc(5rem + 56px); right: 1rem;
-  width: 48px; height: 48px; border-radius: 50%;
-  background: var(--accent-2); color: #fff; border: none;
-  font-size: 1.2rem;
-  box-shadow: 0 4px 16px rgba(124,172,248,.4);
-  align-items: center; justify-content: center;
-  cursor: pointer; padding: 0; min-height: auto;
-  transition: transform .15s, box-shadow .15s;
+/* Planeswalker hub — Insights tab body (DeckView portals its DeckSidebar here) */
+.pw-insights-body {
+  flex: 1; overflow-y: auto; padding: .5rem;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
 }
-.deck-fab-ai:hover { transform: scale(1.1); }
-.ai-sheet-backdrop {
-  position: fixed; inset: 0; background: rgba(0,0,0,.5);
-  backdrop-filter: blur(4px); z-index: 100;
-}
-.ai-sheet {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  background: var(--panel);
-  border-radius: 20px 20px 0 0;
-  border-top: 1px solid rgba(255,255,255,.1);
-  box-shadow: 0 -8px 40px rgba(0,0,0,.6);
-  height: 88%; display: flex; flex-direction: column;
-  z-index: 101; animation: slideUp .3s ease-out both;
-  overflow: hidden;
-}
-.ai-sheet-handle {
-  width: 36px; height: 4px; border-radius: 2px;
-  background: rgba(255,255,255,.2); margin: 10px auto; flex: none;
-}
-.ai-sheet-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 1rem .75rem; flex: none;
-}
-.ai-sheet-body {
-  flex: 1; overflow-y: auto; padding: 0 .5rem .5rem;
-  -webkit-overflow-scrolling: touch;
-}
-.ai-sheet-body .deck-sidebar { display: block; position: static; max-height: none; }
+.pw-insights-body .deck-sidebar { display: block; position: static; max-height: none; }
 
 /* Responsive: mobile (<700px) — bottom nav, single column */
 @media (max-width: 699px) {
@@ -2256,15 +2248,15 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .bottom-nav { display: flex; }
   .toast { bottom: 4.5rem; }
   .pwa-update-banner { bottom: 4.5rem; }
-  .planeswalker-btn { bottom: 4.5rem; }
-  .feedback-btn { bottom: 4.5rem; }
+  /* Floating buttons above the bottom nav — one clean right-edge column:
+     Planeswalker hub, then the + FAB above it (deck view only). */
+  .planeswalker-btn { bottom: 4.5rem; right: 1rem; }
+  .deck-fab { bottom: calc(4.5rem + 54px); }
   .deck-fab { display: flex; }
   .deck-layout { grid-template-columns: 1fr; }
   .deck-layout-3col { grid-template-columns: 1fr; height: auto; overflow: visible; }
   .cmdr-col { display: none !important; }
   .deck-sidebar { display: none; }
-  .deck-fab-ai { display: flex; }
-  .deck-input { display: none; }
   .card-grid-container .view-toggle[aria-label="Stack column size"] { display: none; }
   /* Frame G toolbar: hide desktop-only sections on mobile (add/quick-add use the FAB) */
   .cg-tb-addcard, .cg-tb-quickadd-group, .cg-tb-divider { display: none; }
@@ -2274,13 +2266,13 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .card-thumb { aspect-ratio: 488 / 680; border-radius: 4.8% / 3.4%; }
   .card-thumb img { border-radius: 4.8% / 3.4%; object-fit: cover; }
   .stack-card-qty, .qty-badge { width: 1.9rem; height: 1.9rem; font-size: .8rem; padding: .15rem .24rem 0 0; }
-  .category-tabs { height: 32px; padding: 0 8px; border-top: 1px solid var(--border);
-    -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-  .category-tabs::-webkit-scrollbar { display: none; }
-  .category-tab { font-size: 11px; padding: 0 10px; }
-  .stack-masonry-col { flex: 1 1 10rem; min-width: 10rem; max-width: 13rem; }
-  .stack-card-wrap { width: 10rem; height: 13.9rem; }
-  .stack-card-wrap:not(:last-child) { margin-bottom: -11.9rem; }
+  /* One full-width stack per category (masonry.js clamps to 1 column <700px):
+     cards ~2.4× larger than the old 10rem columns, categories flow vertically.
+     Percentage margins resolve against container WIDTH, so the overlap sliver
+     stays proportional: card height = width × 680/488 ≈ 139.34%. */
+  .stack-masonry-col { flex: 1 1 100%; min-width: 0; max-width: 100%; }
+  .stack-card-wrap { width: 100%; height: auto; aspect-ratio: 488 / 680; }
+  .stack-card-wrap:not(:last-child) { margin-bottom: calc(3rem - 139.34%); }
   .card-list-row { grid-template-columns: 24px 28px 1fr auto auto; }
   .card-list-type { display: none; }
   .hero-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }

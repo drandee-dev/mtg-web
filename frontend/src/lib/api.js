@@ -121,18 +121,24 @@ export const api = {
   importUrl: (url) => post("/api/deck/import-url", { url }),
   planeswalkerChat: (messages, decklist, format, commander, bracket) =>
     post("/api/planeswalker/chat", { messages, decklist, format, commander, ...(bracket != null ? { bracket } : {}) }),
+  planeswalkerChatStream: (messages, decklist, format, commander, bracket, onChunk) =>
+    postStream("/api/planeswalker/chat/stream", { messages, decklist, format, commander, ...(bracket != null ? { bracket } : {}) }, onChunk),
 };
 
-// Derive the art_crop URL from a normal/small Scryfall image URL. The stripped bulk
-// data only keeps normal+small, but Scryfall's CDN paths are predictable, so swapping
-// the size segment yields the art crop without storing it.
+// Derive art_crop and border_crop URLs from a normal/small Scryfall image URL.
+// The stripped bulk data only keeps normal+small, but Scryfall's CDN paths are
+// predictable, so swapping the size segment yields the other variants for free.
+// border_crop trims each scan's baked-in black border — scans vary wildly in
+// border thickness (e.g. IKO-era), which made same-size cards LOOK different
+// sizes in stacks/grid. Rendering border_crop normalizes them (Archidekt does
+// the same); consumers keep `image` as an onError fallback.
 function _deriveArtCrop(data) {
-  if (data?.art_crop) return data;
   const src = data?.image || data?.thumb;
-  if (src) {
-    return { ...data, art_crop: src.replace(/\/(normal|small|large)\//, "/art_crop/") };
-  }
-  return data;
+  if (!src) return data;
+  const out = { ...data };
+  if (!out.art_crop) out.art_crop = src.replace(/\/(normal|small|large)\//, "/art_crop/");
+  if (!out.border_crop) out.border_crop = src.replace(/\/(normal|small|large)\//, "/border_crop/");
+  return out;
 }
 
 // Lazy, cached card-image lookup by name. Each distinct card is fetched at most once

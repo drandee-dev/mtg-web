@@ -14,6 +14,9 @@ export function useColumnCount(trackWidth, gap) {
     const el = ref.current;
     if (!el) return;
     const compute = () => {
+      // Phones get one full-width stack per category (matches the <700px CSS
+      // breakpoint) — multiple 10rem columns were illegibly small there.
+      if (window.matchMedia?.("(max-width: 699px)").matches) { setCount(1); return; }
       const w = el.clientWidth;
       const n = Math.max(1, Math.floor((w + gap) / (trackWidth + gap)));
       setCount(n);
