@@ -721,6 +721,99 @@ def _deck_context_cached(text: str, fmt: str = "commander", *, bracket: int | No
     return ctx
 
 
+def _full_oracle(rec: dict | None) -> str:
+    """All rules text on a card, including every face of a DFC/MDFC/adventure.
+
+    Transform cards (e.g. Eddie Brock // Venom, Lethal Protector) have NO
+    top-level oracle_text — the text lives only in card_faces[]. Any scan that
+    reads oracle_text directly silently sees "" for those cards."""
+    if not rec:
+        return ""
+    parts = [rec.get("oracle_text") or ""]
+    for face in rec.get("card_faces") or []:
+        parts.append(face.get("oracle_text") or "")
+    return "\n".join(p for p in parts if p)
+
+
+def _searchable_text(rec: dict | None) -> str:
+    """Lowercased oracle text (all faces) + keyword list — the one string every
+    mechanic detector matches against."""
+    if not rec:
+        return ""
+    kws = " ".join(rec.get("keywords") or [])
+    return f"{_full_oracle(rec)} {kws}".lower()
+
+
+# ---------------------------------------------------------------------------
+# Shared mechanic table — the ONE place synergy detection lives.
+#
+# Each entry: (commander_pattern, commander_note, card_pattern, card_bucket).
+# commander_pattern fires against the commander's full text to produce a
+# "Commander cares about" prompt note; card_pattern fires against each deck
+# card to build the protected-synergy buckets. Either side may be None.
+# Both the commander scan and the per-card scan read THIS table, so the two
+# can't drift apart again (the old code had two hand-rolled substring lists
+# that had diverged — see the Silverquill/Afterlife Insurance bug).
+# Patterns are regexes over _searchable_text (oracle of every face + keywords).
+# ---------------------------------------------------------------------------
+_MECHANICS: list[tuple[str | None, str | None, str | None, str | None]] = [
+    (r"\bmutates?\b",
+     "MUTATE — all mutate creatures are core synergy pieces and mutate targets",
+     r"\bmutates?\b", "Mutate synergy"),
+    (r"\bgraveyard\b",
+     "GRAVEYARD — cards that fill or interact with the graveyard are enablers",
+     r"\bdredge\b|\bmills?\b|into (?:your|their|each player's) graveyard", "Graveyard filler"),
+    # Death triggers are as often one-shot ("When ~ dies") as repeatable
+    # ("Whenever ~ dies") — requiring "whenever" missed Afterlife Insurance.
+    (r"\bdies\b",
+     "DEATH TRIGGERS — the commander rewards creatures dying; expendable creatures and death-payoff cards are engine pieces",
+     r"\bdies\b|\bdied\b|would die\b", "Death trigger / death payoff"),
+    (r"return [^.\n]{0,60}from (?:your |a |the |target )?graveyard",
+     "REANIMATOR — the graveyard is a resource; self-mill and cheap or low-power creatures are intentional reanimation targets, not weak cards",
+     r"return [^.\n]{0,60}from (?:your |a |the |target )?graveyard|\breanimate\b", "Recursion/reanimation"),
+    (r"total power",
+     "LOW-POWER CREATURES — the commander has a power restriction on reanimation, so low-power or */* creatures are INTENTIONALLY chosen",
+     None, None),
+    (r"\bcasualty\b",
+     "CASUALTY — sacrificing a creature (power 1+) while casting an instant/sorcery copies that spell. Cheap/expendable creatures and token generators are FODDER, not weak cards — do not cut them. High-impact instants/sorceries are prime copy targets. Cards that grant afterlife, make tokens on death, or otherwise replenish sacrificed creatures directly support this engine and are core, not filler.",
+     r"\bcasualty\b", "Sacrifice synergy"),
+    (r"\bsacrifices?\b",
+     "SACRIFICE — sacrifice outlets and death triggers are part of the engine; expendable creatures and cards that recur or replace them are enablers, not weak cards",
+     r"\bsacrifices?\b", "Sacrifice synergy"),
+    (r"\bafterlife\b",
+     "AFTERLIFE — dying creatures leave Spirit tokens behind; death triggers and sacrifice effects double-dip",
+     r"\bafterlife\b", "Afterlife / death-value payoff"),
+    # Post-2024 cards say "When ~ enters," — the old literal
+    # "enters the battlefield" check missed every modern printing.
+    (r"\benters(?: the battlefield)?\b",
+     "ETB — creatures with enter-the-battlefield effects are value targets",
+     None, None),
+    (r"experience counter",
+     "EXPERIENCE — cards that trigger experience are core",
+     None, None),
+    # "instant or sorcery" / "instant and sorcery" / "noncreature spell" /
+    # magecraft — one phrasing-tolerant pattern (Silverquill says "and").
+    (r"\binstants?\b[^.\n]{0,30}\bsorcer|\bnoncreature spells?\b|\bmagecraft\b",
+     "SPELLSLINGER — instants/sorceries fuel the commander",
+     None, None),
+    (r"\btokens?\b",
+     "TOKENS — token generation supports the strategy",
+     r"\bcreates?\b[^.\n]{0,80}\btokens?\b", "Token producer"),
+    (r"\+1/\+1 counters?|\bproliferate\b",
+     "COUNTERS — +1/+1 counter and proliferate cards synergize with the commander",
+     r"\+1/\+1 counters?|\bproliferate\b", "Counters/proliferate synergy"),
+    (r"whenever [^.\n]{0,40}\battacks?\b",
+     "ATTACK TRIGGERS — combat is the engine; haste, evasion, and extra-combat cards support it",
+     None, None),
+    (r"whenever you gain life|if you would gain life",
+     "LIFEGAIN — life-gain triggers are payoffs; incidental lifegain cards are enablers",
+     None, None),
+    (r"\blandfall\b|whenever a land [^.\n]{0,30}enters",
+     "LANDFALL — extra land drops and land recursion fuel the commander",
+     None, None),
+]
+
+
 def _deck_context(
     text: str, fmt: str = "commander", *, bracket: int | None = None
 ) -> dict[str, Any]:
@@ -738,12 +831,13 @@ def _deck_context(
     lines = []
     commanders = [c["name"] for c in deck.get("commanders", [])]
 
-    # Commander oracle text — critical for understanding the deck's strategy
+    # Commander oracle text — critical for understanding the deck's strategy.
+    # _full_oracle covers transform/MDFC commanders whose text lives per-face.
     cmd_oracle_lines = []
     for cname in commanders:
         rec = idx.get(cname)
         if rec:
-            oracle = rec.get("oracle_text", "")
+            oracle = _full_oracle(rec)
             kws = rec.get("keywords", [])
             cmd_oracle_lines.append(
                 f"**{cname}** ({rec.get('mana_cost', '')}) — {rec.get('type_line', '')}\n"
@@ -778,7 +872,7 @@ def _deck_context(
         if card:
             tl = card.get("type_line", "")
             mc = card.get("mana_cost", "")
-            oracle = card.get("oracle_text", "")
+            oracle = _full_oracle(card)
             pt = ""
             if card.get("power") is not None:
                 pt = f" ({card['power']}/{card['toughness']})"
@@ -787,51 +881,34 @@ def _deck_context(
         else:
             lines.append(f"{qty} {name}")
 
-    # Pre-compute a strategy profile from the commander's oracle text and deck cards
+    # Pre-compute a strategy profile from the commander's text and deck cards
     # so the AI has an explicit synergy map instead of needing to infer it.
-    cmd_oracle_full = " ".join(
-        (idx.get(cn) or {}).get("oracle_text", "") for cn in commanders
-    ).lower()
+    # Both scans below are driven by the shared _MECHANICS table.
+    cmd_text = " ".join(_searchable_text(idx.get(cn)) for cn in commanders)
     strategy_notes = ["\n## Deck strategy analysis (pre-computed — trust this)"]
 
-    cmd_mechanics = []
-    _mechanic_map = [
-        ("mutate", "MUTATE — all mutate creatures are core synergy pieces and mutate targets"),
-        ("graveyard", "GRAVEYARD — cards that fill or interact with the graveyard are enablers"),
-        ("total power", "LOW-POWER CREATURES — the commander has a power restriction on reanimation, so low-power or */* creatures are INTENTIONALLY chosen"),
-        ("sacrifice", "SACRIFICE — sacrifice outlets and death triggers are part of the engine"),
-        ("enters the battlefield", "ETB — creatures with ETB effects are value targets"),
-        ("experience counter", "EXPERIENCE — cards that trigger experience are core"),
-        ("instant or sorcery", "SPELLSLINGER — instants/sorceries fuel the commander"),
-        ("token", "TOKENS — token generation supports the strategy"),
-        ("+1/+1 counter", "COUNTERS — +1/+1 counter cards synergize with the commander"),
+    cmd_mechanics = [
+        note for cmd_pat, note, _, _ in _MECHANICS
+        if cmd_pat and note and re.search(cmd_pat, cmd_text)
     ]
-    for keyword, desc in _mechanic_map:
-        if keyword in cmd_oracle_full:
-            cmd_mechanics.append(desc)
     if cmd_mechanics:
         strategy_notes.append("Commander cares about: " + "; ".join(cmd_mechanics))
 
-    # Count cards by detected synergy role
+    # Count cards by detected synergy role (same table as the commander scan)
     role_counts: dict[str, list[str]] = {}
     for entry, card in hd.entries(zones=("commanders", "cards")):
         if not card:
             continue
         name = entry.get("name", "?")
-        oracle_l = (card.get("oracle_text") or "").lower()
-        kws = [k.lower() for k in (card.get("keywords") or [])]
+        searchable = _searchable_text(card)
         power = card.get("power", "")
 
-        if "mutate" in " ".join(kws) or "mutate" in oracle_l:
-            role_counts.setdefault("Mutate synergy", []).append(name)
-        if "dredge" in oracle_l or "mill" in oracle_l or "into your graveyard" in oracle_l:
-            role_counts.setdefault("Graveyard filler", []).append(name)
-        if "whenever" in oracle_l and ("dies" in oracle_l or "graveyard" in oracle_l):
-            role_counts.setdefault("Death/graveyard trigger", []).append(name)
+        for _, _, card_pat, bucket in _MECHANICS:
+            if card_pat and bucket and name not in role_counts.get(bucket, ()) \
+                    and re.search(card_pat, searchable):
+                role_counts.setdefault(bucket, []).append(name)
         if power in ("0", "*", "X"):
             role_counts.setdefault("Low/variable power (reanimation target)", []).append(name)
-        if "sacrifice" in oracle_l:
-            role_counts.setdefault("Sacrifice synergy", []).append(name)
 
     if role_counts:
         strategy_notes.append("Key synergy roles in this deck:")
@@ -1601,8 +1678,9 @@ def _classify_roles(card: dict | None) -> list[str]:
         except Exception:
             pass
 
-    # 2. Oracle text pattern matching for roles without presets
-    oracle = (card.get("oracle_text") or "").lower()
+    # 2. Oracle text pattern matching for roles without presets — face-aware
+    # so transform/MDFC cards (top-level oracle_text is empty) still classify.
+    oracle = _full_oracle(card).lower()
     for pattern, label in _ORACLE_ROLES:
         if label not in roles and re.search(pattern, oracle, re.IGNORECASE):
             roles.append(label)
@@ -1641,7 +1719,7 @@ def wizard_build_skeleton(
 
     color_identity = cmd_rec.get("color_identity", [])
     ci_str = "".join(color_identity) or "C"
-    cmd_oracle = cmd_rec.get("oracle_text", "")
+    cmd_oracle = _full_oracle(cmd_rec)
     cmd_type = cmd_rec.get("type_line", "")
     cmd_keywords = cmd_rec.get("keywords", [])
 
@@ -1721,14 +1799,14 @@ def wizard_narrate(
     """Have the AI explain why a batch of suggested cards fits this deck."""
     idx = _bulk_index()
     cmd_rec = idx.get(commander_name)
-    cmd_oracle = (cmd_rec or {}).get("oracle_text", "")
+    cmd_oracle = _full_oracle(cmd_rec)
     cmd_type = (cmd_rec or {}).get("type_line", "")
 
     card_details = []
     for name in card_names[:10]:
         rec = idx.get(name)
         if rec:
-            card_details.append(f"- {rec.get('name', name)}: {rec.get('oracle_text', '')}")
+            card_details.append(f"- {rec.get('name', name)}: {_full_oracle(rec)}")
         else:
             card_details.append(f"- {name}")
 

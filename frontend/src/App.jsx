@@ -80,7 +80,9 @@ function _loadSharedDeck() {
     const decoded = _b64decode(encoded);
     const fmt = params.get("fmt") || "commander";
     const cmd = params.get("cmd") || "";
-    window.history.replaceState({}, "", window.location.pathname);
+    // The param stays in the URL on purpose: the deck auto-saves on arrival,
+    // and a reload re-parses + content-dedups back onto that same saved deck,
+    // so its goals, session log, and chat history survive refreshes.
     return { deckText: decoded, format: fmt, commander: cmd };
   } catch { return null; }
 }
@@ -94,7 +96,9 @@ function _initialTab() {
 }
 
 export default function App() {
-  const _shared = _loadSharedDeck();
+  // Parsed once per page load (lazy init) — the ?deck= param persists in the
+  // URL now, so re-decoding on every render would be wasted work.
+  const [_shared] = useState(_loadSharedDeck);
   const [tab, setTab] = useState(_shared ? "deck" : _initialTab());
   const [playtesting, setPlaytesting] = useState(false);
   const [session, setSession] = useState(null);
@@ -121,6 +125,10 @@ export default function App() {
   const [currentDeck, setCurrentDeck] = useState(null);
 
   const savedDeckText = useRef(deckText);
+  // Auto-save bookkeeping: a share-link deck saves once on arrival; the busy
+  // flag stops the effect re-firing while a save is in flight.
+  const sharedAutoSave = useRef(Boolean(_shared));
+  const autoSaveBusy = useRef(false);
 
   // Load the deck's saved goals when the open deck changes; persist on edit.
   useEffect(() => {
@@ -284,6 +292,36 @@ export default function App() {
     notify("Saved.");
     return saved;
   }, [store, refresh, notify, deckText]);
+
+  // Auto-save a brand-new deck the moment it has an identity: opened from a
+  // share link, or the first time a commander is chosen. Dedup by content so
+  // revisiting the same share link adopts the existing deck instead of
+  // creating a duplicate on every visit.
+  const autoSaveNewDeck = useCallback(async () => {
+    const decklist_text = assembleForStorage(deckText, commander, maybeboard);
+    if (!assembleDecklist(deckText, commander).trim()) return;
+    const existing = await store.list();
+    const dup = existing.find((d) => d.decklist_text === decklist_text);
+    if (dup) {
+      setCurrentDeck({ id: dup.id, name: dup.name });
+      savedDeckText.current = deckText;
+      return;
+    }
+    const name = commander ? commander.replace(" && ", " + ") : "Imported deck";
+    const saved = await store.save({ name, format, decklist_text });
+    await refresh();
+    savedDeckText.current = deckText;
+    setCurrentDeck({ id: saved.id, name: saved.name });
+    notify(`Saved as "${saved.name}".`);
+  }, [deckText, commander, maybeboard, format, store, refresh, notify]);
+
+  useEffect(() => {
+    if (currentDeck || tab !== "deck" || autoSaveBusy.current) return;
+    if (!sharedAutoSave.current && !commander) return;
+    autoSaveBusy.current = true;
+    sharedAutoSave.current = false;
+    autoSaveNewDeck().finally(() => { autoSaveBusy.current = false; });
+  }, [commander, currentDeck, tab, autoSaveNewDeck]);
 
   const deleteDeck = useCallback(async (id) => {
     await store.remove(id);
