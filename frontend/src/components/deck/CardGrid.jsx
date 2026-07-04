@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { getCardImage } from "../../lib/api";
 import { parseDeckText, groupCards } from "../../lib/deckParser";
 import { parseDeckFilter, cardMatchesFilter } from "../../lib/deckFilter";
-import { canHover } from "../../lib/hooks";
+import { useCanHover } from "../../lib/hooks";
 // canHover gates desktop-only drag affordances; touch uses the ⋯ menus instead.
 import CardThumbnail from "./CardThumbnail";
 import CardTypeahead from "./CardTypeahead";
@@ -30,6 +30,7 @@ const GROUPS = [
 ];
 
 export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, onRemove, onConsider, addCard, onCardSearch, notify, onChangeCommander, setCardQty }) {
+  const canHover = useCanHover();
   const [filterHelpOpen, setFilterHelpOpen] = useState(false);
   const [viewMode, setViewMode] = useState(
     () => localStorage.getItem("mtgweb:viewMode") || "grid"
@@ -251,7 +252,7 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
         setExpandedId(cardName);
       }
     }
-  }, [expandedId]);
+  }, [expandedId, canHover]);
 
   const groupTotal = (cards) => cards.reduce((s, c) => s + c.qty, 0);
 

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCardImage } from "../lib/api";
-import { canHover, useEscapeKey } from "../lib/hooks";
+import { useCanHover, useEscapeKey } from "../lib/hooks";
 
 export default function CardPreview({ name, children }) {
+  const canHover = useCanHover();
   const [data, setData] = useState(null);
   const [hover, setHover] = useState(false);
   const [modal, setModal] = useState(false);

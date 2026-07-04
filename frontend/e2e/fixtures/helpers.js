@@ -71,11 +71,8 @@ export async function loadSharedDeck(page, deckText, commander = "") {
 }
 
 // Open the deck view's ⋯ menu (the visible one for this viewport) and click an item.
-// On mobile the deck-nav ⋯ sits beneath the fixed global toolbar, so a positional
-// click can be intercepted by the toolbar avatar — dispatchEvent targets the button
-// directly and reliably opens the menu. The menu list renders clear of the overlay.
 export async function deckMenuAction(page, itemText) {
-  await page.locator(".more-menu-btn:visible").first().dispatchEvent("click");
+  await page.locator(".more-menu-btn:visible").first().click();
   await page.locator(`.more-menu-item:has-text("${itemText}")`).click();
 }
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
-import { canHover, useCardImage } from "../../lib/hooks";
+import { useCanHover, useCardImage } from "../../lib/hooks";
 import { useColumnCount, packMasonry } from "../../lib/masonry";
 import StackColumn from "./StackColumn";
 import StackDndContext from "./StackDndContext";
@@ -45,8 +45,12 @@ export default function StackView({
   commanderColumn = null,
   onChangeCommander,
 }) {
+  const canHover = useCanHover();
   const [containerRef, columnCount] = useColumnCount(200, 11.2);
   const labels = groups.map(([label]) => label);
+  // Touch: one expanded card at a time across ALL columns — expanding a card
+  // shrinks whichever was previously pulled out of its stack.
+  const [expandedCard, setExpandedCard] = useState(null);
 
   const items = [];
   if (commanderColumn && commanderColumn.length > 0) {
@@ -75,6 +79,8 @@ export default function StackView({
                 onConsider={null}
                 cardDragEnabled={false}
                 moveTargets={null}
+                expandedCard={expandedCard}
+                setExpandedCard={setExpandedCard}
               />
             ))}
           </div>
@@ -115,6 +121,8 @@ export default function StackView({
                 cardDragEnabled={cardDragEnabled}
                 moveTargets={cardDragEnabled ? moveTargets : null}
                 onCardMove={onCardMove}
+                expandedCard={expandedCard}
+                setExpandedCard={setExpandedCard}
               />
             ))}
           </div>
@@ -190,10 +198,12 @@ function CardImageGhost({ name }) {
   );
 }
 
-function StackCard({ name, qty, synergy, columnLabel, onCardClick, onRemove, onConsider, onSetQty, cardDragEnabled, moveTargets, onCardMove }) {
+function StackCard({ name, qty, synergy, columnLabel, onCardClick, onRemove, onConsider, onSetQty, cardDragEnabled, moveTargets, onCardMove, expandedCard, setExpandedCard }) {
+  const canHover = useCanHover();
   const data = useCardImage(name);
   const img = cardImgSrc(data);
-  const [expanded, setExpanded] = useState(false);
+  const cardId = `${columnLabel}:${name}`;
+  const expanded = expandedCard === cardId;
 
   // Card move (drag to another category) is role-mode + pointer only. On touch,
   // offer a ⋯ "move to" menu instead.
@@ -211,8 +221,8 @@ function StackCard({ name, qty, synergy, columnLabel, onCardClick, onRemove, onC
 
   function handleClick() {
     if (canHover) { onCardClick?.(name); return; }
-    if (expanded) { onCardClick?.(name); setExpanded(false); }
-    else { setExpanded(true); }
+    if (expanded) { onCardClick?.(name); setExpandedCard?.(null); }
+    else { setExpandedCard?.(cardId); }
   }
 
   return (

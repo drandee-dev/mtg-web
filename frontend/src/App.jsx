@@ -409,7 +409,7 @@ export default function App() {
   }, [deckText, commander, format, notify]);
 
   return (
-    <div className="app">
+    <div className={tab === "deck" && !playtesting ? "app app-deckview" : "app"}>
       <a href="#main-content" className="sr-only" style={{ position: "absolute", left: "-9999px", top: "auto", width: "1px", height: "1px", overflow: "hidden" }}
         onFocus={(e) => { e.target.style.position = "static"; e.target.style.width = "auto"; e.target.style.height = "auto"; e.target.style.left = "0"; }}
         onBlur={(e) => { e.target.style.position = "absolute"; e.target.style.left = "-9999px"; e.target.style.width = "1px"; e.target.style.height = "1px"; }}>

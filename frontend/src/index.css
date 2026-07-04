@@ -1,4 +1,10 @@
 :root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  /* Layering tiers — new z-indexes should use these (component-local stacking
+     under 10 stays ad-hoc): sticky(10) < nav(50) < popover(200) < fab(900)
+     < sheet(950) < modal(1000) < banner/toast(2000). */
+  --z-sticky: 10; --z-nav: 50; --z-popover: 200;
+  --z-fab: 900; --z-sheet: 950; --z-modal: 1000; --z-toast: 2000;
   --bg: #0c0d11;
   --bg-raised: #111318;
   --panel: #16181f;
@@ -80,8 +86,9 @@
 
 /* Fluid root font-size: the whole UI is rem-based, so scaling the root
    scales typography, spacing, and components proportionally with the
-   viewport. ~14px @1280, ~16px @1920, ~18px @2560, clamped 13–20px. */
-html { font-size: clamp(13px, calc(9.5px + 0.32vw), 20px); }
+   viewport. ~14px @1280, ~16px @1920, ~18px @2560, clamped 14–20px
+   (the 14px floor keeps phone type readable). */
+html { font-size: clamp(14px, calc(9.5px + 0.32vw), 20px); }
 html, body, #root { height: 100%; }
 
 body {
@@ -173,16 +180,16 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .badge.bad { color: var(--bad); background: var(--bad-soft); }
 
 /* App shell */
-.app { width: min(95vw, 2100px); margin: 0 auto; padding: 3.2rem 1.5rem 5rem; }
+.app { width: min(95vw, 2100px); margin: 0 auto; padding: 3.2rem 1.5rem 5rem; padding-top: calc(3.2rem + var(--safe-top)); }
 
 /* ── Global toolbar (Archidekt-style) ── */
 .global-toolbar {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
-  height: 3rem;
+  position: fixed; top: 0; left: 0; right: 0; z-index: var(--z-nav);
+  height: calc(3rem + var(--safe-top));
   display: flex; align-items: center; justify-content: space-between;
   background: rgba(12,13,17,.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
-  padding: 0 1rem;
+  padding: 0 1rem; padding-top: var(--safe-top);
   gap: .5rem;
 }
 
@@ -322,7 +329,8 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 /* Deck sidebar */
 .deck-sidebar {
   position: sticky; top: 4rem;
-  max-height: calc(100vh - 4.5rem); overflow-y: auto;
+  max-height: calc(100vh - 4.5rem); max-height: calc(100dvh - 4.5rem); overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .sidebar-warming-pill {
   margin: .3rem .5rem; padding: 4px 8px;
@@ -697,7 +705,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 
 .toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
   background: var(--panel); border: 1px solid var(--border); padding: .6rem 1rem;
-  border-radius: var(--radius); z-index: 20; max-width: 90vw;
+  border-radius: var(--radius); z-index: var(--z-toast); max-width: 90vw;
   box-shadow: var(--shadow-lg); backdrop-filter: blur(8px); font-size: .85rem; font-weight: 500; }
 
 .pwa-update-banner {
@@ -762,7 +770,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 /* ── Bottom nav (mobile) ── */
 .bottom-nav {
   display: none;
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 49;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: var(--z-nav);
   height: 3.5rem;
   background: rgba(12,13,17,.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid var(--border);
@@ -870,7 +878,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .card-float img { display: block; border-radius: 12px; }
 .card-float-empty { display: inline-block; background: var(--panel-2); border: 1px solid var(--border);
   border-radius: 8px; padding: .4rem .6rem; font-size: .8rem; color: var(--muted); }
-.card-modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.82);
+.card-modal { position: fixed; inset: 0; z-index: var(--z-modal); background: rgba(0,0,0,.82);
   backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1rem; cursor: zoom-out; }
 .card-modal img { max-width: 92vw; max-height: 86vh; border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg); }
@@ -879,7 +887,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 
 /* ── Card detail modal (Archidekt-style) — centered panel on desktop ── */
 .cdm-overlay {
-  position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.78);
+  position: fixed; inset: 0; z-index: var(--z-modal); background: rgba(0,0,0,.78);
   backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1.5rem;
 }
 .cdm-panel {
@@ -911,7 +919,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   width: 100%; aspect-ratio: 488/680; border-radius: var(--radius-lg);
   background: var(--panel-2); display: flex; align-items: center; justify-content: center; color: var(--muted);
 }
-.cdm-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .55rem; padding-right: 1.5rem; overflow-y: auto; }
+.cdm-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .55rem; padding-right: 1.5rem; overflow-y: auto; overscroll-behavior: contain; }
 .cdm-head { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
 .cdm-name { font-size: 1.15rem; font-weight: 700; margin: 0; letter-spacing: -.01em; }
 .cdm-cmdr-tag { font-size: .6rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
@@ -935,7 +943,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 @media (max-width: 699px) {
   .cdm-overlay { align-items: flex-end; padding: 0; }
   .cdm-panel {
-    flex-direction: column; gap: .75rem; max-width: none; max-height: 92vh;
+    flex-direction: column; gap: .75rem; max-width: none; max-height: 92vh; max-height: 92dvh;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: .5rem 1rem 1.25rem;
     animation: cdmSheetUp .25s ease-out;
   }
@@ -981,7 +989,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 
 /* Planeswalker chat panel */
 .planeswalker-btn {
-  position: fixed; bottom: 1.2rem; right: 1.2rem; z-index: 900;
+  position: fixed; bottom: 1.2rem; right: 1.2rem; z-index: var(--z-fab);
   width: 46px; height: 46px; border-radius: 50%;
   background: var(--panel-2); color: var(--bg); border: 1.5px solid var(--border);
   padding: 0; overflow: hidden;
@@ -1000,7 +1008,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   flex: none;
 }
 .planeswalker-panel {
-  position: fixed; bottom: 4.5rem; right: 1rem; z-index: 950;
+  position: fixed; bottom: 4.5rem; right: 1rem; z-index: var(--z-sheet);
   width: min(420px, calc(100vw - 2rem)); height: min(560px, 70dvh);
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
   display: flex; flex-direction: column;
@@ -1127,7 +1135,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 
 /* Account panel */
 .account-overlay {
-  position: fixed; inset: 0; z-index: 1000;
+  position: fixed; inset: 0; z-index: var(--z-modal);
   background: rgba(0,0,0,.55); backdrop-filter: blur(4px);
   display: flex; align-items: center; justify-content: center;
 }
@@ -1314,7 +1322,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 
 /* Feedback modal — opened from the avatar menu (floating button removed) */
 .feedback-modal {
-  position: fixed; inset: 0; z-index: 1000;
+  position: fixed; inset: 0; z-index: var(--z-modal);
   background: rgba(0,0,0,.65); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center;
 }
 .feedback-panel {
@@ -1330,7 +1338,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 /* Cold-start overlay */
 /* Server status banner — slim, non-blocking; only shows when health checks fail */
 .server-banner {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 2000;
+  position: fixed; top: 0; left: 0; right: 0; z-index: var(--z-toast);
   display: flex; align-items: center; justify-content: center; gap: .55rem;
   padding: .4rem .9rem;
   background: rgba(18,20,26,.96); border-bottom: 1px solid var(--border-strong);
@@ -1670,7 +1678,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .landing-hero-mobile { display: none; }
   .landing-body-mobile { display: none; }
   .landing-hero-desktop {
-    display: flex; height: calc(100vh - 3rem); position: relative; overflow: hidden;
+    display: flex; height: calc(100vh - 3rem); height: calc(100dvh - 3rem); position: relative; overflow: hidden;
   }
   .landing-desktop-bg { position: absolute; inset: 0; overflow: hidden; }
   .landing-desktop-bg img {
@@ -1815,7 +1823,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 /* ── Rules chat Q&A ── */
 .rules-chat {
   max-width: 720px; margin: 0 auto;
-  display: flex; flex-direction: column; height: calc(100vh - 5rem);
+  display: flex; flex-direction: column; height: calc(100vh - 5rem); height: calc(100dvh - 5rem - var(--safe-top));
 }
 .rules-header { margin-bottom: .9rem; }
 .rules-header h2 {
@@ -1910,14 +1918,18 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 
 @media (max-width: 699px) {
   .deck-toolbar { display: none; }
+  /* Deck view owns the top bar on mobile: the fixed GlobalToolbar is hidden
+     (BottomNav still handles tab switching) and .mobile-deck-nav takes its
+     fixed slot — no more stacked headers intercepting taps. */
+  .app-deckview .global-toolbar { display: none; }
   .mobile-deck-nav {
     display: flex; align-items: center; gap: 4px;
-    padding: 4px 8px; position: relative;
+    padding: 4px 8px; position: fixed;
+    top: 0; left: 0; right: 0;
     border-bottom: 1px solid var(--border);
-    margin: -3.2rem -.75rem .5rem;
     padding-top: calc(4px + env(safe-area-inset-top, 0px));
     background: rgba(12,13,17,.92); backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px); z-index: 40;
+    -webkit-backdrop-filter: blur(14px); z-index: var(--z-nav, 50);
   }
   .mobile-deck-back {
     background: none; border: none; color: var(--accent);
@@ -1934,8 +1946,8 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
     display: flex; align-items: center; gap: 4px; margin-left: auto;
   }
   .mobile-deck-save {
-    font-size: 11px !important; padding: 4px 10px !important;
-    min-height: 28px !important; border-radius: 6px !important;
+    font-size: 12px !important; padding: 4px 12px !important;
+    min-height: 32px !important; border-radius: 6px !important;
   }
   .cmdr-strip-mobile {
     display: flex; align-items: center; gap: 8px;
@@ -1945,12 +1957,12 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .cmdr-strip-art img { width: 100%; height: 100%; object-fit: cover; }
   .cmdr-strip-info { flex: 1; min-width: 0; }
   .cmdr-strip-name {
-    font-size: 11px; font-weight: 700; color: var(--text);
+    font-size: 12px; font-weight: 700; color: var(--text);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .cmdr-strip-meta { display: flex; align-items: center; gap: 4px; margin-top: 1px; }
-  .cmdr-strip-label { font-size: 9px; color: var(--muted); }
-  .cmdr-strip-dot { font-size: 9px; color: var(--muted); }
+  .cmdr-strip-label { font-size: 10px; color: var(--muted); }
+  .cmdr-strip-dot { font-size: 10px; color: var(--muted); }
   .cmdr-strip-pip {
     width: 12px; height: 12px; border-radius: 50%;
     font-size: 7px; font-weight: 700;
@@ -1962,15 +1974,15 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   .cmdr-strip-pip.pip-R { background: #d3202a; color: #fff; }
   .cmdr-strip-pip.pip-G { background: #00733e; color: #fff; }
   .cmdr-strip-bracket {
-    font-size: 9px; font-weight: 600; color: var(--warn);
+    font-size: 10px; font-weight: 600; color: var(--warn);
     background: rgba(229,184,76,.1); border-radius: 3px; padding: 1px 4px;
   }
   .cmdr-strip-stats {
     margin-left: auto; text-align: right; flex: none;
     display: flex; flex-direction: column; gap: 1px;
   }
-  .cmdr-strip-count { font-size: 10px; font-weight: 600; color: var(--muted); }
-  .cmdr-strip-price { font-size: 10px; color: var(--muted); }
+  .cmdr-strip-count { font-size: 11px; font-weight: 600; color: var(--muted); }
+  .cmdr-strip-price { font-size: 11px; color: var(--muted); }
 }
 
 /* ── Stack view (shared) ── */
@@ -2120,8 +2132,12 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   background: rgba(0,0,0,.72); color: var(--text); border-radius: 4px; width: 22px; height: 22px;
 }
 /* On touch (.stack-touch, set from the same canHover signal the JS uses) row actions
-   can't be hover-revealed, so keep them always visible. */
+   can't be hover-revealed, so keep them always visible — and grow rows/buttons
+   toward the 44px touch-target guideline (desktop keeps its dense 26px rows). */
 .stack-touch .ts-row-actions { display: flex; }
+.stack-touch .ts-row { height: 40px; }
+.stack-touch .ts-row-btn { width: 32px; height: 32px; }
+.stack-touch .stack-card-movemenu .more-menu-btn { width: 32px; height: 32px; }
 @media (max-width: 500px) {
   .text-stack-view .stack-masonry-col { min-width: 11rem; max-width: 100%; }
 }
@@ -2218,7 +2234,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 /* Commander left column — deck view */
 .deck-layout-3col {
   display: grid; grid-template-columns: 232px 1fr 300px;
-  height: calc(100vh - 3rem - 34px); overflow: hidden;
+  height: calc(100vh - 3rem - 34px); height: calc(100dvh - 3rem - 34px); overflow: hidden;
 }
 .deck-layout-3col .cmdr-col { overflow-y: auto; }
 .deck-layout-3col .deck-main { overflow-y: auto; }
@@ -2412,7 +2428,10 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 
 /* Responsive: mobile (<700px) — bottom nav, single column */
 @media (max-width: 699px) {
-  .app { padding: 3.2rem .75rem 5.5rem; }
+  .app { padding: 3.2rem .75rem 5.5rem; padding-top: calc(3.2rem + var(--safe-top)); }
+  /* iOS Safari auto-zooms focused form controls whose text is under 16px —
+     !important intentionally beats per-component font-size overrides. */
+  input, textarea, select { font-size: 16px !important; }
   .gt-nav { display: none; }
   .bottom-nav { display: flex; }
   .toast { bottom: 4.5rem; }
@@ -2455,8 +2474,9 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
   .rules-input-row input { border-color: rgba(201,138,58,.4); border-radius: 20px; }
   .rules-ask-label { display: none; }
   .rules-ask-icon { display: inline; }
-  .rules-ask-btn { border-radius: 50%; width: 34px; height: 34px; padding: 0; font-size: 15px;
+  .rules-ask-btn { border-radius: 50%; width: 44px; height: 44px; padding: 0; font-size: 17px;
     display: flex; align-items: center; justify-content: center; }
+  .gt-avatar { width: 36px; height: 36px; }
   .card-modal img { max-width: 85vw; max-height: 75vh; }
 }
 

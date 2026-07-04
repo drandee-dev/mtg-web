@@ -1,5 +1,5 @@
 import { useDraggable } from "@dnd-kit/core";
-import { canHover } from "../../lib/hooks";
+import { useCanHover } from "../../lib/hooks";
 import { useColumnCount, packMasonry } from "../../lib/masonry";
 import ManaCost from "./ManaCost";
 import StackColumn from "./StackColumn";
@@ -41,6 +41,7 @@ export default function TextStackView({
   commanderColumn = null,
   onChangeCommander,
 }) {
+  const canHover = useCanHover();
   const [containerRef, columnCount] = useColumnCount(216, 11.2);
   const labels = groups.map(([label]) => label);
 
@@ -167,6 +168,7 @@ function ColumnTextGhost({ cards }) {
 }
 
 function TextRow({ name, qty, manaCost, columnLabel, onCardClick, onRemove, onConsider, cardDragEnabled, moveTargets, onCardMove }) {
+  const canHover = useCanHover();
   const dragDisabled = !cardDragEnabled || !canHover;
   const { setNodeRef, listeners, isDragging } = useDraggable({
     id: `card:${columnLabel}:${name}`,

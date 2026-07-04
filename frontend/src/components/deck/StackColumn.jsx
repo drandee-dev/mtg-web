@@ -1,5 +1,5 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { canHover } from "../../lib/hooks";
+import { useCanHover } from "../../lib/hooks";
 import MoreMenu from "./MoreMenu";
 
 // Shared column shell for both image and text stacks. Owns the column header
@@ -24,6 +24,7 @@ export default function StackColumn({
   children,
 }) {
   // Commander column is fixed in place; touch keeps the ⋯ nudge menu instead of drag.
+  const canHover = useCanHover();
   const dndDisabled = isCommander || !canHover;
 
   const { setNodeRef: setDropRef, isOver } = useDroppable({

@@ -1,8 +1,9 @@
 import { useCallback, useRef, useState } from "react";
-import { canHover, useCardImage } from "../../lib/hooks";
+import { useCanHover, useCardImage } from "../../lib/hooks";
 import CardActionRail from "./CardActionRail";
 
 export default function CardThumbnail({ name, qty, onRemove, onConsider, onSetQty, expanded, onExpand, useArtCrop }) {
+  const canHover = useCanHover();
   const data = useCardImage(name);
   // border_crop normalizes the scan borders that vary per printing (see StackView);
   // onError falls back to the plain scan.

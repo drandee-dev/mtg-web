@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { getCardImage } from "./api";
 
-export const canHover =
-  typeof window !== "undefined" &&
-  window.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
+const HOVER_QUERY = "(hover: hover) and (pointer: fine)";
 
-// Live media-query hook — re-evaluates on viewport/input changes (unlike the
-// canHover snapshot above).
+// Live hover-capability hook — re-evaluates when the primary input changes
+// (e.g. iPad trackpad attached/detached), unlike a module-load snapshot.
+export function useCanHover() {
+  return useMediaQuery(HOVER_QUERY);
+}
+
+// Live media-query hook — re-evaluates on viewport/input changes.
 export function useMediaQuery(query) {
   const subscribe = useCallback((onChange) => {
     const mq = window.matchMedia?.(query);
