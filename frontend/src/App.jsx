@@ -239,11 +239,18 @@ export default function App() {
 
   const [showPasswordReset, setShowPasswordReset] = useState(false);
 
+  // Whether the initial Supabase session check has resolved. Until it has,
+  // `userId` reads as null even for a signed-in user — anything that picks a
+  // storage backend (auto-save, above all) must wait for this, or it'll save
+  // to local-only storage instead of the account.
+  const [authReady, setAuthReady] = useState(!supabaseEnabled);
+
   useEffect(() => {
     if (!supabaseEnabled) return;
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    supabase.auth.getSession().then(({ data }) => { setSession(data.session); setAuthReady(true); });
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      setAuthReady(true);
       if (event === "PASSWORD_RECOVERY") {
         setShowPasswordReset(true);
         setSettingsOpen(false);
@@ -316,12 +323,17 @@ export default function App() {
   }, [deckText, commander, maybeboard, format, store, refresh, notify]);
 
   useEffect(() => {
-    if (currentDeck || tab !== "deck" || autoSaveBusy.current) return;
+    // Wait for the Supabase session check to resolve first — otherwise a
+    // signed-in user's deck silently saves to browser-local storage instead
+    // of their account (userId reads as null until this settles).
+    if (!authReady || currentDeck || tab !== "deck" || autoSaveBusy.current) return;
     if (!sharedAutoSave.current && !commander) return;
     autoSaveBusy.current = true;
     sharedAutoSave.current = false;
-    autoSaveNewDeck().finally(() => { autoSaveBusy.current = false; });
-  }, [commander, currentDeck, tab, autoSaveNewDeck]);
+    autoSaveNewDeck()
+      .catch((e) => notify(`Auto-save failed: ${e.message}`))
+      .finally(() => { autoSaveBusy.current = false; });
+  }, [authReady, commander, currentDeck, tab, autoSaveNewDeck, notify]);
 
   const deleteDeck = useCallback(async (id) => {
     await store.remove(id);
