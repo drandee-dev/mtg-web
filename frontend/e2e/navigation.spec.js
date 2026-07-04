@@ -9,7 +9,7 @@ test.describe("Navigation & Layout", () => {
   });
 
   test("app loads and shows My Decks tab by default", async ({ page }) => {
-    await expect(page.locator('[role="tabpanel"]')).toBeVisible();
+    await expect(page.locator('main[role="tabpanel"]')).toBeVisible();
     // My Decks is the default tab
     const url = page.url();
     expect(url).not.toContain("tab=");
@@ -19,7 +19,7 @@ test.describe("Navigation & Layout", () => {
     const tabs = ["Analyze & Build", "Rules", "Card Search", "My Decks"];
     for (const tabName of tabs) {
       await navigateToTab(page, tabName);
-      await expect(page.locator('[role="tabpanel"]')).toBeVisible();
+      await expect(page.locator('main[role="tabpanel"]')).toBeVisible();
       await expect(page.locator("main")).not.toBeEmpty();
     }
   });

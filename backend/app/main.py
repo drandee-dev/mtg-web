@@ -37,7 +37,7 @@ import jwt as _pyjwt
 _ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "").lower()
 if not _ADMIN_EMAIL:
     log.warning("ADMIN_EMAIL env var not set — no user will have admin privileges.")
-_AI_RATE_LIMIT = int(os.environ.get("AI_RATE_LIMIT_PER_DAY", "25"))
+_AI_RATE_LIMIT = int(os.environ.get("AI_RATE_LIMIT_PER_DAY", "50"))
 _AI_MONTHLY_BUDGET_CENTS = int(os.environ.get("AI_MONTHLY_BUDGET_CENTS", "1000"))
 _SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
 
@@ -203,11 +203,13 @@ def _check_ai_access(request: Request) -> None:
 
     role, email = _get_user_from_jwt(request)
 
-    if usage.monthly_total_cents() >= _AI_MONTHLY_BUDGET_CENTS:
-        raise HTTPException(429, "AI budget reached for this month. Deterministic features still work.")
-
+    # Admin bypasses everything — including the monthly budget cap (owner's own
+    # key; the cap exists to bound spend from OTHER users' calls).
     if role == "admin":
         return
+
+    if usage.monthly_total_cents() >= _AI_MONTHLY_BUDGET_CENTS:
+        raise HTTPException(429, "AI budget reached for this month. Deterministic features still work.")
 
     limit_key = email if email else _client_ip(request)
     if usage.daily_call_count(limit_key) >= _AI_RATE_LIMIT:

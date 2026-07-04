@@ -379,11 +379,22 @@ export default function DeckView({
         }
         return;
       }
+      // Tab switches reuse loaded data (Cuts is a paid AI call — don't refetch
+      // just for browsing); the pane's Refresh action forces a reload.
+      const cached = { Recommendations: recs, Cuts: cuts, Combos: combos }[id];
+      if (cached) { setActivePanel(id); return; }
       const map = {
         Recommendations: [api.recommend, setRecs],
         Cuts: [(dl, fmt) => api.aiCuts(dl, fmt, null, apiGoals), setCuts],
         Combos: [api.combos, setCombos],
-        Composition: [api.composition, setComp],
+      };
+      if (map[id]) loadPanel(id, ...map[id]);
+    },
+    onRefreshPanel: (id) => {
+      const map = {
+        Recommendations: [api.recommend, setRecs],
+        Cuts: [(dl, fmt) => api.aiCuts(dl, fmt, null, apiGoals), setCuts],
+        Combos: [api.combos, setCombos],
       };
       if (map[id]) loadPanel(id, ...map[id]);
     },
@@ -625,7 +636,7 @@ export default function DeckView({
 
         </div>
 
-        {/* Right sidebar — all panel content renders inline in accordion */}
+        {/* Right sidebar — copilot spine + tabbed insights toolbox */}
         <DeckSidebar {...sidebarProps} />
       </div>
 

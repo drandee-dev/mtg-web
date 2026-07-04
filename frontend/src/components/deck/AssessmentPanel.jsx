@@ -63,10 +63,32 @@ export default function AssessmentPanel({
               <span className="asmt-chip-count">
                 {c.count}{c.target ? `/${c.target}` : ""}
               </span>
-              <span className="asmt-chip-zap" aria-hidden="true">⚡</span>
+              <svg className="asmt-chip-zap" aria-hidden="true" viewBox="0 0 24 24" width="10" height="10"
+                fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
             </button>
           ))}
         </div>
+      )}
+
+      {/* Full category table (absorbed the old Composition panel) */}
+      {comp?.categories?.length > 0 && (
+        <details className="asmt-comp">
+          <summary>Category targets</summary>
+          <div className="asmt-comp-grid">
+            {comp.categories.map((c) => (
+              <div className="asmt-comp-row" key={c.key}>
+                <span>{c.label}</span>
+                <span className="asmt-comp-val">
+                  <strong>{c.count}</strong>
+                  {c.target ? <span className="muted">/{c.target}</span> : null}
+                  {c.status === "thin" && <span className="asmt-comp-thin">thin</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        </details>
       )}
     </div>
   );

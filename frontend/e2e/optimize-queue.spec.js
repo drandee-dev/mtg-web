@@ -98,20 +98,21 @@ test.describe("Optimize queue — mobile hub", () => {
     await expect(queue.locator(".opt-log-summary")).toContainText("Session log (1)");
   });
 
-  test("Stats tab shows analytics; Optimize tab does not", async ({ page }) => {
+  test("Stats tab shows the insights toolbox; Optimize tab does not", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await page.locator(".planeswalker-btn").click();
 
     await page.locator('.pw-tabs [role="tab"]', { hasText: "Stats" }).click();
-    const stats = page.locator(".pw-insights-body .analytics-group");
-    await expect(stats).toBeVisible();
-    await expect(stats).toHaveAttribute("open", "");
-    await expect(stats.locator(".stat-grid")).toBeVisible();
+    const insp = page.locator(".pw-insights-body .insp");
+    await expect(insp).toBeVisible();
+    // Analytics is the resting tab — stats render immediately, no extra click
+    await expect(insp.locator(".insp-tab.active")).toContainText("Analytics");
+    await expect(insp.locator(".stat-grid")).toBeVisible();
     await expect(page.locator(".pw-insights-body .opt-queue")).toHaveCount(0);
 
     await page.locator('.pw-tabs [role="tab"]', { hasText: "Optimize" }).click();
     await expect(page.locator(".pw-insights-body .opt-queue")).toBeVisible();
-    await expect(page.locator(".pw-insights-body .analytics-group")).toHaveCount(0);
+    await expect(page.locator(".pw-insights-body .insp")).toHaveCount(0);
   });
 });
 
@@ -133,13 +134,18 @@ test.describe("Assessment", () => {
     await expect(page.locator(".opt-queue .opt-card")).toHaveCount(2);
   });
 
-  test("desktop analytics group is collapsed by default and expands", async ({ page }) => {
+  test("insights toolbox rests on Analytics and swaps panes in place", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    const group = page.locator(".deck-sidebar .analytics-group");
-    await expect(group).toBeVisible();
-    await expect(group).not.toHaveAttribute("open", "");
-    await expect(group.locator(".stat-grid")).not.toBeVisible();
-    await group.locator("summary").click();
-    await expect(group.locator(".stat-grid")).toBeVisible();
+    const insp = page.locator(".deck-sidebar .insp");
+    await expect(insp).toBeVisible();
+    // Analytics is the default pane — no click needed to see stats
+    await expect(insp.locator(".stat-grid")).toBeVisible();
+    // Picking a tool replaces the pane at the top (no accordion below)
+    await insp.locator(".insp-tab", { hasText: "Odds" }).click();
+    await expect(insp.locator(".draw-odds-grid")).toBeVisible();
+    await expect(insp.locator(".stat-grid")).toHaveCount(0);
+    // Back to Analytics
+    await insp.locator(".insp-tab", { hasText: "Analytics" }).click();
+    await expect(insp.locator(".stat-grid")).toBeVisible();
   });
 });
