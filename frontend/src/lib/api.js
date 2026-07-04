@@ -106,23 +106,25 @@ export const api = {
     post("/api/rules/ask", { question }),
   rulesAskStream: (question, onChunk) =>
     postStream("/api/rules/ask/stream", { question }, onChunk),
-  aiCuts: (decklist, format, bracket) =>
-    post("/api/deck/ai/cuts", { decklist, format, ...(bracket != null ? { bracket } : {}) }),
-  aiFills: (decklist, format, bracket) =>
-    post("/api/deck/ai/fills", { decklist, format, ...(bracket != null ? { bracket } : {}) }),
+  aiCuts: (decklist, format, bracket, goals) =>
+    post("/api/deck/ai/cuts", { decklist, format, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}) }),
+  aiFills: (decklist, format, bracket, goals) =>
+    post("/api/deck/ai/fills", { decklist, format, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}) }),
   aiExplain: (decklist, format, card_names, bracket) =>
     post("/api/deck/ai/explain", { decklist, format, card_names, ...(bracket != null ? { bracket } : {}) }),
   aiCombos: (decklist, format, combos, near_misses, bracket) =>
     post("/api/deck/ai/combos", { decklist, format, combos, near_misses, ...(bracket != null ? { bracket } : {}) }),
   aiStrategy: (decklist, format, commander, bracket) =>
     post("/api/deck/ai/strategy", { decklist, format, ...(commander ? { commander } : {}), ...(bracket != null ? { bracket } : {}) }),
-  aiUpgrades: (decklist, format, commander, bracket, mode) =>
-    post("/api/deck/ai/upgrades", { decklist, format, ...(commander ? { commander } : {}), ...(bracket != null ? { bracket } : {}), mode: mode || "power" }),
+  aiUpgrades: (decklist, format, commander, bracket, mode, goals) =>
+    post("/api/deck/ai/upgrades", { decklist, format, ...(commander ? { commander } : {}), ...(bracket != null ? { bracket } : {}), mode: mode || "power", ...(goals ? { goals } : {}) }),
+  optimize: (decklist, format, goals, focus) =>
+    post("/api/deck/optimize", { decklist, format, ...(goals ? { goals } : {}), ...(focus ? { focus } : {}) }),
   importUrl: (url) => post("/api/deck/import-url", { url }),
-  planeswalkerChat: (messages, decklist, format, commander, bracket) =>
-    post("/api/planeswalker/chat", { messages, decklist, format, commander, ...(bracket != null ? { bracket } : {}) }),
-  planeswalkerChatStream: (messages, decklist, format, commander, bracket, onChunk) =>
-    postStream("/api/planeswalker/chat/stream", { messages, decklist, format, commander, ...(bracket != null ? { bracket } : {}) }, onChunk),
+  planeswalkerChat: (messages, decklist, format, commander, bracket, goals) =>
+    post("/api/planeswalker/chat", { messages, decklist, format, commander, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}) }),
+  planeswalkerChatStream: (messages, decklist, format, commander, bracket, goals, onChunk) =>
+    postStream("/api/planeswalker/chat/stream", { messages, decklist, format, commander, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}) }, onChunk),
 };
 
 // Derive art_crop and border_crop URLs from a normal/small Scryfall image URL.

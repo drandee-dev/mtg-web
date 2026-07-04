@@ -66,12 +66,49 @@ class ChatMessage(BaseModel):
         return v
 
 
+class GoalsPayload(BaseModel):
+    """User Deck Goals — declared optimization intent, threaded into AI prompts."""
+
+    bracket_target: int | None = Field(default=None, ge=1, le=5)
+    budget_ceiling: float | None = Field(default=None, ge=0, le=100_000)
+    protected: list[str] = Field(default_factory=list, max_length=15)
+    pilot: str = Field(default="any", max_length=10)
+    flavor_note: str = Field(default="", max_length=300)
+
+    @field_validator("pilot")
+    @classmethod
+    def pilot_must_be_valid(cls, v: str) -> str:
+        v = v.lower()
+        if v not in ("simple", "moderate", "any"):
+            raise ValueError("pilot must be simple, moderate, or any")
+        return v
+
+    @field_validator("protected")
+    @classmethod
+    def cap_protected(cls, v: list[str]) -> list[str]:
+        return [str(p)[:_MAX_CARD_NAME_LEN] for p in v[:15]]
+
+
+def _parse_goals(payload: dict) -> dict | None:
+    """Validate the optional `goals` object on dict-body endpoints."""
+    raw = payload.get("goals")
+    if not raw:
+        return None
+    if not isinstance(raw, dict):
+        raise HTTPException(400, "goals must be an object.")
+    try:
+        return GoalsPayload(**raw).model_dump()
+    except Exception:
+        raise HTTPException(400, "Invalid goals object.")
+
+
 class ChatPayload(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=_MAX_MESSAGES)
     commander: str = Field(default="", max_length=_MAX_CARD_NAME_LEN)
     decklist: str = Field(default="", max_length=_MAX_DECKLIST_LEN)
     format: str = Field(default="commander", max_length=30)
     bracket: int | None = Field(default=None, ge=1, le=5)
+    goals: GoalsPayload | None = None
 
 
 class WizardChatPayload(BaseModel):
@@ -398,14 +435,16 @@ def deck_budget_swaps(payload: Annotated[dict, Body()]) -> dict:
 def deck_ai_cuts(request: Request, payload: Annotated[dict, Body()]) -> dict:
     _check_ai_access(request)
     decklist, fmt = _validate_decklist(payload)
-    return mtg.ai_suggest_cuts(decklist, fmt=fmt, bracket=_target_bracket(payload))
+    return mtg.ai_suggest_cuts(decklist, fmt=fmt, bracket=_target_bracket(payload),
+                               goals=_parse_goals(payload))
 
 
 @app.post("/api/deck/ai/fills")
 def deck_ai_fills(request: Request, payload: Annotated[dict, Body()]) -> dict:
     _check_ai_access(request)
     decklist, fmt = _validate_decklist(payload)
-    return mtg.ai_composition_fills(decklist, fmt=fmt, bracket=_target_bracket(payload))
+    return mtg.ai_composition_fills(decklist, fmt=fmt, bracket=_target_bracket(payload),
+                                    goals=_parse_goals(payload))
 
 
 @app.post("/api/deck/ai/explain")
@@ -449,7 +488,20 @@ def deck_ai_upgrades(request: Request, payload: Annotated[dict, Body()]) -> dict
     mode = (payload.get("mode") or "power").strip().lower()
     if mode not in ("power", "budget"):
         raise HTTPException(400, "mode must be 'power' or 'budget'.")
-    return mtg.ai_upgrades(decklist, fmt=fmt, commander=commander, bracket=_target_bracket(payload), mode=mode)
+    return mtg.ai_upgrades(decklist, fmt=fmt, commander=commander, bracket=_target_bracket(payload),
+                           mode=mode, goals=_parse_goals(payload))
+
+
+@app.post("/api/deck/optimize")
+def deck_optimize(request: Request, payload: Annotated[dict, Body()]) -> dict:
+    """Goal-driven changeset for the Optimize queue (swap/cut/add proposals)."""
+    _check_ai_access(request)
+    decklist, fmt = _validate_decklist(payload)
+    focus = payload.get("focus") or None
+    if focus is not None and focus not in mtg.OPTIMIZE_FOCUS:
+        raise HTTPException(400, "Invalid focus.")
+    return mtg.ai_optimize(decklist, fmt=fmt, bracket=_target_bracket(payload),
+                           goals=_parse_goals(payload), focus=focus)
 
 
 class ImportUrlPayload(BaseModel):
@@ -621,9 +673,21 @@ def _planeswalker_prompt(payload: ChatPayload) -> tuple[str, list[dict], bool]:
     if ctx_summary:
         system += f"\n\nCurrent deck context:\n{ctx_summary}"
 
+    # Deck Goals: validated scalars extend the system prompt; free text
+    # (protected names, flavor note) rides in the user message, tagged.
+    goals = payload.goals.model_dump() if payload.goals else None
+    goal_sys, goal_user = mtg.goals_prompt_parts(goals)
+    system += goal_sys
+
     for m in messages:
         if m["role"] == "user":
             m["content"] = f"<user_input>{m['content']}</user_input>"
+
+    if goal_user:
+        for m in reversed(messages):
+            if m["role"] == "user":
+                m["content"] += goal_user
+                break
 
     return system, messages, bool(ctx_summary)
 

@@ -4,6 +4,7 @@ import { supabase, supabaseEnabled } from "./lib/supabase";
 import { api, assembleDecklist, assembleForStorage, disassembleDecklist, setAccessToken } from "./lib/api";
 import { makeStore } from "./lib/store";
 import { downloadFile } from "./lib/hooks";
+import { DEFAULT_GOALS, loadGoals, saveGoals } from "./lib/goals";
 import GlobalToolbar from "./components/layout/GlobalToolbar";
 import BottomNav from "./components/layout/BottomNav";
 import ServerStatusBanner from "./components/ServerStatusBanner";
@@ -102,9 +103,12 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  // DOM node of the Planeswalker hub's Insights tab — DeckView portals its
-  // DeckSidebar into it (set/cleared by the hub's ref callback).
+  // DOM nodes of the Planeswalker hub's Optimize and Stats tabs — DeckView
+  // portals sections of its DeckSidebar into them (set/cleared by ref callbacks).
   const [pwInsightsEl, setPwInsightsEl] = useState(null);
+  const [pwStatsEl, setPwStatsEl] = useState(null);
+  // Deck Goals — user-declared AI optimization intent, persisted per deck.
+  const [goals, setGoalsState] = useState(DEFAULT_GOALS);
   const [serverStatus, setServerStatus] = useState("checking");
   const [healthRetry, setHealthRetry] = useState(0);
   const [serverAi, setServerAi] = useState(true);
@@ -117,6 +121,16 @@ export default function App() {
   const [currentDeck, setCurrentDeck] = useState(null);
 
   const savedDeckText = useRef(deckText);
+
+  // Load the deck's saved goals when the open deck changes; persist on edit.
+  useEffect(() => {
+    setGoalsState(loadGoals(currentDeck?.id || null)); // eslint-disable-line react-hooks/set-state-in-effect
+  }, [currentDeck?.id]);
+  const setGoals = useCallback((g) => {
+    setGoalsState(g);
+    saveGoals(currentDeck?.id || null, g);
+  }, [currentDeck?.id]);
+
   const [startInWizard, setStartInWizard] = useState(false);
   // Pending import-modal tab ("paste" | "url") to open once the new-deck editor
   // mounts, set by avatar-menu shortcuts. null = none.
@@ -412,6 +426,9 @@ export default function App() {
             notify={notify}
             serverWarmed={serverWarmed}
             pwInsightsEl={pwInsightsEl}
+            pwStatsEl={pwStatsEl}
+            goals={goals}
+            setGoals={setGoals}
           />
         )}
         {tab === "decks" && (
@@ -475,6 +492,8 @@ export default function App() {
         deckId={currentDeck?.id || null}
         insightsAvailable={tab === "deck" && !playtesting}
         onInsightsSlot={setPwInsightsEl}
+        onStatsSlot={setPwStatsEl}
+        goals={goals}
       />
       <Feedback open={feedbackOpen} onClose={() => setFeedbackOpen(false)} notify={notify} />
     </div>

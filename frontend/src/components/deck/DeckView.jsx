@@ -10,13 +10,15 @@ import ImportCardsModal from "./ImportCardsModal";
 import MoreMenu from "./MoreMenu";
 import Maybeboard from "./Maybeboard";
 import { parseDeckText, deckCompleteness } from "../../lib/deckParser";
+import { goalsToApi } from "../../lib/goals";
+import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry } from "../../lib/optimizeLog";
 
 export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
   maybeboard, setMaybeboard,
   deckName, deckId, onSave, onClone, onExport, onPlaytest, onShare,
   startInWizard, onWizardConsumed, startImport, onImportConsumed, onBack, notify, serverWarmed,
-  pwInsightsEl,
+  pwInsightsEl, pwStatsEl, goals, setGoals,
 }) {
   const [mode, setMode] = useState(startInWizard ? "wizard" : "manual");
   const [textEditOpen, setTextEditOpen] = useState(false);
@@ -44,6 +46,10 @@ export default function DeckView({
   const [cuts, setCuts] = useState(null);
   const [upgrades, setUpgrades] = useState(null);
   const [upgradeMode, setUpgradeMode] = useState("budget");
+  const [optimize, setOptimize] = useState(null);
+  const [optimizing, setOptimizing] = useState(false);
+  const [optDecided, setOptDecided] = useState({});
+  const [optLog, setOptLog] = useState(() => loadLog(deckId));
   const [strategy, setStrategy] = useState(null);
   const [strategyLoading, setStrategyLoading] = useState(false);
   const [busy, setBusy] = useState("");
@@ -61,6 +67,20 @@ export default function DeckView({
   const debounceRef = useRef(null);
 
   const isCommanderFmt = format === "commander" || format === "paupercommander";
+
+  // Switching decks: reload that deck's session log, drop the stale queue.
+  useEffect(() => {
+    setOptLog(loadLog(deckId)); // eslint-disable-line react-hooks/set-state-in-effect
+    setOptimize(null);
+    setOptDecided({});
+  }, [deckId]);
+
+  // Stay in sync with log writes from other surfaces (chat card-chip adds).
+  useEffect(() => {
+    const onLog = () => setOptLog(loadLog(deckId));
+    window.addEventListener("mtgweb:optlog", onLog);
+    return () => window.removeEventListener("mtgweb:optlog", onLog);
+  }, [deckId]);
 
   // Resolve commander card image
   useEffect(() => {
@@ -87,7 +107,14 @@ export default function DeckView({
     setIsAnalyzing(true);
     try {
       const full = assembleDecklist(decklist, isCommanderFmt ? commander : "");
-      setResult(await api.analyze(full, format));
+      // Composition is deterministic (no AI) — fetch alongside analysis so the
+      // Assessment gap chips are proactive instead of hidden behind a panel click.
+      const [res, compRes] = await Promise.all([
+        api.analyze(full, format),
+        api.composition(full, format).catch(() => null),
+      ]);
+      setResult(res);
+      if (compRes) setComp(compRes);
     } catch (e) {
       notify?.(`Analyze failed: ${e.message}`);
     } finally {
@@ -282,9 +309,56 @@ export default function DeckView({
 
   const hasCommander = isCommanderFmt && commander;
   const considerCount = parseDeckText(maybeboard || "").cards.length;
-  const totalCards = parseDeckText(decklist).totalCards;
+  const parsedDeck = parseDeckText(decklist);
+  const totalCards = parsedDeck.totalCards;
   const deckEmpty = !decklist.trim() && !commander;
   const completeness = deckCompleteness(totalCards, commander, format);
+  const apiGoals = goalsToApi(goals);
+  const deckCardNames = parsedDeck.cards.map((c) => c.name);
+
+  // Optimize queue — one AI pass returns a goal-aware changeset; each change is
+  // applied/skipped individually and applied ones land in the session log so
+  // they can be undone (inverse edit) later.
+  async function runOptimize(focus) {
+    if (!decklist.trim()) return notify?.("Add some cards first.");
+    setOptimizing(true);
+    try {
+      const full = assembleDecklist(decklist, isCommanderFmt ? commander : "");
+      const r = await api.optimize(full, format, apiGoals,
+        typeof focus === "string" ? focus : null);
+      r.changes = (r.changes || []).map((c, i) => ({ ...c, id: `${i}:${c.cut || ""}>${c.add || ""}` }));
+      setOptimize(r);
+      setOptDecided({});
+    } catch (e) {
+      notify?.(`Optimize failed: ${e.message}`);
+    } finally {
+      setOptimizing(false);
+    }
+  }
+
+  function applyOptChange(ch) {
+    if (ch.cut) removeCard(ch.cut, { silent: true });
+    if (ch.add) setDecklist((prev) => `${prev.replace(/\s*$/, "")}\n1 ${ch.add}`);
+    setOptDecided((d) => ({ ...d, [ch.id]: "applied" }));
+    const entry = makeEntry({ action: ch.action, cut: ch.cut || null, add: ch.add || null });
+    setOptLog(appendLog(deckId, entry));
+    notify?.(describeEntry(entry));
+  }
+
+  function skipOptChange(ch) {
+    setOptDecided((d) => ({ ...d, [ch.id]: "skipped" }));
+  }
+
+  function undoOptChange(entry) {
+    if (entry.add) removeCard(entry.add, { silent: true });
+    if (entry.cut) setDecklist((prev) => `${prev.replace(/\s*$/, "")}\n1 ${entry.cut}`);
+    setOptLog(removeLogEntry(deckId, entry.id));
+    notify?.(`Undid: ${describeEntry(entry)}`);
+  }
+
+  function clearOptLog() {
+    setOptLog(clearLog(deckId));
+  }
 
   // One props object for every DeckSidebar render (desktop layout + the
   // Planeswalker hub's mobile Insights portal) — keep wiring in one place.
@@ -301,13 +375,13 @@ export default function DeckView({
         if (upgradeMode === "budget" && !budgetSwaps) {
           loadPanel("Upgrades", api.budgetSwaps, setBudgetSwaps);
         } else if (upgradeMode === "power" && !upgrades) {
-          loadPanel("Upgrades", (dl, fmt) => api.aiUpgrades(dl, fmt, commander, null, "power"), setUpgrades);
+          loadPanel("Upgrades", (dl, fmt) => api.aiUpgrades(dl, fmt, commander, null, "power", apiGoals), setUpgrades);
         }
         return;
       }
       const map = {
         Recommendations: [api.recommend, setRecs],
-        Cuts: [api.aiCuts, setCuts],
+        Cuts: [(dl, fmt) => api.aiCuts(dl, fmt, null, apiGoals), setCuts],
         Combos: [api.combos, setCombos],
         Composition: [api.composition, setComp],
       };
@@ -333,6 +407,19 @@ export default function DeckView({
     strategy,
     strategyLoading,
     serverWarmed,
+    goals,
+    setGoals,
+    deckCardNames,
+    optimize,
+    optimizing,
+    onRunOptimize: runOptimize,
+    optDecided,
+    onApplyChange: applyOptChange,
+    onSkipChange: skipOptChange,
+    optLog,
+    onUndoChange: undoOptChange,
+    onClearLog: clearOptLog,
+    onGapChip: runOptimize,
   };
 
   return (
@@ -542,9 +629,11 @@ export default function DeckView({
         <DeckSidebar {...sidebarProps} />
       </div>
 
-      {/* Mobile: the Planeswalker hub's Insights tab exposes a slot element —
-          portal the same sidebar into it (single source of props, no dup wiring). */}
-      {pwInsightsEl && createPortal(<DeckSidebar {...sidebarProps} />, pwInsightsEl)}
+      {/* Mobile: the Planeswalker hub's Optimize and Stats tabs expose slot
+          elements — portal sections of the same sidebar into them (single
+          source of props, no dup wiring). */}
+      {pwInsightsEl && createPortal(<DeckSidebar {...sidebarProps} section="optimize" />, pwInsightsEl)}
+      {pwStatsEl && createPortal(<DeckSidebar {...sidebarProps} section="stats" />, pwStatsEl)}
 
       <ImportCardsModal
         open={importOpen}

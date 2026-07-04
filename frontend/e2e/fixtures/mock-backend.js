@@ -84,6 +84,35 @@ export async function mockBackend(page) {
     if (path.endsWith("/api/rules/search")) {
       return json({ count: 1, results: [{ rule: "702.19", text: "Trample is a static ability." }] });
     }
+    if (path.endsWith("/api/planeswalker/chat/stream")) {
+      const reply = "Consider adding [[Lightning Bolt]] for cheap interaction.";
+      const body =
+        `data: ${JSON.stringify({ status: "streaming", text: reply })}\n\n` +
+        `data: ${JSON.stringify({ status: "done", text: reply })}\n\n`;
+      return route.fulfill({ status: 200, contentType: "text/event-stream", body });
+    }
+    if (path.endsWith("/api/deck/composition")) {
+      return json({
+        format: "commander", is_commander: true,
+        categories: [
+          { key: "lands", label: "Lands", count: 34, target: 36, status: "ok" },
+          { key: "ramp", label: "Ramp", count: 9, target: 10, status: "ok" },
+          { key: "card-draw", label: "Card draw", count: 4, target: 10, status: "thin" },
+          { key: "removal", label: "Spot removal", count: 7, target: 8, status: "ok" },
+        ],
+      });
+    }
+    if (path.endsWith("/api/deck/optimize")) {
+      return json({
+        error: false,
+        assessment: "Deck sits at bracket 2 against a bracket-3 target; this pass tightens ramp and draw.",
+        changes: [
+          { action: "swap", cut: "Cultivate", add: "Lightning Bolt", reason: "Cheap interaction the goals ask for over redundant ramp.", category: "Removal", impact: "high", price_usd: 2.5, cut_price_usd: 0.5, price_delta: 2.0 },
+          { action: "cut", cut: "Kodama's Reach", add: null, reason: "Deck is over its card count; weakest duplicate effect.", category: "Ramp", impact: "medium", price_usd: null, cut_price_usd: 0.75, price_delta: -0.75 },
+        ],
+        model: "mock",
+      });
+    }
     // Generic fallback for deck analysis / AI endpoints not exercised here.
     return json({});
   });

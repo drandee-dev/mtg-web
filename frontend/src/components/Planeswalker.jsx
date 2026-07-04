@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, assembleDecklist } from "../lib/api";
 import { useMediaQuery } from "../lib/hooks";
+import { goalsToApi } from "../lib/goals";
+import { loadLog, appendLog, describeEntry, makeEntry } from "../lib/optimizeLog";
 
 const CHIBI_ART = [
   "https://cards.scryfall.io/art_crop/front/e/b/ebbfc1b2-2407-4079-a847-6bb6b9a2c9de.jpg",
@@ -46,7 +48,7 @@ function loadHistory(key) {
 function saveHistory(key, messages) {
   try {
     const persistable = messages
-      .filter((m) => m.role === "user" || m.role === "assistant")
+      .filter((m) => m.role === "user" || m.role === "assistant" || m.role === "divider")
       .slice(-HISTORY_CAP);
     if (persistable.length) localStorage.setItem(key, JSON.stringify(persistable));
     else localStorage.removeItem(key);
@@ -143,15 +145,21 @@ function PwText({ text, actions }) {
 export default function Planeswalker({
   decklist, commander, format, bracket, aiAvailable, serverStatus,
   addCard, addToConsidering, notify,
-  deckId, insightsAvailable, onInsightsSlot,
+  deckId, insightsAvailable, onInsightsSlot, onStatsSlot, goals,
 }) {
   const [open, setOpen] = useState(false);
-  const [tabView, setTabView] = useState("chat"); // "chat" | "insights"
+  const [tabView, setTabView] = useState("chat"); // "chat" | "insights" (Optimize) | "stats"
   const storageKey = historyKey(deckId);
   // Loaded (and re-loaded on deck switch) by the storageKey effect below.
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  // Panel size + chat text size, both persisted across sessions.
+  const [expanded, setExpanded] = useState(() => localStorage.getItem("mtgweb:pwexpand") === "1");
+  const [bigText, setBigText] = useState(() => localStorage.getItem("mtgweb:pwtext") === "lg");
+  // Optimize session log, pinned above the chat so long conversations keep
+  // track of what's been applied (queue applies + chat card-chip adds).
+  const [optLog, setOptLog] = useState([]);
   const scrollRef = useRef(null);
   const chibiArt = useMemo(() => CHIBI_ART[Math.floor(Math.random() * CHIBI_ART.length)], []);
   const isMobile = useMediaQuery("(max-width: 699px)");
@@ -187,10 +195,34 @@ export default function Planeswalker({
     return () => { document.body.style.overflow = ""; };
   }, [open, isMobile]);
 
-  // If the deck tab goes away while Insights is showing, fall back to chat.
+  // If the deck tab goes away while Optimize/Stats is showing, fall back to chat.
   useEffect(() => {
-    if (!showInsights && tabView === "insights") setTabView("chat"); // eslint-disable-line react-hooks/set-state-in-effect
+    if (!showInsights && tabView !== "chat") setTabView("chat"); // eslint-disable-line react-hooks/set-state-in-effect
   }, [showInsights, tabView]);
+
+  // Session log: load on open/deck switch, follow writes from any surface
+  // (optimizeLog broadcasts "mtgweb:optlog" on every save).
+  useEffect(() => {
+    if (!open) return;
+    setOptLog(loadLog(deckId)); // eslint-disable-line react-hooks/set-state-in-effect
+    const onLog = () => setOptLog(loadLog(deckId));
+    window.addEventListener("mtgweb:optlog", onLog);
+    return () => window.removeEventListener("mtgweb:optlog", onLog);
+  }, [open, deckId]);
+
+  function toggleExpand() {
+    setExpanded((e) => {
+      try { localStorage.setItem("mtgweb:pwexpand", e ? "0" : "1"); } catch { /* best-effort */ }
+      return !e;
+    });
+  }
+
+  function toggleTextSize() {
+    setBigText((b) => {
+      try { localStorage.setItem("mtgweb:pwtext", b ? "" : "lg"); } catch { /* best-effort */ }
+      return !b;
+    });
+  }
 
   // Welcome message on first open
   useEffect(() => {
@@ -205,17 +237,23 @@ export default function Planeswalker({
     }
   }, [open, commander, messages.length]);
 
-  async function send(promptText) {
+  async function send(promptText, topicLabel) {
     const text = (promptText ?? input).trim();
     if (!text || busy) return;
     const userMsg = { role: "user", content: text };
-    const base = [...messages.filter((m) => m.role !== "system"), userMsg];
+    // Quick actions drop a topic divider so long chats stay scannable.
+    const divider = topicLabel ? [{ role: "divider", label: topicLabel }] : [];
+    const base = [...messages.filter((m) => m.role !== "system"), ...divider, userMsg];
     setMessages([...base, { role: "assistant", content: "", streaming: true }]);
     setInput("");
     setBusy(true);
 
     const full = assembleDecklist(decklist || "", commander || "");
-    const apiMsgs = base.slice(-HISTORY_SENT).map(({ role, content }) => ({ role, content }));
+    const apiMsgs = base
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .slice(-HISTORY_SENT)
+      .map(({ role, content }) => ({ role, content }));
+    const apiGoals = goalsToApi(goals);
 
     const finish = (finalText, isError = false) => {
       let msgs = [...base, { role: "assistant", content: finalText }];
@@ -232,7 +270,7 @@ export default function Planeswalker({
     try {
       let acc = "";
       let streamError = null;
-      await api.planeswalkerChatStream(apiMsgs, full, format, commander, bracket, (chunk) => {
+      await api.planeswalkerChatStream(apiMsgs, full, format, commander, bracket, apiGoals, (chunk) => {
         if (chunk.status === "streaming" && chunk.text) {
           acc += chunk.text;
           setMessages([...base, { role: "assistant", content: acc, streaming: true }]);
@@ -247,7 +285,7 @@ export default function Planeswalker({
     } catch {
       // Streaming endpoint unreachable — fall back to the non-streaming API.
       try {
-        const r = await api.planeswalkerChat(apiMsgs, full, format, commander, bracket);
+        const r = await api.planeswalkerChat(apiMsgs, full, format, commander, bracket, apiGoals);
         finish(r.error ? `Error: ${r.response}` : r.response, Boolean(r.error));
       } catch (e2) {
         finish(`Connection error: ${e2.message}`, true);
@@ -267,8 +305,15 @@ export default function Planeswalker({
   // is off, the chat input area explains it instead.
   const aiOff = !aiAvailable && serverStatus === "ready";
 
+  // Chat card-chip adds land in the same session log as queue applies, so the
+  // pinned log (and the queue's log, via the broadcast) records chat changes too.
   const chipActions = {
-    onAdd: addCard || null,
+    onAdd: addCard
+      ? (name) => {
+          addCard(name);
+          appendLog(deckId, makeEntry({ action: "add", add: name, source: "chat" }));
+        }
+      : null,
     onConsider: addToConsidering || null,
     notify,
   };
@@ -282,7 +327,7 @@ export default function Planeswalker({
       </button>
 
       {open && (
-        <div className="planeswalker-panel">
+        <div className={`planeswalker-panel${expanded ? " pw-expanded" : ""}${bigText ? " pw-textlg" : ""}`}>
           <div className="planeswalker-header">
             <div className="row" style={{ alignItems: "center", gap: ".45rem" }}>
               <img src={chibiArt} alt="" className="pw-header-chibi" />
@@ -292,6 +337,16 @@ export default function Planeswalker({
               </div>
             </div>
             <div className="row" style={{ gap: ".3rem" }}>
+              {tabView === "chat" && (
+                <button className={`ghost small pw-asize${bigText ? " active" : ""}`} onClick={toggleTextSize}
+                  aria-label={bigText ? "Smaller chat text" : "Larger chat text"} title="Text size">
+                  <span aria-hidden="true">A</span><span aria-hidden="true" className="pw-asize-big">A</span>
+                </button>
+              )}
+              <button className="ghost small" onClick={toggleExpand}
+                aria-label={expanded ? "Shrink panel" : "Expand panel"} title={expanded ? "Shrink" : "Expand"}>
+                {expanded ? "⤡" : "⤢"}
+              </button>
               {tabView === "chat" && <button className="ghost small" onClick={clearChat}>Clear</button>}
               <button className="ghost small" onClick={() => setOpen(false)} aria-label="Close">✕</button>
             </div>
@@ -304,17 +359,40 @@ export default function Planeswalker({
                 onClick={() => setTabView("chat")}>Chat</button>
               <button role="tab" aria-selected={tabView === "insights"}
                 className={tabView === "insights" ? "active" : ""}
-                onClick={() => setTabView("insights")}>Insights</button>
+                onClick={() => setTabView("insights")}>Optimize</button>
+              <button role="tab" aria-selected={tabView === "stats"}
+                className={tabView === "stats" ? "active" : ""}
+                onClick={() => setTabView("stats")}>Stats</button>
             </div>
           )}
 
           {tabView === "insights" ? (
-            /* DeckView portals its DeckSidebar into this slot (see App/DeckView). */
+            /* DeckView portals its DeckSidebar (optimize section) here. */
             <div className="pw-insights-body" ref={onInsightsSlot || undefined} />
+          ) : tabView === "stats" ? (
+            /* DeckView portals its DeckSidebar (stats section) here. */
+            <div className="pw-insights-body" ref={onStatsSlot || undefined} />
           ) : (
             <>
               <div className="planeswalker-messages" ref={scrollRef} aria-live="polite" aria-relevant="additions">
+                {optLog.length > 0 && (
+                  <details className="pw-sessionlog">
+                    <summary>Session changes ({optLog.length})</summary>
+                    <div className="pw-sessionlog-body">
+                      {[...optLog].reverse().map((e) => (
+                        <div key={e.id} className="pw-sessionlog-row">
+                          <span className={`opt-badge opt-act-${e.action}`}>{e.action}</span>
+                          <span className="pw-sessionlog-desc">{describeEntry(e)}</span>
+                          {e.source === "chat" && <span className="pw-sessionlog-src">chat</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
                 {messages.filter((m) => m.role !== "system").map((m, i) => (
+                  m.role === "divider" ? (
+                    <div key={i} className="pw-divider" role="separator"><span>{m.label}</span></div>
+                  ) : (
                   <div key={i} className={`pw-msg pw-${m.role}`}>
                     <div className="pw-label">{m.role === "user" ? "You" : "Planeswalker"}</div>
                     {m.role === "assistant"
@@ -323,6 +401,7 @@ export default function Planeswalker({
                           : <div className="pw-text"><span className="loading-dot" /> Thinking…</div>)
                       : <div className="pw-text">{m.content}</div>}
                   </div>
+                  )
                 ))}
                 {deckDetected && (
                   <div className="pw-msg pw-assistant" style={{ display: "flex", gap: ".3rem", flexWrap: "wrap" }}>
@@ -354,7 +433,7 @@ export default function Planeswalker({
               {hasDeck && !aiOff && serverStatus !== "offline" && serverStatus !== "waking" && (
                 <div className="pw-chips" role="group" aria-label="Quick actions">
                   {QUICK_ACTIONS.map(([label, prompt]) => (
-                    <button key={label} className="pw-chip" disabled={busy} onClick={() => send(prompt)}>
+                    <button key={label} className="pw-chip" disabled={busy} onClick={() => send(prompt, label)}>
                       {label}
                     </button>
                   ))}

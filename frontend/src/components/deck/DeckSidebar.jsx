@@ -4,7 +4,9 @@ import CardPreview from "../CardPreview";
 import LoadingIndicator from "../LoadingIndicator";
 import DrawProbability from "./DrawProbability";
 import AIFeedPanel from "./AIFeedPanel";
-import { sanitizeHtml } from "../../lib/sanitize";
+import DeckGoals from "./DeckGoals";
+import OptimizeQueue from "./OptimizeQueue";
+import AssessmentPanel from "./AssessmentPanel";
 
 const WUBRG = ["W", "U", "B", "R", "G", "C"];
 const COLOR_NAME = { W: "White", U: "Blue", B: "Black", R: "Red", G: "Green", C: "Colorless" };
@@ -38,6 +40,10 @@ export default function DeckSidebar({
   commander, format,
   strategy, strategyLoading,
   serverWarmed,
+  goals, setGoals, deckCardNames,
+  optimize, optimizing, onRunOptimize, optDecided,
+  onApplyChange, onSkipChange, optLog, onUndoChange, onClearLog,
+  onGapChip, section,
 }) {
   const [panelMode, setPanelMode] = useState(
     () => localStorage.getItem("mtgweb:panelMode") || "accordion"
@@ -63,134 +69,141 @@ export default function DeckSidebar({
     ? ((cardCount || 0) > 100 ? "bad" : (cardCount || 0) === 100 ? "good" : "warn")
     : ((cardCount || 0) >= 60 ? "good" : "warn");
 
+  // Hub tabs render this sidebar twice via portals: the Optimize tab shows the
+  // goal-driven surface, the Stats tab the analytics. Desktop renders both.
+  const showOpt = section !== "stats";
+  const showStats = section !== "optimize";
+
   return (
     <aside className="deck-sidebar" role="complementary" aria-label="Deck statistics">
-      {/* Stats overview — always visible */}
-      <div className="sidebar-section">
-        <div className="stat-grid">
-          <Stat k="Cards" v={cardCount != null ? (isCmdr ? `${cardCount}/100` : `${cardCount}/60+`) : "—"} className={cardCountStatus === "bad" ? "stat-danger" : ""} />
-          <Stat k="Avg CMC" v={s.avg_cmc} />
-          <Stat k="Price" v={price != null ? `$${price.toFixed(2)}` : "—"}
-            title={bd.prices_as_of ? `Prices as of ${bd.prices_as_of}` : null} />
-          <Stat k="Bracket" v={bracket.bracket ?? "—"} />
-        </div>
-      </div>
+      {showOpt && (
+        <>
+          {/* Deck Goals — user-declared intent that every AI feature reads */}
+          {goals && setGoals && (
+            <DeckGoals goals={goals} setGoals={setGoals} deckCardNames={deckCardNames || []} />
+          )}
 
-      {/* Badges */}
-      {result && (
-        <div className="sidebar-section">
-          <div className="row" style={{ gap: ".3rem", flexWrap: "wrap" }}>
-            {result.format === "commander" && bracket.bracket != null && (
-              <span className="badge">Bracket {bracket.bracket}</span>
-            )}
-            <span className={`badge ${statusBadge(legality.overall_status || (legality.violations?.length ? "FAIL" : "PASS"))}`}>
-              Legality: {legality.overall_status || (legality.violations?.length ? "issues" : "ok")}
-            </span>
-            <span className={`badge ${statusBadge(mana.overall_status)}`}>
-              Mana: {mana.overall_status || "—"}
-            </span>
-          </div>
-        </div>
+          {/* Assessment — bracket meter vs target, strategy, tappable gap chips */}
+          <AssessmentPanel
+            result={result}
+            strategy={strategy}
+            strategyLoading={strategyLoading}
+            comp={comp}
+            goals={goals}
+            onGapChip={onGapChip}
+            optimizing={optimizing}
+          />
+
+          {/* Optimize queue — goal-aware changeset with Apply/Skip + session log */}
+          {onRunOptimize && (
+            <OptimizeQueue
+              optimize={optimize}
+              optimizing={optimizing}
+              onRun={onRunOptimize}
+              decided={optDecided || {}}
+              onApply={onApplyChange}
+              onSkip={onSkipChange}
+              log={optLog || []}
+              onUndo={onUndoChange}
+              onClearLog={onClearLog}
+            />
+          )}
+
+          {!serverWarmed && (
+            <div className="sidebar-warming-pill">⚡ Still warming up — first analysis may take a moment</div>
+          )}
+        </>
       )}
 
-      {!serverWarmed && (
-        <div className="sidebar-warming-pill">⚡ Still warming up — first analysis may take a moment</div>
-      )}
-
-      {/* Panel mode toggle */}
-      <div className="sidebar-section" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: ".45rem .5rem" }}>
-        <span style={{ fontSize: ".6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--muted)" }}>AI Panel</span>
-        <div className="ai-panel-toggle">
-          <button className={panelMode === "accordion" ? "active" : ""} onClick={() => setPanelMode("accordion")}>Accordion</button>
-          <button className={panelMode === "feed" ? "active" : ""} onClick={() => setPanelMode("feed")}>Feed</button>
-        </div>
-      </div>
-
-      {/* Strategy Overview */}
-      {strategy && (
-        <div className="sidebar-section" style={{ padding: ".5rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", marginBottom: ".4rem" }}>
-            <span style={{ fontSize: ".85rem" }}>⚡</span>
-            <span style={{ fontSize: ".7rem", fontWeight: 600 }}>Strategy Overview</span>
-            <span style={{ fontSize: ".55rem", background: "rgba(61,206,138,.15)", color: "var(--good)", borderRadius: "3px", padding: "1px 5px", fontWeight: 600 }}>auto</span>
-          </div>
-          <p style={{ fontSize: ".7rem", color: "var(--text-secondary)", lineHeight: 1.7, margin: 0 }}
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(strategy.strategy) }} />
-        </div>
-      )}
-      {strategyLoading && (
-        <div className="sidebar-section" style={{ padding: ".5rem" }}>
-          <LoadingIndicator label="Loading strategy" active />
-        </div>
-      )}
-
-      {/* Weakness Check */}
-      {weaknesses.length > 0 && (
-        <div className="sidebar-section" style={{ padding: ".5rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: ".4rem", marginBottom: ".4rem" }}>
-            <span style={{ fontSize: ".85rem" }}>⚠️</span>
-            <span style={{ fontSize: ".7rem", fontWeight: 600 }}>Weakness Check</span>
-            <span style={{ fontSize: ".55rem", background: "rgba(229,184,76,.15)", color: "var(--warn)", borderRadius: "3px", padding: "1px 5px", fontWeight: 600 }}>{weaknesses.length} flag{weaknesses.length !== 1 ? "s" : ""}</span>
-          </div>
-          {weaknesses.map((w) => (
-            <div key={w.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: ".3rem 0", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
-              <div>
-                <div style={{ fontSize: ".7rem", fontWeight: 600, color: "var(--warn)" }}>{w.label}</div>
-                <div style={{ fontSize: ".6rem", color: "var(--muted)", marginTop: "1px" }}>{w.count} · target {w.target}</div>
+      {showStats && (
+        <>
+          {/* Analytics — stats demoted into one collapsible group (open in the
+              hub's Stats tab, collapsed on desktop where the queue leads) */}
+          <details className="sidebar-section analytics-group" open={section === "stats"}>
+            <summary className="sidebar-section-header"><h3>Analytics</h3></summary>
+            <div>
+              <div className="sidebar-section-body">
+                <div className="stat-grid">
+                  <Stat k="Cards" v={cardCount != null ? (isCmdr ? `${cardCount}/100` : `${cardCount}/60+`) : "—"} className={cardCountStatus === "bad" ? "stat-danger" : ""} />
+                  <Stat k="Avg CMC" v={s.avg_cmc} />
+                  <Stat k="Price" v={price != null ? `$${price.toFixed(2)}` : "—"}
+                    title={bd.prices_as_of ? `Prices as of ${bd.prices_as_of}` : null} />
+                  <Stat k="Bracket" v={bracket.bracket ?? "—"} />
+                </div>
+                {result && (
+                  <div className="row" style={{ gap: ".3rem", flexWrap: "wrap", marginTop: ".4rem" }}>
+                    {result.format === "commander" && bracket.bracket != null && (
+                      <span className="badge">Bracket {bracket.bracket}</span>
+                    )}
+                    <span className={`badge ${statusBadge(legality.overall_status || (legality.violations?.length ? "FAIL" : "PASS"))}`}>
+                      Legality: {legality.overall_status || (legality.violations?.length ? "issues" : "ok")}
+                    </span>
+                    <span className={`badge ${statusBadge(mana.overall_status)}`}>
+                      Mana: {mana.overall_status || "—"}
+                    </span>
+                  </div>
+                )}
               </div>
-              <button style={{ fontSize: ".6rem", color: "var(--accent-2)", background: "none", border: "none", cursor: "pointer", padding: 0, minHeight: "auto" }}
-                onClick={() => onPanelClick("Recommendations")}>Fix →</button>
+
+              {/* Mana curve */}
+              {s.curve && (
+                <details className="sidebar-section" open>
+                  <summary className="sidebar-section-header"><h3>Mana Curve</h3></summary>
+                  <div className="sidebar-section-body">
+                    <Curve curve={s.curve} />
+                  </div>
+                </details>
+              )}
+
+              {/* WUBRG Colors */}
+              <Colors mana={mana} />
+
+              {/* Mana base health */}
+              <ManaBase mana={mana} />
+
+              {/* Legality issues */}
+              {legality.violations?.length > 0 && (
+                <details className="sidebar-section">
+                  <summary className="sidebar-section-header"><h3>Legality Issues</h3></summary>
+                  <div className="sidebar-section-body">
+                    <ul className="small">
+                      {legality.violations.map((v, i) => (
+                        <li key={i}>{v.message || v.detail || JSON.stringify(v)}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </details>
+              )}
+
+              {/* Game changers */}
+              {bracket.game_changers?.length > 0 && (
+                <details className="sidebar-section">
+                  <summary className="sidebar-section-header"><h3>Game Changers</h3></summary>
+                  <div className="sidebar-section-body">
+                    <p className="small">
+                      {bracket.game_changers.map((n, i) => (
+                        <span key={n}>{i > 0 && ", "}<CardPreview name={n} /></span>
+                      ))}
+                    </p>
+                  </div>
+                </details>
+              )}
             </div>
-          ))}
-        </div>
-      )}
+          </details>
 
-      {/* Mana curve */}
-      {s.curve && (
-        <details className="sidebar-section" open>
-          <summary className="sidebar-section-header"><h3>Mana Curve</h3></summary>
-          <div className="sidebar-section-body">
-            <Curve curve={s.curve} />
+          {/* Panel mode toggle */}
+          <div className="sidebar-section" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: ".45rem .5rem" }}>
+            <span style={{ fontSize: ".6rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--muted)" }}>AI Panel</span>
+            <div className="ai-panel-toggle">
+              <button className={panelMode === "accordion" ? "active" : ""} onClick={() => setPanelMode("accordion")}>Accordion</button>
+              <button className={panelMode === "feed" ? "active" : ""} onClick={() => setPanelMode("feed")}>Feed</button>
+            </div>
           </div>
-        </details>
-      )}
-
-      {/* WUBRG Colors */}
-      <Colors mana={mana} />
-
-      {/* Mana base health */}
-      <ManaBase mana={mana} />
-
-      {/* Legality issues */}
-      {legality.violations?.length > 0 && (
-        <details className="sidebar-section">
-          <summary className="sidebar-section-header"><h3>Legality Issues</h3></summary>
-          <div className="sidebar-section-body">
-            <ul className="small">
-              {legality.violations.map((v, i) => (
-                <li key={i}>{v.message || v.detail || JSON.stringify(v)}</li>
-              ))}
-            </ul>
-          </div>
-        </details>
-      )}
-
-      {/* Game changers */}
-      {bracket.game_changers?.length > 0 && (
-        <details className="sidebar-section">
-          <summary className="sidebar-section-header"><h3>Game Changers</h3></summary>
-          <div className="sidebar-section-body">
-            <p className="small">
-              {bracket.game_changers.map((n, i) => (
-                <span key={n}>{i > 0 && ", "}<CardPreview name={n} /></span>
-              ))}
-            </p>
-          </div>
-        </details>
+        </>
       )}
 
       {/* AI sections — accordion or feed mode */}
-      {panelMode === "feed" ? (
+      {showStats && (panelMode === "feed" ? (
         <AIFeedPanel
           strategy={strategy}
           strategyLoading={strategyLoading}
@@ -384,7 +397,7 @@ export default function DeckSidebar({
           </AccordionItem>
 
         </div>
-      )}
+      ))}
 
       <LoadingIndicator label="Analyzing deck" active={isAnalyzing} />
     </aside>
