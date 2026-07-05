@@ -29,7 +29,7 @@ const GROUPS = [
   { id: "price", label: "Price range" },
 ];
 
-export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, onRemove, onConsider, addCard, onCardSearch, notify, onChangeCommander, setCardQty, maybeboard, onMoveFromConsidering, onRemoveConsidering, onSuggestConsiderations, suggesting }) {
+export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, onRemove, onConsider, addCard, onCardSearch, notify, onChangeCommander, setCardQty, onSetPrinting, maybeboard, onMoveFromConsidering, onRemoveConsidering, onSuggestConsiderations, suggesting }) {
   const canHover = useCanHover();
   const [filterHelpOpen, setFilterHelpOpen] = useState(false);
   const [viewMode, setViewMode] = useState(
@@ -483,6 +483,7 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
                   key={c.name}
                   name={c.name}
                   qty={c.qty}
+                  printing={c.printing}
                   onRemove={onRemove}
                   onConsider={onConsider}
                   onSetQty={setCardQty}
@@ -579,6 +580,8 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
             qty={isConsidering
               ? (consideringCards.find((c) => c.name === previewCard)?.qty ?? 1)
               : (cards.find((c) => c.name === previewCard)?.qty ?? 1)}
+            printing={cards.find((c) => c.name === previewCard)?.printing || null}
+            onSetPrinting={isCmdr || isConsidering ? null : onSetPrinting}
             isCommander={isCmdr}
             isConsidering={isConsidering}
             onAddToDeck={isConsidering ? onMoveFromConsidering : null}

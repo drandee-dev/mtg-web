@@ -8,7 +8,7 @@ import CardTypeahead from "./CardTypeahead";
 import DeckSidebar from "./DeckSidebar";
 import ImportCardsModal from "./ImportCardsModal";
 import MoreMenu from "./MoreMenu";
-import { parseDeckText, deckCompleteness } from "../../lib/deckParser";
+import { parseDeckText, deckCompleteness, setPrintingInText } from "../../lib/deckParser";
 import { goalsToApi } from "../../lib/goals";
 import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry } from "../../lib/optimizeLog";
 
@@ -149,11 +149,14 @@ export default function DeckView({
     notify?.(`Added ${name}`);
   }
 
+  // Deck lines may carry a pinned printing suffix: "1 Sol Ring (C21) 263".
+  const PRINT_SUFFIX_SRC = "(\\s+\\([A-Za-z0-9]{2,6}\\)\\s+[A-Za-z0-9★†-]{1,10})?";
+
   function removeCard(name, { silent = false } = {}) {
     setDecklist((prev) => {
       const lines = prev.split("\n");
       const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const idx = lines.findIndex((l) => new RegExp(`^\\s*\\d+\\s+${esc}\\s*$`, "i").test(l));
+      const idx = lines.findIndex((l) => new RegExp(`^\\s*\\d+\\s+${esc}${PRINT_SUFFIX_SRC}\\s*$`, "i").test(l));
       if (idx >= 0) lines.splice(idx, 1);
       return lines.join("\n");
     });
@@ -171,12 +174,14 @@ export default function DeckView({
   function setCardQty(name, qty) {
     setDecklist((prev) => {
       const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const re = new RegExp(`^\\s*\\d+\\s+${esc}\\s*$`, "i");
+      const re = new RegExp(`^\\s*\\d+\\s+${esc}${PRINT_SUFFIX_SRC}\\s*$`, "i");
       const out = [];
       let placed = false;
       for (const l of prev.split("\n")) {
-        if (re.test(l)) {
-          if (!placed && qty > 0) { out.push(`${qty} ${name}`); placed = true; }
+        const m = l.match(re);
+        if (m) {
+          // Preserve any pinned printing suffix through qty changes
+          if (!placed && qty > 0) { out.push(`${qty} ${name}${m[1] || ""}`); placed = true; }
         } else {
           out.push(l);
         }
@@ -184,6 +189,14 @@ export default function DeckView({
       if (!placed && qty > 0) out.push(`${qty} ${name}`);
       return out.join("\n");
     });
+  }
+
+  // Pin (or clear) a specific printing for a card — persists in the decklist
+  // text as "N Name (SET) 123", Moxfield-style, so it travels with saves,
+  // shares, and exports.
+  function setCardPrinting(name, printing) {
+    setDecklist((prev) => setPrintingInText(prev, name, printing));
+    notify?.(printing ? `${name} → ${printing.set} #${printing.cn}` : `${name} reset to default printing`);
   }
 
   // Moving a card to Considering also pulls it out of the deck (silent remove so
@@ -737,6 +750,7 @@ export default function DeckView({
               notify={notify}
               onChangeCommander={locked ? null : () => setCommander("")}
               setCardQty={locked ? null : setCardQty}
+              onSetPrinting={locked ? null : setCardPrinting}
               maybeboard={maybeboard}
               onMoveFromConsidering={locked ? null : moveFromConsidering}
               onRemoveConsidering={locked ? null : removeFromConsidering}

@@ -788,6 +788,37 @@ def card_image(
     raise HTTPException(400, "Provide 'name' or 'names'.")
 
 
+_SET_CODE_RE = re.compile(r"^[A-Za-z0-9]{2,6}$")
+_COLLECTOR_RE = re.compile(r"^[A-Za-z0-9★†\-]{1,10}$")
+
+
+@app.get("/api/cards/prints")
+def card_prints(
+    response: Response,
+    name: Annotated[str, Query(description="Exact card name")],
+) -> dict:
+    """All printings of a card (set, collector number, art) for the printing switcher."""
+    name = name.strip()
+    if not name or len(name) > _MAX_CARD_NAME_LEN:
+        raise HTTPException(400, "Provide a valid card name.")
+    response.headers["Cache-Control"] = "public, s-maxage=86400, stale-while-revalidate=86400"
+    return mtg.card_prints(name)
+
+
+@app.get("/api/cards/printing")
+def card_printing(
+    response: Response,
+    set_code: Annotated[str, Query(alias="set", description="Set code, e.g. C21")],
+    cn: Annotated[str, Query(description="Collector number")],
+) -> dict:
+    """Images for one specific printing — used when a deck pins `Card (SET) 123`."""
+    # Both values are interpolated into the Scryfall URL path — validate hard.
+    if not _SET_CODE_RE.match(set_code or "") or not _COLLECTOR_RE.match(cn or ""):
+        raise HTTPException(400, "Invalid set code or collector number.")
+    response.headers["Cache-Control"] = "public, s-maxage=86400, stale-while-revalidate=86400"
+    return mtg.card_printing_image(set_code, cn)
+
+
 @app.post("/api/rules/ask")
 def rules_ask(
     request: Request,

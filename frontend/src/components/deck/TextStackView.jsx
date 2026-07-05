@@ -45,7 +45,7 @@ export default function TextStackView({
   landSuffix = null,
 }) {
   const canHover = useCanHover();
-  const [containerRef, columnCount] = useColumnCount(216, 11.2);
+  const [containerRef, columnCount] = useColumnCount(14.5, 0.7); // rem — matches text column min-width + .stack-view gap
   const labels = groups.map(([label]) => label);
 
   // Card descriptors carried in drag data so the ghost can render mana pips.

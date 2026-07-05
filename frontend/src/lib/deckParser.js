@@ -10,6 +10,9 @@ const TYPE_ORDER = [
 
 const SECTION_HEADERS = /^\s*(commander|deck|sideboard|maybeboard)\s*$/i;
 
+// Moxfield/Arena-style pinned printing suffix: "Sol Ring (C21) 263".
+const PRINTING_SUFFIX = /\s+\(([A-Za-z0-9]{2,6})\)\s+([A-Za-z0-9★†-]{1,10})\s*$/;
+
 export function parseDeckText(deckText) {
   const lines = (deckText || "").split("\n");
   const cards = [];
@@ -19,15 +22,47 @@ export function parseDeckText(deckText) {
     const match = trimmed.match(/^(\d+)\s+(.+)$/);
     if (!match) continue;
     const qty = parseInt(match[1], 10) || 1;
-    const name = match[2].trim();
+    let name = match[2].trim();
+    // Split a trailing "(SET) 123" into `printing` so `name` stays the clean
+    // dedup/metaMap key everywhere; the raw decklist text keeps the suffix.
+    let printing = null;
+    const pm = name.match(PRINTING_SUFFIX);
+    if (pm) {
+      printing = { set: pm[1].toUpperCase(), cn: pm[2] };
+      name = name.slice(0, pm.index).trim();
+    }
     const existing = cards.find((c) => c.name === name);
     if (existing) {
       existing.qty += qty;
+      if (!existing.printing && printing) existing.printing = printing;
     } else {
-      cards.push({ name, qty });
+      cards.push({ name, qty, printing });
     }
   }
   return { cards, totalCards: cards.reduce((s, c) => s + c.qty, 0) };
+}
+
+/** Rewrite a card's decklist line to pin (or clear) a printing:
+ * `1 Sol Ring` ⇄ `1 Sol Ring (C21) 263`. Collapses duplicate lines. */
+export function setPrintingInText(deckText, name, printing) {
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`^\\s*(\\d+)\\s+${esc}(\\s+\\([A-Za-z0-9]{2,6}\\)\\s+[A-Za-z0-9★†-]{1,10})?\\s*$`, "i");
+  const suffix = printing ? ` (${printing.set}) ${printing.cn}` : "";
+  const out = [];
+  let qty = 0;
+  let insertAt = -1;
+  const lines = (deckText || "").split("\n");
+  for (const l of lines) {
+    const m = l.match(re);
+    if (m) {
+      qty += parseInt(m[1], 10) || 1;
+      if (insertAt < 0) insertAt = out.length;
+    } else {
+      out.push(l);
+    }
+  }
+  if (qty > 0 && insertAt >= 0) out.splice(insertAt, 0, `${qty} ${name}${suffix}`);
+  return out.join("\n");
 }
 
 // Multi-face cards (MDFC/transform) carry a joined "Front // Back" type line —

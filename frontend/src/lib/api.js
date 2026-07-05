@@ -96,6 +96,8 @@ export const api = {
   composition: (decklist, format) => post("/api/deck/composition", { decklist, format }),
   commanders: (q, partnerOf) => get("/api/commanders/search", { q, partner_of: partnerOf }),
   cardImage: (name) => get("/api/cards/image", { name }),
+  cardPrints: (name) => get("/api/cards/prints", { name }),
+  cardPrinting: (set, cn) => get("/api/cards/printing", { set, cn }),
   wizardSkeleton: (commander, format, bracket) =>
     post("/api/deck/wizard/skeleton", { commander, format, ...(bracket != null ? { bracket } : {}) }),
   wizardNarrate: (commander, category, card_names, decklist) =>
@@ -146,17 +148,43 @@ function _deriveArtCrop(data) {
 // Lazy, cached card-image lookup by name. Each distinct card is fetched at most once
 // per session (shared module-level cache), so hovering the same card repeatedly — or
 // the same card across tabs — never refetches.
-const _imageCache = new Map(); // name -> Promise<{found, image, thumb, art_crop, ...}>
-export function getCardImage(name) {
-  if (!_imageCache.has(name)) {
-    _imageCache.set(
-      name,
-      api.cardImage(name)
-        .then(_deriveArtCrop)
-        .catch(() => ({ found: false, image: null, thumb: null })),
-    );
+const _imageCache = new Map(); // name(+printing) -> Promise<{found, image, thumb, art_crop, ...}>
+export function getCardImage(name, printing = null) {
+  const key = printing ? `${name}::${printing.set}/${printing.cn}` : name;
+  if (!_imageCache.has(key)) {
+    if (printing) {
+      // Pinned printing (`Card (SET) 123` in the decklist): oracle data comes
+      // from the name lookup, images from the specific scan. Falls back to
+      // the default art if the printing lookup fails.
+      _imageCache.set(
+        key,
+        Promise.all([
+          getCardImage(name),
+          api.cardPrinting(printing.set, printing.cn).catch(() => ({ found: false })),
+        ]).then(([base, pr]) =>
+          pr?.found
+            ? _deriveArtCrop({
+                ...base,
+                image: pr.image || base.image,
+                thumb: pr.thumb || base.thumb,
+                art_crop: pr.art_crop || base.art_crop,
+                border_crop: null,
+                back_image: pr.back_image || base.back_image,
+                price_usd: pr.price_usd ?? base.price_usd,
+              })
+            : base,
+        ),
+      );
+    } else {
+      _imageCache.set(
+        key,
+        api.cardImage(name)
+          .then(_deriveArtCrop)
+          .catch(() => ({ found: false, image: null, thumb: null })),
+      );
+    }
   }
-  return _imageCache.get(name);
+  return _imageCache.get(key);
 }
 
 // Prepend Commander/Deck headers when a commander is set and the raw text doesn't

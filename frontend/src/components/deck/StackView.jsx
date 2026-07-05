@@ -21,8 +21,8 @@ function columnTotals(cards, metaMap) {
 // Header + first full card + a sliver per additional overlapped card. Only used to
 // rank columns by estimated height for masonry bucketing — doesn't need to be exact.
 const HEADER_H = 34;
-const CARD_H = 293;
-const OVERLAP_SLIVER = 40;
+const CARD_H = 335;
+const OVERLAP_SLIVER = 46;
 function estimateColHeight(cardCount) {
   return HEADER_H + CARD_H + Math.max(0, cardCount - 1) * OVERLAP_SLIVER;
 }
@@ -49,7 +49,7 @@ export default function StackView({
   landSuffix = null,
 }) {
   const canHover = useCanHover();
-  const [containerRef, columnCount] = useColumnCount(200, 11.2);
+  const [containerRef, columnCount] = useColumnCount(15, 0.7); // rem — matches .stack-card-wrap width + .stack-view gap
   const labels = groups.map(([label]) => label);
   // Touch: one expanded card at a time across ALL columns — expanding a card
   // shrinks whichever was previously pulled out of its stack.
@@ -116,6 +116,7 @@ export default function StackView({
                 key={c.name}
                 name={c.name}
                 qty={c.qty}
+                printing={c.printing}
                 synergy={synergyMap[c.name]}
                 columnLabel={label}
                 onCardClick={onCardClick}
@@ -241,9 +242,9 @@ function CardImageGhost({ name }) {
   );
 }
 
-function StackCard({ name, qty, synergy, columnLabel, onCardClick, onRemove, onConsider, onSetQty, cardDragEnabled, moveTargets, onCardMove, expandedCard, setExpandedCard }) {
+function StackCard({ name, qty, printing, synergy, columnLabel, onCardClick, onRemove, onConsider, onSetQty, cardDragEnabled, moveTargets, onCardMove, expandedCard, setExpandedCard }) {
   const canHover = useCanHover();
-  const data = useCardImage(name);
+  const data = useCardImage(name, printing);
   const img = cardImgSrc(data);
   const cardId = `${columnLabel}:${name}`;
   const expanded = expandedCard === cardId;

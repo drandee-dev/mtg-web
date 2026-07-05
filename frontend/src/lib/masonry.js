@@ -6,7 +6,10 @@ import { useEffect, useRef, useState } from "react";
 // mid-interaction (see stack-view hover glitch). This hook instead measures the
 // container width to compute how many fixed-width tracks fit, so packing can be
 // done once in JS into independent column buckets that never reflow into each other.
-export function useColumnCount(trackWidth, gap) {
+// Track and gap are in REM: cards/columns are rem-sized in CSS (they scale
+// with the fluid root font), so the column count must use the same unit —
+// px math undercounted track width on large monitors and squashed the cards.
+export function useColumnCount(trackRem, gapRem) {
   const ref = useRef(null);
   const [count, setCount] = useState(1);
 
@@ -15,17 +18,20 @@ export function useColumnCount(trackWidth, gap) {
     if (!el) return;
     const compute = () => {
       // Phones get one full-width stack per category (matches the <700px CSS
-      // breakpoint) — multiple 10rem columns were illegibly small there.
+      // breakpoint) — multiple narrow columns were illegibly small there.
       if (window.matchMedia?.("(max-width: 699px)").matches) { setCount(1); return; }
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const track = trackRem * rem;
+      const gap = gapRem * rem;
       const w = el.clientWidth;
-      const n = Math.max(1, Math.floor((w + gap) / (trackWidth + gap)));
+      const n = Math.max(1, Math.floor((w + gap) / (track + gap)));
       setCount(n);
     };
     compute();
     const ro = new ResizeObserver(compute);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [trackWidth, gap]);
+  }, [trackRem, gapRem]);
 
   return [ref, count];
 }

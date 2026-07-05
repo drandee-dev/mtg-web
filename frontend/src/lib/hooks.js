@@ -20,14 +20,18 @@ export function useMediaQuery(query) {
   return useSyncExternalStore(subscribe, () => window.matchMedia?.(query).matches ?? false);
 }
 
-export function useCardImage(name) {
+export function useCardImage(name, printing = null) {
   const [data, setData] = useState(null);
+  // Depend on primitives — `printing` is a fresh object every parse.
+  const pset = printing?.set || null;
+  const pcn = printing?.cn || null;
   useEffect(() => {
     if (!name) { setData(null); return; }
     let cancelled = false;
-    getCardImage(name).then((d) => { if (!cancelled) setData(d); });
+    getCardImage(name, pset ? { set: pset, cn: pcn } : null)
+      .then((d) => { if (!cancelled) setData(d); });
     return () => { cancelled = true; };
-  }, [name]);
+  }, [name, pset, pcn]);
   return data;
 }
 

@@ -167,6 +167,80 @@ def card_images(names: list[str]) -> dict[str, dict]:
     return {n: card_image(n) for n in names}
 
 
+# Bulk data carries ONE printing per oracle card, so alternate printings/arts
+# come from the live Scryfall API. Both caches are per-instance (warm
+# invocations); the CDN caches responses for a day on top.
+_PRINTS_CACHE: dict[str, dict] = {}
+_PRINTING_IMG_CACHE: dict[str, dict] = {}
+
+
+def card_prints(name: str) -> dict[str, Any]:
+    """All printings of a card (Scryfall unique=prints) for the art switcher."""
+    import requests as req
+
+    rec = _bulk_index().get(name)
+    canonical = rec.get("name") if rec else name
+    if canonical in _PRINTS_CACHE:
+        return _PRINTS_CACHE[canonical]
+    resp = req.get(
+        "https://api.scryfall.com/cards/search",
+        params={"q": f'!"{canonical}"', "unique": "prints", "order": "released"},
+        headers={"User-Agent": "MTGWorkshop/1.0"},
+        timeout=15,
+    )
+    if resp.status_code != 200:
+        return {"name": canonical, "prints": []}
+    prints = [
+        {
+            "set": (c.get("set") or "").upper(),
+            "set_name": c.get("set_name", ""),
+            "cn": c.get("collector_number", ""),
+            "released": c.get("released_at", ""),
+            "image": _image_from_record(c, "normal"),
+            "thumb": _image_from_record(c, "small"),
+            "art_crop": _image_from_record(c, "art_crop"),
+            "price_usd": extract_price(c),
+        }
+        for c in resp.json().get("data", [])[:60]
+        if not c.get("digital")
+    ]
+    out = {"name": canonical, "prints": prints}
+    _PRINTS_CACHE[canonical] = out
+    return out
+
+
+def card_printing_image(set_code: str, cn: str) -> dict[str, Any]:
+    """Images for one specific printing (set + collector number)."""
+    import requests as req
+
+    key = f"{set_code.lower()}/{cn.lower()}"
+    if key in _PRINTING_IMG_CACHE:
+        return _PRINTING_IMG_CACHE[key]
+    resp = req.get(
+        f"https://api.scryfall.com/cards/{set_code.lower()}/{cn.lower()}",
+        headers={"User-Agent": "MTGWorkshop/1.0"},
+        timeout=15,
+    )
+    if resp.status_code != 200:
+        return {"found": False}
+    c = resp.json()
+    back_image, back_type = _back_face(c)
+    out = {
+        "found": True,
+        "name": c.get("name", ""),
+        "image": _image_from_record(c, "normal"),
+        "thumb": _image_from_record(c, "small"),
+        "art_crop": _image_from_record(c, "art_crop"),
+        "back_image": back_image,
+        "back_type_line": back_type,
+        "set": (c.get("set") or "").upper(),
+        "cn": c.get("collector_number", ""),
+        "price_usd": extract_price(c),
+    }
+    _PRINTING_IMG_CACHE[key] = out
+    return out
+
+
 # --------------------------------------------------------------------------- #
 # Rules lookup (rules-lawyer core)
 # --------------------------------------------------------------------------- #
