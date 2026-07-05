@@ -13,6 +13,44 @@ const SECTION_HEADERS = /^\s*(commander|deck|sideboard|maybeboard)\s*$/i;
 // Moxfield/Arena-style pinned printing suffix: "Sol Ring (C21) 263".
 const PRINTING_SUFFIX = /\s+\(([A-Za-z0-9]{2,6})\)\s+([A-Za-z0-9★†-]{1,10})\s*$/;
 
+/** Parse one "Name (SET) 123" entry into { name, printing, raw }. */
+function _splitPrinting(raw) {
+  const s = (raw || "").trim();
+  const pm = s.match(PRINTING_SUFFIX);
+  if (pm) return { name: s.slice(0, pm.index).trim(), printing: { set: pm[1].toUpperCase(), cn: pm[2] }, raw: s };
+  return { name: s, printing: null, raw: s };
+}
+
+// ── Commander helpers ──────────────────────────────────────────────────────
+// The commander lives outside the decklist as a "Name" or "A && B" string, and
+// may carry a pinned printing suffix just like deck cards. These centralize the
+// parsing so display/lookup sites get clean names while the raw string (suffix
+// intact) still round-trips through save/share/export.
+
+/** [{ name, printing, raw }] for each commander (partners split on " && "). */
+export function splitCommanders(commander) {
+  return (commander || "").split(" && ").filter(Boolean).map(_splitPrinting);
+}
+
+/** Clean commander names (no printing suffix) — for image lookup, counts. */
+export function commanderNamesClean(commander) {
+  return splitCommanders(commander).map((c) => c.name);
+}
+
+/** Display form: clean names joined with " + " (e.g. "Rograkh + Silas Renn"). */
+export function commanderDisplay(commander) {
+  return commanderNamesClean(commander).join(" + ");
+}
+
+/** Pin (printing) or clear (null) a printing for the named commander, returning
+ * the rebuilt " && " string with the other commander(s) untouched. */
+export function setCommanderPrinting(commander, name, printing) {
+  const suffix = printing ? ` (${printing.set}) ${printing.cn}` : "";
+  return splitCommanders(commander)
+    .map((c) => (c.name === name ? `${c.name}${suffix}` : c.raw))
+    .join(" && ");
+}
+
 export function parseDeckText(deckText) {
   const lines = (deckText || "").split("\n");
   const cards = [];

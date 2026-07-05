@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, assembleDecklist } from "../lib/api";
+import { commanderDisplay } from "../lib/deckParser";
 import { useMediaQuery } from "../lib/hooks";
 import { goalsToApi } from "../lib/goals";
 import { loadLog, appendLog, describeEntry, makeEntry } from "../lib/optimizeLog";
@@ -231,7 +232,7 @@ export default function Planeswalker({
       setMessages([{
         role: "assistant",
         content: commander
-          ? `I'm the Planeswalker — your deck-building companion. I can see your ${commander.replace(" && ", " + ")} deck. Ask me anything: suggest cuts, fill gaps, answer rules questions, or evaluate combos.`
+          ? `I'm the Planeswalker — your deck-building companion. I can see your ${commanderDisplay(commander)} deck. Ask me anything: suggest cuts, fill gaps, answer rules questions, or evaluate combos.`
           : "I'm the Planeswalker — your deck-building companion. Load a deck and I can help you with cuts, fills, rules questions, combo guidance, and strategy. Or just ask me anything about MTG!",
       }]);
     }
@@ -333,7 +334,7 @@ export default function Planeswalker({
               <img src={chibiArt} alt="" className="pw-header-chibi" />
               <div>
                 <strong>Planeswalker</strong>
-                {commander && <span className="muted small" style={{ marginLeft: ".4rem" }}>{commander.replace(" && ", " + ")}</span>}
+                {commander && <span className="muted small" style={{ marginLeft: ".4rem" }}>{commanderDisplay(commander)}</span>}
               </div>
             </div>
             <div className="row" style={{ gap: ".3rem" }}>

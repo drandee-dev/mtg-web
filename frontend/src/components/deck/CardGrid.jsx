@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { getCardImage } from "../../lib/api";
-import { parseDeckText, groupCards, mdfcLandCount } from "../../lib/deckParser";
+import { parseDeckText, groupCards, mdfcLandCount, splitCommanders } from "../../lib/deckParser";
 import { parseDeckFilter, cardMatchesFilter } from "../../lib/deckFilter";
 import { useCanHover } from "../../lib/hooks";
 // canHover gates desktop-only drag affordances; touch uses the ⋯ menus instead.
@@ -29,7 +29,7 @@ const GROUPS = [
   { id: "price", label: "Price range" },
 ];
 
-export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, onRemove, onConsider, addCard, onCardSearch, notify, onChangeCommander, setCardQty, onSetPrinting, maybeboard, onMoveFromConsidering, onRemoveConsidering, onSuggestConsiderations, suggesting }) {
+export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, onRemove, onConsider, addCard, onCardSearch, notify, onChangeCommander, setCardQty, onSetPrinting, onSetCommanderPrinting, maybeboard, onMoveFromConsidering, onRemoveConsidering, onSuggestConsiderations, suggesting }) {
   const canHover = useCanHover();
   const [filterHelpOpen, setFilterHelpOpen] = useState(false);
   const [viewMode, setViewMode] = useState(
@@ -75,8 +75,11 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
   // Commander(s) render as a fixed, crowned leading column — they live outside the
   // decklist text, so they're injected here rather than grouped from `cards`.
   const isCmdrFmt = format === "commander" || format === "paupercommander";
-  const commanderNames = isCmdrFmt ? (commander || "").split(" && ").filter(Boolean) : [];
-  const commanderCards = commanderNames.map((name) => ({ name, qty: 1 }));
+  // Commanders may carry a pinned printing suffix — split into clean name +
+  // printing so image lookups use the clean name and the pinned art shows.
+  const commanderEntries = isCmdrFmt ? splitCommanders(commander) : [];
+  const commanderNames = commanderEntries.map((c) => c.name);
+  const commanderCards = commanderEntries.map((c) => ({ name: c.name, qty: 1, printing: c.printing }));
 
   // Considering (sideboard/maybeboard) — a fixed trailing column, Archidekt-style:
   // never part of the maindeck, never regrouped, never counted in totals.
@@ -441,6 +444,7 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
                   key={c.name}
                   name={c.name}
                   qty={c.qty}
+                  printing={c.printing}
                   onRemove={null}
                   onConsider={null}
                   onSetQty={null}
@@ -574,14 +578,21 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
         const currentCategory = cardDragEnabled && !isConsidering
           ? (Object.entries(groups).find(([, list]) => list.some((c) => c.name === previewCard))?.[0] || null)
           : null;
+        const cmdrPrinting = isCmdr
+          ? (commanderCards.find((c) => c.name === previewCard)?.printing || null)
+          : null;
         return (
           <CardDetailModal
             name={previewCard}
             qty={isConsidering
               ? (consideringCards.find((c) => c.name === previewCard)?.qty ?? 1)
               : (cards.find((c) => c.name === previewCard)?.qty ?? 1)}
-            printing={cards.find((c) => c.name === previewCard)?.printing || null}
-            onSetPrinting={isCmdr || isConsidering ? null : onSetPrinting}
+            printing={isCmdr ? cmdrPrinting : (cards.find((c) => c.name === previewCard)?.printing || null)}
+            onSetPrinting={
+              isConsidering ? null
+                : isCmdr ? (onSetCommanderPrinting ? (_n, p) => onSetCommanderPrinting(previewCard, p) : null)
+                : onSetPrinting
+            }
             isCommander={isCmdr}
             isConsidering={isConsidering}
             onAddToDeck={isConsidering ? onMoveFromConsidering : null}

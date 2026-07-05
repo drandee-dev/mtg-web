@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { api, disassembleDecklist, getCardImage, FORMATS } from "../lib/api";
+import { commanderNamesClean } from "../lib/deckParser";
 import ExportDeckModal from "./ExportDeckModal";
 
 const WUBRG_COLORS = ["W", "U", "B", "R", "G"];
@@ -394,7 +395,7 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
     for (const deck of decks) {
       const { commander } = disassembleDecklist(deck.decklist_text);
       if (!commander) continue;
-      const cmdrName = commander.split(" && ")[0];
+      const cmdrName = commanderNamesClean(commander)[0];
       if (cache[cmdrName]) cachedMeta[deck.id] = cache[cmdrName];
       else missing.push([deck.id, cmdrName]);
     }

@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
+import { commanderNamesClean } from "../lib/deckParser";
 
 export default function CommanderInput({ commander, setCommander }) {
-  const cmds = (commander || "").split(" && ").filter(Boolean);
+  const cmds = (commander || "").split(" && ").filter(Boolean); // raw (may carry a printing suffix) — for rebuilding the string
+  const clean = commanderNamesClean(commander);                 // display + API partner search
   const cmd1 = cmds[0] || "";
   const cmd2 = cmds[1] || "";
+  const cmd1Name = clean[0] || "";
+  const cmd2Name = clean[1] || "";
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -23,7 +27,7 @@ export default function CommanderInput({ commander, setCommander }) {
     const myseq = ++seq.current;
     debounce.current = setTimeout(async () => {
       try {
-        const r = await api.commanders(q, pickingPartner ? cmd1 : undefined);
+        const r = await api.commanders(q, pickingPartner ? cmd1Name : undefined);
         if (myseq !== seq.current) return;
         setResults(r.results || []);
         setError("");
@@ -36,7 +40,7 @@ export default function CommanderInput({ commander, setCommander }) {
       }
     }, 250);
     return () => clearTimeout(debounce.current);
-  }, [query, pickingPartner, cmd1]);
+  }, [query, pickingPartner, cmd1Name]);
 
   function pickFirst(name, result) {
     setCommander(name);
@@ -72,7 +76,7 @@ export default function CommanderInput({ commander, setCommander }) {
       <div style={{ margin: ".4rem 0" }}>
         <label style={{ margin: 0 }}>Commanders</label>
         <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginTop: ".2rem" }}>
-          <strong>{cmd1}</strong> + <strong>{cmd2}</strong>
+          <strong>{cmd1Name}</strong> + <strong>{cmd2Name}</strong>
           <button className="ghost small" onClick={clearPartner}>remove partner</button>
           <button className="ghost small" onClick={clearAll}>change</button>
         </div>
@@ -85,7 +89,7 @@ export default function CommanderInput({ commander, setCommander }) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: ".5rem", margin: ".4rem 0" }}>
         <label style={{ margin: 0 }}>Commander:</label>
-        <strong>{cmd1}</strong>
+        <strong>{cmd1Name}</strong>
         <button className="ghost small" onClick={clearAll}>change</button>
         {partnerKind && (
           <button className="ghost small" onClick={() => { setPickingPartner(true); setQuery(""); }}>
@@ -102,7 +106,7 @@ export default function CommanderInput({ commander, setCommander }) {
       {pickingPartner && (
         <div style={{ display: "flex", alignItems: "center", gap: ".5rem", marginBottom: ".3rem" }}>
           <label style={{ margin: 0 }}>Commander:</label>
-          <strong>{cmd1}</strong>
+          <strong>{cmd1Name}</strong>
           <button className="ghost small" onClick={clearAll}>change</button>
         </div>
       )}
@@ -112,7 +116,7 @@ export default function CommanderInput({ commander, setCommander }) {
           id="cmd-input"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={pickingPartner ? `Search partner for ${cmd1}…` : "Start typing… e.g. nethroi"}
+          placeholder={pickingPartner ? `Search partner for ${cmd1Name}…` : "Start typing… e.g. nethroi"}
           autoComplete="off"
           style={{ flex: 1 }}
         />

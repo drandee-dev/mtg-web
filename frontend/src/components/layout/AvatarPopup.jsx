@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { disassembleDecklist, getCardImage } from "../../lib/api";
+import { commanderNamesClean } from "../../lib/deckParser";
 
 export default function AvatarPopup({
   decks, session, onNewDeck, onImportUrl, onSearchDecks, onOpenDeck, onPasteDecklist,
@@ -95,7 +96,7 @@ export default function AvatarPopup({
 function RecentDeckRow({ deck, onOpenDeck, onClose }) {
   const { commander } = disassembleDecklist(deck.decklist_text);
   const [art, setArt] = useState(null);
-  const cmdrName = commander ? commander.split(" && ")[0] : null;
+  const cmdrName = commander ? commanderNamesClean(commander)[0] : null;
 
   useEffect(() => {
     if (!cmdrName) return;

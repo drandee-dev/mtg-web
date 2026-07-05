@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { supabase, supabaseEnabled } from "./lib/supabase";
 import { api, assembleDecklist, assembleForStorage, disassembleDecklist, setAccessToken } from "./lib/api";
+import { commanderDisplay } from "./lib/deckParser";
 import { makeStore } from "./lib/store";
 import { downloadFile } from "./lib/hooks";
 import { DEFAULT_GOALS, loadGoals, saveGoals } from "./lib/goals";
@@ -314,7 +315,7 @@ export default function App() {
       savedDeckText.current = deckText;
       return;
     }
-    const name = commander ? commander.replace(" && ", " + ") : "Imported deck";
+    const name = commander ? commanderDisplay(commander) : "Imported deck";
     const saved = await store.save({ name, format, decklist_text });
     await refresh();
     savedDeckText.current = deckText;

@@ -76,6 +76,7 @@ export default function StackView({
                 key={c.name}
                 name={c.name}
                 qty={c.qty}
+                printing={c.printing}
                 columnLabel="Commander"
                 onCardClick={onCardClick}
                 onRemove={null}

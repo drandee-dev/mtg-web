@@ -56,6 +56,48 @@ export default function CardDetailModal({
 
   if (!name) return null;
 
+  // Printing/art switcher — shared by the commander and regular-card branches.
+  // Pins "Name (SET) 123" (in the decklist for cards, in the commander string
+  // for commanders); click the active printing again to reset to default.
+  function renderPrintingSwitcher() {
+    if (!onSetPrinting) return null;
+    return (
+      <>
+        <div className="cdm-row">
+          <span className="cdm-row-label">Printing</span>
+          <button className="cdm-print-toggle" onClick={togglePrints} aria-expanded={Boolean(prints)}>
+            {printing ? `${printing.set} #${printing.cn}` : "Default"}
+            <span aria-hidden="true"> {Array.isArray(prints) ? "▴" : "▾"}</span>
+          </button>
+        </div>
+        {prints === "loading" && <p className="muted small">Loading printings…</p>}
+        {Array.isArray(prints) && (
+          <div className="cdm-prints" role="listbox" aria-label="Choose a printing">
+            {prints.length === 0 && <p className="muted small">No printings found.</p>}
+            {prints.map((p) => {
+              const active = printing && printing.set === p.set && printing.cn === p.cn;
+              return (
+                <button
+                  key={`${p.set}-${p.cn}`}
+                  role="option"
+                  aria-selected={Boolean(active)}
+                  className={`cdm-print${active ? " on" : ""}`}
+                  onClick={() => { onSetPrinting(name, active ? null : { set: p.set, cn: p.cn }); setPrints(null); }}
+                  title={`${p.set_name} #${p.cn}${p.price_usd != null ? ` · $${p.price_usd}` : ""}${active ? " — click to reset to default" : ""}`}
+                >
+                  {p.thumb
+                    ? <img src={p.thumb} alt={`${p.set_name} printing`} loading="lazy" />
+                    : <span className="cdm-print-noimg">{p.set}</span>}
+                  <span className="cdm-print-set">{p.set} #{p.cn}{active ? " ✓" : ""}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </>
+    );
+  }
+
   const price = data?.price_usd;
   const hasBack = Boolean(data?.back_image);
   const artSrc = showBack && hasBack ? data.back_image : data?.image;
@@ -94,12 +136,15 @@ export default function CardDetailModal({
           </div>
 
           {isCommander ? (
-            <div className="cdm-actions">
-              {onChangeCommander && (
-                <button className="ghost small" onClick={() => { onChangeCommander(); onClose(); }}>Change commander</button>
-              )}
-              <a className="ghost small" href={scryfallUrl(name)} target="_blank" rel="noopener noreferrer">Scryfall ↗</a>
-            </div>
+            <>
+              {renderPrintingSwitcher()}
+              <div className="cdm-actions">
+                {onChangeCommander && (
+                  <button className="ghost small" onClick={() => { onChangeCommander(); onClose(); }}>Change commander</button>
+                )}
+                <a className="ghost small" href={scryfallUrl(name)} target="_blank" rel="noopener noreferrer">Scryfall ↗</a>
+              </div>
+            </>
           ) : isConsidering ? (
             <div className="cdm-actions">
               {onAddToDeck && (
@@ -138,40 +183,7 @@ export default function CardDetailModal({
                 </div>
               )}
 
-              {/* Printing/art switcher — pins "Name (SET) 123" in the decklist */}
-              {onSetPrinting && (
-                <div className="cdm-row">
-                  <span className="cdm-row-label">Printing</span>
-                  <button className="cdm-print-toggle" onClick={togglePrints} aria-expanded={Boolean(prints)}>
-                    {printing ? `${printing.set} #${printing.cn}` : "Default"}
-                    <span aria-hidden="true"> {Array.isArray(prints) ? "▴" : "▾"}</span>
-                  </button>
-                </div>
-              )}
-              {prints === "loading" && <p className="muted small">Loading printings…</p>}
-              {Array.isArray(prints) && (
-                <div className="cdm-prints" role="listbox" aria-label="Choose a printing">
-                  {prints.length === 0 && <p className="muted small">No printings found.</p>}
-                  {prints.map((p) => {
-                    const active = printing && printing.set === p.set && printing.cn === p.cn;
-                    return (
-                      <button
-                        key={`${p.set}-${p.cn}`}
-                        role="option"
-                        aria-selected={Boolean(active)}
-                        className={`cdm-print${active ? " on" : ""}`}
-                        onClick={() => { onSetPrinting(name, active ? null : { set: p.set, cn: p.cn }); setPrints(null); }}
-                        title={`${p.set_name} #${p.cn}${p.price_usd != null ? ` · $${p.price_usd}` : ""}${active ? " — click to reset to default" : ""}`}
-                      >
-                        {p.thumb
-                          ? <img src={p.thumb} alt={`${p.set_name} printing`} loading="lazy" />
-                          : <span className="cdm-print-noimg">{p.set}</span>}
-                        <span className="cdm-print-set">{p.set} #{p.cn}{active ? " ✓" : ""}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+              {renderPrintingSwitcher()}
 
               <div className="cdm-actions">
                 {onConsider && (

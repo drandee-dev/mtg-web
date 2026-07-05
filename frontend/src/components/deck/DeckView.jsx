@@ -8,7 +8,7 @@ import CardTypeahead from "./CardTypeahead";
 import DeckSidebar from "./DeckSidebar";
 import ImportCardsModal from "./ImportCardsModal";
 import MoreMenu from "./MoreMenu";
-import { parseDeckText, deckCompleteness, setPrintingInText } from "../../lib/deckParser";
+import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderDisplay, setCommanderPrinting } from "../../lib/deckParser";
 import { goalsToApi } from "../../lib/goals";
 import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry } from "../../lib/optimizeLog";
 
@@ -90,12 +90,13 @@ export default function DeckView({
     return () => window.removeEventListener("mtgweb:optlog", onLog);
   }, [deckId]);
 
-  // Resolve commander card image
+  // Resolve commander card image (honoring a pinned printing on the primary)
   useEffect(() => {
     if (!commander) { setCmdrData(null); return; }
-    const name = commander.split(" && ")[0];
+    const primary = splitCommanders(commander)[0];
+    if (!primary) { setCmdrData(null); return; }
     let cancelled = false;
-    getCardImage(name).then((d) => { if (!cancelled) setCmdrData(d); });
+    getCardImage(primary.name, primary.printing).then((d) => { if (!cancelled) setCmdrData(d); });
     return () => { cancelled = true; };
   }, [commander]);
 
@@ -196,6 +197,13 @@ export default function DeckView({
   // shares, and exports.
   function setCardPrinting(name, printing) {
     setDecklist((prev) => setPrintingInText(prev, name, printing));
+    notify?.(printing ? `${name} → ${printing.set} #${printing.cn}` : `${name} reset to default printing`);
+  }
+
+  // Commander printings live in the commander string (not the decklist text),
+  // suffix-encoded so they travel with saves/shares — backend strips them.
+  function setCommanderPrintingFor(name, printing) {
+    setCommander(setCommanderPrinting(commander, name, printing));
     notify?.(printing ? `${name} → ${printing.set} #${printing.cn}` : `${name} reset to default printing`);
   }
 
@@ -652,7 +660,7 @@ export default function DeckView({
             {cmdrData?.art_crop ? <img src={cmdrData.art_crop} alt="" /> : null}
           </div>
           <div className="cmdr-strip-info">
-            <div className="cmdr-strip-name">{commander.replace(" && ", " + ")}</div>
+            <div className="cmdr-strip-name">{commanderDisplay(commander)}</div>
             <div className="cmdr-strip-meta">
               <span className="cmdr-strip-label">Commander</span>
               <span className="cmdr-strip-dot">&middot;</span>
@@ -751,6 +759,7 @@ export default function DeckView({
               onChangeCommander={locked ? null : () => setCommander("")}
               setCardQty={locked ? null : setCardQty}
               onSetPrinting={locked ? null : setCardPrinting}
+              onSetCommanderPrinting={locked ? null : setCommanderPrintingFor}
               maybeboard={maybeboard}
               onMoveFromConsidering={locked ? null : moveFromConsidering}
               onRemoveConsidering={locked ? null : removeFromConsidering}
