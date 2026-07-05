@@ -350,10 +350,26 @@ export default function App() {
       const saved = await saveDeck({ id: currentDeck.id, name: currentDeck.name, format, decklist_text });
       setCurrentDeck({ id: saved.id, name: saved.name });
     } else {
-      const name = prompt("Name this deck:");
+      // A rename before first save already supplied a name — don't re-prompt.
+      const name = currentDeck?.name || prompt("Name this deck:");
       if (!name) return;
       const saved = await saveDeck({ name: name.trim(), format, decklist_text });
       setCurrentDeck({ id: saved.id, name: saved.name });
+    }
+  }, [currentDeck, saveDeck, format, deckText, commander, maybeboard, notify]);
+
+  // Rename the open deck. Saved decks persist immediately; unsaved decks just
+  // carry the name until their first save.
+  const renameCurrentDeck = useCallback(async (name) => {
+    const trimmed = (name || "").trim().slice(0, 80);
+    if (!trimmed) return;
+    if (currentDeck?.id) {
+      const decklist_text = assembleForStorage(deckText, commander, maybeboard);
+      const saved = await saveDeck({ id: currentDeck.id, name: trimmed, format, decklist_text });
+      setCurrentDeck({ id: saved.id, name: saved.name });
+      notify(`Renamed to "${saved.name}".`);
+    } else {
+      setCurrentDeck((d) => ({ id: d?.id || null, name: trimmed }));
     }
   }, [currentDeck, saveDeck, format, deckText, commander, maybeboard, notify]);
 
@@ -464,6 +480,7 @@ export default function App() {
             deckName={currentDeck?.name || null}
             deckId={currentDeck?.id || null}
             onSave={saveCurrentDeck}
+            onRenameDeck={renameCurrentDeck}
             onClone={cloneCurrentDeck}
             onExport={exportCurrentDeck}
             onPlaytest={() => setPlaytesting(true)}
@@ -497,6 +514,7 @@ export default function App() {
             setTab={setTab}
             decksIntent={decksIntent}
             onIntentConsumed={clearDecksIntent}
+            onOpenAccount={supabaseEnabled ? () => setSettingsOpen(true) : null}
           />
         )}
         {tab === "rules" && <Rules aiAvailable={aiAvailable} notify={notify} />}

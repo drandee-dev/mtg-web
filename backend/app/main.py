@@ -535,11 +535,16 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
                 timeout=15,
             )
             if resp.status_code != 200:
-                raise HTTPException(400, "Could not fetch Moxfield deck. Is it public?")
+                raise HTTPException(
+                    400,
+                    "Couldn't fetch that Moxfield deck — it's probably private. "
+                    "Set it to Public on Moxfield, then import again.",
+                )
             data = resp.json()
             name = data.get("name", "Imported deck")
             fmt = data.get("format", "commander")
             lines = []
+            side_lines = []
             commanders = data.get("commanders") or {}
             for card_data in commanders.values():
                 cname = (card_data.get("card") or {}).get("name", "")
@@ -553,7 +558,22 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
                     qty = card_data.get("quantity", 1)
                     if cname:
                         lines.append(f"{qty} {cname}")
-            return {"name": name, "decklist": "\n".join(lines), "format": fmt, "source": "moxfield"}
+            # Sideboard + maybeboard come along too, but NEVER into the maindeck —
+            # the client puts them in the Considering pile.
+            for board_key in ("sideboard", "maybeboard"):
+                board = data.get(board_key) or {}
+                for card_data in board.values():
+                    cname = (card_data.get("card") or {}).get("name", "")
+                    qty = card_data.get("quantity", 1)
+                    if cname:
+                        side_lines.append(f"{qty} {cname}")
+            return {
+                "name": name,
+                "decklist": "\n".join(lines),
+                "sideboard": "\n".join(side_lines),
+                "format": fmt,
+                "source": "moxfield",
+            }
 
         # Archidekt: https://archidekt.com/decks/{id}/...
         arch = re.search(r"archidekt\.com/decks/(\d+)", url)
@@ -565,7 +585,11 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
                 timeout=15,
             )
             if resp.status_code != 200:
-                raise HTTPException(400, "Could not fetch Archidekt deck. Is it public?")
+                raise HTTPException(
+                    400,
+                    "Couldn't fetch that Archidekt deck — it's probably private. "
+                    "Set it to Public on Archidekt, then import again.",
+                )
             data = resp.json()
             name = data.get("name", "Imported deck")
             fmt = data.get("deckFormat", "commander")
@@ -576,23 +600,39 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
             # categories, etc.) with includedInDeck — respect it instead of importing
             # every card in the deck's card pool. Only a card's first category is its
             # primary one and decides deck membership; the rest are just tags.
+            # Sideboard/Maybeboard/Considering are special: Archidekt flags Sideboard
+            # includedInDeck=True (it ships with exports), which used to leak it into
+            # the maindeck here. Those boards now travel separately so the client can
+            # park them in the Considering pile.
+            board_categories = {"sideboard", "maybeboard", "considering"}
             excluded_categories = {
                 c.get("name") for c in (data.get("categories") or []) if c.get("includedInDeck") is False
             }
             lines = []
+            side_lines = []
             for card_data in data.get("cards") or []:
                 cname = ((card_data.get("card") or {}).get("oracleCard") or {}).get("name", "")
                 qty = card_data.get("quantity", 1)
                 categories = card_data.get("categories") or []
                 if not cname:
                     continue
-                if categories and categories[0] in excluded_categories:
+                primary = (categories[0] if categories else "") or ""
+                if primary.strip().lower() in board_categories:
+                    side_lines.append(f"{qty} {cname}")
+                    continue
+                if categories and primary in excluded_categories:
                     continue
                 if "Commander" in categories:
                     lines.insert(0, f"Commander\n{qty} {cname}\nDeck")
                 else:
                     lines.append(f"{qty} {cname}")
-            return {"name": name, "decklist": "\n".join(lines), "format": fmt, "source": "archidekt"}
+            return {
+                "name": name,
+                "decklist": "\n".join(lines),
+                "sideboard": "\n".join(side_lines),
+                "format": fmt,
+                "source": "archidekt",
+            }
 
         raise HTTPException(400, "Unsupported URL. Paste a Moxfield or Archidekt deck URL.")
     except HTTPException:

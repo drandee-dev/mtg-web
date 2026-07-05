@@ -2295,6 +2295,57 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .wizard-split { display: block; }
 .wizard-left, .wizard-right { display: none; }
 
+/* ── Deck header rename ── */
+.dh-rename {
+  background: none; border: none; padding: 0 .3rem; min-height: auto;
+  font-size: .8rem; color: var(--muted); cursor: pointer; vertical-align: middle;
+  opacity: 0; transition: opacity .12s, color .12s;
+}
+.deck-title:hover .dh-rename, .dh-rename:focus-visible { opacity: 1; }
+.dh-rename:hover { color: var(--accent); background: none; border: none; }
+.dh-title-input {
+  font-size: 1.15rem; font-weight: 700; letter-spacing: -.02em;
+  padding: .1rem .45rem; min-height: 34px; width: min(340px, 60vw);
+  background: var(--bg-raised); border: 1px solid var(--accent); border-radius: 6px;
+}
+
+/* ── URL import replace-confirm (reuses .icm modal shell) ── */
+.icm-confirm-text { font-size: .82rem; line-height: 1.6; color: var(--text-secondary); margin: .2rem 0; }
+.icm-confirm-text strong { color: var(--text); }
+
+/* ── Considering column / group — pinned, never part of the maindeck ── */
+.stack-column-considering { border-style: dashed; border-color: var(--border-strong); }
+.considering-group .group-header { cursor: default; }
+.considering-star { color: var(--warn); font-size: .85rem; }
+.considering-note {
+  font-size: .6rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--muted); background: var(--panel-2); border-radius: 3px; padding: 1px 5px;
+}
+.mdfc-hint { color: var(--accent-2); font-size: .68rem; white-space: nowrap; }
+
+.cdm-consider-tag { color: var(--warn); background: rgba(229,184,76,.12); }
+
+/* ── Sync nudge (MyDecks) ── */
+.sync-nudge {
+  display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+  margin: 0 0 .9rem; padding: .55rem .8rem;
+  background: var(--accent-soft, rgba(201,138,58,.08));
+  border: 1px solid rgba(201,138,58,.3); border-radius: var(--radius);
+}
+.sync-nudge-text { flex: 1; min-width: 200px; font-size: .8rem; color: var(--text-secondary); }
+.sync-nudge-text strong { color: var(--accent); }
+.sync-nudge-actions { flex: none; display: flex; align-items: center; gap: .35rem; }
+.sync-nudge-cta {
+  padding: .25rem .7rem; min-height: 30px; font-size: .74rem; font-weight: 700;
+  background: var(--accent); color: #1a1206; border: none; border-radius: 6px; cursor: pointer;
+}
+.sync-nudge-cta:hover { filter: brightness(1.12); border: none; }
+.sync-nudge-x {
+  width: 30px; min-height: 30px; padding: 0; font-size: .7rem;
+  background: transparent; border: none; color: var(--muted); cursor: pointer;
+}
+.sync-nudge-x:hover { color: var(--text); background: transparent; border: none; }
+
 /* ── Deck Goals — user-declared AI optimization intent ── */
 .deck-goals {
   background: var(--panel); border: 1px solid var(--border);

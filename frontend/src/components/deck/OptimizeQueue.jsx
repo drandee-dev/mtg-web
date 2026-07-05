@@ -8,6 +8,7 @@ export default function OptimizeQueue({
   optimize, optimizing, onRun,
   decided, onApply, onSkip,
   log, onUndo, onClearLog,
+  gapCount = 0,
 }) {
   const changes = optimize?.changes || [];
   const pending = changes.filter((c) => !decided[c.id]);
@@ -18,7 +19,13 @@ export default function OptimizeQueue({
       <div className="opt-head">
         <span className="opt-title">⚡ Optimize</span>
         <button className="primary small opt-run" onClick={() => onRun()} disabled={optimizing}>
-          {optimizing ? "Thinking…" : optimize ? "Re-run" : "Run"}
+          {optimizing
+            ? "Thinking…"
+            : optimize
+              ? "Re-run"
+              : gapCount > 0
+                ? `Run · ${gapCount} gap${gapCount === 1 ? "" : "s"}`
+                : "Run"}
         </button>
       </div>
 

@@ -44,6 +44,9 @@ export default function StackView({
   onSetQty,
   commanderColumn = null,
   onChangeCommander,
+  consideringColumn = null,
+  consideringMenu = null,
+  landSuffix = null,
 }) {
   const canHover = useCanHover();
   const [containerRef, columnCount] = useColumnCount(200, 11.2);
@@ -100,6 +103,7 @@ export default function StackView({
           label={label}
           count={qty}
           price={price}
+          countSuffix={landSuffix?.(label) || null}
           onColumnNudge={onColumnNudge}
           canMoveLeft={i > 0}
           canMoveRight={i < groups.length - 1}
@@ -130,6 +134,45 @@ export default function StackView({
       ),
     });
   });
+
+  // Considering — pinned trailing column: never in the maindeck, never regrouped,
+  // never draggable. Cards open the detail modal (Add to deck / Remove live there).
+  if (consideringColumn && consideringColumn.length > 0) {
+    const price = consideringColumn.reduce((sum, c) => sum + (metaMap?.[c.name]?.price_usd || 0) * c.qty, 0);
+    items.push({
+      key: "__considering__",
+      estimatedHeight: estimateColHeight(consideringColumn.length),
+      node: (
+        <StackColumn
+          label="Considering"
+          pinned
+          icon="☆"
+          count={consideringColumn.reduce((s, c) => s + c.qty, 0)}
+          price={price}
+          className="stack-column-image stack-column-considering"
+          menuItems={consideringMenu}
+        >
+          <div className="stack-cards">
+            {consideringColumn.map((c) => (
+              <StackCard
+                key={c.name}
+                name={c.name}
+                qty={c.qty}
+                columnLabel="Considering"
+                onCardClick={onCardClick}
+                onRemove={null}
+                onConsider={null}
+                cardDragEnabled={false}
+                moveTargets={null}
+                expandedCard={expandedCard}
+                setExpandedCard={setExpandedCard}
+              />
+            ))}
+          </div>
+        </StackColumn>
+      ),
+    });
+  }
 
   // Don't make more columns than there are categories — empty buckets would render
   // dead space. Fewer columns then flex-grow to fill the width (see .stack-masonry-col).

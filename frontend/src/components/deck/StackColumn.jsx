@@ -14,18 +14,23 @@ export default function StackColumn({
   label,
   count,
   price,
+  countSuffix = null,
   onColumnNudge,
   canMoveLeft,
   canMoveRight,
   className = "",
   isCommander = false,
+  pinned = false,
+  icon = null,
   menuItems = null,
   dragData = null,
   children,
 }) {
-  // Commander column is fixed in place; touch keeps the ⋯ nudge menu instead of drag.
+  // Commander/pinned columns are fixed in place; touch keeps the ⋯ nudge menu
+  // instead of drag.
   const canHover = useCanHover();
-  const dndDisabled = isCommander || !canHover;
+  const fixed = isCommander || pinned;
+  const dndDisabled = fixed || !canHover;
 
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `drop:${label}`,
@@ -52,22 +57,25 @@ export default function StackColumn({
         ref={setDragRef}
         className="stack-column-header"
         title={!dndDisabled ? "Drag to reorder column" : undefined}
-        style={isCommander ? { cursor: "default" } : (canHover ? { cursor: "grab", touchAction: "none" } : undefined)}
+        style={fixed ? { cursor: "default" } : (canHover ? { cursor: "grab", touchAction: "none" } : undefined)}
         {...(dndDisabled ? {} : listeners)}
       >
         {isCommander
           ? <span className="stack-column-crown" aria-hidden="true">♛</span>
-          : canHover && <span className="stack-column-grip" aria-hidden="true">⠿</span>}
+          : icon
+            ? <span className="stack-column-crown" aria-hidden="true">{icon}</span>
+            : canHover && <span className="stack-column-grip" aria-hidden="true">⠿</span>}
         <span className="stack-column-label">{label}</span>
         <span className="stack-column-meta">
           <span className="stack-column-count">{count}</span>
+          {countSuffix && <span className="stack-column-count mdfc-hint" title="Cards whose back face is a land">{countSuffix}</span>}
           {price > 0 && <span className="stack-column-price">${price.toFixed(2)}</span>}
           {menuItems && menuItems.length > 0 && (
             <span onPointerDown={(e) => e.stopPropagation()}>
               <MoreMenu items={menuItems} label={`${label} options`} />
             </span>
           )}
-          {!isCommander && !canHover && nudgeItems.length > 0 && (
+          {!fixed && !canHover && nudgeItems.length > 0 && (
             <MoreMenu items={nudgeItems} label={`Reorder ${label} column`} />
           )}
         </span>

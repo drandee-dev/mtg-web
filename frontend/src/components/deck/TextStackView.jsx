@@ -40,6 +40,9 @@ export default function TextStackView({
   onCardMove,
   commanderColumn = null,
   onChangeCommander,
+  consideringColumn = null,
+  consideringMenu = null,
+  landSuffix = null,
 }) {
   const canHover = useCanHover();
   const [containerRef, columnCount] = useColumnCount(216, 11.2);
@@ -95,6 +98,7 @@ export default function TextStackView({
           label={label}
           count={qty}
           price={price}
+          countSuffix={landSuffix?.(label) || null}
           onColumnNudge={onColumnNudge}
           canMoveLeft={i > 0}
           canMoveRight={i < groups.length - 1}
@@ -122,6 +126,43 @@ export default function TextStackView({
       ),
     });
   });
+
+  // Considering — pinned trailing column; see StackView for the contract.
+  if (consideringColumn && consideringColumn.length > 0) {
+    const { qty, price } = columnTotals(consideringColumn, metaMap);
+    items.push({
+      key: "__considering__",
+      estimatedHeight: estimateColHeight(consideringColumn.length),
+      node: (
+        <StackColumn
+          label="Considering"
+          pinned
+          icon="☆"
+          count={qty}
+          price={price}
+          className="stack-column-text stack-column-considering"
+          menuItems={consideringMenu}
+        >
+          <div className="ts-rows" role="list">
+            {consideringColumn.map((c) => (
+              <TextRow
+                key={c.name}
+                name={c.name}
+                qty={c.qty}
+                manaCost={metaMap?.[c.name]?.mana_cost || ""}
+                columnLabel="Considering"
+                onCardClick={onCardClick}
+                onRemove={null}
+                onConsider={null}
+                cardDragEnabled={false}
+                moveTargets={null}
+              />
+            ))}
+          </div>
+        </StackColumn>
+      ),
+    });
+  }
 
   const cols = Math.max(1, Math.min(columnCount, items.length));
   const buckets = packMasonry(items, cols);

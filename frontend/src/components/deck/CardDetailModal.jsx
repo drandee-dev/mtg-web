@@ -12,6 +12,8 @@ export default function CardDetailModal({
   name,
   qty = 1,
   isCommander = false,
+  isConsidering = false,
+  onAddToDeck,
   onClose,
   onRemove,
   onConsider,
@@ -67,6 +69,7 @@ export default function CardDetailModal({
           <div className="cdm-head">
             <h3 className="cdm-name">{name}</h3>
             {isCommander && <span className="cdm-cmdr-tag">♛ Commander</span>}
+            {isConsidering && <span className="cdm-cmdr-tag cdm-consider-tag">☆ Considering</span>}
           </div>
           {typeLine && <p className="cdm-type muted small">{typeLine}</p>}
           <div className="cdm-meta">
@@ -80,6 +83,16 @@ export default function CardDetailModal({
                 <button className="ghost small" onClick={() => { onChangeCommander(); onClose(); }}>Change commander</button>
               )}
               <a className="ghost small" href={scryfallUrl(name)} target="_blank" rel="noopener noreferrer">Scryfall ↗</a>
+            </div>
+          ) : isConsidering ? (
+            <div className="cdm-actions">
+              {onAddToDeck && (
+                <button className="primary small" onClick={() => { onAddToDeck(name); onClose(); }}>+ Add to deck</button>
+              )}
+              <a className="ghost small" href={scryfallUrl(name)} target="_blank" rel="noopener noreferrer">Scryfall ↗</a>
+              {onRemove && (
+                <button className="ghost small btn-danger" onClick={() => { onRemove(name); onClose(); }}>Remove</button>
+              )}
             </div>
           ) : (
             <>

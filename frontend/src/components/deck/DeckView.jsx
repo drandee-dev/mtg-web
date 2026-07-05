@@ -8,7 +8,6 @@ import CardTypeahead from "./CardTypeahead";
 import DeckSidebar from "./DeckSidebar";
 import ImportCardsModal from "./ImportCardsModal";
 import MoreMenu from "./MoreMenu";
-import Maybeboard from "./Maybeboard";
 import { parseDeckText, deckCompleteness } from "../../lib/deckParser";
 import { goalsToApi } from "../../lib/goals";
 import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry } from "../../lib/optimizeLog";
@@ -16,7 +15,7 @@ import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry 
 export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
   maybeboard, setMaybeboard,
-  deckName, deckId, onSave, onClone, onExport, onPlaytest, onShare,
+  deckName, deckId, onSave, onClone, onExport, onPlaytest, onShare, onRenameDeck,
   startInWizard, onWizardConsumed, startImport, onImportConsumed, onBack, notify, serverWarmed,
   pwInsightsEl, pwStatsEl, goals, setGoals,
 }) {
@@ -30,6 +29,16 @@ export default function DeckView({
     }
   }, [startInWizard, onWizardConsumed]);
   const [importOpen, setImportOpen] = useState(null); // null | "paste" | "url"
+  const [pendingImport, setPendingImport] = useState(null); // URL import awaiting replace-confirm
+  const [titleEdit, setTitleEdit] = useState(null); // null | in-progress rename text
+
+  // Suggested-goals dismissal — per deck, persists. (Hook lives up here with the
+  // rest of the state: it must run on every render, including wizard mode.)
+  const readSuggDismissed = (id) => {
+    try { return localStorage.getItem(`mtgweb:goalsugg:${id || "current"}`) === "1"; } catch { return true; }
+  };
+  const [suggState, setSuggState] = useState(() => ({ deckId, dismissed: readSuggDismissed(deckId) }));
+  if (suggState.deckId !== deckId) setSuggState({ deckId, dismissed: readSuggDismissed(deckId) });
 
   useEffect(() => {
     if (startImport) {
@@ -58,7 +67,6 @@ export default function DeckView({
   const [deckFilter, setDeckFilter] = useState("");
   const [skipped, setSkipped] = useState(new Set());
   const [cmdrData, setCmdrData] = useState(null);
-  const [maybeOpen, setMaybeOpen] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const [locked, setLocked] = useState(false);
   const [saveState, setSaveState] = useState("idle");
@@ -188,6 +196,31 @@ export default function DeckView({
     notify?.(`Moved ${name} to Considering`);
   }
 
+  function removeFromConsidering(name) {
+    setMaybeboard?.((prev) =>
+      (prev || "")
+        .split("\n")
+        .filter((l) => {
+          const m = l.trim().match(/^(\d+)\s+(.+)$/);
+          return !(m && m[2].trim().toLowerCase() === name.toLowerCase());
+        })
+        .join("\n")
+        .trim()
+    );
+  }
+
+  // Considering column → maindeck: one action, one toast.
+  function moveFromConsidering(name) {
+    removeFromConsidering(name);
+    setDecklist((prev) => `${prev.replace(/\s*$/, "")}\n1 ${name}`);
+    notify?.(`Added ${name} to the deck`);
+  }
+
+  function renameDeck() {
+    const name = prompt("Deck name:", deckName || "Untitled deck");
+    if (name != null && name.trim() && name.trim() !== deckName) onRenameDeck?.(name.trim());
+  }
+
   async function handleSave() {
     setSaveState("saving");
     try { await onSave(); setSaveState("saved"); setTimeout(() => setSaveState("idle"), 2000); }
@@ -275,11 +308,28 @@ export default function DeckView({
     }
   }
 
+  // URL imports REPLACE the deck (a linked deck is a complete deck, not a card
+  // pack). Empty deck → apply immediately; populated deck → confirm first.
+  function applyUrlImport(res) {
+    const { commander: impCmdr, deckText: impMain, maybeboard: impMaybe } = disassembleDecklist(res.decklist || "");
+    setDecklist((impMain || "").trim());
+    setCommander(impCmdr || "");
+    // Sideboard/maybeboard from the source land in Considering — never maindeck.
+    const side = [res.sideboard, impMaybe].filter(Boolean).join("\n").trim();
+    setMaybeboard?.(side);
+    if (res.format) setFormat(res.format);
+    if (res.name) onRenameDeck?.(res.name);
+    const n = parseDeckText(impMain || "").totalCards;
+    notify?.(`Imported "${res.name || "deck"}" — ${n} cards${side ? ` (+${parseDeckText(side).totalCards} in Considering)` : ""}.`);
+  }
+
   async function handleImportUrl(url) {
     try {
       const res = await api.importUrl((url || "").trim());
-      const wasEmpty = mergeImportedText(res.decklist || "");
-      if (wasEmpty && res.format) setFormat(res.format);
+      if (!(res.decklist || "").trim() && !(res.sideboard || "").trim()) throw new Error("no cards found in the import");
+      const deckPopulated = Boolean(decklist.trim() || commander);
+      if (deckPopulated) setPendingImport(res); // confirm before replacing
+      else applyUrlImport(res);
     } catch (e) {
       notify?.(`Import failed: ${e.message}`);
       throw e;
@@ -308,7 +358,6 @@ export default function DeckView({
   }
 
   const hasCommander = isCommanderFmt && commander;
-  const considerCount = parseDeckText(maybeboard || "").cards.length;
   const parsedDeck = parseDeckText(decklist);
   const totalCards = parsedDeck.totalCards;
   const deckEmpty = !decklist.trim() && !commander;
@@ -319,12 +368,6 @@ export default function DeckView({
   // Suggested goals — cold-start nudge. Once analysis knows the deck's reality
   // (detected bracket, total price), offer it as a starting goal set. User
   // confirms via the banner; never silently applied. Dismissal persists per deck.
-  const readSuggDismissed = (id) => {
-    try { return localStorage.getItem(`mtgweb:goalsugg:${id || "current"}`) === "1"; } catch { return true; }
-  };
-  const [suggState, setSuggState] = useState(() => ({ deckId, dismissed: readSuggDismissed(deckId) }));
-  if (suggState.deckId !== deckId) setSuggState({ deckId, dismissed: readSuggDismissed(deckId) });
-
   const detectedBracket = result?.bracket?.bracket ?? null;
   const deckPrice = result?.breakdown?.price_usd ?? null;
   const goalSuggestion =
@@ -463,6 +506,7 @@ export default function DeckView({
     optimize,
     optimizing,
     onRunOptimize: runOptimize,
+    optGapCount: comp?.categories?.filter((c) => c.status === "thin").length || 0,
     optDecided,
     onApplyChange: applyOptChange,
     onSkipChange: skipOptChange,
@@ -492,7 +536,7 @@ export default function DeckView({
           </button>
           <MoreMenu items={[
             ...(locked ? [] : [{ label: "Import cards", icon: "⤓", onClick: () => setImportOpen("paste") }]),
-            { label: `Considering (${considerCount})`, icon: "☆", onClick: () => setMaybeOpen(true) },
+            ...(!locked && onRenameDeck ? [{ label: "Rename deck", icon: "✎", onClick: renameDeck }] : []),
             { label: "Share link", icon: "🔗", onClick: onShare },
             { label: "Clone deck", icon: "⎘", onClick: onClone },
             { label: "Export .txt", icon: "↓", onClick: onExport },
@@ -509,7 +553,32 @@ export default function DeckView({
       <div className="deck-toolbar">
         <div className="deck-toolbar-top">
           <div className="dh-left">
-            <h2 className="deck-title">{deckName || "Untitled deck"}</h2>
+            {titleEdit == null ? (
+              <h2 className="deck-title" onDoubleClick={locked ? undefined : () => setTitleEdit(deckName || "Untitled deck")}>
+                {deckName || "Untitled deck"}
+                {!locked && onRenameDeck && (
+                  <button className="dh-rename" aria-label="Rename deck" title="Rename deck"
+                    onClick={() => setTitleEdit(deckName || "Untitled deck")}>✎</button>
+                )}
+              </h2>
+            ) : (
+              <input
+                className="dh-title-input"
+                autoFocus
+                value={titleEdit}
+                onChange={(e) => setTitleEdit(e.target.value.slice(0, 80))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") e.currentTarget.blur();
+                  if (e.key === "Escape") setTitleEdit(null);
+                }}
+                onBlur={() => {
+                  const v = (titleEdit || "").trim();
+                  setTitleEdit(null);
+                  if (v && v !== deckName) onRenameDeck?.(v);
+                }}
+                aria-label="Deck name"
+              />
+            )}
             <div className="dh-stats">
               <select
                 className="dh-format"
@@ -535,9 +604,6 @@ export default function DeckView({
               ⤓ Import cards
             </button>
             <button className="ghost small" onClick={onPlaytest}>▶ Playtest</button>
-            <button className="ghost small" onClick={() => setMaybeOpen(true)}>
-              Considering ({considerCount})
-            </button>
             <button
               className={`primary small${saveState === "saved" ? " btn-saved" : ""}`}
               disabled={saveState === "saving"}
@@ -546,6 +612,7 @@ export default function DeckView({
               {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved!" : "Save"}
             </button>
             <MoreMenu items={[
+              ...(!locked && onRenameDeck ? [{ label: "Rename deck", icon: "✎", onClick: renameDeck }] : []),
               { label: "Share link", icon: "🔗", onClick: onShare },
               { label: "Clone deck", icon: "⎘", onClick: onClone },
               { label: "Export .txt", icon: "↓", onClick: onExport },
@@ -670,6 +737,11 @@ export default function DeckView({
               notify={notify}
               onChangeCommander={locked ? null : () => setCommander("")}
               setCardQty={locked ? null : setCardQty}
+              maybeboard={maybeboard}
+              onMoveFromConsidering={locked ? null : moveFromConsidering}
+              onRemoveConsidering={locked ? null : removeFromConsidering}
+              onSuggestConsiderations={locked ? null : suggestConsiderations}
+              suggesting={suggesting}
             />
           )}
 
@@ -692,16 +764,31 @@ export default function DeckView({
         onImportUrl={handleImportUrl}
       />
 
-      <Maybeboard
-        open={maybeOpen}
-        onClose={() => setMaybeOpen(false)}
-        maybeboard={maybeboard}
-        setMaybeboard={setMaybeboard}
-        onMoveToDeck={addCard}
-        onSuggest={suggestConsiderations}
-        suggesting={suggesting}
-        notify={notify}
-      />
+      {/* URL import replaces the whole deck — confirm when the deck isn't empty */}
+      {pendingImport && (
+        <div className="icm-overlay" onClick={(e) => { if (e.target === e.currentTarget) setPendingImport(null); }}>
+          <div className="icm-panel icm-confirm" role="alertdialog" aria-modal="true" aria-label="Replace deck confirmation">
+            <div className="icm-head">
+              <h3>Replace this deck?</h3>
+              <button className="icm-close" onClick={() => setPendingImport(null)} aria-label="Close">✕</button>
+            </div>
+            <div className="icm-body">
+              <p className="icm-confirm-text">
+                Importing <strong>"{pendingImport.name || "deck"}"</strong>
+                {" "}({parseDeckText(pendingImport.decklist || "").totalCards} cards) will replace
+                {" "}<strong>"{deckName || "Untitled deck"}"</strong> ({totalCards} cards) — name, format, and all.
+                {(pendingImport.sideboard || "").trim() && " Its sideboard lands in Considering."}
+              </p>
+            </div>
+            <div className="icm-foot">
+              <button className="ghost small" onClick={() => setPendingImport(null)}>Cancel</button>
+              <button className="primary small" onClick={() => { applyUrlImport(pendingImport); setPendingImport(null); }}>
+                Replace deck
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile FAB — open the search panel, scroll to it, and focus */}
       {!locked && (

@@ -22,7 +22,7 @@ export default function DeckSidebar({
   serverWarmed,
   goals, setGoals, deckCardNames,
   goalSuggestion, onAcceptGoalSuggestion, onDismissGoalSuggestion,
-  optimize, optimizing, onRunOptimize, optDecided,
+  optimize, optimizing, onRunOptimize, optGapCount, optDecided,
   onApplyChange, onSkipChange, optLog, onUndoChange, onClearLog,
   onGapChip, section,
 }) {
@@ -64,6 +64,7 @@ export default function DeckSidebar({
               optimize={optimize}
               optimizing={optimizing}
               onRun={onRunOptimize}
+              gapCount={optGapCount || 0}
               decided={optDecided || {}}
               onApply={onApplyChange}
               onSkip={onSkipChange}

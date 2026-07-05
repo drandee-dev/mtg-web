@@ -30,12 +30,32 @@ export function parseDeckText(deckText) {
   return { cards, totalCards: cards.reduce((s, c) => s + c.qty, 0) };
 }
 
+// Multi-face cards (MDFC/transform) carry a joined "Front // Back" type line —
+// group by the FRONT face only, so e.g. "Instant // Land" files under Instant
+// and "Land // Creature" stays a Land.
+function _frontFace(typeLine) {
+  return (typeLine || "").split("//")[0];
+}
+
 function _typeBucket(typeLine) {
-  const tl = (typeLine || "").toLowerCase();
+  const tl = _frontFace(typeLine).toLowerCase();
   for (const t of TYPE_ORDER) {
     if (tl.includes(t.toLowerCase())) return t;
   }
   return "Other";
+}
+
+/** Count cards (by qty) whose BACK face is a land while the front isn't —
+ * shown as a "+N w/MDFC" hint on land group headers, Archidekt-style. */
+export function mdfcLandCount(cards, metaMap) {
+  let n = 0;
+  for (const card of cards) {
+    const tl = metaMap?.[card.name]?.type_line || "";
+    if (!tl.includes("//")) continue;
+    const [front, ...backs] = tl.split("//");
+    if (!/land/i.test(front) && /land/i.test(backs.join(" "))) n += card.qty;
+  }
+  return n;
 }
 
 export function groupByMtgType(cards, typeMap) {
@@ -55,7 +75,7 @@ const COLOR_ORDER = ["White", "Blue", "Black", "Red", "Green", "Multicolor", "Co
 const COLOR_NAMES = { W: "White", U: "Blue", B: "Black", R: "Red", G: "Green" };
 
 function _colorBucket(colorIdentity, typeLine) {
-  if ((typeLine || "").toLowerCase().includes("land")) return "Land";
+  if (_frontFace(typeLine).toLowerCase().includes("land")) return "Land";
   const ci = colorIdentity || [];
   if (ci.length === 0) return "Colorless";
   if (ci.length > 1) return "Multicolor";
@@ -98,7 +118,7 @@ export function groupCards(cards, mode, metaMap) {
       bucket = firstRole || _typeBucket(m.type_line);
     } else if (mode === "cmc") {
       const c = Math.floor(m.cmc ?? 0);
-      bucket = (m.type_line || "").toLowerCase().includes("land") ? "Lands" : `MV ${c >= 7 ? "7+" : c}`;
+      bucket = _frontFace(m.type_line).toLowerCase().includes("land") ? "Lands" : `MV ${c >= 7 ? "7+" : c}`;
     } else if (mode === "color") {
       bucket = _colorBucket(m.color_identity, m.type_line);
     } else if (mode === "rarity") {

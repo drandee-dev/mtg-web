@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { getCardImage } from "../../lib/api";
-import { parseDeckText, groupCards } from "../../lib/deckParser";
+import { parseDeckText, groupCards, mdfcLandCount } from "../../lib/deckParser";
 import { parseDeckFilter, cardMatchesFilter } from "../../lib/deckFilter";
 import { useCanHover } from "../../lib/hooks";
 // canHover gates desktop-only drag affordances; touch uses the ⋯ menus instead.
@@ -29,7 +29,7 @@ const GROUPS = [
   { id: "price", label: "Price range" },
 ];
 
-export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, onRemove, onConsider, addCard, onCardSearch, notify, onChangeCommander, setCardQty }) {
+export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, onRemove, onConsider, addCard, onCardSearch, notify, onChangeCommander, setCardQty, maybeboard, onMoveFromConsidering, onRemoveConsidering, onSuggestConsiderations, suggesting }) {
   const canHover = useCanHover();
   const [filterHelpOpen, setFilterHelpOpen] = useState(false);
   const [viewMode, setViewMode] = useState(
@@ -78,6 +78,14 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
   const commanderNames = isCmdrFmt ? (commander || "").split(" && ").filter(Boolean) : [];
   const commanderCards = commanderNames.map((name) => ({ name, qty: 1 }));
 
+  // Considering (sideboard/maybeboard) — a fixed trailing column, Archidekt-style:
+  // never part of the maindeck, never regrouped, never counted in totals.
+  const consideringCards = parseDeckText(maybeboard || "").cards;
+  const consideringNames = consideringCards.map((c) => c.name);
+  const consideringMenu = onSuggestConsiderations
+    ? [{ label: suggesting ? "Suggesting…" : "Suggest cards to consider", icon: "✨", onClick: onSuggestConsiderations }]
+    : null;
+
   useEffect(() => {
     localStorage.setItem("mtgweb:viewMode", viewMode);
   }, [viewMode]);
@@ -109,7 +117,7 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
 
   // Resolve full card metadata (type, roles, cmc, color, price) for all cards
   useEffect(() => {
-    const names = [...new Set([...cards.map((c) => c.name), ...commanderNames])];
+    const names = [...new Set([...cards.map((c) => c.name), ...commanderNames, ...consideringNames])];
     let cancelled = false;
     Promise.all(
       names.map(async (name) => {
@@ -134,7 +142,7 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
       setMetaMap(meta);
     });
     return () => { cancelled = true; };
-  }, [decklist, commander]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [decklist, commander, maybeboard]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sortCards = useCallback((list) => {
     const sorted = [...list];
@@ -255,6 +263,12 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
   }, [expandedId, canHover]);
 
   const groupTotal = (cards) => cards.reduce((s, c) => s + c.qty, 0);
+
+  // "+N w/MDFC" hint on land group headers: cards filed elsewhere whose back
+  // face is a land still tap for mana (Archidekt-style).
+  const mdfcLands = mdfcLandCount(cards, metaMap);
+  const landSuffix = (label) =>
+    mdfcLands > 0 && (label === "Land" || label === "Lands") ? `+${mdfcLands} w/MDFC` : null;
 
   return (
     <div className="card-grid-container">
@@ -386,6 +400,9 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
               onCardMove={handleCardMove}
               commanderColumn={commanderCards}
               onChangeCommander={onChangeCommander}
+              consideringColumn={consideringCards}
+              consideringMenu={consideringMenu}
+              landSuffix={landSuffix}
             />
           ) : (
             <StackView
@@ -401,6 +418,9 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
               onSetQty={setCardQty}
               commanderColumn={commanderCards}
               onChangeCommander={onChangeCommander}
+              consideringColumn={consideringCards}
+              consideringMenu={consideringMenu}
+              landSuffix={landSuffix}
             />
           )}
         </>
@@ -453,6 +473,7 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
             <span className={`group-chevron ${collapsed.has(type) ? "closed" : ""}`}>▾</span>
             <h3>{type}</h3>
             <span className="count">({groupTotal(groupCards)})</span>
+            {landSuffix(type) && <span className="count mdfc-hint" title="Cards whose back face is a land">{landSuffix(type)}</span>}
           </button>
 
           {!collapsed.has(type) && viewMode === "grid" && (
@@ -491,6 +512,50 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
         </div>
       ))}
 
+      {/* Considering — fixed trailing group in grid/list (stack views render it
+          as a pinned column). Never part of the maindeck or its counts. */}
+      {viewMode !== "stack" && consideringCards.length > 0 && (
+        <div className="card-group considering-group">
+          <div className="group-header" style={{ cursor: "default" }}>
+            <span className="considering-star" aria-hidden="true">☆</span>
+            <h3>Considering</h3>
+            <span className="count">({groupTotal(consideringCards)})</span>
+            <span className="count considering-note">not in deck</span>
+          </div>
+          {viewMode === "grid" ? (
+            <div className="card-grid" role="list">
+              {consideringCards.map((c) => (
+                <CardThumbnail
+                  key={c.name}
+                  name={c.name}
+                  qty={c.qty}
+                  onRemove={onRemoveConsidering}
+                  onConsider={null}
+                  onSetQty={null}
+                  onExpand={() => handleThumbnailExpand(c.name)}
+                  useArtCrop={!canHover}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="card-list" role="list">
+              {consideringCards.map((c) => (
+                <CardListRow
+                  key={c.name}
+                  name={c.name}
+                  qty={c.qty}
+                  typeLine={metaMap[c.name]?.type_line}
+                  price={metaMap[c.name]?.price_usd}
+                  isMdfc={metaMap[c.name]?.is_mdfc}
+                  onRemove={onRemoveConsidering}
+                  onPreview={handlePreview}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {totalCards === 0 && (
         <p className="muted" style={{ textAlign: "center", padding: "2rem 0" }}>
           No cards yet — use Quick add or Card search in the toolbar above to add cards.
@@ -502,19 +567,26 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
       {/* Card detail modal — centered on desktop, bottom sheet on mobile (CSS) */}
       {previewCard && (() => {
         const isCmdr = commanderNames.includes(previewCard);
-        const currentCategory = cardDragEnabled
+        const isConsidering = !isCmdr
+          && consideringNames.includes(previewCard)
+          && !cards.some((c) => c.name === previewCard);
+        const currentCategory = cardDragEnabled && !isConsidering
           ? (Object.entries(groups).find(([, list]) => list.some((c) => c.name === previewCard))?.[0] || null)
           : null;
         return (
           <CardDetailModal
             name={previewCard}
-            qty={cards.find((c) => c.name === previewCard)?.qty ?? 1}
+            qty={isConsidering
+              ? (consideringCards.find((c) => c.name === previewCard)?.qty ?? 1)
+              : (cards.find((c) => c.name === previewCard)?.qty ?? 1)}
             isCommander={isCmdr}
+            isConsidering={isConsidering}
+            onAddToDeck={isConsidering ? onMoveFromConsidering : null}
             onClose={closePreview}
-            onRemove={isCmdr ? null : onRemove}
-            onConsider={isCmdr ? null : onConsider}
-            onSetQty={isCmdr ? null : setCardQty}
-            categories={cardDragEnabled ? Object.keys(groups) : null}
+            onRemove={isCmdr ? null : (isConsidering ? onRemoveConsidering : onRemove)}
+            onConsider={isCmdr || isConsidering ? null : onConsider}
+            onSetQty={isCmdr || isConsidering ? null : setCardQty}
+            categories={cardDragEnabled && !isConsidering ? Object.keys(groups) : null}
             currentCategory={currentCategory}
             onMove={handleCardMove}
             onChangeCommander={isCmdr ? onChangeCommander : null}

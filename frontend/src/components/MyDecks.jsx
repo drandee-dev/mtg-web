@@ -354,7 +354,15 @@ function AIChatPreview() {
   );
 }
 
-export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onPlaytest, onNewDeck, onGuidedBuild, notify, refresh, setTab, decksIntent, onIntentConsumed }) {
+export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onPlaytest, onNewDeck, onGuidedBuild, notify, refresh, setTab, decksIntent, onIntentConsumed, onOpenAccount }) {
+  const [syncNudgeDismissed, setSyncNudgeDismissed] = useState(
+    () => { try { return localStorage.getItem("mtgweb:syncnudge") === "1"; } catch { return true; } }
+  );
+  const showSyncNudge = signedIn === false && decks.length >= 2 && !syncNudgeDismissed && onOpenAccount;
+  function dismissSyncNudge() {
+    try { localStorage.setItem("mtgweb:syncnudge", "1"); } catch { /* best-effort */ }
+    setSyncNudgeDismissed(true);
+  }
   const [importText, setImportText] = useState("");
   const [importName, setImportName] = useState("");
   const [importFormat, setImportFormat] = useState("commander");
@@ -610,6 +618,20 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
               </button>
             </div>
           </div>
+
+          {/* Sync nudge — anonymous users with real collections risk silent data
+              loss; one-time banner, dismissal persists. */}
+          {showSyncNudge && (
+            <div className="sync-nudge">
+              <span className="sync-nudge-text">
+                <strong>{decks.length} decks</strong> live only on this device — sign in to sync them across devices and keep them safe.
+              </span>
+              <span className="sync-nudge-actions">
+                <button className="sync-nudge-cta" onClick={onOpenAccount}>Sign in</button>
+                <button className="sync-nudge-x" aria-label="Dismiss sync reminder" onClick={dismissSyncNudge}>✕</button>
+              </span>
+            </div>
+          )}
 
           {/* Deck hero grid — New Deck tile leads (Archidekt-style) */}
           <div className="hero-grid">

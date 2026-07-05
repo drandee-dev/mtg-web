@@ -18,6 +18,7 @@ const MOCK_CARDS = {
   "Deepglow Skate":       { mana_cost: "{4}{U}",     cmc: 5, type_line: "Creature — Fish",                          roles: ["Draw"],       price_usd: 3.0,   color_identity: ["U"] },
   "Atraxa, Praetors' Voice": { mana_cost: "{G}{W}{U}{B}", cmc: 4, type_line: "Legendary Creature — Phyrexian Angel Horror", roles: ["Commander"], price_usd: 12.0, color_identity: ["W", "U", "B", "G"] },
   "Lightning Bolt":       { mana_cost: "{R}",        cmc: 1, type_line: "Instant",                                   roles: ["Removal"],    price_usd: 2.50,  color_identity: ["R"] },
+  "Malakir Rebirth":      { mana_cost: "{B}",        cmc: 1, type_line: "Instant // Land",                           roles: ["Protection"], price_usd: 1.10,  color_identity: ["B"] },
 };
 
 const COLOR_FILL = { W: "#d9d2b8", U: "#3a6ea5", B: "#2b2724", R: "#a83a2a", G: "#2f7d4f" };
@@ -100,6 +101,15 @@ export async function mockBackend(page) {
           { key: "card-draw", label: "Card draw", count: 4, target: 10, status: "thin" },
           { key: "removal", label: "Spot removal", count: 7, target: 8, status: "ok" },
         ],
+      });
+    }
+    if (path.endsWith("/api/deck/import-url")) {
+      return json({
+        name: "Mock Import",
+        decklist: "Commander\n1 Atraxa, Praetors' Voice\nDeck\n1 Sol Ring\n1 Counterspell",
+        sideboard: "1 Lightning Bolt",
+        format: "commander",
+        source: "archidekt",
       });
     }
     if (path.endsWith("/api/deck/analyze")) {
