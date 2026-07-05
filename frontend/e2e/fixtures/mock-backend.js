@@ -102,6 +102,16 @@ export async function mockBackend(page) {
         ],
       });
     }
+    if (path.endsWith("/api/deck/analyze")) {
+      return json({
+        format: "commander", total_cards: 11,
+        stats: { avg_cmc: 2.5 },
+        mana: { overall_status: "OK", pip_demand_pct: {} },
+        legality: { overall_status: "PASS", violations: [] },
+        bracket: { bracket: 2, game_changers: [] },
+        breakdown: { price_usd: 68.93, prices_as_of: "2026-07-01" },
+      });
+    }
     if (path.endsWith("/api/deck/optimize")) {
       return json({
         error: false,

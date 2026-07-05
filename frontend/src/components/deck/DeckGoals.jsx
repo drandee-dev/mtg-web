@@ -6,8 +6,13 @@ const PILOTS = [["simple", "Simple"], ["moderate", "Moderate"], ["any", "Any"]];
 const BUDGET_PRESETS = [50, 100, 275, 500];
 
 // Deck Goals editor — collapsed summary chips, expandable editor. Every AI
-// feature (cuts, fills, upgrades, chat) reads these goals.
-export default function DeckGoals({ goals, setGoals, deckCardNames = [] }) {
+// feature (cuts, fills, upgrades, chat) reads these goals. When no goals are
+// set yet, a one-time banner offers the deck's analyzed reality (detected
+// bracket, price + headroom) as a starting goal set — one tap to adopt.
+export default function DeckGoals({
+  goals, setGoals, deckCardNames = [],
+  suggestion, onAcceptSuggestion, onDismissSuggestion,
+}) {
   const [open, setOpen] = useState(false);
   const [protectQuery, setProtectQuery] = useState("");
   const [customBudget, setCustomBudget] = useState("");
@@ -50,6 +55,22 @@ export default function DeckGoals({ goals, setGoals, deckCardNames = [] }) {
         )}
         <span className="dg-toggle">{open ? "Done" : "Edit"}</span>
       </button>
+
+      {!open && suggestion && (
+        <div className="dg-suggest-bar">
+          <span className="dg-suggest-text">
+            Suggested from your deck:
+            {suggestion.bracketTarget != null && <strong> bracket {suggestion.bracketTarget}</strong>}
+            {suggestion.bracketTarget != null && suggestion.budgetCeiling != null && " ·"}
+            {suggestion.budgetCeiling != null && <strong> ≤ ${suggestion.budgetCeiling}</strong>}
+          </span>
+          <span className="dg-suggest-actions">
+            <button className="dg-suggest-use" onClick={onAcceptSuggestion}>Use these</button>
+            <button className="dg-suggest-edit" onClick={() => setOpen(true)}>Edit</button>
+            <button className="dg-suggest-x" aria-label="Dismiss suggested goals" onClick={onDismissSuggestion}>✕</button>
+          </span>
+        </div>
+      )}
 
       {open && (
         <div className="dg-body">

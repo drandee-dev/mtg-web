@@ -2313,6 +2313,30 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .dg-chips { display: flex; gap: .3rem; flex-wrap: wrap; flex: 1; min-width: 0; }
 .dg-empty { font-size: .68rem; color: var(--muted); font-style: italic; }
 .dg-toggle { flex: none; font-size: .68rem; font-weight: 600; color: var(--accent-2); }
+.dg-suggest-bar {
+  display: flex; align-items: center; gap: .45rem; flex-wrap: wrap;
+  padding: .45rem .65rem .55rem; border-top: 1px solid var(--border);
+  background: var(--accent-soft, rgba(201,138,58,.08));
+}
+.dg-suggest-text { flex: 1; min-width: 0; font-size: .7rem; color: var(--text-secondary); }
+.dg-suggest-text strong { color: var(--accent); font-weight: 700; }
+.dg-suggest-actions { flex: none; display: flex; align-items: center; gap: .3rem; }
+.dg-suggest-use {
+  padding: .2rem .55rem; min-height: 28px; font-size: .68rem; font-weight: 700;
+  background: var(--accent); color: #1a1206; border: none; border-radius: 6px; cursor: pointer;
+}
+.dg-suggest-use:hover { filter: brightness(1.12); border: none; }
+.dg-suggest-edit {
+  padding: .2rem .5rem; min-height: 28px; font-size: .68rem; font-weight: 600;
+  background: transparent; border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text-secondary); cursor: pointer;
+}
+.dg-suggest-edit:hover { background: var(--hover); }
+.dg-suggest-x {
+  width: 28px; min-height: 28px; padding: 0; font-size: .7rem;
+  background: transparent; border: none; color: var(--muted); cursor: pointer;
+}
+.dg-suggest-x:hover { color: var(--text); background: transparent; border: none; }
 .dg-body { padding: .2rem .65rem .65rem; border-top: 1px solid var(--border); }
 .dg-row { display: flex; gap: .5rem; margin-top: .55rem; }
 .dg-key { flex: none; width: 52px; font-size: .7rem; color: var(--text-secondary); padding-top: .3rem; }

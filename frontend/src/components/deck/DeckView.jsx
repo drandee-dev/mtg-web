@@ -316,6 +316,42 @@ export default function DeckView({
   const apiGoals = goalsToApi(goals);
   const deckCardNames = parsedDeck.cards.map((c) => c.name);
 
+  // Suggested goals — cold-start nudge. Once analysis knows the deck's reality
+  // (detected bracket, total price), offer it as a starting goal set. User
+  // confirms via the banner; never silently applied. Dismissal persists per deck.
+  const readSuggDismissed = (id) => {
+    try { return localStorage.getItem(`mtgweb:goalsugg:${id || "current"}`) === "1"; } catch { return true; }
+  };
+  const [suggState, setSuggState] = useState(() => ({ deckId, dismissed: readSuggDismissed(deckId) }));
+  if (suggState.deckId !== deckId) setSuggState({ deckId, dismissed: readSuggDismissed(deckId) });
+
+  const detectedBracket = result?.bracket?.bracket ?? null;
+  const deckPrice = result?.breakdown?.price_usd ?? null;
+  const goalSuggestion =
+    !apiGoals && !suggState.dismissed && (detectedBracket != null || deckPrice != null)
+      ? {
+          bracketTarget: detectedBracket,
+          // Headroom above today's price, rounded to a clean $25 step, so the
+          // ceiling doesn't start out already violated.
+          budgetCeiling: deckPrice != null ? Math.max(25, Math.ceil((deckPrice * 1.15) / 25) * 25) : null,
+        }
+      : null;
+
+  function dismissGoalSuggestion() {
+    try { localStorage.setItem(`mtgweb:goalsugg:${deckId || "current"}`, "1"); } catch { /* best-effort */ }
+    setSuggState({ deckId, dismissed: true });
+  }
+
+  function acceptGoalSuggestion() {
+    setGoals({
+      ...goals,
+      ...(goalSuggestion.bracketTarget != null ? { bracketTarget: goalSuggestion.bracketTarget } : {}),
+      ...(goalSuggestion.budgetCeiling != null ? { budgetCeiling: goalSuggestion.budgetCeiling } : {}),
+    });
+    dismissGoalSuggestion();
+    notify?.("Goals set — the AI now optimizes toward them.");
+  }
+
   // Optimize queue — one AI pass returns a goal-aware changeset; each change is
   // applied/skipped individually and applied ones land in the session log so
   // they can be undone (inverse edit) later.
@@ -421,6 +457,9 @@ export default function DeckView({
     goals,
     setGoals,
     deckCardNames,
+    goalSuggestion,
+    onAcceptGoalSuggestion: acceptGoalSuggestion,
+    onDismissGoalSuggestion: dismissGoalSuggestion,
     optimize,
     optimizing,
     onRunOptimize: runOptimize,

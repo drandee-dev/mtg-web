@@ -21,6 +21,7 @@ export default function DeckSidebar({
   strategy, strategyLoading,
   serverWarmed,
   goals, setGoals, deckCardNames,
+  goalSuggestion, onAcceptGoalSuggestion, onDismissGoalSuggestion,
   optimize, optimizing, onRunOptimize, optDecided,
   onApplyChange, onSkipChange, optLog, onUndoChange, onClearLog,
   onGapChip, section,
@@ -36,7 +37,14 @@ export default function DeckSidebar({
         <>
           {/* Deck Goals — user-declared intent that every AI feature reads */}
           {goals && setGoals && (
-            <DeckGoals goals={goals} setGoals={setGoals} deckCardNames={deckCardNames || []} />
+            <DeckGoals
+              goals={goals}
+              setGoals={setGoals}
+              deckCardNames={deckCardNames || []}
+              suggestion={goalSuggestion}
+              onAcceptSuggestion={onAcceptGoalSuggestion}
+              onDismissSuggestion={onDismissGoalSuggestion}
+            />
           )}
 
           {/* Assessment — bracket meter vs target, strategy, gap chips + category table */}
