@@ -2465,7 +2465,20 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 /* Optimize queue — goal-aware changeset, Apply/Skip cards + session log */
 .opt-queue { padding: .5rem .65rem .65rem; }
 .opt-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.opt-toggle {
+  display: flex; align-items: center; gap: .35rem;
+  background: none; border: none; padding: .1rem .05rem; margin: 0;
+  cursor: pointer; color: inherit; min-height: 30px; border-radius: var(--radius);
+  transition: color .15s;
+}
+.opt-toggle:hover { color: var(--accent); }
+.opt-caret { color: var(--muted); font-size: .7rem; line-height: 1; width: .8em; }
 .opt-title { font-size: .72rem; font-weight: 700; }
+.opt-pending-badge {
+  font-size: .6rem; font-weight: 700; line-height: 1;
+  padding: .15rem .35rem; border-radius: 999px;
+  background: var(--accent); color: #fff;
+}
 .opt-run { padding: .2rem .7rem; min-height: 30px; font-size: .7rem; }
 .opt-hint { font-size: .68rem; color: var(--muted); margin: .4rem 0 0; line-height: 1.5; }
 .opt-error { font-size: .68rem; color: var(--bad); margin: .4rem 0 0; }

@@ -1,6 +1,9 @@
+import { useState } from "react";
 import CardPreview from "../CardPreview";
 import LoadingIndicator from "../LoadingIndicator";
 import { describeEntry } from "../../lib/optimizeLog";
+
+const COLLAPSE_KEY = "mtgweb:optCollapsed";
 
 // Goal-driven Apply/Skip queue. State lives in DeckView (like cuts/upgrades)
 // so it survives the mobile hub portal mounting and unmounting this component.
@@ -14,10 +17,32 @@ export default function OptimizeQueue({
   const pending = changes.filter((c) => !decided[c.id]);
   const appliedCount = changes.filter((c) => decided[c.id] === "applied").length;
 
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem(COLLAPSE_KEY) === "1"; } catch { return false; }
+  });
+  function toggle() {
+    setCollapsed((c) => {
+      const next = !c;
+      try { localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0"); } catch { /* ignore */ }
+      return next;
+    });
+  }
+
   return (
     <div className="opt-queue sidebar-section">
       <div className="opt-head">
-        <span className="opt-title">⚡ Optimize</span>
+        <button
+          className="opt-toggle"
+          onClick={toggle}
+          aria-expanded={!collapsed}
+          aria-controls="opt-body"
+        >
+          <span className="opt-caret" aria-hidden="true">{collapsed ? "▸" : "▾"}</span>
+          <span className="opt-title">⚡ Optimize</span>
+          {collapsed && pending.length > 0 && (
+            <span className="opt-pending-badge">{pending.length}</span>
+          )}
+        </button>
         <button className="primary small opt-run" onClick={() => onRun()} disabled={optimizing}>
           {optimizing
             ? "Thinking…"
@@ -29,6 +54,8 @@ export default function OptimizeQueue({
         </button>
       </div>
 
+      {collapsed ? null : (
+      <div id="opt-body">
       {optimizing && <LoadingIndicator label="Building changeset" active />}
 
       {!optimize && !optimizing && (
@@ -77,6 +104,8 @@ export default function OptimizeQueue({
             <button className="ghost small opt-clear" onClick={onClearLog}>Clear log</button>
           </div>
         </details>
+      )}
+      </div>
       )}
     </div>
   );
