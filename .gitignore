@@ -37,6 +37,7 @@ test_models.py
 frontend/e2e/results.json
 frontend/test-results/
 frontend/playwright-report/
+test-results/
 
 # Design reference screenshots (binary, regenerate locally with Playwright)
 design/reference/
