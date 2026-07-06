@@ -3,8 +3,11 @@
 // included, via its suffix-encoded string).
 
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, deckMenuAction } from "./fixtures/helpers.js";
-import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
+import {
+  loadSharedDeck, deckMenuAction, seedLocalDecks,
+  waitForAppReady, dismissColdStart,
+} from "./fixtures/helpers.js";
+import { TEST_DECK_TEXT, TEST_COMMANDER, TEST_DECK_STORAGE } from "./fixtures/test-data.js";
 
 const SETS = {
   sets: [
@@ -62,6 +65,53 @@ test.describe("Mass art change", () => {
     await expect(textarea).not.toHaveValue(/Command Tower \(/);
     // Commander pinned too, but its display name stays clean
     await expect(page.locator(".deck-title")).not.toContainText("FIN");
+  });
+
+  test("Considering cards join the match pool and get pinned", async ({ page }) => {
+    const withConsidering = {
+      matches: [
+        { name: "Sol Ring", set: "FIN", set_name: "Final Fantasy", cn: "553", rarity: "uncommon", thumb: "", price_usd: 3 },
+        { name: "Opt", set: "FIN", set_name: "Final Fantasy", cn: "090", rarity: "common", thumb: "", price_usd: 1 },
+      ],
+      unmatched: [],
+    };
+    let requestedNames = [];
+    await page.route("**/api/sets**", (r) =>
+      r.fulfill({ contentType: "application/json", body: JSON.stringify(SETS) }));
+    await page.route("**/api/cards/mass-printing", async (r) => {
+      requestedNames = JSON.parse(r.request().postData() || "{}").names || [];
+      await r.fulfill({ contentType: "application/json", body: JSON.stringify(withConsidering) });
+    });
+
+    // Open a saved deck that carries a Maybeboard section — that path runs
+    // disassembleDecklist → setMaybeboard, so "Opt" lands in Considering
+    // (the share-link path drops the maybeboard, so it can't seed this).
+    await page.goto("/");
+    await waitForAppReady(page);
+    await seedLocalDecks(page, [{
+      ...TEST_DECK_STORAGE,
+      decklist_text: `${TEST_DECK_STORAGE.decklist_text}\nMaybeboard\n1 Opt`,
+    }]);
+    await page.reload();
+    await waitForAppReady(page);
+    await dismissColdStart(page);
+    await page.locator(".deck-card .deck-card-art").first().click();
+    await expect(page.locator(".considering-group")).toBeVisible({ timeout: 10000 });
+
+    await deckMenuAction(page, "Mass change art");
+    const modal = page.locator(".mam-panel");
+    await modal.locator("#mam-set-input").fill("final");
+    await modal.locator('.ac-item:has-text("Final Fantasy")').first().click();
+    await modal.locator('button:has-text("Preview")').click();
+    await expect(modal.locator(".mam-match")).toHaveCount(2);
+
+    // The Considering card was in the pool sent to the backend
+    expect(requestedNames).toContain("Opt");
+
+    await modal.locator('button:has-text("Apply to 2 cards")').click();
+    await expect(page.locator(".toast")).toContainText("2 cards", { timeout: 4000 });
+    // Considering column persists after the art change
+    await expect(page.locator(".considering-group")).toBeVisible();
   });
 
   test("reset clears every pinned printing", async ({ page }) => {

@@ -388,29 +388,42 @@ export default function DeckView({
   const apiGoals = goalsToApi(goals);
   const deckCardNames = parsedDeck.cards.map((c) => c.name);
 
-  // Mass art change — the commander participates like any other card.
+  // Mass art change — commander + maindeck + Considering (maybeboard) all
+  // participate, since a pinned printing is meaningful in every board.
   const deckCommanders = splitCommanders(commander);
-  const massArtNames = [...deckCommanders.map((c) => c.name), ...deckCardNames];
+  const consideringCards = parseDeckText(maybeboard || "").cards;
+  const massArtNames = [
+    ...deckCommanders.map((c) => c.name),
+    ...deckCardNames,
+    ...consideringCards.map((c) => c.name),
+  ];
   const artPinCount =
     parsedDeck.cards.filter((c) => c.printing).length +
+    consideringCards.filter((c) => c.printing).length +
     deckCommanders.filter((c) => c.printing).length;
 
   function applyMassArt(matches) {
     let text = decklist;
+    let side = maybeboard || "";
     let cmdr = commander;
     let n = 0;
     for (const m of matches) {
       const printing = { set: m.set, cn: m.cn };
+      let hit = false;
       const cm = deckCommanders.find((c) => c.name.toLowerCase() === m.name.toLowerCase());
       if (cm) {
         cmdr = setCommanderPrinting(cmdr, cm.name, printing);
-        n++;
-        continue;
+        hit = true;
       }
-      const next = setPrintingInText(text, m.name, printing);
-      if (next !== text) { text = next; n++; }
+      // A name can live in both maindeck and Considering — pin it in each.
+      const nextMain = setPrintingInText(text, m.name, printing);
+      if (nextMain !== text) { text = nextMain; hit = true; }
+      const nextSide = setPrintingInText(side, m.name, printing);
+      if (nextSide !== side) { side = nextSide; hit = true; }
+      if (hit) n++;
     }
     if (text !== decklist) setDecklist(text);
+    if (side !== (maybeboard || "")) setMaybeboard?.(side);
     if (cmdr !== commander) setCommander(cmdr);
     notify(`🎨 Changed art on ${n} card${n === 1 ? "" : "s"}`);
   }
@@ -420,11 +433,16 @@ export default function DeckView({
     for (const c of parsedDeck.cards) {
       if (c.printing) text = setPrintingInText(text, c.name, null);
     }
+    let side = maybeboard || "";
+    for (const c of consideringCards) {
+      if (c.printing) side = setPrintingInText(side, c.name, null);
+    }
     let cmdr = commander;
     for (const c of deckCommanders) {
       if (c.printing) cmdr = setCommanderPrinting(cmdr, c.name, null);
     }
     if (text !== decklist) setDecklist(text);
+    if (side !== (maybeboard || "")) setMaybeboard?.(side);
     if (cmdr !== commander) setCommander(cmdr);
     notify("Art reset to default printings");
   }
