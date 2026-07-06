@@ -9,6 +9,7 @@ import DeckSidebar from "./DeckSidebar";
 import ImportCardsModal from "./ImportCardsModal";
 import MassArtModal from "./MassArtModal";
 import MoreMenu from "./MoreMenu";
+import { PaletteIcon, LinkIcon, SparkleIcon, LockIcon, UnlockIcon, ListIcon, SearchIcon } from "../Icons";
 import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderDisplay, setCommanderPrinting } from "../../lib/deckParser";
 import { goalsToApi } from "../../lib/goals";
 import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry } from "../../lib/optimizeLog";
@@ -644,14 +645,14 @@ export default function DeckView({
           <MoreMenu items={[
             ...(locked ? [] : [{ label: "Import cards", icon: "⤓", onClick: () => setImportOpen("paste") }]),
             ...(!locked && onRenameDeck ? [{ label: "Rename deck", icon: "✎", onClick: renameDeck }] : []),
-            ...(locked ? [] : [{ label: "Mass change art", icon: "🎨", onClick: () => setMassArtOpen(true) }]),
-            { label: "Share link", icon: "🔗", onClick: onShare },
+            ...(locked ? [] : [{ label: "Mass change art", icon: <PaletteIcon />, onClick: () => setMassArtOpen(true) }]),
+            { label: "Share link", icon: <LinkIcon />, onClick: onShare },
             { label: "Clone deck", icon: "⎘", onClick: onClone },
             { label: "Export .txt", icon: "↓", onClick: onExport },
             ...(locked ? [] : [{ label: textEditOpen ? "Hide text editor" : "Edit as text", icon: "✎", onClick: () => setTextEditOpen((o) => !o) }]),
             { label: "Playtest", icon: "▶", onClick: onPlaytest },
-            { label: "Wizard", icon: "✨", onClick: () => setMode("wizard") },
-            { label: locked ? "Unlock deck" : "Lock deck (view only)", icon: locked ? "🔓" : "🔒", onClick: () => setLocked((l) => !l) },
+            { label: "Wizard", icon: <SparkleIcon />, onClick: () => setMode("wizard") },
+            { label: locked ? "Unlock deck" : "Lock deck (view only)", icon: locked ? <UnlockIcon /> : <LockIcon />, onClick: () => setLocked((l) => !l) },
           ]} />
         </div>
       </div>
@@ -721,13 +722,13 @@ export default function DeckView({
             </button>
             <MoreMenu items={[
               ...(!locked && onRenameDeck ? [{ label: "Rename deck", icon: "✎", onClick: renameDeck }] : []),
-              ...(locked ? [] : [{ label: "Mass change art", icon: "🎨", onClick: () => setMassArtOpen(true) }]),
-              { label: "Share link", icon: "🔗", onClick: onShare },
+              ...(locked ? [] : [{ label: "Mass change art", icon: <PaletteIcon />, onClick: () => setMassArtOpen(true) }]),
+              { label: "Share link", icon: <LinkIcon />, onClick: onShare },
               { label: "Clone deck", icon: "⎘", onClick: onClone },
               { label: "Export .txt", icon: "↓", onClick: onExport },
               ...(locked ? [] : [{ label: textEditOpen ? "Hide text editor" : "Edit as text", icon: "✎", onClick: () => setTextEditOpen((o) => !o) }]),
-              { label: "Wizard", icon: "✨", onClick: () => setMode("wizard") },
-              { label: locked ? "Unlock deck" : "Lock deck (view only)", icon: locked ? "🔓" : "🔒", onClick: () => setLocked((l) => !l) },
+              { label: "Wizard", icon: <SparkleIcon />, onClick: () => setMode("wizard") },
+              { label: locked ? "Unlock deck" : "Lock deck (view only)", icon: locked ? <UnlockIcon /> : <LockIcon />, onClick: () => setLocked((l) => !l) },
             ]} />
           </div>
         </div>
@@ -801,28 +802,28 @@ export default function DeckView({
                 <p className="muted">Add cards any way you like — every option is one click away.</p>
                 <div className="empty-actions">
                   <button className="empty-action" onClick={() => setImportOpen("paste")}>
-                    <span className="empty-action-ico">📋</span>
+                    <span className="empty-action-ico"><ListIcon size={18} /></span>
                     <span className="empty-action-txt">
                       <span className="empty-action-t">Paste a decklist</span>
                       <span className="empty-action-d">From Arena, Moxfield, Archidekt, or any text export</span>
                     </span>
                   </button>
                   <button className="empty-action" onClick={() => setImportOpen("url")}>
-                    <span className="empty-action-ico">🔗</span>
+                    <span className="empty-action-ico"><LinkIcon size={18} /></span>
                     <span className="empty-action-txt">
                       <span className="empty-action-t">Import from URL</span>
                       <span className="empty-action-d">Moxfield or Archidekt deck link</span>
                     </span>
                   </button>
                   <button className="empty-action" onClick={toggleSearch}>
-                    <span className="empty-action-ico">🔍</span>
+                    <span className="empty-action-ico"><SearchIcon size={18} /></span>
                     <span className="empty-action-txt">
                       <span className="empty-action-t">Search for cards</span>
                       <span className="empty-action-d">Build card-by-card with search &amp; filters</span>
                     </span>
                   </button>
                   <button className="empty-action" onClick={() => setMode("wizard")}>
-                    <span className="empty-action-ico">✨</span>
+                    <span className="empty-action-ico"><SparkleIcon size={18} /></span>
                     <span className="empty-action-txt">
                       <span className="empty-action-t">Guided build</span>
                       <span className="empty-action-d">Pick a commander — AI helps fill each category</span>

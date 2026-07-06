@@ -919,6 +919,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   position: relative; display: flex; gap: 1.25rem;
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg); padding: 1.25rem; max-width: 760px; width: 100%; max-height: 88vh;
+  transition: transform .2s ease;
 }
 .cdm-handle { display: none; }
 .cdm-close {
@@ -972,7 +973,7 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
     border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: .5rem 1rem 1.25rem;
     animation: cdmSheetUp .25s ease-out;
   }
-  .cdm-handle { display: block; width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); margin: .15rem auto .2rem; }
+  .cdm-handle { display: block; width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); margin: .15rem auto .2rem; touch-action: none; }
   .cdm-art { width: 56%; max-width: 200px; align-self: center; }
   .cdm-body { padding-right: 0; }
   .cdm-actions { margin-top: .4rem; }
@@ -1114,6 +1115,9 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .pw-chips {
   display: flex; gap: .35rem; padding: .4rem .6rem 0; flex: none;
   overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  /* scrollbar is hidden — fade the trailing edge so the row still reads as scrollable */
+  mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
 }
 .pw-chips::-webkit-scrollbar { display: none; }
 .pw-chip {
@@ -1631,10 +1635,12 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 .landing-sec-name { font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
 .landing-sec-sub { font-size: 10px; color: var(--muted); }
 
-/* URL inline import bar */
+/* URL inline import bar — right margin keeps it clear of the always-on
+   Planeswalker FAB (fixed bottom:4.5rem right:1rem, 46px), which otherwise
+   sits on top of the Import button at common mobile viewport heights */
 .landing-url-bar {
   background: var(--bg-raised); border: 1px solid var(--border); border-radius: 10px;
-  padding: 8px 10px; display: flex; gap: 8px; align-items: center; margin-bottom: 10px;
+  padding: 8px 10px; display: flex; gap: 8px; align-items: center; margin: 0 4.5rem 10px 0;
 }
 .landing-url-input {
   flex: 1; background: transparent; border: none; color: var(--text);
@@ -2664,7 +2670,11 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
   .url-import-inline { display: none; }
   .feature-strip { display: none; }
   /* Rules Q&A mobile */
-  .rules-chips { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .rules-chips {
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+  }
   .rules-chips::-webkit-scrollbar { display: none; }
   .rules-chips button { white-space: nowrap; flex: none; }
   .rules-input-row input { border-color: rgba(201,138,58,.4); border-radius: 20px; }
@@ -2717,6 +2727,7 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .empty-action-ico {
   width: 36px; height: 36px; flex: none; display: grid; place-items: center;
   background: var(--panel-2); border-radius: var(--radius); font-size: 1rem;
+  color: var(--accent);
 }
 .empty-action-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .empty-action-t { font-weight: 600; font-size: .85rem; }

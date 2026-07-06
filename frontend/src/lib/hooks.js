@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { getCardImage } from "./api";
 
 const HOVER_QUERY = "(hover: hover) and (pointer: fine)";
@@ -42,6 +42,47 @@ export function useEscapeKey(active, onEscape) {
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [active, onEscape]);
+}
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+// Modal focus management: when `active`, moves focus into the returned ref's
+// element, traps Tab/Shift+Tab within it, and restores focus to the previously
+// focused element (the trigger) on close. Attach the ref to the dialog panel
+// and give it tabIndex={-1} so it can hold focus when it has no focusable child.
+export function useFocusTrap(active) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!active) return;
+    const node = ref.current;
+    if (!node) return;
+    const prevFocus = document.activeElement;
+    (node.querySelector(FOCUSABLE) || node).focus();
+
+    function onKey(e) {
+      if (e.key !== "Tab") return;
+      const items = Array.from(node.querySelectorAll(FOCUSABLE));
+      if (items.length === 0) { e.preventDefault(); return; }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const cur = document.activeElement;
+      if (e.shiftKey && (cur === first || !node.contains(cur))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (cur === last || !node.contains(cur))) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    node.addEventListener("keydown", onKey);
+    return () => {
+      node.removeEventListener("keydown", onKey);
+      if (prevFocus && typeof prevFocus.focus === "function") prevFocus.focus();
+    };
+  }, [active]);
+  return ref;
 }
 
 export function downloadFile(filename, text, type = "text/plain") {

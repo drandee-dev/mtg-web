@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
-import { useCardImage, useEscapeKey } from "../../lib/hooks";
+import { useCardImage, useEscapeKey, useFocusTrap } from "../../lib/hooks";
 import ManaCost from "./ManaCost";
 
 // Scryfall exact-name search redirects to the card's page (which has a Rulings tab).
@@ -30,6 +30,29 @@ export default function CardDetailModal({
   const [showBack, setShowBack] = useState(false);
   const [prints, setPrints] = useState(null); // null=closed, "loading", or array
   useEscapeKey(Boolean(name), onClose);
+  const panelRef = useFocusTrap(Boolean(name));
+
+  // Mobile bottom-sheet swipe-to-dismiss — drag handle only (CSS hides it on
+  // desktop, so these touches simply never fire there). dragY drives a live
+  // transform; releasing past the threshold closes, otherwise it snaps back.
+  const [dragY, setDragY] = useState(0);
+  const drag = useRef({ active: false, startY: 0 });
+  const DISMISS_THRESHOLD = 90;
+
+  function onHandleTouchStart(e) {
+    drag.current = { active: true, startY: e.touches[0].clientY };
+  }
+  function onHandleTouchMove(e) {
+    if (!drag.current.active) return;
+    const delta = e.touches[0].clientY - drag.current.startY;
+    if (delta > 0) setDragY(delta);
+  }
+  function onHandleTouchEnd() {
+    if (!drag.current.active) return;
+    drag.current.active = false;
+    if (dragY > DISMISS_THRESHOLD) onClose();
+    else setDragY(0);
+  }
 
   // "Ask a rules question" → Rules tab, prefilled with this card. Window event
   // (same pattern as mtgweb:optlog) — the modal opens from too many surfaces
@@ -60,6 +83,7 @@ export default function CardDetailModal({
   useEffect(() => {
     setShowBack(false); // eslint-disable-line react-hooks/set-state-in-effect
     setPrints(null);
+    setDragY(0);
   }, [name]);
 
   if (!name) return null;
@@ -112,9 +136,24 @@ export default function CardDetailModal({
   const typeLine = showBack && hasBack ? (data?.back_type_line || data?.type_line) : data?.type_line;
 
   return (
-    <div className="cdm-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={name}>
-      <div className="cdm-panel" onClick={(e) => e.stopPropagation()}>
-        <div className="cdm-handle" />
+    <div className="cdm-overlay" onClick={onClose}>
+      <div
+        className="cdm-panel"
+        ref={panelRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label={name}
+        onClick={(e) => e.stopPropagation()}
+        style={dragY ? { transform: `translateY(${dragY}px)`, transition: "none" } : undefined}
+      >
+        <div
+          className="cdm-handle"
+          onTouchStart={onHandleTouchStart}
+          onTouchMove={onHandleTouchMove}
+          onTouchEnd={onHandleTouchEnd}
+          onTouchCancel={onHandleTouchEnd}
+        />
         <button className="cdm-close" onClick={onClose} aria-label="Close">✕</button>
 
         <div className="cdm-art">
