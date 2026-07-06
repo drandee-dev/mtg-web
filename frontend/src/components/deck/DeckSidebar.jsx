@@ -24,7 +24,7 @@ export default function DeckSidebar({
   goalSuggestion, onAcceptGoalSuggestion, onDismissGoalSuggestion,
   optimize, optimizing, onRunOptimize, optGapCount, optDecided,
   onApplyChange, onSkipChange, optLog, onUndoChange, onClearLog,
-  onGapChip, section,
+  onGapChip, onOverBudget, section,
 }) {
   // Hub tabs render this sidebar twice via portals: the Optimize tab shows the
   // goal-driven surface, the Stats tab the insights toolbox. Desktop renders both.
@@ -56,6 +56,7 @@ export default function DeckSidebar({
             goals={goals}
             onGapChip={onGapChip}
             optimizing={optimizing}
+            onOverBudget={onOverBudget}
           />
 
           {/* Optimize queue — goal-aware changeset with Apply/Skip + session log */}

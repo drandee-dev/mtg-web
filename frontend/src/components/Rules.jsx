@@ -9,18 +9,29 @@ const CHIPS = [
   "Commander damage rules",
 ];
 
-export default function Rules({ aiAvailable, notify }) {
+export default function Rules({ aiAvailable, notify, prefill, onPrefillConsumed }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [streamText, setStreamText] = useState("");
   const threadRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     if (threadRef.current) {
       threadRef.current.scrollTop = threadRef.current.scrollHeight;
     }
   }, [messages, streamText]);
+
+  // Card-modal handoff: arrive with the card queued in the input (editable,
+  // not auto-submitted — the user finishes the question). Consuming clears it
+  // in App so a later manual visit to this tab doesn't replay a stale card.
+  useEffect(() => {
+    if (!prefill?.name) return;
+    setInput(`How does ${prefill.name} work? `);
+    inputRef.current?.focus();
+    onPrefillConsumed?.();
+  }, [prefill, onPrefillConsumed]);
 
   async function submit(text) {
     const question = (text || input).trim();
@@ -159,6 +170,7 @@ export default function Rules({ aiAvailable, notify }) {
       <div className="rules-input-bar">
         <div className="rules-input-row">
           <input
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}

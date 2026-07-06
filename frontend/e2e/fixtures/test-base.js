@@ -8,6 +8,12 @@ import { mockBackend } from "./mock-backend.js";
 export const test = base.extend({
   page: async ({ page }, use) => {
     await mockBackend(page);
+    // Pre-mark one-time activation nudges as seen so they don't perturb
+    // unrelated specs/visual baselines. The activation-flows spec clears
+    // these keys itself to exercise the nudges.
+    await page.addInitScript(() => {
+      try { localStorage.setItem("mtgweb:pwseen", "1"); } catch { /* ignore */ }
+    });
     await use(page);
   },
 });

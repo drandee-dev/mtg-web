@@ -6,12 +6,17 @@ import { sanitizeHtml } from "../../lib/sanitize";
 // pass for that category (wired through DeckView's runOptimize).
 export default function AssessmentPanel({
   result, strategy, strategyLoading, comp, goals, onGapChip, optimizing,
+  onOverBudget,
 }) {
   const detected = result?.bracket?.bracket ?? null;
   const target = goals?.bracketTarget ?? null;
   const thin = comp?.categories?.filter((c) => c.status === "thin") || [];
   const hasMeter = detected != null || target != null;
-  if (!hasMeter && !thin.length && !strategy && !strategyLoading) return null;
+  // Over budget vs the user's declared ceiling → one-tap route to Budget swaps.
+  const price = result?.breakdown?.price_usd ?? null;
+  const ceiling = goals?.budgetCeiling ?? null;
+  const overBy = price != null && ceiling != null && price > ceiling ? price - ceiling : 0;
+  if (!hasMeter && !thin.length && !strategy && !strategyLoading && !overBy) return null;
 
   return (
     <div className="sidebar-section asmt">
@@ -47,6 +52,18 @@ export default function AssessmentPanel({
           className="asmt-strategy"
           dangerouslySetInnerHTML={{ __html: sanitizeHtml(strategy.strategy) }}
         />
+      )}
+
+      {overBy > 0 && (
+        <button
+          className="asmt-chip asmt-chip-budget"
+          disabled={!onOverBudget}
+          onClick={() => onOverBudget?.()}
+          title="Open Budget swaps to bring the price down"
+        >
+          <span className="asmt-chip-label">💸 ${Math.round(overBy)} over your ${Math.round(ceiling)} budget</span>
+          <span className="asmt-chip-count">swaps →</span>
+        </button>
       )}
 
       {thin.length > 0 && (

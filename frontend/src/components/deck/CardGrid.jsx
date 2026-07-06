@@ -561,6 +561,20 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
         </div>
       )}
 
+      {/* Considering zero-state — the column only exists once it has cards, so
+          give the feature an entry point: AI seeds the first few candidates. */}
+      {viewMode !== "stack" && consideringCards.length === 0 && totalCards > 0 && onSuggestConsiderations && (
+        <div className="considering-zero">
+          <span className="considering-star" aria-hidden="true">☆</span>
+          <span className="considering-zero-text">
+            <strong>Considering</strong> — park cards you're not sure about, Archidekt-style.
+          </span>
+          <button className="ghost small" disabled={suggesting} onClick={onSuggestConsiderations}>
+            {suggesting ? "Suggesting…" : "✨ Suggest cards"}
+          </button>
+        </div>
+      )}
+
       {totalCards === 0 && (
         <p className="muted" style={{ textAlign: "center", padding: "2rem 0" }}>
           No cards yet — use Quick add or Card search in the toolbar above to add cards.

@@ -113,6 +113,25 @@ export default function DeckView({
     return () => clearTimeout(debounceRef.current);
   }, [decklist, commander, format]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Playtest-on-complete — the moment the count first hits its target is the
+  // moment playtesting becomes meaningful. Fires only on the incomplete →
+  // complete transition (not on opening an already-complete deck), once per
+  // deck ever (localStorage), with a one-tap Playtest action on the toast.
+  const completeRef = useRef({ deckId: undefined, isGood: null });
+  useEffect(() => {
+    const total = parseDeckText(decklist).totalCards;
+    const isGood = deckCompleteness(total, commander, format).status === "good";
+    const prev = completeRef.current;
+    completeRef.current = { deckId, isGood };
+    if (prev.deckId !== deckId || prev.isGood === isGood || !isGood) return;
+    const key = `mtgweb:playtestnudge:${deckId || "current"}`;
+    try {
+      if (localStorage.getItem(key) === "1") return;
+      localStorage.setItem(key, "1");
+    } catch { return; }
+    notify?.("🎉 Deck complete — shuffle up an opening hand?", { label: "▶ Playtest", onClick: onPlaytest });
+  }, [decklist, commander, format, deckId, notify, onPlaytest]);
+
   async function analyze() {
     if (!decklist.trim()) return;
     setIsAnalyzing(true);
@@ -596,6 +615,12 @@ export default function DeckView({
     onUndoChange: undoOptChange,
     onClearLog: clearOptLog,
     onGapChip: runOptimize,
+    // Over-budget chip → Budget swaps, pre-set to budget mode.
+    onOverBudget: () => {
+      setUpgradeMode("budget");
+      if (budgetSwaps) { setActivePanel("Upgrades"); return; }
+      loadPanel("Upgrades", api.budgetSwaps, setBudgetSwaps);
+    },
   };
 
   return (

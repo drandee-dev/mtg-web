@@ -31,6 +31,14 @@ export default function CardDetailModal({
   const [prints, setPrints] = useState(null); // null=closed, "loading", or array
   useEscapeKey(Boolean(name), onClose);
 
+  // "Ask a rules question" → Rules tab, prefilled with this card. Window event
+  // (same pattern as mtgweb:optlog) — the modal opens from too many surfaces
+  // to prop-drill a tab switch through each one.
+  function askRules() {
+    window.dispatchEvent(new CustomEvent("mtgweb:askrules", { detail: { name } }));
+    onClose();
+  }
+
   async function togglePrints() {
     if (prints) { setPrints(null); return; }
     setPrints("loading");
@@ -142,6 +150,7 @@ export default function CardDetailModal({
                 {onChangeCommander && (
                   <button className="ghost small" onClick={() => { onChangeCommander(); onClose(); }}>Change commander</button>
                 )}
+                <button className="ghost small" onClick={askRules}>📖 Rules</button>
                 <a className="ghost small" href={scryfallUrl(name)} target="_blank" rel="noopener noreferrer">Scryfall ↗</a>
               </div>
             </>
@@ -150,6 +159,7 @@ export default function CardDetailModal({
               {onAddToDeck && (
                 <button className="primary small" onClick={() => { onAddToDeck(name); onClose(); }}>+ Add to deck</button>
               )}
+              <button className="ghost small" onClick={askRules}>📖 Rules</button>
               <a className="ghost small" href={scryfallUrl(name)} target="_blank" rel="noopener noreferrer">Scryfall ↗</a>
               {onRemove && (
                 <button className="ghost small btn-danger" onClick={() => { onRemove(name); onClose(); }}>Remove</button>
@@ -189,6 +199,7 @@ export default function CardDetailModal({
                 {onConsider && (
                   <button className="ghost small" onClick={() => { onConsider(name); onClose(); }}>Considering</button>
                 )}
+                <button className="ghost small" onClick={askRules}>📖 Rules</button>
                 <a className="ghost small" href={scryfallUrl(name)} target="_blank" rel="noopener noreferrer">Scryfall ↗</a>
                 {onRemove && (
                   <button className="ghost small btn-danger" onClick={() => { onRemove(name); onClose(); }}>Remove</button>

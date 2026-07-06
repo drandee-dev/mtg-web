@@ -168,6 +168,18 @@ export default function Planeswalker({
   const showInsights = Boolean(insightsAvailable) && isMobile;
   const hasDeck = /^\s*\d+\s+\S/m.test(decklist || "");
 
+  // First-contact badge — the FAB is unlabeled art, so until the chat has been
+  // opened once (ever), pulse a dot + "Ask why" tag when a deck is in view.
+  const [pwSeen, setPwSeen] = useState(() => {
+    try { return localStorage.getItem("mtgweb:pwseen") === "1"; } catch { return true; }
+  });
+  const showFirstContact = !pwSeen && !open && hasDeck && Boolean(insightsAvailable);
+  function markSeen() {
+    if (pwSeen) return;
+    setPwSeen(true);
+    try { localStorage.setItem("mtgweb:pwseen", "1"); } catch { /* best-effort */ }
+  }
+
   // Swap history when the active deck changes — syncing FROM localStorage.
   useEffect(() => {
     setMessages(loadHistory(storageKey)); // eslint-disable-line react-hooks/set-state-in-effect
@@ -322,10 +334,15 @@ export default function Planeswalker({
 
   return (
     <>
-      <button className="planeswalker-btn" onClick={() => setOpen(!open)}
+      <button className={`planeswalker-btn${showFirstContact ? " pw-first-contact" : ""}`}
+        onClick={() => { markSeen(); setOpen(!open); }}
         aria-label={open ? "Close Planeswalker assistant" : "Open Planeswalker assistant"}>
         {open ? "✕" : <img src={chibiArt} alt="" className="pw-chibi" />}
+        {showFirstContact && <span className="pw-fc-dot" aria-hidden="true" />}
       </button>
+      {showFirstContact && (
+        <span className="pw-fc-tag" aria-hidden="true">Ask why ✨</span>
+      )}
 
       {open && (
         <div className={`planeswalker-panel${expanded ? " pw-expanded" : ""}${bigText ? " pw-textlg" : ""}`}>

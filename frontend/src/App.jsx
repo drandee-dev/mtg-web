@@ -210,9 +210,13 @@ export default function App() {
 
   const aiAvailable = serverAi || Boolean(localStorage.getItem("mtgweb:anthropicKey"));
 
-  const notify = useCallback((msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(""), 3500);
+  // Toasts optionally carry one action ("Saved. [Share]"). Action toasts stay
+  // up longer; a new toast replaces the pending dismiss timer.
+  const toastTimer = useRef(null);
+  const notify = useCallback((msg, action) => {
+    setToast(msg ? { text: msg, action: action || null } : "");
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(""), action ? 6500 : 3500);
   }, []);
 
   useEffect(() => {
@@ -293,13 +297,28 @@ export default function App() {
 
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [userId]);
 
+  const shareDeck = useCallback(() => {
+    const full = assembleDecklist(deckText, commander);
+    if (!full.trim()) return notify("No deck to share.");
+    const encoded = _b64encode(full);
+    const params = new URLSearchParams({ deck: encoded, fmt: format });
+    if (commander) params.set("cmd", commander);
+    const url = `${window.location.origin}${window.location.pathname}?${params}`;
+    navigator.clipboard.writeText(url).then(
+      () => notify("Share link copied to clipboard!"),
+      () => notify("Couldn't copy — check browser permissions."),
+    );
+  }, [deckText, commander, format, notify]);
+
   const saveDeck = useCallback(async (deck) => {
     const saved = await store.save(deck);
     await refresh();
     savedDeckText.current = deckText;
-    notify("Saved.");
+    // Share-after-save: the moment a deck is saved is the moment sharing it
+    // becomes meaningful — offer it right on the toast.
+    notify("Saved.", { label: "🔗 Share link", onClick: shareDeck });
     return saved;
-  }, [store, refresh, notify, deckText]);
+  }, [store, refresh, notify, deckText, shareDeck]);
 
   // Auto-save a brand-new deck the moment it has an identity: opened from a
   // share link, or the first time a commander is chosen. Dedup by content so
@@ -320,8 +339,8 @@ export default function App() {
     await refresh();
     savedDeckText.current = deckText;
     setCurrentDeck({ id: saved.id, name: saved.name });
-    notify(`Saved as "${saved.name}".`);
-  }, [deckText, commander, maybeboard, format, store, refresh, notify]);
+    notify(`Saved as "${saved.name}".`, { label: "🔗 Share link", onClick: shareDeck });
+  }, [deckText, commander, maybeboard, format, store, refresh, notify, shareDeck]);
 
   useEffect(() => {
     // Wait for the Supabase session check to resolve first — otherwise a
@@ -412,18 +431,19 @@ export default function App() {
     setDeckText((prev) => `${prev.replace(/\s*$/, "")}\n1 ${name}`);
   }, []);
 
-  const shareDeck = useCallback(() => {
-    const full = assembleDecklist(deckText, commander);
-    if (!full.trim()) return notify("No deck to share.");
-    const encoded = _b64encode(full);
-    const params = new URLSearchParams({ deck: encoded, fmt: format });
-    if (commander) params.set("cmd", commander);
-    const url = `${window.location.origin}${window.location.pathname}?${params}`;
-    navigator.clipboard.writeText(url).then(
-      () => notify("Share link copied to clipboard!"),
-      () => notify("Couldn't copy — check browser permissions."),
-    );
-  }, [deckText, commander, format, notify]);
+  // Card modal "Rules" action → switch to the Rules tab with the card queued
+  // up. `ts` makes repeat asks about the same card re-trigger Rules' effect.
+  const [rulesPrefill, setRulesPrefill] = useState(null);
+  useEffect(() => {
+    const onAsk = (e) => {
+      const name = e.detail?.name;
+      if (!name) return;
+      setRulesPrefill({ name, ts: Date.now() });
+      setTab("rules");
+    };
+    window.addEventListener("mtgweb:askrules", onAsk);
+    return () => window.removeEventListener("mtgweb:askrules", onAsk);
+  }, []);
 
   return (
     <div className={tab === "deck" && !playtesting ? "app app-deckview" : "app"}>
@@ -518,7 +538,14 @@ export default function App() {
             onOpenAccount={supabaseEnabled ? () => setSettingsOpen(true) : null}
           />
         )}
-        {tab === "rules" && <Rules aiAvailable={aiAvailable} notify={notify} />}
+        {tab === "rules" && (
+          <Rules
+            aiAvailable={aiAvailable}
+            notify={notify}
+            prefill={rulesPrefill}
+            onPrefillConsumed={() => setRulesPrefill(null)}
+          />
+        )}
         {tab === "cards" && <CardSearch addCard={addCardToDecklist} notify={notify} />}
       </main>
 
@@ -547,7 +574,19 @@ export default function App() {
         </div>
       )}
       {showPasswordReset && <PasswordResetModal onDone={() => setShowPasswordReset(false)} notify={notify} />}
-      {toast && <div className="toast" role="status" aria-live="polite">{toast}</div>}
+      {toast && (
+        <div className="toast" role="status" aria-live="polite">
+          {toast.text}
+          {toast.action && (
+            <button
+              className="toast-action"
+              onClick={() => { clearTimeout(toastTimer.current); setToast(""); toast.action.onClick(); }}
+            >
+              {toast.action.label}
+            </button>
+          )}
+        </div>
+      )}
       <BottomNav tabs={TABS} tab={tab} setTab={setTab} />
       <Planeswalker
         decklist={deckText}
