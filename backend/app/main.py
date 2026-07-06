@@ -805,6 +805,58 @@ def card_prints(
     return mtg.card_prints(name)
 
 
+@app.get("/api/sets")
+def set_search(
+    response: Response,
+    q: Annotated[str, Query(description="Set name or code fragment", max_length=50)] = "",
+) -> dict:
+    """Search the Scryfall set directory — powers the mass-art set picker."""
+    response.headers["Cache-Control"] = "public, s-maxage=86400, stale-while-revalidate=86400"
+    return mtg.set_directory(q)
+
+
+_VALID_RARITIES = {"common", "uncommon", "rare", "mythic"}
+
+
+class MassPrintingPayload(BaseModel):
+    """Mass art change: match every deck card to a printing in the target sets/rarity."""
+
+    names: list[str] = Field(min_length=1, max_length=300)
+    sets: list[str] = Field(default_factory=list, max_length=10)
+    rarity: str | None = None
+
+    @field_validator("names")
+    @classmethod
+    def names_must_be_sane(cls, v: list[str]) -> list[str]:
+        out = [n.strip() for n in v if n.strip()]
+        if not out or any(len(n) > _MAX_CARD_NAME_LEN for n in out):
+            raise ValueError("card names must be 1-100 characters")
+        return out
+
+    @field_validator("sets")
+    @classmethod
+    def sets_must_be_codes(cls, v: list[str]) -> list[str]:
+        out = [s.strip().lower() for s in v if s.strip()]
+        if any(not _SET_CODE_RE.match(s) for s in out):
+            raise ValueError("invalid set code")
+        return out
+
+    @field_validator("rarity")
+    @classmethod
+    def rarity_must_be_valid(cls, v: str | None) -> str | None:
+        if v is not None and v not in _VALID_RARITIES:
+            raise ValueError(f"rarity must be one of {_VALID_RARITIES}")
+        return v
+
+
+@app.post("/api/cards/mass-printing")
+def mass_printing(payload: MassPrintingPayload) -> dict:
+    """Match deck cards to printings in the requested sets and/or rarity."""
+    if not payload.sets and not payload.rarity:
+        raise HTTPException(400, "Provide at least one set or a rarity.")
+    return mtg.mass_printings(payload.names, payload.sets, payload.rarity)
+
+
 @app.get("/api/cards/printing")
 def card_printing(
     response: Response,

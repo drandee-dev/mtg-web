@@ -7,6 +7,7 @@ import CardGrid from "./CardGrid";
 import CardTypeahead from "./CardTypeahead";
 import DeckSidebar from "./DeckSidebar";
 import ImportCardsModal from "./ImportCardsModal";
+import MassArtModal from "./MassArtModal";
 import MoreMenu from "./MoreMenu";
 import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderDisplay, setCommanderPrinting } from "../../lib/deckParser";
 import { goalsToApi } from "../../lib/goals";
@@ -29,6 +30,7 @@ export default function DeckView({
     }
   }, [startInWizard, onWizardConsumed]);
   const [importOpen, setImportOpen] = useState(null); // null | "paste" | "url"
+  const [massArtOpen, setMassArtOpen] = useState(false);
   const [pendingImport, setPendingImport] = useState(null); // URL import awaiting replace-confirm
   const [titleEdit, setTitleEdit] = useState(null); // null | in-progress rename text
 
@@ -386,6 +388,47 @@ export default function DeckView({
   const apiGoals = goalsToApi(goals);
   const deckCardNames = parsedDeck.cards.map((c) => c.name);
 
+  // Mass art change — the commander participates like any other card.
+  const deckCommanders = splitCommanders(commander);
+  const massArtNames = [...deckCommanders.map((c) => c.name), ...deckCardNames];
+  const artPinCount =
+    parsedDeck.cards.filter((c) => c.printing).length +
+    deckCommanders.filter((c) => c.printing).length;
+
+  function applyMassArt(matches) {
+    let text = decklist;
+    let cmdr = commander;
+    let n = 0;
+    for (const m of matches) {
+      const printing = { set: m.set, cn: m.cn };
+      const cm = deckCommanders.find((c) => c.name.toLowerCase() === m.name.toLowerCase());
+      if (cm) {
+        cmdr = setCommanderPrinting(cmdr, cm.name, printing);
+        n++;
+        continue;
+      }
+      const next = setPrintingInText(text, m.name, printing);
+      if (next !== text) { text = next; n++; }
+    }
+    if (text !== decklist) setDecklist(text);
+    if (cmdr !== commander) setCommander(cmdr);
+    notify(`🎨 Changed art on ${n} card${n === 1 ? "" : "s"}`);
+  }
+
+  function clearAllArtPins() {
+    let text = decklist;
+    for (const c of parsedDeck.cards) {
+      if (c.printing) text = setPrintingInText(text, c.name, null);
+    }
+    let cmdr = commander;
+    for (const c of deckCommanders) {
+      if (c.printing) cmdr = setCommanderPrinting(cmdr, c.name, null);
+    }
+    if (text !== decklist) setDecklist(text);
+    if (cmdr !== commander) setCommander(cmdr);
+    notify("Art reset to default printings");
+  }
+
   // Suggested goals — cold-start nudge. Once analysis knows the deck's reality
   // (detected bracket, total price), offer it as a starting goal set. User
   // confirms via the banner; never silently applied. Dismissal persists per deck.
@@ -558,6 +601,7 @@ export default function DeckView({
           <MoreMenu items={[
             ...(locked ? [] : [{ label: "Import cards", icon: "⤓", onClick: () => setImportOpen("paste") }]),
             ...(!locked && onRenameDeck ? [{ label: "Rename deck", icon: "✎", onClick: renameDeck }] : []),
+            ...(locked ? [] : [{ label: "Mass change art", icon: "🎨", onClick: () => setMassArtOpen(true) }]),
             { label: "Share link", icon: "🔗", onClick: onShare },
             { label: "Clone deck", icon: "⎘", onClick: onClone },
             { label: "Export .txt", icon: "↓", onClick: onExport },
@@ -634,6 +678,7 @@ export default function DeckView({
             </button>
             <MoreMenu items={[
               ...(!locked && onRenameDeck ? [{ label: "Rename deck", icon: "✎", onClick: renameDeck }] : []),
+              ...(locked ? [] : [{ label: "Mass change art", icon: "🎨", onClick: () => setMassArtOpen(true) }]),
               { label: "Share link", icon: "🔗", onClick: onShare },
               { label: "Clone deck", icon: "⎘", onClick: onClone },
               { label: "Export .txt", icon: "↓", onClick: onExport },
@@ -785,6 +830,15 @@ export default function DeckView({
         onClose={() => setImportOpen(null)}
         onImportText={handleImportText}
         onImportUrl={handleImportUrl}
+      />
+
+      <MassArtModal
+        open={massArtOpen}
+        onClose={() => setMassArtOpen(false)}
+        names={massArtNames}
+        onApply={applyMassArt}
+        onClearPins={clearAllArtPins}
+        pinnedCount={artPinCount}
       />
 
       {/* URL import replaces the whole deck — confirm when the deck isn't empty */}

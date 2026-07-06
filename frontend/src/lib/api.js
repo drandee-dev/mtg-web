@@ -98,6 +98,9 @@ export const api = {
   cardImage: (name) => get("/api/cards/image", { name }),
   cardPrints: (name) => get("/api/cards/prints", { name }),
   cardPrinting: (set, cn) => get("/api/cards/printing", { set, cn }),
+  setSearch: (q) => get("/api/sets", { q }),
+  massPrinting: (names, sets, rarity) =>
+    post("/api/cards/mass-printing", { names, sets, ...(rarity ? { rarity } : {}) }),
   wizardSkeleton: (commander, format, bracket) =>
     post("/api/deck/wizard/skeleton", { commander, format, ...(bracket != null ? { bracket } : {}) }),
   wizardNarrate: (commander, category, card_names, decklist) =>

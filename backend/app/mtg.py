@@ -241,6 +241,145 @@ def card_printing_image(set_code: str, cn: str) -> dict[str, Any]:
     return out
 
 
+# Set directory + mass-printing matcher — powers "apply this set's art to the
+# whole deck". Names are batched into Scryfall exact-name OR-queries so a
+# 100-card deck costs ~8 requests, not 100.
+_SETS_CACHE: dict[str, Any] = {}
+_MASS_CHUNK = 15
+_MASS_MAX_PAGES = 4
+
+
+def set_directory(q: str) -> dict[str, Any]:
+    """Search the Scryfall set list by name/code (cached per instance)."""
+    import requests as req
+
+    if "sets" not in _SETS_CACHE:
+        resp = req.get(
+            "https://api.scryfall.com/sets",
+            headers={"User-Agent": "MTGWorkshop/1.0"},
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            return {"sets": []}
+        _SETS_CACHE["sets"] = [
+            {
+                "code": (s.get("code") or "").upper(),
+                "name": s.get("name", ""),
+                "released": s.get("released_at", ""),
+                "card_count": s.get("card_count", 0),
+                "set_type": s.get("set_type", ""),
+            }
+            for s in resp.json().get("data", [])
+            if not s.get("digital") and s.get("card_count", 0) > 0
+        ]
+    ql = (q or "").strip().lower()
+    sets = _SETS_CACHE["sets"]
+    if not ql:
+        return {"sets": sets[:20]}
+    # Code matches first (exact then prefix), then name substring — newest first
+    # within each tier (the list arrives newest-first from Scryfall).
+    exact = [s for s in sets if s["code"].lower() == ql]
+    prefix = [s for s in sets if s["code"].lower().startswith(ql) and s not in exact]
+    named = [s for s in sets if ql in s["name"].lower() and s not in exact and s not in prefix]
+    return {"sets": (exact + prefix + named)[:20]}
+
+
+def mass_printings(names: list[str], sets: list[str], rarity: str | None) -> dict[str, Any]:
+    """Find one printing per card matching the target sets and/or rarity.
+
+    Set order is priority order (first listed wins when a card appears in
+    several); ties resolve to the newest release. Returns matches keyed by the
+    caller's own name strings so deck lines can be rewritten directly.
+    """
+    import time
+
+    import requests as req
+
+    idx = _bulk_index()
+    seen: set[str] = set()
+    uniq: list[str] = []
+    for n in names:
+        rec = idx.get(n)
+        canon = rec.get("name") if rec else n
+        if canon.lower() not in seen:
+            seen.add(canon.lower())
+            uniq.append(canon)
+
+    set_order = {s.lower(): i for i, s in enumerate(sets)}
+    filt = ""
+    if sets:
+        filt += " (" + " or ".join(f"e:{s.lower()}" for s in sets) + ")"
+    if rarity:
+        filt += f" r:{rarity}"
+
+    # Chunk exact-name clauses to stay well under Scryfall's query length cap.
+    chunks: list[list[str]] = []
+    cur: list[str] = []
+    cur_len = 0
+    for n in uniq:
+        clause_len = len(n) + 8
+        if cur and (len(cur) >= _MASS_CHUNK or cur_len + clause_len > 700):
+            chunks.append(cur)
+            cur, cur_len = [], 0
+        cur.append(n)
+        cur_len += clause_len
+    if cur:
+        chunks.append(cur)
+
+    best: dict[str, dict] = {}  # lowercased (face) name -> chosen print
+    for chunk in chunks:
+        safe = [n.replace('"', "") for n in chunk]
+        query = "(" + " or ".join(f'!"{n}"' for n in safe) + ")" + filt
+        url = "https://api.scryfall.com/cards/search"
+        params: dict[str, str] | None = {
+            "q": query, "unique": "prints", "order": "released", "dir": "desc",
+        }
+        pages = 0
+        while url and pages < _MASS_MAX_PAGES:
+            resp = req.get(url, params=params, headers={"User-Agent": "MTGWorkshop/1.0"}, timeout=15)
+            if resp.status_code != 200:  # 404 = no cards in this chunk match the filter
+                break
+            body = resp.json()
+            for c in body.get("data", []):
+                if c.get("digital"):
+                    continue
+                cname = c.get("name", "")
+                entry = {
+                    "name": cname,
+                    "set": (c.get("set") or "").upper(),
+                    "set_name": c.get("set_name", ""),
+                    "cn": c.get("collector_number", ""),
+                    "released": c.get("released_at", ""),
+                    "rarity": (c.get("rarity") or "").lower(),
+                    "thumb": _image_from_record(c, "small"),
+                    "price_usd": extract_price(c),
+                }
+                rank = set_order.get(entry["set"].lower(), 99)
+                keys = {cname.lower()}
+                if "//" in cname:  # DFCs match by front face too
+                    keys.add(cname.split("//")[0].strip().lower())
+                for k in keys:
+                    prev = best.get(k)
+                    # dir=desc → first-seen wins ties, i.e. the newest release.
+                    if prev is None or rank < prev["_rank"]:
+                        best[k] = {**entry, "_rank": rank}
+            url = body.get("next_page") if body.get("has_more") else None
+            params = None  # next_page carries the full query string
+            pages += 1
+            time.sleep(0.08)  # Scryfall asks for 50-100ms between requests
+
+    matches, unmatched = [], []
+    for n in uniq:
+        hit = best.get(n.lower())
+        if hit:
+            m = {k: v for k, v in hit.items() if k != "_rank"}
+            m["name"] = n  # the deck's own key, so lines rewrite cleanly
+            matches.append(m)
+        else:
+            unmatched.append(n)
+    return {"matches": matches, "unmatched": unmatched}
+
+
 # --------------------------------------------------------------------------- #
 # Rules lookup (rules-lawyer core)
 # --------------------------------------------------------------------------- #
