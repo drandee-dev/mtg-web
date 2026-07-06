@@ -12,10 +12,11 @@ import InsightsPanel from "./InsightsPanel";
 // of the toolbox instead of expanding mid-stack.
 export default function DeckSidebar({
   result, isAnalyzing,
-  activePanel, onPanelClick, onRefreshPanel, busy,
-  recs, recCat, setRecCat, skipped, onSkip, onAddCard,
+  activePanel, onPanelClick, onRefreshPanel, busy, stalePanels,
+  recs, recCat, setRecCat, skipped, onSkip, onClearSkipped, onAddCard,
+  pinned, onTogglePin,
   combos, comp, budgetSwaps, onSwapCard,
-  cuts, onRemoveCard,
+  cuts, onRemoveCard, dismissedCuts, onDismissCut, onClearDismissedCuts,
   upgrades, upgradeMode, setUpgradeMode,
   commander, format,
   strategy, strategyLoading,
@@ -88,14 +89,21 @@ export default function DeckSidebar({
           onPanelClick={onPanelClick}
           onRefreshPanel={onRefreshPanel}
           busy={busy}
+          stalePanels={stalePanels}
           recs={recs}
           recCat={recCat}
           setRecCat={setRecCat}
           skipped={skipped}
           onSkip={onSkip}
+          onClearSkipped={onClearSkipped}
+          pinned={pinned}
+          onTogglePin={onTogglePin}
           onAddCard={onAddCard}
           cuts={cuts}
           onRemoveCard={onRemoveCard}
+          dismissedCuts={dismissedCuts}
+          onDismissCut={onDismissCut}
+          onClearDismissedCuts={onClearDismissedCuts}
           combos={combos}
           budgetSwaps={budgetSwaps}
           upgrades={upgrades}

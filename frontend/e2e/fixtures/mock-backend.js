@@ -122,6 +122,17 @@ export async function mockBackend(page) {
         breakdown: { price_usd: 68.93, prices_as_of: "2026-07-01" },
       });
     }
+    if (path.endsWith("/api/deck/recommend")) {
+      return json({
+        categories: {
+          high_synergy: [
+            { name: "Lightning Bolt", synergy: 0.92, in_deck: false },
+            { name: "Rhystic Study", synergy: 0.85, in_deck: false },
+            { name: "Smothering Tithe", synergy: 0.8, in_deck: false },
+          ],
+        },
+      });
+    }
     if (path.endsWith("/api/deck/optimize")) {
       return json({
         error: false,

@@ -49,9 +49,10 @@ function statusBadge(status) {
 }
 
 export default function InsightsPanel({
-  result, activePanel, onPanelClick, onRefreshPanel, busy,
-  recs, recCat, setRecCat, skipped, onSkip, onAddCard,
-  cuts, onRemoveCard,
+  result, activePanel, onPanelClick, onRefreshPanel, busy, stalePanels,
+  recs, recCat, setRecCat, skipped, onSkip, onClearSkipped, onAddCard,
+  pinned, onTogglePin,
+  cuts, onRemoveCard, dismissedCuts, onDismissCut, onClearDismissedCuts,
   combos,
   budgetSwaps, upgrades, upgradeMode, setUpgradeMode, onSwapCard,
   commander, format,
@@ -109,6 +110,7 @@ export default function InsightsPanel({
               </span>
               <span className="insp-tab-label">{t.label}</span>
               {t.count != null && t.count > 0 && <span className="insp-tab-count">{t.count}</span>}
+              {stalePanels?.has(t.id) && <span className="insp-tab-stale" title="Deck changed since these results" aria-hidden="true" />}
             </button>
           );
         })}
@@ -118,15 +120,20 @@ export default function InsightsPanel({
         {busy === active && <LoadingIndicator label="Loading" active />}
         {busy !== active && (
           <>
-            {["Recommendations", "Cuts", "Combos"].includes(active) && onRefreshPanel && (
-              <RefreshBar onRefresh={() => onRefreshPanel(active)} />
+            {["Recommendations", "Cuts", "Combos", "Upgrades"].includes(active) && onRefreshPanel && (
+              <RefreshBar onRefresh={() => onRefreshPanel(active)} stale={stalePanels?.has(active)} />
             )}
             {active === "Analytics" && <AnalyticsPane result={result} format={format} />}
             {active === "Recommendations" && (
               <SuggestPane recs={recs} recCat={recCat} setRecCat={setRecCat}
-                skipped={skipped} onSkip={onSkip} onAddCard={onAddCard} />
+                skipped={skipped} onSkip={onSkip} onClearSkipped={onClearSkipped}
+                pinned={pinned} onTogglePin={onTogglePin} onAddCard={onAddCard} />
             )}
-            {active === "Cuts" && <CutsPane cuts={cuts} onRemoveCard={onRemoveCard} />}
+            {active === "Cuts" && (
+              <CutsPane cuts={cuts} onRemoveCard={onRemoveCard}
+                dismissedCuts={dismissedCuts} onDismissCut={onDismissCut}
+                onClearDismissedCuts={onClearDismissedCuts} />
+            )}
             {active === "Combos" && <CombosPane combos={combos} onAddCard={onAddCard} />}
             {active === "Upgrades" && (
               <UpgradesPane budgetSwaps={budgetSwaps} upgrades={upgrades}
@@ -142,12 +149,15 @@ export default function InsightsPanel({
   );
 }
 
-// Loaded results are cached across tab switches (Cuts is a paid AI call) —
-// this is the explicit "get fresh results after editing the deck" action.
-function RefreshBar({ onRefresh }) {
+// Loaded results are cached across tab switches AND persisted across screens/
+// reloads (Cuts is a paid AI call) — this is the explicit "get fresh results
+// after editing the deck" action. `stale` = the deck's card list has changed
+// since these results were generated; nothing re-runs without this click.
+function RefreshBar({ onRefresh, stale }) {
   return (
     <div className="insp-pane-bar">
-      <button className="insp-act insp-refresh" onClick={onRefresh}>
+      {stale && <span className="insp-stale-badge">Deck changed</span>}
+      <button className={`insp-act insp-refresh${stale ? " insp-refresh-hot" : ""}`} onClick={onRefresh}>
         <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor"
           strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 3v6h-6" />
@@ -302,51 +312,111 @@ function Stat({ k, v, title, className }) {
 
 /* ── Suggestions ───────────────────────────────────────────────────────────── */
 
-function SuggestPane({ recs, recCat, setRecCat, skipped, onSkip, onAddCard }) {
-  if (!recs?.categories || Object.keys(recs.categories).length === 0) {
+const PinIcon = ({ filled }) => (
+  <svg viewBox="0 0 24 24" width="11" height="11" fill={filled ? "currentColor" : "none"}
+    stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M9 4h6l-1 7 3 3H7l3-3-1-7z" /><path d="M12 14v6" />
+  </svg>
+);
+
+function SuggestPane({ recs, recCat, setRecCat, skipped, onSkip, onClearSkipped, pinned, onTogglePin, onAddCard }) {
+  // Pinned suggestions render above the fetched list, survive refreshes and
+  // deck edits, and clear only via unpin or landing in the deck. Synergy is
+  // looked up across categories when the pin's source list is still loaded.
+  const pinnedNames = [...(pinned || [])];
+  const synergyOf = (name) => {
+    for (const list of Object.values(recs?.categories || {})) {
+      const hit = list.find((c) => c.name === name);
+      if (hit?.synergy != null) return hit.synergy;
+    }
+    return null;
+  };
+  const hasRecs = recs?.categories && Object.keys(recs.categories).length > 0;
+  if (!hasRecs && pinnedNames.length === 0) {
     return <p className="muted small insp-empty">No suggestions available for this deck.</p>;
   }
-  const recList = (recs.categories[recCat] || []).filter((c) => !skipped.has(c.name));
+  const recList = (recs?.categories?.[recCat] || []).filter((c) => !skipped.has(c.name) && !pinned?.has(c.name));
   return (
     <>
-      <select className="insp-select" value={recCat} onChange={(e) => setRecCat(e.target.value)}>
-        {REC_CATEGORIES.filter(([k]) => recs.categories[k]?.length).map(([k, label]) => (
-          <option key={k} value={k}>{label} ({recs.categories[k].length})</option>
-        ))}
-      </select>
-      {recList.length === 0 && <p className="muted small insp-empty">Nothing left here — all added or skipped.</p>}
+      {pinnedNames.length > 0 && (
+        <div className="insp-pinned">
+          {pinnedNames.map((name) => (
+            <div key={name} className="insp-row insp-row-pinned">
+              <span className="insp-row-name"><CardPreview name={name} /></span>
+              {synergyOf(name) != null && <span className="insp-row-meta">{(synergyOf(name) * 100).toFixed(0)}%</span>}
+              <span className="insp-row-actions">
+                <button className="insp-act insp-pin on" title="Unpin" aria-label={`Unpin ${name}`}
+                  onClick={() => onTogglePin(name)}><PinIcon filled /></button>
+                <button className="insp-act insp-act-good" onClick={() => onAddCard(name)}>+ Add</button>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      {hasRecs && (
+        <select className="insp-select" value={recCat} onChange={(e) => setRecCat(e.target.value)}>
+          {REC_CATEGORIES.filter(([k]) => recs.categories[k]?.length).map(([k, label]) => (
+            <option key={k} value={k}>{label} ({recs.categories[k].length})</option>
+          ))}
+        </select>
+      )}
+      {hasRecs && recList.length === 0 && (
+        <p className="muted small insp-empty">Nothing left here — all added, pinned, or skipped.</p>
+      )}
       {recList.map((c) => (
         <div key={c.name} className={`insp-row${c.in_deck ? " insp-row-dim" : ""}`}>
           <span className="insp-row-name"><CardPreview name={c.name} /></span>
           {c.synergy != null && <span className="insp-row-meta">{(c.synergy * 100).toFixed(0)}%</span>}
           {!c.in_deck && (
             <span className="insp-row-actions">
+              <button className="insp-act insp-pin" title="Pin — keep this suggestion" aria-label={`Pin ${c.name}`}
+                onClick={() => onTogglePin(c.name)}><PinIcon /></button>
               <button className="insp-act" onClick={() => onSkip(c.name)}>Skip</button>
               <button className="insp-act insp-act-good" onClick={() => onAddCard(c.name)}>+ Add</button>
             </span>
           )}
         </div>
       ))}
+      {skipped?.size > 0 && (
+        <p className="insp-hidden-note">
+          {skipped.size} skipped
+          <button className="insp-act insp-linklike" onClick={onClearSkipped}>Show again</button>
+        </p>
+      )}
     </>
   );
 }
 
 /* ── Cuts ──────────────────────────────────────────────────────────────────── */
 
-function CutsPane({ cuts, onRemoveCard }) {
+function CutsPane({ cuts, onRemoveCard, dismissedCuts, onDismissCut, onClearDismissedCuts }) {
   if (!cuts) return null;
+  const list = (cuts.cuts || []).filter((c) => !dismissedCuts?.has(c.name));
+  const hiddenCount = (cuts.cuts?.length || 0) - list.length;
   if (!cuts.cuts?.length) return <p className="muted small insp-empty">No cuts suggested — the deck looks tight.</p>;
-  return cuts.cuts.map((c) => (
-    <div key={c.name} className="insp-row insp-row-tall">
-      <span className="insp-row-name">
-        <CardPreview name={c.name} />
-        {c.reason && <span className="insp-row-reason">{c.reason}</span>}
-      </span>
-      <span className="insp-row-actions">
-        <button className="insp-act insp-act-bad" onClick={() => onRemoveCard(c.name)}>Remove</button>
-      </span>
-    </div>
-  ));
+  return (
+    <>
+      {list.length === 0 && <p className="muted small insp-empty">All suggested cuts dismissed.</p>}
+      {list.map((c) => (
+        <div key={c.name} className="insp-row insp-row-tall">
+          <span className="insp-row-name">
+            <CardPreview name={c.name} />
+            {c.reason && <span className="insp-row-reason">{c.reason}</span>}
+          </span>
+          <span className="insp-row-actions">
+            {onDismissCut && <button className="insp-act" title="Keep this card — hide the suggestion" onClick={() => onDismissCut(c.name)}>Keep</button>}
+            <button className="insp-act insp-act-bad" onClick={() => onRemoveCard(c.name)}>Remove</button>
+          </span>
+        </div>
+      ))}
+      {hiddenCount > 0 && (
+        <p className="insp-hidden-note">
+          {hiddenCount} dismissed
+          <button className="insp-act insp-linklike" onClick={onClearDismissedCuts}>Show again</button>
+        </p>
+      )}
+    </>
+  );
 }
 
 /* ── Combos ────────────────────────────────────────────────────────────────── */

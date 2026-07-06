@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, assembleDecklist, disassembleDecklist, getCardImage, FORMATS } from "../../lib/api";
 import CommanderInput from "../CommanderInput";
@@ -13,6 +13,7 @@ import { PaletteIcon, LinkIcon, SparkleIcon, LockIcon, UnlockIcon, ListIcon, Sea
 import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderDisplay, setCommanderPrinting } from "../../lib/deckParser";
 import { goalsToApi } from "../../lib/goals";
 import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry } from "../../lib/optimizeLog";
+import { deckSignature, loadInsights, saveInsights, PANEL_KEYS } from "../../lib/insightsCache";
 
 export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
@@ -49,26 +50,45 @@ export default function DeckView({
       onImportConsumed?.();
     }
   }, [startImport, onImportConsumed]);
-  const [result, setResult] = useState(null);
+  // Insight results persist per-deck (`mtgweb:insights`) so paid AI panels
+  // survive tab switches (DeckView unmounts) and reloads. Hydrate initial
+  // state from the cache; each panel remembers the deck signature it was
+  // generated against so edits mark it stale instead of silently clearing it.
+  const [hydrated] = useState(() => loadInsights(deckId)); // one-time mount snapshot
+  const hp = (k) => hydrated?.panels?.[k]?.data ?? null;
+  const [result, setResult] = useState(() => hp("result"));
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [recs, setRecs] = useState(null);
-  const [combos, setCombos] = useState(null);
-  const [comp, setComp] = useState(null);
-  const [budgetSwaps, setBudgetSwaps] = useState(null);
-  const [cuts, setCuts] = useState(null);
-  const [upgrades, setUpgrades] = useState(null);
-  const [upgradeMode, setUpgradeMode] = useState("budget");
+  const [recs, setRecs] = useState(() => hp("recs"));
+  const [combos, setCombos] = useState(() => hp("combos"));
+  const [comp, setComp] = useState(() => hp("comp"));
+  const [budgetSwaps, setBudgetSwaps] = useState(() => hp("budgetSwaps"));
+  const [cuts, setCuts] = useState(() => hp("cuts"));
+  const [upgrades, setUpgrades] = useState(() => hp("upgrades"));
+  const [upgradeMode, setUpgradeMode] = useState(hydrated?.upgradeMode || "budget");
+  const [panelSigs, setPanelSigs] = useState(() => {
+    const sigs = {};
+    for (const k of PANEL_KEYS) {
+      const sig = hydrated?.panels?.[k]?.sig;
+      if (sig) sigs[k] = sig;
+    }
+    return sigs;
+  });
   const [optimize, setOptimize] = useState(null);
   const [optimizing, setOptimizing] = useState(false);
   const [optDecided, setOptDecided] = useState({});
   const [optLog, setOptLog] = useState(() => loadLog(deckId));
-  const [strategy, setStrategy] = useState(null);
+  const [strategy, setStrategy] = useState(() => hp("strategy"));
   const [strategyLoading, setStrategyLoading] = useState(false);
   const [busy, setBusy] = useState("");
   const [cat, setCat] = useState("high_synergy");
-  const [activePanel, setActivePanel] = useState(null);
+  const [activePanel, setActivePanel] = useState(hydrated?.activePanel ?? null);
   const [deckFilter, setDeckFilter] = useState("");
-  const [skipped, setSkipped] = useState(new Set());
+  // Per-suggestion user verdicts — persisted with the insight cache and, unlike
+  // panel results, never invalidated by deck edits: a skip stays skipped and a
+  // pin stays pinned until the user says otherwise (or the card enters the deck).
+  const [skipped, setSkipped] = useState(() => new Set(hydrated?.dismissed || []));
+  const [pinned, setPinned] = useState(() => new Set(hydrated?.pinned || []));
+  const [dismissedCuts, setDismissedCuts] = useState(() => new Set(hydrated?.dismissedCuts || []));
   const [cmdrData, setCmdrData] = useState(null);
   const [suggesting, setSuggesting] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -79,12 +99,52 @@ export default function DeckView({
 
   const isCommanderFmt = format === "commander" || format === "paupercommander";
 
-  // Switching decks: reload that deck's session log, drop the stale queue.
+  // Card-presence signature of the deck as it stands now — quantity tweaks and
+  // art/printing pins don't change it, so they never invalidate cached results.
+  const currentSig = useMemo(
+    () => deckSignature(decklist, isCommanderFmt ? commander : "", format),
+    [decklist, commander, format, isCommanderFmt],
+  );
+  const markFresh = (k, sig) => setPanelSigs((s) => ({ ...s, [k]: sig }));
+
+  // Switching decks: reload that deck's session log, drop the stale queue,
+  // and rehydrate the insight panels from the incoming deck's cache.
+  const hydratedFor = useRef(deckId);
   useEffect(() => {
     setOptLog(loadLog(deckId)); // eslint-disable-line react-hooks/set-state-in-effect
     setOptimize(null);
     setOptDecided({});
+    const c = loadInsights(deckId);
+    const d = (k) => c?.panels?.[k]?.data ?? null;
+    setResult(d("result")); setComp(d("comp")); setRecs(d("recs")); setCuts(d("cuts"));
+    setCombos(d("combos")); setBudgetSwaps(d("budgetSwaps")); setUpgrades(d("upgrades")); setStrategy(d("strategy"));
+    setActivePanel(c?.activePanel ?? null);
+    if (c?.upgradeMode) setUpgradeMode(c.upgradeMode);
+    setSkipped(new Set(c?.dismissed || []));
+    setPinned(new Set(c?.pinned || []));
+    setDismissedCuts(new Set(c?.dismissedCuts || []));
+    const sigs = {};
+    for (const k of PANEL_KEYS) { const sg = c?.panels?.[k]?.sig; if (sg) sigs[k] = sg; }
+    setPanelSigs(sigs);
+    hydratedFor.current = deckId;
   }, [deckId]);
+
+  // Write-through: persist the insight bundle whenever results, the open
+  // panel, or their sigs change. The hydratedFor guard keeps a deck switch
+  // from writing the outgoing deck's results under the incoming deck's key
+  // during the render where deckId has changed but state hasn't rehydrated.
+  useEffect(() => {
+    if (hydratedFor.current !== deckId) return;
+    const data = { result, comp, recs, cuts, combos, budgetSwaps, upgrades, strategy };
+    const panels = {};
+    for (const k of PANEL_KEYS) {
+      if (data[k] != null) panels[k] = { data: data[k], sig: panelSigs[k] || null };
+    }
+    saveInsights(deckId, {
+      panels, activePanel, upgradeMode,
+      pinned: [...pinned], dismissed: [...skipped], dismissedCuts: [...dismissedCuts],
+    });
+  }, [deckId, result, comp, recs, cuts, combos, budgetSwaps, upgrades, strategy, activePanel, upgradeMode, panelSigs, pinned, skipped, dismissedCuts]);
 
   // Stay in sync with log writes from other surfaces (chat card-chip adds).
   useEffect(() => {
@@ -103,7 +163,22 @@ export default function DeckView({
     return () => { cancelled = true; };
   }, [commander]);
 
-  function skip(name) { setSkipped((prev) => new Set(prev).add(name)); }
+  function skip(name) {
+    setSkipped((prev) => new Set(prev).add(name));
+    setPinned((prev) => { if (!prev.has(name)) return prev; const n = new Set(prev); n.delete(name); return n; });
+  }
+  // Pin ⇄ dismiss are mutually exclusive verdicts on the same suggestion.
+  function togglePin(name) {
+    setPinned((prev) => {
+      const n = new Set(prev);
+      if (n.has(name)) n.delete(name); else n.add(name);
+      return n;
+    });
+    setSkipped((prev) => { if (!prev.has(name)) return prev; const n = new Set(prev); n.delete(name); return n; });
+  }
+  function dismissCut(name) { setDismissedCuts((prev) => new Set(prev).add(name)); }
+  function clearSkipped() { setSkipped(new Set()); }
+  function clearDismissedCuts() { setDismissedCuts(new Set()); }
 
   // Auto-analyze on decklist change (debounced)
   useEffect(() => {
@@ -136,6 +211,7 @@ export default function DeckView({
   async function analyze() {
     if (!decklist.trim()) return;
     setIsAnalyzing(true);
+    const sig = currentSig; // capture: the deck may be edited mid-flight
     try {
       const full = assembleDecklist(decklist, isCommanderFmt ? commander : "");
       // Composition is deterministic (no AI) — fetch alongside analysis so the
@@ -145,7 +221,8 @@ export default function DeckView({
         api.composition(full, format).catch(() => null),
       ]);
       setResult(res);
-      if (compRes) setComp(compRes);
+      markFresh("result", sig);
+      if (compRes) { setComp(compRes); markFresh("comp", sig); }
     } catch (e) {
       notify?.(`Analyze failed: ${e.message}`);
     } finally {
@@ -153,15 +230,19 @@ export default function DeckView({
     }
   }
 
-  // Auto-load strategy when deck reaches 20+ cards
+  // Auto-load strategy when deck reaches 20+ cards. Strategy has always been
+  // autonomous (no user trigger), so unlike the lazy panels a hydrated-but-
+  // stale strategy re-fetches automatically rather than showing a stale badge.
   useEffect(() => {
     const lines = (decklist || "").split("\n").filter((l) => /^\s*\d+\s+\S/.test(l));
-    if (lines.length < 20 || strategy) return;
+    if (lines.length < 20) return;
+    if (strategy && (!panelSigs.strategy || panelSigs.strategy === currentSig)) return;
     let cancelled = false;
     setStrategyLoading(true);
+    const sig = currentSig;
     const full = assembleDecklist(decklist, isCommanderFmt ? commander : "");
     api.aiStrategy?.(full, format, commander)
-      .then((r) => { if (!cancelled) setStrategy(r); })
+      .then((r) => { if (!cancelled) { setStrategy(r); markFresh("strategy", sig); } })
       .catch(() => {})
       .finally(() => { if (!cancelled) setStrategyLoading(false); });
     return () => { cancelled = true; };
@@ -169,6 +250,8 @@ export default function DeckView({
 
   function addCard(name) {
     setDecklist((prev) => `${prev.replace(/\s*$/, "")}\n1 ${name}`);
+    // A pinned suggestion that lands in the deck has served its purpose.
+    setPinned((prev) => { if (!prev.has(name)) return prev; const n = new Set(prev); n.delete(name); return n; });
     notify?.(`Added ${name}`);
   }
 
@@ -305,14 +388,16 @@ export default function DeckView({
     }
   }
 
-  async function loadPanel(kind, fn, setter) {
+  async function loadPanel(kind, fn, setter, stateKey) {
     if (!decklist.trim()) return notify?.("Add some cards first.");
     setBusy(kind);
     setActivePanel(kind);
+    const sig = currentSig; // capture: the deck may be edited mid-flight
     try {
       const full = assembleDecklist(decklist, isCommanderFmt ? commander : "");
       const r = await fn(full, format);
       setter(r);
+      if (stateKey) markFresh(stateKey, sig);
       if (r.note) notify?.(r.note);
     } catch (e) {
       notify?.(`${kind} failed: ${e.message}`);
@@ -541,6 +626,21 @@ export default function DeckView({
     setOptLog(clearLog(deckId));
   }
 
+  // Insight tabs whose cached results predate the current card list — shown
+  // with a "deck changed" badge and refreshed only by explicit user action.
+  // (Plain computation, not a hook: this sits below conditional returns.)
+  const stalePanels = new Set();
+  {
+    const check = (k, tab, data) => {
+      if (data != null && panelSigs[k] && panelSigs[k] !== currentSig) stalePanels.add(tab);
+    };
+    check("recs", "Recommendations", recs);
+    check("cuts", "Cuts", cuts);
+    check("combos", "Combos", combos);
+    if (upgradeMode === "budget") check("budgetSwaps", "Upgrades", budgetSwaps);
+    else check("upgrades", "Upgrades", upgrades);
+  }
+
   // One props object for every DeckSidebar render (desktop layout + the
   // Planeswalker hub's mobile Insights portal) — keep wiring in one place.
   const sidebarProps = {
@@ -554,9 +654,9 @@ export default function DeckView({
       if (id === "Upgrades") {
         setActivePanel("Upgrades");
         if (upgradeMode === "budget" && !budgetSwaps) {
-          loadPanel("Upgrades", api.budgetSwaps, setBudgetSwaps);
+          loadPanel("Upgrades", api.budgetSwaps, setBudgetSwaps, "budgetSwaps");
         } else if (upgradeMode === "power" && !upgrades) {
-          loadPanel("Upgrades", (dl, fmt) => api.aiUpgrades(dl, fmt, commander, null, "power", apiGoals), setUpgrades);
+          loadPanel("Upgrades", (dl, fmt) => api.aiUpgrades(dl, fmt, commander, null, "power", apiGoals), setUpgrades, "upgrades");
         }
         return;
       }
@@ -565,25 +665,37 @@ export default function DeckView({
       const cached = { Recommendations: recs, Cuts: cuts, Combos: combos }[id];
       if (cached) { setActivePanel(id); return; }
       const map = {
-        Recommendations: [api.recommend, setRecs],
-        Cuts: [(dl, fmt) => api.aiCuts(dl, fmt, null, apiGoals), setCuts],
-        Combos: [api.combos, setCombos],
+        Recommendations: [api.recommend, setRecs, "recs"],
+        Cuts: [(dl, fmt) => api.aiCuts(dl, fmt, null, apiGoals), setCuts, "cuts"],
+        Combos: [api.combos, setCombos, "combos"],
       };
       if (map[id]) loadPanel(id, ...map[id]);
     },
     onRefreshPanel: (id) => {
+      if (id === "Upgrades") {
+        if (upgradeMode === "budget") loadPanel("Upgrades", api.budgetSwaps, setBudgetSwaps, "budgetSwaps");
+        else loadPanel("Upgrades", (dl, fmt) => api.aiUpgrades(dl, fmt, commander, null, "power", apiGoals), setUpgrades, "upgrades");
+        return;
+      }
       const map = {
-        Recommendations: [api.recommend, setRecs],
-        Cuts: [(dl, fmt) => api.aiCuts(dl, fmt, null, apiGoals), setCuts],
-        Combos: [api.combos, setCombos],
+        Recommendations: [api.recommend, setRecs, "recs"],
+        Cuts: [(dl, fmt) => api.aiCuts(dl, fmt, null, apiGoals), setCuts, "cuts"],
+        Combos: [api.combos, setCombos, "combos"],
       };
       if (map[id]) loadPanel(id, ...map[id]);
     },
+    stalePanels,
     recs,
     recCat: cat,
     setRecCat: setCat,
     skipped,
     onSkip: skip,
+    onClearSkipped: clearSkipped,
+    pinned,
+    onTogglePin: togglePin,
+    dismissedCuts,
+    onDismissCut: dismissCut,
+    onClearDismissedCuts: clearDismissedCuts,
     onAddCard: addCard,
     combos,
     comp,
@@ -620,7 +732,7 @@ export default function DeckView({
     onOverBudget: () => {
       setUpgradeMode("budget");
       if (budgetSwaps) { setActivePanel("Upgrades"); return; }
-      loadPanel("Upgrades", api.budgetSwaps, setBudgetSwaps);
+      loadPanel("Upgrades", api.budgetSwaps, setBudgetSwaps, "budgetSwaps");
     },
   };
 
