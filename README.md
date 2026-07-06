@@ -1,48 +1,72 @@
-# MTG Workshop — web app
+# MTG Workshop
 
-A browser version of your MTG deck tools, for you and friends. Phase 1 (built) ships the
-free, deterministic features; Phase 2 (later) adds optional AI.
+A browser-based Commander/EDH deck builder with an AI copilot — live at
+**[mtg-workshop.vercel.app](https://mtg-workshop.vercel.app)**.
 
-- **Frontend:** React (Vite), mobile-first responsive → deploys to **Vercel** (free).
-- **Backend:** FastAPI, reuses your existing `mtg_utils` library + Scryfall/rules data →
-  deploys to **Vercel** as a Python Function (free, Hobby plan). Stateless (no user data).
-- **Accounts + deck sync (optional):** **Supabase** (free) — email magic-link sign-in, decks
-  synced across devices. Without it, the app still works fully in **local mode** (decks save to
-  the browser; Export/Import moves them).
+- **Frontend:** React 19 + Vite, mobile-first responsive, installable PWA → **Vercel**.
+- **Backend:** FastAPI, Scryfall bulk data + Comprehensive Rules baked in at build time,
+  Claude (Sonnet primary / Haiku fallback) for AI features → **Vercel Python Function**.
+  Stateless — no persistent disk.
+- **Accounts + deck sync (optional):** **Supabase** — email magic-link sign-in, decks synced
+  across devices. Without it, the app runs fully in **local mode** (decks save to the browser;
+  Export/Import moves them, and share links work either way).
+
+Both frontend and backend are separate Vercel projects in the same account. There is no
+Render/other host in the loop — Render was the original rollback target during the 2026-07
+serverless cutover and was retired once Vercel proved stable.
 
 ## Features
 
-### Phase 1 (working — free, deterministic)
+### Deck building
 - **Analyze** — paste a decklist → WUBRG color distribution, mana viability (land+ramp vs curve
-  target), mana curve, type/rarity breakdown, total price (with "as of" date), legality, Commander
-  bracket. Separate commander input with autocomplete.
-- **Build — guided deck builder**: pick your commander (autocomplete, "nethroi" → *Nethroi, Apex of
-  Death*), then add cards from **EDHREC recommendations** (synergy % + play rate, **+ Add**) and
-  **combos / near-misses** ("add this one card to complete a combo"). **Composition** panel counts
-  removal / draw / ramp / wipes / lands vs Commander rules-of-thumb, flags thin categories. Sections
-  the AI phase will power show an **✨ AI** tooltip.
-- **Rules** — Comprehensive Rules lookup by rule number, glossary term, or text search.
-- **AI Rules Q&A** — ask plain-English questions ("Can I counter a triggered ability?"), get a
-  natural-language answer with cited rule numbers. Uses lightweight RAG (grep retrieval + Claude).
-  Requires an API key (owner's or visitor's); hidden when no key is available.
-- **Card search** over Scryfall bulk data (name/type/oracle/colors/CMC/price).
-- **Card image previews** — hover (desktop) or tap (mobile) any card name to see the full card.
-- **My Decks** — save / rename / delete; import Archidekt/Moxfield/Arena/CSV/plain text; export
-  canonical `N CardName` text or `.json` backup.
-- **Settings** — magic-link sign-in (when Supabase is set) + optional personal Anthropic API key.
+  target), mana curve, type/rarity breakdown, total price ("as of" date), legality, Commander
+  bracket (1–5, with game-changer callouts).
+- **Guided build wizard** — pick a commander (autocomplete), then fill categories from
+  AI-assisted suggestions.
+- **Import** — paste text, or import a URL (Archidekt/Moxfield), with MDFC-aware grouping and
+  a Considering list for cards you're weighing but haven't committed to.
+- **Printing / art switcher** — pin a specific printing per card (or the whole commander), plus
+  a mass-art tool to retarget a whole deck (or just the Considering pile) to a set/rarity.
+- **Playtest mode** — shuffle, draw an opening hand, mulligan.
+- **My Decks** — save / rename / clone / delete; auto-saves on first commander pick or when
+  opened from a share link; share links carry the full decklist.
 
-### Phase 2 (planned)
-- Conversational AI deck builder ("explain why this card fits / critique my list")
-- AI-suggested cuts with reasoning
-- Full strategy guide generation
+### AI copilot (Claude-powered)
+- **Deck Goals** — declare target bracket, budget ceiling, protected cards/themes, pilot
+  complexity, and a flavor note. Every AI feature below reads these.
+- **Assessment** — bracket meter against your goal, strategy summary, gap chips for thin
+  categories (draw/ramp/removal/wipes).
+- **Optimize queue** — the AI proposes a changeset (cut → add, with reasoning and
+  price/bracket deltas) as Apply/Skip cards; every applied change lands in a per-deck session
+  log with undo.
+- **Insights toolbox** — Suggest (EDHREC-style recs), Cuts, Combos/near-misses, Upgrades
+  (budget or power mode), Draw odds. Results persist per deck across tab switches and reloads;
+  editing the card list marks a panel "stale" (a badge + manual Refresh) rather than silently
+  re-running or discarding what's shown. Individual suggestions can be **pinned** (kept
+  indefinitely) or **dismissed** (hidden, reversible).
+- **Planeswalker chat** — a persistent chat bot (streamed responses) for open-ended questions
+  about the deck, with tappable `[[Card Name]]` chips (+ Add / ☆ Consider) and a pinned session
+  log of changes it makes.
+- **Rules Q&A** — plain-English rules questions, streamed, with cited rule numbers (lightweight
+  RAG over the Comprehensive Rules).
 
-See [[projects/mtg-web/DESIGN-HANDOFF|Phase 2 design handoff]] for the full UX spec, and the [[projects/mtg-web/design_handoff_mtg_workshop/|frontend redesign handoff]] for implementation details. The web app builds on the CLI tools from [[projects/mtg-deck-builder/|MTG Deck Builder]].
+### Everything else
+- **Card search** over Scryfall bulk data (name/type/oracle/colors/CMC/price) with predictive
+  typeahead.
+- **Card image previews** — hover (desktop) or tap (mobile) any card name.
+- **Mobile-first** — bottom nav, touch-friendly stack view, installable PWA with offline card
+  image caching.
+- **Settings** — magic-link sign-in (when Supabase is configured) + optional personal Anthropic
+  API key.
+
+AI usage is metered per-server: a daily per-user rate limit and a monthly budget cap (see
+`backend/app/usage.py`), tracked in Supabase if configured — fails open (no enforcement) if not.
 
 ---
 
 ## Run locally
 
-**Prereqs:** Python 3.12+ and Node 18+.
+**Prereqs:** Python 3.11+ and Node 18+.
 
 ### 1. Backend
 ```bash
@@ -50,20 +74,48 @@ cd backend
 python -m venv .venv
 ./.venv/Scripts/python.exe -m pip install -r requirements.txt   # Windows (Git Bash)
 # macOS/Linux:  .venv/bin/pip install -r requirements.txt
-./.venv/Scripts/python.exe -m uvicorn app.main:app --port 8000  # warms data on startup (~10–20s)
+./.venv/Scripts/python.exe -m uvicorn app.main:app --port 8001  # warms data on startup (~10–20s)
 ```
-The backend finds your Scryfall bulk + rules in `../mtg-deck-builder/data/` by default. Override
-with env vars if needed: `MTG_DATA_DIR`, `MTG_BULK_PATH`, `MTG_RULES_PATH`, `MTG_UTILS_SRC`,
-`MTG_CORS_ORIGINS`.
+Local dev reads Scryfall bulk + rules data from a sibling `../mtg-deck-builder/data/` directory
+by default (override with `MTG_DATA_DIR`, `MTG_BULK_PATH`, `MTG_RULES_PATH`, `MTG_UTILS_SRC`).
+On Vercel, `vercel_build.py` downloads and strips this data at **build time** instead — see
+[Deploy](#deploy) below.
+
+Copy `backend/.env.example` → `.env` for AI features, Supabase JWT verification / usage
+tracking, and CORS overrides.
+
+**Note:** `--reload` can leave stale worker processes running on Windows; running without
+`--reload` and manually restarting is more reliable during active development.
 
 ### 2. Frontend
 ```bash
 cd frontend
 npm install
-cp .env.example .env     # VITE_API_BASE defaults to http://127.0.0.1:8000
+cp .env.example .env     # VITE_API_BASE defaults to http://127.0.0.1:8000 — set to :8001 to match above
 npm run dev              # http://localhost:5173
 ```
 Leave the Supabase vars blank for local mode. Fill them in to enable accounts (below).
+
+---
+
+## Testing
+
+```bash
+cd frontend
+npm run build && npm test          # E2E suite (builds, then runs Playwright against the preview server)
+npm run test:headed                # same, with a visible browser
+npm run test:update-snapshots       # regenerate visual regression baselines
+npx eslint src/components/MyFile.jsx   # lint a changed file only
+
+cd backend
+ruff format app/ && ruff check app/    # format + lint
+```
+
+E2E specs live in `frontend/e2e/` and run against a **hermetic mock backend**
+(`e2e/fixtures/mock-backend.js`) that intercepts every `/api/**` call — no live backend needed,
+no network dependency. Covers navigation, deck building, imports, the AI copilot (goals,
+optimize queue, assessment, chat), insights persistence, mass-art, playtest, rules, and card
+search, with visual regression screenshots on key views.
 
 ---
 
@@ -108,12 +160,16 @@ This needs your own logins, so it's a manual one-time setup. The app works witho
    Restart `npm run dev`. The Settings tab now shows magic-link sign-in, and saved decks sync
    across any device you sign in on.
 
+For AI usage tracking (daily rate limit + monthly budget cap across all your users, not just
+per-browser), also set `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_JWT_SECRET` on
+the **backend** (see `backend/.env.example`) — this is a separate step from the frontend keys
+above and uses the service-role key, which must never be exposed to the client.
+
 ---
 
 ## Deploy
 
-Both frontend and backend deploy to **Vercel** as separate projects in the same account —
-no Render, no persistent disk, no cold-start sleep to work around.
+Both frontend and backend deploy to **Vercel** as separate projects in the same account.
 
 ### Backend → Vercel
 
@@ -132,7 +188,9 @@ no Render, no persistent disk, no cold-start sleep to work around.
 | `ANTHROPIC_API_KEY` | Your Anthropic API key (AI features; optional) |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Enables AI usage tracking (budget cap + rate limit); fails open if unset |
 | `SUPABASE_JWT_SECRET` | Verifies signed-in users' JWTs server-side |
-| `ADMIN_EMAIL` | Email that bypasses the AI rate limit/budget cap |
+| `ADMIN_EMAIL` | Lowercased email that bypasses the AI rate limit/budget cap |
+| `AI_RATE_LIMIT_PER_DAY` | Per-user daily AI call cap (default 50) |
+| `AI_MONTHLY_BUDGET_CENTS` | Server-wide monthly AI spend cap in cents (default 1000 = $10) |
 
 **Keeping data fresh:** a GitHub Action (`.github/workflows/refresh-data.yml`) runs weekly and
 hits a Vercel deploy hook (`VERCEL_DEPLOY_HOOK_URL` secret), which re-runs the build step and
@@ -150,6 +208,7 @@ picks up new prices/cards.
 | `VITE_API_BASE` | `https://your-backend.vercel.app` |
 | `VITE_SUPABASE_URL` | Your Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Your Supabase anon/public key |
+| `VITE_FORMSPREE_ID` | Formspree form ID for the feedback button (optional) |
 
 ### Pricing refresh
 
@@ -165,7 +224,7 @@ above re-triggers the Vercel build, which re-downloads bulk data.
 | Vercel (frontend + backend) | $0 (Hobby plan covers both projects) |
 | Supabase (auth + DB) | $0 (free tier) |
 | Domain (optional) | ~$12/yr |
-| Claude API (AI Q&A) | ~$1-5/mo for a friends group |
+| Claude API (AI features) | ~$1-10/mo, capped by `AI_MONTHLY_BUDGET_CENTS` |
 
 ---
 
@@ -173,25 +232,46 @@ above re-triggers the Vercel build, which re-downloads bulk data.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/health` | Liveness check + `data_as_of` date |
+| GET | `/api/health` | Liveness check + `data_as_of` date, AI availability/budget status |
 | GET | `/api/rules/search` | Rules lookup (`?rule=`, `?term=`, or `?grep=`) |
-| POST | `/api/rules/ask` | AI Rules Q&A (body: `{question, api_key?}`) |
+| POST | `/api/rules/ask` | AI Rules Q&A (body: `{question}`) |
+| POST | `/api/rules/ask/stream` | Same, streamed (SSE) |
 | GET | `/api/cards/search` | Card search (name, oracle, type, colors, cmc, price, format) |
-| GET | `/api/cards/image` | Card image URL(s) (`?name=` or `?names=a|b|c`) |
+| GET | `/api/cards/image` | Card image URL(s) (`?name=` or `?names=a\|b\|c`) |
+| GET | `/api/cards/prints` | All printings of a card |
+| GET | `/api/cards/printing` | A specific printing's image/price |
+| POST | `/api/cards/mass-printing` | Bulk printing lookup for the mass-art tool |
+| GET | `/api/sets` | Set list (for the mass-art picker) |
 | GET | `/api/commanders/search` | Commander autocomplete (`?q=`) |
 | POST | `/api/deck/analyze` | Full analysis (stats, mana, legality, bracket, breakdown) |
-| POST | `/api/deck/export` | Normalize decklist to standard import text |
-| POST | `/api/deck/recommend` | EDHREC recommendations for a commander deck |
-| POST | `/api/deck/combos` | Combo search + near-misses |
 | POST | `/api/deck/composition` | Category counts vs Commander rules-of-thumb |
+| POST | `/api/deck/export` | Normalize decklist to standard import text |
+| POST | `/api/deck/import-url` | Parse an Archidekt/Moxfield deck URL |
+| POST | `/api/deck/recommend` | EDHREC-style recommendations (non-AI) |
+| POST | `/api/deck/combos` | Combo search + near-misses (non-AI) |
+| POST | `/api/deck/budget-swaps` | Cheaper-alternative suggestions (non-AI) |
+| POST | `/api/deck/ai/cuts` | AI-suggested cuts with reasoning |
+| POST | `/api/deck/ai/fills` | AI-suggested additions (wizard) |
+| POST | `/api/deck/ai/explain` | AI explanation for why a card fits |
+| POST | `/api/deck/ai/combos` | AI-narrated combo lines |
+| POST | `/api/deck/ai/strategy` | Full strategy guide generation |
+| POST | `/api/deck/ai/upgrades` | AI power-level upgrade suggestions |
+| POST | `/api/deck/optimize` | Goal-aware changeset (cut/add) for the Optimize queue |
+| POST | `/api/deck/wizard/skeleton` | Guided-build starting skeleton for a commander |
+| POST | `/api/deck/wizard/narrate` | Guided-build category narration |
+| POST | `/api/deck/wizard/chat` | Guided-build conversational assist |
+| POST | `/api/planeswalker/chat` | Planeswalker chat bot |
+| POST | `/api/planeswalker/chat/stream` | Same, streamed (SSE) |
 
 ---
 
 ## Project layout
 ```
 mtg-web/
-  backend/   FastAPI app (app/config.py, app/mtg.py, app/main.py) + requirements.txt
-  frontend/  Vite React app (src/lib, src/components, index.css)
+  backend/   FastAPI app (app/main.py, app/mtg.py, app/config.py, app/usage.py)
+  frontend/  Vite React app (src/lib, src/components, src/index.css, e2e/)
+  design/    Claude Design ↔ Claude Code handoff (.dc.html prototypes, HANDOFF.md, STATUS.md)
+  .claude/   Project-specific Claude Code rules (.claude/rules/*.md)
   README.md  (this file)
 ```
 
