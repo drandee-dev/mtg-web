@@ -6,9 +6,12 @@ import json
 import re
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import click
+
+if TYPE_CHECKING:
+    from mtg_utils._regex_guard import TimeboxedPattern
 
 from mtg_utils._name_index import keep_cheaper
 from mtg_utils.bulk_loader import bulk_mtime, load_bulk_cards
@@ -39,7 +42,7 @@ def _matches_filters(
     card: dict,
     *,
     allowed_colors: set[str] | None,
-    oracle_re: re.Pattern | None,
+    oracle_re: re.Pattern | TimeboxedPattern | None,  # anything with .search(text)
     type_lower: str | None,
     name_substr: str | None = None,
     cmc_min: float | None,
@@ -224,9 +227,14 @@ def search_cards(
         arena_only = True
 
     allowed_colors = set(color_identity.upper()) if color_identity else None
+    # Time-budgeted engine for the user-supplied oracle regex: stdlib `re` has
+    # no timeout, so a catastrophic-backtracking pattern would spin across the
+    # whole card pool. TimeboxedPattern exposes the same .search() shape.
+    from mtg_utils._regex_guard import TimeboxedPattern
+
     try:
-        oracle_re = re.compile(oracle, re.IGNORECASE) if oracle else None
-    except re.error as e:
+        oracle_re = TimeboxedPattern(oracle, re.IGNORECASE) if oracle else None
+    except ValueError as e:
         msg = f"Invalid oracle regex: {e}"
         raise click.BadParameter(msg, param_hint="--oracle") from e
     type_lower = card_type.lower() if card_type else None

@@ -208,7 +208,13 @@ export default function App() {
     },
   });
 
-  const aiAvailable = serverAi || Boolean(localStorage.getItem("mtgweb:anthropicKey"));
+  // AI availability comes from the server alone. The old "personal API key"
+  // setting was vestigial — the key was stored in localStorage but never sent
+  // anywhere, so it was pure secret-exfiltration surface. Purge stored keys.
+  useEffect(() => {
+    try { localStorage.removeItem("mtgweb:anthropicKey"); } catch { /* storage blocked */ }
+  }, []);
+  const aiAvailable = serverAi;
 
   // Toasts optionally carry one action ("Saved. [Share]"). Action toasts stay
   // up longer; a new toast replaces the pending dismiss timer.

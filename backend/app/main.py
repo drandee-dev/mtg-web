@@ -139,7 +139,12 @@ class AiCombosPayload(BaseModel):
 
 
 def _safe_regex(pattern: str, label: str = "pattern") -> re.Pattern:
-    """Compile a user-supplied regex safely: cap length, catch errors, set timeout."""
+    """Pre-flight a user-supplied regex: cap length, reject bad syntax early.
+
+    Execution is separately time-budgeted downstream (mtg_utils._regex_guard
+    wraps the actual matching in a wall-clock budget), which is the ReDoS
+    guard — this check just gives a clean 400 before any work happens.
+    """
     if len(pattern) > _MAX_REGEX_LEN:
         raise HTTPException(400, f"{label} too long (max {_MAX_REGEX_LEN} chars).")
     try:
@@ -159,7 +164,8 @@ def _get_user_from_jwt(request: Request) -> tuple[str, str]:
     token = auth[7:]
     try:
         payload = _pyjwt.decode(
-            token, _SUPABASE_JWT_SECRET,
+            token,
+            _SUPABASE_JWT_SECRET,
             algorithms=["HS256"],
             audience="authenticated",
         )
@@ -209,11 +215,16 @@ def _check_ai_access(request: Request) -> None:
         return
 
     if usage.monthly_total_cents() >= _AI_MONTHLY_BUDGET_CENTS:
-        raise HTTPException(429, "AI budget reached for this month. Deterministic features still work.")
+        raise HTTPException(
+            429, "AI budget reached for this month. Deterministic features still work."
+        )
 
     limit_key = email if email else _client_ip(request)
     if usage.daily_call_count(limit_key) >= _AI_RATE_LIMIT:
-        raise HTTPException(429, f"Daily AI limit reached ({_AI_RATE_LIMIT} calls/day). Try again tomorrow.")
+        raise HTTPException(
+            429,
+            f"Daily AI limit reached ({_AI_RATE_LIMIT} calls/day). Try again tomorrow.",
+        )
     usage.record_attempt(limit_key)
 
 
@@ -224,7 +235,9 @@ def _validate_decklist(payload: dict) -> tuple[str, str]:
     if not decklist:
         raise HTTPException(400, "Body must include a non-empty 'decklist' string.")
     if len(decklist) > _MAX_DECKLIST_LEN:
-        raise HTTPException(400, f"Decklist too long ({len(decklist)} chars, max {_MAX_DECKLIST_LEN}).")
+        raise HTTPException(
+            400, f"Decklist too long ({len(decklist)} chars, max {_MAX_DECKLIST_LEN})."
+        )
     if fmt not in mtg.FORMAT_CONFIGS and fmt not in ("pauper", "paupercommander"):
         raise HTTPException(400, f"Unknown format: {fmt}")
     return decklist, fmt
@@ -287,8 +300,12 @@ def health() -> dict:
 @app.get("/api/rules/search")
 def rules_search(
     response: Response,
-    rule: Annotated[str | None, Query(description="Exact rule number, e.g. 702.19a")] = None,
-    term: Annotated[str | None, Query(description="Glossary term, e.g. trample")] = None,
+    rule: Annotated[
+        str | None, Query(description="Exact rule number, e.g. 702.19a")
+    ] = None,
+    term: Annotated[
+        str | None, Query(description="Glossary term, e.g. trample")
+    ] = None,
     grep: Annotated[str | None, Query(description="Regex over rule text")] = None,
     limit: Annotated[int, Query(ge=1, le=50)] = 10,
 ) -> dict:
@@ -300,8 +317,14 @@ def rules_search(
         result = mtg.rules_search(rule=rule, term=term, grep=grep, limit=limit)
     except FileNotFoundError as e:
         raise HTTPException(503, "Rules data not loaded.") from e
+    except TimeoutError as e:  # RegexBudgetError — pattern too slow (ReDoS guard)
+        raise HTTPException(
+            400, "That pattern is too slow to evaluate — simplify it."
+        ) from e
     # Rules text changes a few times a year — safe to cache at the CDN for a day.
-    response.headers["Cache-Control"] = "public, s-maxage=86400, stale-while-revalidate=86400"
+    response.headers["Cache-Control"] = (
+        "public, s-maxage=86400, stale-while-revalidate=86400"
+    )
     return result
 
 
@@ -310,13 +333,19 @@ def cards_search(
     response: Response,
     name: Annotated[str | None, Query(description="Name substring")] = None,
     oracle: Annotated[str | None, Query(description="Regex over oracle text")] = None,
-    type: Annotated[str | None, Query(alias="type", description="Type-line substring")] = None,  # noqa: A002
-    color_identity: Annotated[str | None, Query(description="e.g. WUG; C for colorless")] = None,
+    type: Annotated[
+        str | None, Query(alias="type", description="Type-line substring")
+    ] = None,  # noqa: A002
+    color_identity: Annotated[
+        str | None, Query(description="e.g. WUG; C for colorless")
+    ] = None,
     cmc_min: float | None = None,
     cmc_max: float | None = None,
     price_min: float | None = None,
     price_max: float | None = None,
-    fmt: Annotated[str | None, Query(alias="format", description="Format legality filter")] = None,
+    fmt: Annotated[
+        str | None, Query(alias="format", description="Format legality filter")
+    ] = None,
     sort: str = "price-desc",
     limit: Annotated[int, Query(ge=1, le=100)] = 25,
 ) -> dict:
@@ -339,13 +368,22 @@ def cards_search(
     except Exception as e:  # noqa: BLE001 - surface filter/regex errors cleanly
         raise HTTPException(400, "Invalid search parameters.") from e
     # Short CDN cache: absorbs repeat queries while keeping price sorts fresh.
-    response.headers["Cache-Control"] = "public, s-maxage=600, stale-while-revalidate=600"
+    response.headers["Cache-Control"] = (
+        "public, s-maxage=600, stale-while-revalidate=600"
+    )
     return {"count": len(results), "results": results}
 
 
 @app.post("/api/deck/analyze")
 def deck_analyze(
-    payload: Annotated[dict, Body(examples=[{"decklist": "1 Sol Ring\n1 Llanowar Elves", "format": "commander"}])],
+    payload: Annotated[
+        dict,
+        Body(
+            examples=[
+                {"decklist": "1 Sol Ring\n1 Llanowar Elves", "format": "commander"}
+            ]
+        ),
+    ],
 ) -> dict:
     decklist, fmt = _validate_decklist(payload)
     try:
@@ -359,7 +397,9 @@ def deck_analyze(
 
 @app.post("/api/deck/export")
 def deck_export(
-    payload: Annotated[dict, Body(example={"decklist": "1 Sol Ring", "format": "commander"})],
+    payload: Annotated[
+        dict, Body(example={"decklist": "1 Sol Ring", "format": "commander"})
+    ],
 ) -> dict:
     """Normalize any pasted decklist into canonical Archidekt/Moxfield import text."""
     decklist, fmt = _validate_decklist(payload)
@@ -437,16 +477,18 @@ def deck_budget_swaps(payload: Annotated[dict, Body()]) -> dict:
 def deck_ai_cuts(request: Request, payload: Annotated[dict, Body()]) -> dict:
     _check_ai_access(request)
     decklist, fmt = _validate_decklist(payload)
-    return mtg.ai_suggest_cuts(decklist, fmt=fmt, bracket=_target_bracket(payload),
-                               goals=_parse_goals(payload))
+    return mtg.ai_suggest_cuts(
+        decklist, fmt=fmt, bracket=_target_bracket(payload), goals=_parse_goals(payload)
+    )
 
 
 @app.post("/api/deck/ai/fills")
 def deck_ai_fills(request: Request, payload: Annotated[dict, Body()]) -> dict:
     _check_ai_access(request)
     decklist, fmt = _validate_decklist(payload)
-    return mtg.ai_composition_fills(decklist, fmt=fmt, bracket=_target_bracket(payload),
-                                    goals=_parse_goals(payload))
+    return mtg.ai_composition_fills(
+        decklist, fmt=fmt, bracket=_target_bracket(payload), goals=_parse_goals(payload)
+    )
 
 
 @app.post("/api/deck/ai/explain")
@@ -459,7 +501,9 @@ def deck_ai_explain(request: Request, payload: Annotated[dict, Body()]) -> dict:
     for cn in card_names:
         if len(cn) > _MAX_CARD_NAME_LEN:
             raise HTTPException(400, f"Card name too long: {cn[:30]}…")
-    return mtg.ai_explain_recommendations(decklist, card_names, fmt=fmt, bracket=_target_bracket(payload))
+    return mtg.ai_explain_recommendations(
+        decklist, card_names, fmt=fmt, bracket=_target_bracket(payload)
+    )
 
 
 @app.post("/api/deck/ai/combos")
@@ -471,7 +515,9 @@ def deck_ai_combos(request: Request, payload: AiCombosPayload) -> dict:
         raise HTTPException(400, "Body must include a non-empty 'decklist' string.")
     combos_data = [c.model_dump() for c in payload.combos]
     near_misses = [c.model_dump() for c in payload.near_misses]
-    return mtg.ai_combo_guidance(decklist, combos_data, near_misses, fmt=fmt, bracket=payload.bracket)
+    return mtg.ai_combo_guidance(
+        decklist, combos_data, near_misses, fmt=fmt, bracket=payload.bracket
+    )
 
 
 @app.post("/api/deck/ai/strategy")
@@ -479,7 +525,9 @@ def deck_ai_strategy(request: Request, payload: Annotated[dict, Body()]) -> dict
     _check_ai_access(request)
     decklist, fmt = _validate_decklist(payload)
     commander = (payload.get("commander") or "").strip()[:_MAX_CARD_NAME_LEN] or None
-    return mtg.ai_strategy(decklist, fmt=fmt, commander=commander, bracket=_target_bracket(payload))
+    return mtg.ai_strategy(
+        decklist, fmt=fmt, commander=commander, bracket=_target_bracket(payload)
+    )
 
 
 @app.post("/api/deck/ai/upgrades")
@@ -490,8 +538,14 @@ def deck_ai_upgrades(request: Request, payload: Annotated[dict, Body()]) -> dict
     mode = (payload.get("mode") or "power").strip().lower()
     if mode not in ("power", "budget"):
         raise HTTPException(400, "mode must be 'power' or 'budget'.")
-    return mtg.ai_upgrades(decklist, fmt=fmt, commander=commander, bracket=_target_bracket(payload),
-                           mode=mode, goals=_parse_goals(payload))
+    return mtg.ai_upgrades(
+        decklist,
+        fmt=fmt,
+        commander=commander,
+        bracket=_target_bracket(payload),
+        mode=mode,
+        goals=_parse_goals(payload),
+    )
 
 
 @app.post("/api/deck/optimize")
@@ -502,8 +556,13 @@ def deck_optimize(request: Request, payload: Annotated[dict, Body()]) -> dict:
     focus = payload.get("focus") or None
     if focus is not None and focus not in mtg.OPTIMIZE_FOCUS:
         raise HTTPException(400, "Invalid focus.")
-    return mtg.ai_optimize(decklist, fmt=fmt, bracket=_target_bracket(payload),
-                           goals=_parse_goals(payload), focus=focus)
+    return mtg.ai_optimize(
+        decklist,
+        fmt=fmt,
+        bracket=_target_bracket(payload),
+        goals=_parse_goals(payload),
+        focus=focus,
+    )
 
 
 class ImportUrlPayload(BaseModel):
@@ -593,7 +652,15 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
             data = resp.json()
             name = data.get("name", "Imported deck")
             fmt = data.get("deckFormat", "commander")
-            fmt_map = {1: "standard", 2: "modern", 3: "commander", 4: "legacy", 5: "vintage", 6: "pauper", 7: "pioneer"}
+            fmt_map = {
+                1: "standard",
+                2: "modern",
+                3: "commander",
+                4: "legacy",
+                5: "vintage",
+                6: "pauper",
+                7: "pioneer",
+            }
             if isinstance(fmt, int):
                 fmt = fmt_map.get(fmt, "commander")
             # Archidekt marks each category (Sideboard, Maybeboard, Cut Cards, custom
@@ -606,12 +673,16 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
             # park them in the Considering pile.
             board_categories = {"sideboard", "maybeboard", "considering"}
             excluded_categories = {
-                c.get("name") for c in (data.get("categories") or []) if c.get("includedInDeck") is False
+                c.get("name")
+                for c in (data.get("categories") or [])
+                if c.get("includedInDeck") is False
             }
             lines = []
             side_lines = []
             for card_data in data.get("cards") or []:
-                cname = ((card_data.get("card") or {}).get("oracleCard") or {}).get("name", "")
+                cname = ((card_data.get("card") or {}).get("oracleCard") or {}).get(
+                    "name", ""
+                )
                 qty = card_data.get("quantity", 1)
                 categories = card_data.get("categories") or []
                 if not cname:
@@ -634,7 +705,9 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
                 "source": "archidekt",
             }
 
-        raise HTTPException(400, "Unsupported URL. Paste a Moxfield or Archidekt deck URL.")
+        raise HTTPException(
+            400, "Unsupported URL. Paste a Moxfield or Archidekt deck URL."
+        )
     except HTTPException:
         raise
     except Exception as e:  # noqa: BLE001
@@ -648,7 +721,9 @@ def wizard_skeleton(payload: Annotated[dict, Body()]) -> dict:
     if not commander or len(commander) > _MAX_CARD_NAME_LEN:
         raise HTTPException(400, "Provide a valid commander name.")
     fmt = payload.get("format") or "commander"
-    return mtg.wizard_build_skeleton(commander, fmt=fmt, bracket=_target_bracket(payload))
+    return mtg.wizard_build_skeleton(
+        commander, fmt=fmt, bracket=_target_bracket(payload)
+    )
 
 
 @app.post("/api/deck/wizard/narrate")
@@ -675,7 +750,10 @@ def wizard_chat(request: Request, payload: WizardChatPayload) -> dict:
     _check_ai_access(request)
     messages = [{"role": m.role, "content": m.content} for m in payload.messages]
     return mtg.wizard_chat(
-        messages, payload.commander.strip(), payload.decklist, fmt=payload.format,
+        messages,
+        payload.commander.strip(),
+        payload.decklist,
+        fmt=payload.format,
         bracket=payload.bracket,
     )
 
@@ -741,8 +819,9 @@ def planeswalker_chat(request: Request, payload: ChatPayload) -> dict:
     system, messages, has_ctx = _planeswalker_prompt(payload)
 
     if len(messages) == 1:
-        resp = mtg._ai_call(system, messages[0]["content"],
-                             max_tokens=2000, cache_user_msg=has_ctx)
+        resp = mtg._ai_call(
+            system, messages[0]["content"], max_tokens=2000, cache_user_msg=has_ctx
+        )
     else:
         resp = mtg._ai_call(system, messages=messages, max_tokens=2000)
 
@@ -759,8 +838,9 @@ def planeswalker_chat_stream(request: Request, payload: ChatPayload):
 
     def generate():
         if len(messages) == 1:
-            yield from mtg._ai_call_stream(system, messages[0]["content"],
-                                           max_tokens=2000, cache_user_msg=has_ctx)
+            yield from mtg._ai_call_stream(
+                system, messages[0]["content"], max_tokens=2000, cache_user_msg=has_ctx
+            )
         else:
             yield from mtg._ai_call_stream(system, messages=messages, max_tokens=2000)
 
@@ -771,7 +851,9 @@ def planeswalker_chat_stream(request: Request, payload: ChatPayload):
 def card_image(
     response: Response,
     name: Annotated[str | None, Query(description="Single card name")] = None,
-    names: Annotated[str | None, Query(description="Pipe-separated card names for a batch")] = None,
+    names: Annotated[
+        str | None, Query(description="Pipe-separated card names for a batch")
+    ] = None,
 ) -> dict:
     """Resolve card name(s) to Scryfall image URLs (for hover/tap previews).
 
@@ -779,7 +861,9 @@ def card_image(
     `?names=A|B|C`   → {"images": {A: {...}, B: {...}, ...}}.
     """
     # Image URLs for a printing are effectively immutable — cache a day at the CDN.
-    response.headers["Cache-Control"] = "public, s-maxage=86400, stale-while-revalidate=86400"
+    response.headers["Cache-Control"] = (
+        "public, s-maxage=86400, stale-while-revalidate=86400"
+    )
     if names:
         wanted = [n.strip() for n in names.split("|") if n.strip()]
         return {"images": mtg.card_images(wanted)}
@@ -801,17 +885,23 @@ def card_prints(
     name = name.strip()
     if not name or len(name) > _MAX_CARD_NAME_LEN:
         raise HTTPException(400, "Provide a valid card name.")
-    response.headers["Cache-Control"] = "public, s-maxage=86400, stale-while-revalidate=86400"
+    response.headers["Cache-Control"] = (
+        "public, s-maxage=86400, stale-while-revalidate=86400"
+    )
     return mtg.card_prints(name)
 
 
 @app.get("/api/sets")
 def set_search(
     response: Response,
-    q: Annotated[str, Query(description="Set name or code fragment", max_length=50)] = "",
+    q: Annotated[
+        str, Query(description="Set name or code fragment", max_length=50)
+    ] = "",
 ) -> dict:
     """Search the Scryfall set directory — powers the mass-art set picker."""
-    response.headers["Cache-Control"] = "public, s-maxage=86400, stale-while-revalidate=86400"
+    response.headers["Cache-Control"] = (
+        "public, s-maxage=86400, stale-while-revalidate=86400"
+    )
     return mtg.set_directory(q)
 
 
@@ -867,14 +957,18 @@ def card_printing(
     # Both values are interpolated into the Scryfall URL path — validate hard.
     if not _SET_CODE_RE.match(set_code or "") or not _COLLECTOR_RE.match(cn or ""):
         raise HTTPException(400, "Invalid set code or collector number.")
-    response.headers["Cache-Control"] = "public, s-maxage=86400, stale-while-revalidate=86400"
+    response.headers["Cache-Control"] = (
+        "public, s-maxage=86400, stale-while-revalidate=86400"
+    )
     return mtg.card_printing_image(set_code, cn)
 
 
 @app.post("/api/rules/ask")
 def rules_ask(
     request: Request,
-    payload: Annotated[dict, Body(example={"question": "Can I counter a triggered ability?"})],
+    payload: Annotated[
+        dict, Body(example={"question": "Can I counter a triggered ability?"})
+    ],
 ) -> dict:
     """AI Rules Q&A: answer a plain-English MTG rules question with cited rules."""
     _check_ai_access(request)
@@ -906,8 +1000,11 @@ def rules_ask_stream(
     user_msg = "\n\n".join(sections)
 
     import json as _json
+
     def generate():
-        yield from mtg._ai_call_stream(mtg._RULES_SYSTEM, user_msg, api_key=key, max_tokens=1500)
+        yield from mtg._ai_call_stream(
+            mtg._RULES_SYSTEM, user_msg, api_key=key, max_tokens=1500
+        )
         # Send citations as final metadata
         yield f"data: {_json.dumps({'status': 'citations', 'citations': [{'number': c['number'], 'text': c['text']} for c in cited], 'cards': [{'name': c['name'], 'oracle_text': c.get('oracle_text', '')} for c in cards]})}\n\n"
 
@@ -918,10 +1015,17 @@ def rules_ask_stream(
 def commanders_search(
     q: Annotated[str, Query(min_length=2, description="Partial commander name")],
     limit: Annotated[int, Query(ge=1, le=25)] = 12,
-    partner_of: Annotated[str | None, Query(description="First commander name — filters to legal partners")] = None,
+    partner_of: Annotated[
+        str | None,
+        Query(description="First commander name — filters to legal partners"),
+    ] = None,
 ) -> dict:
     """Resolve a typed name to commander-eligible cards (e.g. 'nethroi')."""
     try:
-        return {"results": mtg.commander_search(q, limit=limit, partner_of=partner_of or None)}
+        return {
+            "results": mtg.commander_search(
+                q, limit=limit, partner_of=partner_of or None
+            )
+        }
     except Exception as e:  # noqa: BLE001
         raise HTTPException(400, "Commander search failed.") from e

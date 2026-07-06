@@ -500,16 +500,18 @@ def grep_rules(
     context. Category titles are searched too, so ``--grep "Turn
     Structure"`` hits the section-5 category list.
     """
-    try:
-        regex = re.compile(pattern, flags)
-    except re.error as exc:
-        msg = f"Invalid regex: {exc}"
-        raise ValueError(msg) from exc
+    # Time-budgeted engine: `pattern` is user-supplied, and stdlib `re` has no
+    # timeout — a catastrophic-backtracking pattern would spin forever. The
+    # budget spans the whole scan; TimeboxedPattern raises ValueError on a bad
+    # pattern (same contract as before) and RegexBudgetError on exhaustion.
+    from mtg_utils._regex_guard import TimeboxedPattern
+
+    rx = TimeboxedPattern(pattern, flags)
 
     results: list[dict] = []
     for num, entry in parsed["rules"].items():
         haystack = entry.get("text") or entry.get("title") or ""
-        m = regex.search(haystack)
+        m = rx.search(haystack)
         if m:
             start = max(0, m.start() - 40)
             end = min(len(haystack), m.end() + 40)

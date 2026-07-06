@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { supabase, supabaseEnabled } from "../lib/supabase";
 
-const KEY_STORE = "mtgweb:anthropicKey";
-
 const REMEMBER_EMAIL_KEY = "mtgweb:rememberedEmail";
 const REMEMBER_ME_KEY = "mtgweb:rememberMe";
 
@@ -11,8 +9,6 @@ export default function Settings({ session, notify }) {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(() => localStorage.getItem(REMEMBER_ME_KEY) !== "false");
   const [authMode, setAuthMode] = useState("signin");
-  const [apiKey, setApiKey] = useState(localStorage.getItem(KEY_STORE) || "");
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [busy, setBusy] = useState(false);
 
   function saveRememberMe(emailValue) {
@@ -77,12 +73,6 @@ export default function Settings({ session, notify }) {
     notify("Signed out.");
   }
 
-  function saveKey() {
-    if (apiKey.trim()) localStorage.setItem(KEY_STORE, apiKey.trim());
-    else localStorage.removeItem(KEY_STORE);
-    notify("Saved.");
-  }
-
   return (
     <div>
       <div className="panel">
@@ -133,27 +123,8 @@ export default function Settings({ session, notify }) {
         <h2>Planeswalker</h2>
         <p className="muted small">
           The ⚡ Planeswalker provides tailored deck advice, rules answers, and strategy guidance —
-          no setup needed. Usage is limited to {25} calls per day.
+          no setup needed. Usage is limited to 50 calls per day.
         </p>
-        <p className="muted small" style={{ marginTop: ".3rem" }}>
-          <button className="ghost small" onClick={() => setShowAdvanced(!showAdvanced)}>
-            {showAdvanced ? "Hide advanced" : "Use your own API key (advanced)"}
-          </button>
-        </p>
-        {showAdvanced && (
-          <div style={{ marginTop: ".5rem" }}>
-            <p className="muted small">
-              Paste your own Anthropic API key to bypass the daily limit and use your own account.
-              Stored only in this browser, never sent to the server for storage.
-            </p>
-            <label>Anthropic API key</label>
-            <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} type="password" placeholder="sk-ant-…" />
-            <div className="row" style={{ marginTop: ".5rem" }}>
-              <button className="primary" onClick={saveKey}>Save</button>
-              {apiKey && <button onClick={() => { setApiKey(""); localStorage.removeItem(KEY_STORE); notify("Key removed."); }}>Clear</button>}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

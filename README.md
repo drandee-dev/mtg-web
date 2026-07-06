@@ -56,8 +56,7 @@ serverless cutover and was retired once Vercel proved stable.
 - **Card image previews** — hover (desktop) or tap (mobile) any card name.
 - **Mobile-first** — bottom nav, touch-friendly stack view, installable PWA with offline card
   image caching.
-- **Settings** — magic-link sign-in (when Supabase is configured) + optional personal Anthropic
-  API key.
+- **Settings** — magic-link / password sign-in (when Supabase is configured), theme switcher.
 
 AI usage is metered per-server: a daily per-user rate limit and a monthly budget cap (see
 `backend/app/usage.py`), tracked in Supabase if configured — fails open (no enforcement) if not.

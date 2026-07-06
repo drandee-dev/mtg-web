@@ -12,3 +12,7 @@ supabase>=2.9
 # Pulled in transitively by mtg_utils (the reused deck/card/rules library)
 click>=8.0
 requests>=2.28
+
+# ReDoS guard: timeout-capable engine for user-supplied regexes
+# (mtg_utils/_regex_guard.py) — stdlib `re` has no timeout.
+regex>=2024.4.16

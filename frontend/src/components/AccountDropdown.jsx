@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import ThemeSwitcher from "./ThemeSwitcher";
 
-const KEY_STORE = "mtgweb:anthropicKey";
 const REMEMBER_EMAIL_KEY = "mtgweb:rememberedEmail";
 const REMEMBER_ME_KEY = "mtgweb:rememberMe";
 
@@ -11,8 +10,6 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(() => localStorage.getItem(REMEMBER_ME_KEY) !== "false");
   const [authMode, setAuthMode] = useState("signin"); // "signin" | "signup" | "magic" | "forgot"
-  const [apiKey, setApiKey] = useState(localStorage.getItem(KEY_STORE) || "");
-  const [editingKey, setEditingKey] = useState(!localStorage.getItem(KEY_STORE));
   const [busy, setBusy] = useState(false);
   const ref = useRef(null);
 
@@ -102,19 +99,8 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
     notify("Signed out.");
   }
 
-  function saveKey() {
-    if (apiKey.trim()) {
-      localStorage.setItem(KEY_STORE, apiKey.trim());
-      setEditingKey(false);
-    } else {
-      localStorage.removeItem(KEY_STORE);
-    }
-    notify("Saved.");
-  }
-
   const signedIn = supabaseEnabled && session;
   const avatarLetter = session ? session.user.email[0].toUpperCase() : "?";
-  const maskedKey = apiKey ? `sk-ant-${"•".repeat(20)}` : "";
 
   return (
     <div className="account-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -262,34 +248,6 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
           <div>
             <div className="account-section-title">Theme</div>
             <ThemeSwitcher />
-          </div>
-
-          {/* API key */}
-          <div>
-            <div className="account-key-header">
-              <span className="account-section-title" style={{ margin: 0 }}>Anthropic API Key</span>
-              {apiKey && !editingKey && <span className="account-key-badge">Active</span>}
-            </div>
-            {apiKey && !editingKey ? (
-              <div className="account-key-display">
-                <span className="account-key-masked">{maskedKey}</span>
-                <button className="account-key-change" onClick={() => setEditingKey(true)}>Change</button>
-              </div>
-            ) : (
-              <>
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  onBlur={saveKey}
-                  placeholder="sk-ant-... (optional, for AI features)"
-                  className="account-api-input"
-                />
-                <div className="account-callout-text" style={{ marginTop: "6px" }}>
-                  Enables AI analysis and the Planeswalker assistant. Your key is stored locally and never sent to our servers.
-                </div>
-              </>
-            )}
           </div>
 
           {/* Footer */}
