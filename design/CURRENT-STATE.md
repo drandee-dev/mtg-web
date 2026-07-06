@@ -37,7 +37,7 @@
 
 From the project root, build pointing at the live backend and run:
 ```bash
-cd frontend && VITE_API_BASE=https://mtg-workshop.onrender.com npm run build
+cd frontend && VITE_API_BASE=https://mtg-workshop-api.vercel.app npm run build
 npx vite preview --port 4173
 # Then run the Playwright screenshot script (mocks backend for speed)
 ```

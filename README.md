@@ -5,7 +5,7 @@ free, deterministic features; Phase 2 (later) adds optional AI.
 
 - **Frontend:** React (Vite), mobile-first responsive → deploys to **Vercel** (free).
 - **Backend:** FastAPI, reuses your existing `mtg_utils` library + Scryfall/rules data →
-  deploys to **Render** (~$5–7/mo). Stateless (no user data).
+  deploys to **Vercel** as a Python Function (free, Hobby plan). Stateless (no user data).
 - **Accounts + deck sync (optional):** **Supabase** (free) — email magic-link sign-in, decks
   synced across devices. Without it, the app still works fully in **local mode** (decks save to
   the browser; Export/Import moves them).
@@ -112,28 +112,31 @@ This needs your own logins, so it's a manual one-time setup. The app works witho
 
 ## Deploy
 
-### Backend → Render
+Both frontend and backend deploy to **Vercel** as separate projects in the same account —
+no Render, no persistent disk, no cold-start sleep to work around.
 
-1. **Create a Web Service** at [render.com](https://render.com) from your GitHub repo.
-2. **Root directory:** `mtg-web/backend`
-3. **Runtime:** Python 3
-4. **Build command:** `pip install -r requirements.txt`
-5. **Start command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-6. **Plan:** Starter ($7/mo) — avoids cold-start sleep on the free tier.
-7. **Persistent disk:** attach ~1 GB mounted at `/data` for the Scryfall bulk file + rules.
+### Backend → Vercel
+
+1. **Import your repo** at [vercel.com](https://vercel.com), root `mtg-web/backend`.
+2. **Framework:** none/other — Vercel auto-detects `app/main.py:app` as a Python Function via
+   `pyproject.toml`'s `[tool.vercel.scripts]` build hook.
+3. The build step (`vercel_build.py`) downloads + strips Scryfall bulk data and the Comprehensive
+   Rules at **build time**, bundling pre-built pickle caches into the function — cold starts load
+   pickles instead of parsing raw JSON (~1-2s).
 
 **Environment variables:**
 
 | Variable | Value |
 |----------|-------|
-| `MTG_UTILS_SRC` | Path to `mtg_utils` source on the host |
-| `MTG_DATA_DIR` | `/data` (persistent disk mount) |
-| `MTG_CORS_ORIGINS` | `https://your-app.vercel.app` |
+| `MTG_CORS_ORIGINS` | `https://your-frontend.vercel.app` (no trailing slash) |
 | `ANTHROPIC_API_KEY` | Your Anthropic API key (AI features; optional) |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | Enables AI usage tracking (budget cap + rate limit); fails open if unset |
+| `SUPABASE_JWT_SECRET` | Verifies signed-in users' JWTs server-side |
+| `ADMIN_EMAIL` | Email that bypasses the AI rate limit/budget cap |
 
-**Getting bulk data onto Render:** upload `default-cards.json` + sidecar to the persistent disk,
-or add a build/cron step: `python -m mtg_utils.download_bulk /data`. For fresh prices, set up a
-daily cron job (`0 6 * * *`) to re-download — the backend auto-reloads when the file changes.
+**Keeping data fresh:** a GitHub Action (`.github/workflows/refresh-data.yml`) runs weekly and
+hits a Vercel deploy hook (`VERCEL_DEPLOY_HOOK_URL` secret), which re-runs the build step and
+picks up new prices/cards.
 
 ### Frontend → Vercel
 
@@ -144,23 +147,23 @@ daily cron job (`0 6 * * *`) to re-download — the backend auto-reloads when th
 
 | Variable | Value |
 |----------|-------|
-| `VITE_API_BASE` | `https://your-backend.onrender.com` |
+| `VITE_API_BASE` | `https://your-backend.vercel.app` |
 | `VITE_SUPABASE_URL` | Your Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Your Supabase anon/public key |
 
 ### Pricing refresh
 
-Card prices come from Scryfall's bulk data (`prices.usd`), updated ~once/day by Scryfall. The
-backend's in-memory index is keyed on the file's mtime — replacing the file refreshes prices
-without a restart. Locally: `python -m mtg_utils.download_bulk data/`. Deployed: Render daily cron.
+Card prices come from Scryfall's bulk data (`prices.usd`), updated ~once/day by Scryfall. Locally,
+the backend's in-memory index is keyed on the file's mtime — replacing the file refreshes prices
+without a restart (`python -m mtg_utils.download_bulk data/`). Deployed: the weekly GitHub Action
+above re-triggers the Vercel build, which re-downloads bulk data.
 
 ### Costs
 
 | Service | Cost |
 |---------|------|
-| Vercel (frontend) | $0 (Hobby) |
+| Vercel (frontend + backend) | $0 (Hobby plan covers both projects) |
 | Supabase (auth + DB) | $0 (free tier) |
-| Render (backend) | ~$7/mo (Starter) |
 | Domain (optional) | ~$12/yr |
 | Claude API (AI Q&A) | ~$1-5/mo for a friends group |
 

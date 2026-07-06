@@ -3,8 +3,8 @@ name = "mtg-web-backend"
 version = "0.1.0"
 requires-python = ">=3.11"
 # Vercel installs from this table (it takes precedence over requirements.txt).
-# Keep in sync with requirements.txt, minus uvicorn — Vercel provides the ASGI
-# server; uvicorn is only for local dev / Render.
+# requirements.txt is local-dev only now (Render retired 2026-07-05) and adds
+# uvicorn, which Vercel provides itself as the ASGI server.
 dependencies = [
     "fastapi>=0.115",
     "anthropic>=0.52",
