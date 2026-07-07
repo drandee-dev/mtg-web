@@ -29,9 +29,12 @@ export default defineConfig({
             src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
+            purpose: 'any',
           },
           {
-            src: 'pwa-512x512.png',
+            // Dedicated maskable art: gem scaled into the 40%-radius safe zone so
+            // launcher masks (circle/squircle) never clip the spark tips.
+            src: 'maskable-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
@@ -40,7 +43,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,woff2}'],
-        globIgnores: ['**/pwa-*.png', '**/apple-touch-icon.png'],
+        globIgnores: ['**/pwa-*.png', '**/maskable-*.png', '**/apple-touch-icon.png'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
