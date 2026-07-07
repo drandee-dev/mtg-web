@@ -274,6 +274,9 @@ mtg-web/
   README.md  (this file)
 ```
 
+See [DATA-MODEL.md](DATA-MODEL.md) for an ERD of everything the app persists
+(Supabase tables, localStorage entities, and what's derived from the decklist text).
+
 ## Not in scope (by design)
 - No PDFs in the web app (saving = on-account/on-device + export). Proxy printing stays a local
   Claude Code skill.
