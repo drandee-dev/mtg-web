@@ -54,39 +54,89 @@ function renderInline(text, actions, keyBase) {
   return out;
 }
 
-// Block-level markdown: paragraphs + bullet/numbered lists. `className` lets a
-// caller keep its own scope (defaults to the Planeswalker `pw-text` styling).
+// Block-level markdown: headings, horizontal rules, blockquotes, bullet/numbered
+// lists, and paragraphs. `className` lets a caller keep its own scope (defaults
+// to the Planeswalker `pw-text` styling). Consecutive quote/list lines group
+// into one block; everything else is a paragraph.
 export function BotText({ text, actions, className = "pw-text" }) {
   const blocks = [];
-  let list = null; // { ordered, items }
-  const flush = () => { if (list) { blocks.push(list); list = null; } };
+  let list = null;  // { type: "list", ordered, items }
+  let quote = null; // { type: "quote", lines }
+  const flushList = () => { if (list) { blocks.push(list); list = null; } };
+  const flushQuote = () => { if (quote) { blocks.push(quote); quote = null; } };
+  const flush = () => { flushList(); flushQuote(); };
+
   for (const raw of (text || "").split("\n")) {
     const line = raw.trimEnd();
+
+    // Horizontal rule: a line of only ---, ***, or ___ (3+). Checked before
+    // lists so `***` isn't mistaken for a bullet.
+    if (/^\s*([-*_])\1{2,}\s*$/.test(line)) {
+      flush();
+      blocks.push({ type: "hr" });
+      continue;
+    }
+    // ATX heading: # … ###### followed by a space and text.
+    const heading = line.match(/^\s*(#{1,6})\s+(.*)$/);
+    if (heading) {
+      flush();
+      blocks.push({ type: "heading", level: heading[1].length, text: heading[2] });
+      continue;
+    }
+    // Blockquote: `> text`, grouped across consecutive lines.
+    const bq = line.match(/^\s*>\s?(.*)$/);
+    if (bq) {
+      flushList();
+      if (!quote) quote = { type: "quote", lines: [] };
+      quote.lines.push(bq[1]);
+      continue;
+    }
+    // Bullet / numbered lists.
     const bullet = line.match(/^\s*[-*]\s+(.*)/);
     const ordered = line.match(/^\s*\d+\.\s+(.*)/);
     if (bullet || ordered) {
+      flushQuote();
       const isOrdered = Boolean(ordered);
-      if (!list || list.ordered !== isOrdered) { flush(); list = { ordered: isOrdered, items: [] }; }
+      if (!list || list.ordered !== isOrdered) { flushList(); list = { type: "list", ordered: isOrdered, items: [] }; }
       list.items.push((bullet || ordered)[1]);
-    } else {
-      flush();
-      blocks.push(line);
+      continue;
     }
+    // Paragraph (or a blank line, which renders as nothing).
+    flush();
+    blocks.push({ type: "para", text: line });
   }
   flush();
+
   return (
     <div className={className}>
       {blocks.map((b, i) => {
-        if (typeof b === "string") {
-          if (!b.trim()) return null;
-          return <p key={i}>{renderInline(b, actions, `l${i}`)}</p>;
+        if (b.type === "hr") return <hr key={i} className="pw-hr" />;
+        if (b.type === "heading") {
+          return (
+            <div key={i} className={`pw-heading pw-h${b.level}`}>
+              {renderInline(b.text, actions, `h${i}`)}
+            </div>
+          );
         }
-        const Tag = b.ordered ? "ol" : "ul";
-        return (
-          <Tag key={i}>
-            {b.items.map((item, j) => <li key={j}>{renderInline(item, actions, `l${i}-${j}`)}</li>)}
-          </Tag>
-        );
+        if (b.type === "quote") {
+          return (
+            <blockquote key={i} className="pw-quote">
+              {b.lines.map((ln, j) =>
+                ln.trim() ? <p key={j}>{renderInline(ln, actions, `q${i}-${j}`)}</p> : null
+              )}
+            </blockquote>
+          );
+        }
+        if (b.type === "list") {
+          const Tag = b.ordered ? "ol" : "ul";
+          return (
+            <Tag key={i}>
+              {b.items.map((item, j) => <li key={j}>{renderInline(item, actions, `l${i}-${j}`)}</li>)}
+            </Tag>
+          );
+        }
+        if (!b.text.trim()) return null;
+        return <p key={i}>{renderInline(b.text, actions, `l${i}`)}</p>;
       })}
     </div>
   );
