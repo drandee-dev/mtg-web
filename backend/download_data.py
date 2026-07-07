@@ -117,40 +117,42 @@ def download_bulk():
 # WotC hosts each Comprehensive Rules release as a dated .txt on media.wizards.com
 # and links the current one from the public rules page. Discovering it there means
 # a new CR (shipped with roughly every set) is picked up automatically instead of
-# needing a code edit. The dated fallbacks below are only used if discovery fails.
+# needing a code edit. Note the live filename uses a SPACE before the date
+# ("MagicCompRules 20260619.txt"), which must be %20-encoded to fetch. WotC keeps
+# only the current release, so there are no reliable dated fallbacks — discovery
+# is the source of truth, and an already-downloaded copy is the safety net.
 _RULES_PAGE = "https://magic.wizards.com/en/rules"
+# Match both the space and underscore filename conventions WotC has used.
 _RULES_TXT_RE = re.compile(
-    r"https://media\.wizards\.com/\d+/downloads/[^\s\"']*?MagicCompRules[^\s\"']*?\.txt",
+    r"https://media\.wizards\.com/\d+/downloads/MagicCompRules[ _]?\d{8}\.txt",
     re.IGNORECASE,
 )
-_RULES_FALLBACK_URLS = [
-    "https://media.wizards.com/2026/downloads/MagicCompRules_20260417.txt",
-    "https://media.wizards.com/2025/downloads/MagicCompRules_20250404.txt",
-]
 
 
 def _rules_date_key(url):
     """Sort key: the 8-digit date embedded in a MagicCompRules_YYYYMMDD.txt URL."""
-    m = re.search(r"(\d{8})", url)
+    m = re.search(r"(\d{8})", url or "")
     return m.group(1) if m else ""
 
 
 def discover_latest_rules_url():
-    """Scrape the WotC rules page for the newest MagicCompRules_*.txt link.
+    """Scrape the WotC rules page for the newest MagicCompRules .txt link.
 
     Returns the URL with the latest embedded date, or None if the page can't be
-    fetched or contains no such link (caller falls back to the pinned URLs).
+    fetched or contains no such link. A browser-like User-Agent is required —
+    the default urllib agent gets a bot-blocked response with no link in it.
     """
     try:
-        req = Request(_RULES_PAGE, headers={"User-Agent": "MTGWorkshop/1.0"})
+        ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        req = Request(_RULES_PAGE, headers={"User-Agent": ua})
         with urlopen(req, timeout=20) as resp:
             html = resp.read().decode("utf-8", "ignore")
     except Exception as e:
-        print(f"  Rules-page discovery failed ({e}); using pinned fallbacks.")
+        print(f"  Rules-page discovery failed ({e}).")
         return None
     urls = _RULES_TXT_RE.findall(html)
     if not urls:
-        print("  No CR .txt link found on rules page; using pinned fallbacks.")
+        print("  No CR .txt link found on rules page.")
         return None
     latest = max(urls, key=_rules_date_key)
     print(f"  Discovered latest CR: {latest}")
@@ -158,32 +160,50 @@ def discover_latest_rules_url():
 
 
 def download_rules():
-    """Download the latest Comprehensive Rules text."""
-    existing = sorted(DATA_DIR.glob(RULES_GLOB))
-    if existing:
-        print(f"Rules already exist: {existing[-1].name}")
+    """Download the current Comprehensive Rules, if newer than what we have.
+
+    Never deletes the existing copy until a newer one is safely written, so a
+    failed download (or a WotC outage) leaves the last-good CR in place rather
+    than breaking the build. Older copies are pruned only after a successful save.
+    """
+    existing = sorted(DATA_DIR.glob(RULES_GLOB), key=lambda p: _rules_date_key(p.name))
+    existing_date = _rules_date_key(existing[-1].name) if existing else ""
+
+    url = discover_latest_rules_url()
+    if not url:
+        if existing:
+            print(f"Discovery failed; keeping cached rules: {existing[-1].name}")
+        else:
+            print("WARNING: Could not discover Comprehensive Rules and none cached.")
         return
 
-    print("Downloading Comprehensive Rules...")
-    discovered = discover_latest_rules_url()
-    urls = ([discovered] if discovered else []) + _RULES_FALLBACK_URLS
-    for url in urls:
-        try:
-            req = Request(url, headers={"User-Agent": "MTGWorkshop/1.0"})
-            with urlopen(req) as resp:
-                text = resp.read()
-            # Prefer the embedded YYYYMMDD; fall back to the pre-.txt token so the
-            # newest file still sorts last in resolve_rules_path's glob.
-            date_part = _rules_date_key(url) or url.split("_")[-1].replace(".txt", "")
-            out = DATA_DIR / f"comprehensive-rules-{date_part}.txt"
-            out.write_bytes(text)
-            print(f"Saved rules to {out}")
-            return
-        except Exception as e:
-            print(f"  Failed {url}: {e}")
-            continue
+    new_date = _rules_date_key(url)
+    if existing and existing_date >= new_date:
+        print(f"Rules already current ({existing[-1].name}); skipping download.")
+        return
 
-    print("WARNING: Could not download Comprehensive Rules.")
+    print(f"Downloading Comprehensive Rules ({new_date})...")
+    try:
+        # The live filename contains a literal space that must be percent-encoded.
+        req = Request(
+            url.replace(" ", "%20"), headers={"User-Agent": "MTGWorkshop/1.0"}
+        )
+        with urlopen(req, timeout=60) as resp:
+            text = resp.read()
+    except Exception as e:
+        keep = f"; keeping cached {existing[-1].name}" if existing else ""
+        print(f"WARNING: CR download failed ({e}){keep}.")
+        return
+
+    out = DATA_DIR / f"comprehensive-rules-{new_date}.txt"
+    out.write_bytes(text)
+    print(f"Saved rules to {out}")
+
+    # Prune superseded CR files + their parsed sidecars now that the new one is safe.
+    for old in existing:
+        if old != out:
+            old.unlink(missing_ok=True)
+            (old.parent / f"{old.name}.parsed.pkl").unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

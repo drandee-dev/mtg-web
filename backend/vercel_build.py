@@ -29,15 +29,10 @@ if os.environ.get("VERCEL"):
         sidecar = bulk.with_name(bulk.name + ".idx.pkl")
         if sidecar.exists():
             sidecar.unlink()
-    # Same for the Comprehensive Rules: download_rules() skips when any CR file
-    # exists, so clearing the cached copy (+ its parsed sidecar) lets a newer CR
-    # release land on each build. discover_latest_rules_url() finds the current one.
-    for cr in data_dir.glob("comprehensive-rules*.txt"):
-        print(f"Removing cached rules file for a fresh CR download: {cr}")
-        cr.unlink()
-        parsed_sidecar = cr.with_name(cr.name + ".parsed.pkl")
-        if parsed_sidecar.exists():
-            parsed_sidecar.unlink()
+    # The Comprehensive Rules are handled by download_rules(), which discovers the
+    # current release and only replaces the cached copy once a newer one is safely
+    # downloaded — so we deliberately do NOT pre-delete it here. Deleting first
+    # would break the build whenever discovery or the download fails.
 
 import download_data  # noqa: E402
 
