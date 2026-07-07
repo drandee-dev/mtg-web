@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { postStream } from "../lib/api";
-import { sanitizeHtml } from "../lib/sanitize";
+import { BotText } from "./BotText";
 
 const CHIPS = [
   "Can I counter a triggered ability?",
@@ -119,10 +119,9 @@ export default function Rules({ aiAvailable, notify, prefill, onPrefillConsumed 
                   <span className="rules-msg-ai-dot" />
                   <span className="rules-msg-ai-name">MTG Workshop AI</span>
                 </div>
-                <div
-                  className="rules-msg-ai-text"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(msg.text) }}
-                />
+                <div className="rules-msg-ai-text">
+                  <BotText text={msg.text} />
+                </div>
                 {msg.citations?.length > 0 && (
                   <div className="rules-citations">
                     {msg.citations.map((c, j) => (
@@ -147,10 +146,9 @@ export default function Rules({ aiAvailable, notify, prefill, onPrefillConsumed 
                 <span className="rules-msg-ai-dot" />
                 <span className="rules-msg-ai-name">MTG Workshop AI</span>
               </div>
-              <div
-                className="rules-msg-ai-text"
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(streamText) }}
-              />
+              <div className="rules-msg-ai-text">
+                <BotText text={streamText} />
+              </div>
             </div>
           )}
 

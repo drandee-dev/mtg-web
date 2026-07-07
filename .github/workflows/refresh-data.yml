@@ -1,11 +1,12 @@
-# Weekly backend redeploy so the bundled Scryfall data (card prices) stays fresh.
-# The deploy hook rebuilds the Vercel backend project, whose build step
+# Daily backend redeploy so the bundled Scryfall data (new cards + prices) tracks
+# Scryfall's own daily bulk refresh — up to ~1 day stale instead of ~7. The deploy
+# hook rebuilds the Vercel backend project, whose build step
 # (backend/vercel_build.py) always downloads current bulk data.
 name: Refresh card data
 
 on:
   schedule:
-    - cron: "0 9 * * 1" # Mondays 09:00 UTC
+    - cron: "0 9 * * *" # Daily 09:00 UTC
   workflow_dispatch: {}
 
 jobs:

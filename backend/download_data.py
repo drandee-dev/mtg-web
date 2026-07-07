@@ -3,8 +3,10 @@
 Downloads oracle_cards and strips it to only the fields the app uses,
 cutting memory from ~200MB to ~60MB when loaded — fits in 512MB free tier.
 """
+
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from urllib.request import urlopen, Request
@@ -17,10 +19,27 @@ RULES_GLOB = "comprehensive-rules*.txt"
 
 # Only keep fields the app actually uses — everything else is discarded
 _KEEP_FIELDS = {
-    "name", "oracle_text", "mana_cost", "cmc", "type_line", "keywords",
-    "colors", "color_identity", "produced_mana", "power", "toughness",
-    "rarity", "prices", "legalities", "image_uris", "card_faces",
-    "oracle_id", "layout", "game_changer", "printed_name", "flavor_name",
+    "name",
+    "oracle_text",
+    "mana_cost",
+    "cmc",
+    "type_line",
+    "keywords",
+    "colors",
+    "color_identity",
+    "produced_mana",
+    "power",
+    "toughness",
+    "rarity",
+    "prices",
+    "legalities",
+    "image_uris",
+    "card_faces",
+    "oracle_id",
+    "layout",
+    "game_changer",
+    "printed_name",
+    "flavor_name",
 }
 
 
@@ -58,10 +77,13 @@ def download_bulk():
             return
 
     print("Fetching Scryfall bulk data catalog...")
-    req = Request("https://api.scryfall.com/bulk-data", headers={
-        "User-Agent": "MTGWorkshop/1.0",
-        "Accept": "application/json",
-    })
+    req = Request(
+        "https://api.scryfall.com/bulk-data",
+        headers={
+            "User-Agent": "MTGWorkshop/1.0",
+            "Accept": "application/json",
+        },
+    )
     with urlopen(req) as resp:
         catalog = json.loads(resp.read())
 
@@ -87,7 +109,52 @@ def download_bulk():
 
     output = json.dumps(stripped, separators=(",", ":"))
     BULK_PATH.write_text(output)
-    print(f"Saved {len(output) / 1_000_000:.0f} MB stripped data ({len(stripped)} cards) to {BULK_PATH}")
+    print(
+        f"Saved {len(output) / 1_000_000:.0f} MB stripped data ({len(stripped)} cards) to {BULK_PATH}"
+    )
+
+
+# WotC hosts each Comprehensive Rules release as a dated .txt on media.wizards.com
+# and links the current one from the public rules page. Discovering it there means
+# a new CR (shipped with roughly every set) is picked up automatically instead of
+# needing a code edit. The dated fallbacks below are only used if discovery fails.
+_RULES_PAGE = "https://magic.wizards.com/en/rules"
+_RULES_TXT_RE = re.compile(
+    r"https://media\.wizards\.com/\d+/downloads/[^\s\"']*?MagicCompRules[^\s\"']*?\.txt",
+    re.IGNORECASE,
+)
+_RULES_FALLBACK_URLS = [
+    "https://media.wizards.com/2026/downloads/MagicCompRules_20260417.txt",
+    "https://media.wizards.com/2025/downloads/MagicCompRules_20250404.txt",
+]
+
+
+def _rules_date_key(url):
+    """Sort key: the 8-digit date embedded in a MagicCompRules_YYYYMMDD.txt URL."""
+    m = re.search(r"(\d{8})", url)
+    return m.group(1) if m else ""
+
+
+def discover_latest_rules_url():
+    """Scrape the WotC rules page for the newest MagicCompRules_*.txt link.
+
+    Returns the URL with the latest embedded date, or None if the page can't be
+    fetched or contains no such link (caller falls back to the pinned URLs).
+    """
+    try:
+        req = Request(_RULES_PAGE, headers={"User-Agent": "MTGWorkshop/1.0"})
+        with urlopen(req, timeout=20) as resp:
+            html = resp.read().decode("utf-8", "ignore")
+    except Exception as e:
+        print(f"  Rules-page discovery failed ({e}); using pinned fallbacks.")
+        return None
+    urls = _RULES_TXT_RE.findall(html)
+    if not urls:
+        print("  No CR .txt link found on rules page; using pinned fallbacks.")
+        return None
+    latest = max(urls, key=_rules_date_key)
+    print(f"  Discovered latest CR: {latest}")
+    return latest
 
 
 def download_rules():
@@ -98,16 +165,16 @@ def download_rules():
         return
 
     print("Downloading Comprehensive Rules...")
-    urls = [
-        "https://media.wizards.com/2026/downloads/MagicCompRules_20260417.txt",
-        "https://media.wizards.com/2025/downloads/MagicCompRules_20250404.txt",
-    ]
+    discovered = discover_latest_rules_url()
+    urls = ([discovered] if discovered else []) + _RULES_FALLBACK_URLS
     for url in urls:
         try:
             req = Request(url, headers={"User-Agent": "MTGWorkshop/1.0"})
             with urlopen(req) as resp:
                 text = resp.read()
-            date_part = url.split("_")[-1].replace(".txt", "")
+            # Prefer the embedded YYYYMMDD; fall back to the pre-.txt token so the
+            # newest file still sorts last in resolve_rules_path's glob.
+            date_part = _rules_date_key(url) or url.split("_")[-1].replace(".txt", "")
             out = DATA_DIR / f"comprehensive-rules-{date_part}.txt"
             out.write_bytes(text)
             print(f"Saved rules to {out}")

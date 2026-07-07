@@ -21,13 +21,23 @@ _BACKEND = Path(__file__).resolve().parent
 os.environ.setdefault("MTG_DATA_DIR", str(_BACKEND / "data"))
 
 if os.environ.get("VERCEL"):
-    bulk = Path(os.environ["MTG_DATA_DIR"]) / "default-cards.json"
+    data_dir = Path(os.environ["MTG_DATA_DIR"])
+    bulk = data_dir / "default-cards.json"
     if bulk.exists():
         print(f"Removing cached bulk file for a fresh price download: {bulk}")
         bulk.unlink()
         sidecar = bulk.with_name(bulk.name + ".idx.pkl")
         if sidecar.exists():
             sidecar.unlink()
+    # Same for the Comprehensive Rules: download_rules() skips when any CR file
+    # exists, so clearing the cached copy (+ its parsed sidecar) lets a newer CR
+    # release land on each build. discover_latest_rules_url() finds the current one.
+    for cr in data_dir.glob("comprehensive-rules*.txt"):
+        print(f"Removing cached rules file for a fresh CR download: {cr}")
+        cr.unlink()
+        parsed_sidecar = cr.with_name(cr.name + ".parsed.pkl")
+        if parsed_sidecar.exists():
+            parsed_sidecar.unlink()
 
 import download_data  # noqa: E402
 

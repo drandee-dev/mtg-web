@@ -1003,7 +1003,10 @@ def rules_ask_stream(
 
     def generate():
         yield from mtg._ai_call_stream(
-            mtg._RULES_SYSTEM, user_msg, api_key=key, max_tokens=1500
+            mtg._RULES_SYSTEM,
+            user_msg,
+            api_key=key,
+            max_tokens=mtg._RULES_QA_MAX_TOKENS,
         )
         # Send citations as final metadata
         yield f"data: {_json.dumps({'status': 'citations', 'citations': [{'number': c['number'], 'text': c['text']} for c in cited], 'cards': [{'name': c['name'], 'oracle_text': c.get('oracle_text', '')} for c in cards]})}\n\n"
