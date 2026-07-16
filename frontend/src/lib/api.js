@@ -126,10 +126,11 @@ export const api = {
   optimize: (decklist, format, goals, focus) =>
     post("/api/deck/optimize", { decklist, format, ...(goals ? { goals } : {}), ...(focus ? { focus } : {}) }),
   importUrl: (url) => post("/api/deck/import-url", { url }),
-  planeswalkerChat: (messages, decklist, format, commander, bracket, goals) =>
-    post("/api/planeswalker/chat", { messages, decklist, format, commander, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}) }),
-  planeswalkerChatStream: (messages, decklist, format, commander, bracket, goals, onChunk) =>
-    postStream("/api/planeswalker/chat/stream", { messages, decklist, format, commander, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}) }, onChunk),
+  importPrecon: (name) => get("/api/deck/import-precon", { name }),
+  planeswalkerChat: (messages, decklist, format, commander, bracket, goals, recentChanges) =>
+    post("/api/planeswalker/chat", { messages, decklist, format, commander, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}), ...(recentChanges?.length ? { recent_changes: recentChanges } : {}) }),
+  planeswalkerChatStream: (messages, decklist, format, commander, bracket, goals, recentChanges, onChunk) =>
+    postStream("/api/planeswalker/chat/stream", { messages, decklist, format, commander, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}), ...(recentChanges?.length ? { recent_changes: recentChanges } : {}) }, onChunk),
 };
 
 // Derive art_crop and border_crop URLs from a normal/small Scryfall image URL.

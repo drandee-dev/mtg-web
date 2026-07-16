@@ -960,7 +960,8 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
   border-radius: 8px; padding: .4rem .6rem; font-size: .8rem; color: var(--muted); }
 .card-modal { position: fixed; inset: 0; z-index: var(--z-modal); background: rgba(0,0,0,.82);
   backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1rem; cursor: zoom-out; }
-.card-modal img { max-width: 92vw; max-height: 86vh; border-radius: var(--radius-lg);
+.card-modal img { width: min(92vw, calc(86vh * 63 / 88)); height: auto;
+  max-width: 92vw; max-height: 86vh; border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg); }
 .card-modal-empty { background: var(--panel-2); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: 1rem 1.2rem; color: var(--muted); }
@@ -1110,11 +1111,14 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 }
 .planeswalker-panel {
   position: fixed; bottom: 4.5rem; right: 1rem; z-index: var(--z-sheet);
-  width: min(460px, calc(100vw - 2rem)); height: min(660px, 74dvh);
+  width: min(560px, calc(100vw - 2rem)); height: min(800px, 82dvh);
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
   display: flex; flex-direction: column;
   box-shadow: var(--shadow-lg);
+  transition: transform .18s ease-out; /* snap-back after a sheet drag */
 }
+/* Bottom-sheet grabber — mobile only; the touch target is the full bar */
+.pw-grabber { display: none; }
 /* Expand toggle: roomier desktop panel (mobile override in the media query below) */
 /* Expanded = docked workspace: near-full-height right drawer instead of a
    slightly bigger popup — chat, session log, and card chips get real room. */
@@ -1231,6 +1235,13 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 }
 .pw-msg { margin-bottom: .6rem; }
 .pw-label { font-size: .7rem; color: var(--muted); margin-bottom: .15rem; }
+/* Fallback-model badge (shown only when Haiku answered instead of Sonnet) */
+.pw-model-badge {
+  font-size: .56rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; margin-left: .35rem;
+  color: var(--muted); vertical-align: 1px;
+}
+.pw-retry { margin-top: .3rem; }
 .pw-assistant .pw-text { color: var(--text); line-height: 1.5; white-space: pre-wrap; }
 .pw-user .pw-text {
   background: var(--panel-2); padding: .4rem .6rem; border-radius: .4rem;
@@ -1238,8 +1249,16 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 }
 .planeswalker-input {
   display: flex; gap: .4rem; padding: .5rem .6rem; border-top: 1px solid var(--border);
+  align-items: flex-end; /* Send stays bottom-aligned as the textarea grows */
 }
 .planeswalker-input input { flex: 1; }
+/* Chat composer: single-line look that grows to ~4 lines (JS caps height).
+   Overrides the global textarea rules (160px monospace block). */
+.planeswalker-input textarea {
+  flex: 1; min-height: 40px; max-height: 104px; resize: none;
+  font-family: inherit; font-size: .9rem; line-height: 1.35;
+  overflow-y: auto;
+}
 .pw-waking {
   flex: 1; text-align: center; color: var(--muted); font-size: .85rem; padding: .3rem 0;
 }
@@ -1247,12 +1266,20 @@ label { display: block; font-size: .8rem; color: var(--muted); margin: .6rem 0 .
 @media (max-width: 699px) {
   .planeswalker-panel {
     bottom: 0; right: 0; left: 0; width: 100%;
-    height: min(85dvh, 640px);
+    height: min(85dvh, 720px);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
-  /* Expanded on mobile = full-height sheet */
+  /* Expanded on mobile = full-height sheet (swipe the grabber up/down) */
   .planeswalker-panel.pw-expanded { height: 100dvh; border-radius: 0; }
+  .pw-grabber {
+    display: flex; justify-content: center; flex: none;
+    padding: .5rem 0 .3rem; touch-action: none; cursor: grab;
+  }
+  .pw-grabber span {
+    width: 40px; height: 4px; border-radius: 999px;
+    background: var(--border-strong);
+  }
 }
 
 /* Account panel */
@@ -2728,7 +2755,7 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
   .rules-ask-btn { border-radius: 50%; width: 44px; height: 44px; padding: 0; font-size: 17px;
     display: flex; align-items: center; justify-content: center; }
   .gt-avatar { width: 36px; height: 36px; }
-  .card-modal img { max-width: 85vw; max-height: 75vh; }
+  .card-modal img { width: min(85vw, calc(75vh * 63 / 88)); max-width: 85vw; max-height: 75vh; }
 }
 
 /* Responsive: tablet (700–1000px) — visible nav; commander+main on top, sidebar below */

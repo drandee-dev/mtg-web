@@ -5,12 +5,24 @@
 // structure instead of literal asterisks. Kept deliberately small — it is not
 // a full markdown engine, only the subset the bots actually produce.
 
+import CardPreview from "./CardPreview";
+
 // [[Card Name]] → tappable chip with add/consider actions (actions optional).
+// The name itself is a CardPreview: hover floats the card image (desktop),
+// tap opens the full-size modal (all devices).
 function CardChip({ name, onAdd, onConsider, notify }) {
-  if (!onAdd && !onConsider) return <span className="pw-cardname">{name}</span>;
+  if (!onAdd && !onConsider) {
+    return (
+      <span className="pw-cardname">
+        <CardPreview name={name}>{name}</CardPreview>
+      </span>
+    );
+  }
   return (
     <span className="pw-cardchip">
-      <span className="pw-cardchip-name">{name}</span>
+      <CardPreview name={name}>
+        <span className="pw-cardchip-name">{name}</span>
+      </CardPreview>
       {onAdd && (
         <button
           className="pw-cardchip-btn"
@@ -32,7 +44,9 @@ function CardChip({ name, onAdd, onConsider, notify }) {
 }
 
 // Inline markdown: [[Card]], **bold**, `code`. Returns an array of nodes.
-function renderInline(text, actions, keyBase) {
+// Names in `invalid` (failed server card-lookup) render as plain text — no
+// chip, no add button, no preview — so hallucinated cards aren't actionable.
+function renderInline(text, actions, keyBase, invalid) {
   const out = [];
   const re = /\[\[([^\]]+)\]\]|\*\*([^*]+)\*\*|`([^`]+)`/g;
   let last = 0;
@@ -41,9 +55,11 @@ function renderInline(text, actions, keyBase) {
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) out.push(text.slice(last, m.index));
     if (m[1] != null) {
-      out.push(<CardChip key={`${keyBase}-c${i}`} name={m[1].trim()} {...actions} />);
+      const name = m[1].trim();
+      if (invalid?.includes(name)) out.push(name);
+      else out.push(<CardChip key={`${keyBase}-c${i}`} name={name} {...actions} />);
     } else if (m[2] != null) {
-      out.push(<strong key={`${keyBase}-b${i}`}>{renderInline(m[2], actions, `${keyBase}-b${i}`)}</strong>);
+      out.push(<strong key={`${keyBase}-b${i}`}>{renderInline(m[2], actions, `${keyBase}-b${i}`, invalid)}</strong>);
     } else {
       out.push(<code key={`${keyBase}-k${i}`}>{m[3]}</code>);
     }
@@ -58,7 +74,7 @@ function renderInline(text, actions, keyBase) {
 // lists, and paragraphs. `className` lets a caller keep its own scope (defaults
 // to the Planeswalker `pw-text` styling). Consecutive quote/list lines group
 // into one block; everything else is a paragraph.
-export function BotText({ text, actions, className = "pw-text" }) {
+export function BotText({ text, actions, className = "pw-text", invalidCards }) {
   const blocks = [];
   let list = null;  // { type: "list", ordered, items }
   let quote = null; // { type: "quote", lines }
@@ -114,7 +130,7 @@ export function BotText({ text, actions, className = "pw-text" }) {
         if (b.type === "heading") {
           return (
             <div key={i} className={`pw-heading pw-h${b.level}`}>
-              {renderInline(b.text, actions, `h${i}`)}
+              {renderInline(b.text, actions, `h${i}`, invalidCards)}
             </div>
           );
         }
@@ -122,7 +138,7 @@ export function BotText({ text, actions, className = "pw-text" }) {
           return (
             <blockquote key={i} className="pw-quote">
               {b.lines.map((ln, j) =>
-                ln.trim() ? <p key={j}>{renderInline(ln, actions, `q${i}-${j}`)}</p> : null
+                ln.trim() ? <p key={j}>{renderInline(ln, actions, `q${i}-${j}`, invalidCards)}</p> : null
               )}
             </blockquote>
           );
@@ -131,12 +147,12 @@ export function BotText({ text, actions, className = "pw-text" }) {
           const Tag = b.ordered ? "ol" : "ul";
           return (
             <Tag key={i}>
-              {b.items.map((item, j) => <li key={j}>{renderInline(item, actions, `l${i}-${j}`)}</li>)}
+              {b.items.map((item, j) => <li key={j}>{renderInline(item, actions, `l${i}-${j}`, invalidCards)}</li>)}
             </Tag>
           );
         }
         if (!b.text.trim()) return null;
-        return <p key={i}>{renderInline(b.text, actions, `l${i}`)}</p>;
+        return <p key={i}>{renderInline(b.text, actions, `l${i}`, invalidCards)}</p>;
       })}
     </div>
   );

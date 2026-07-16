@@ -31,12 +31,17 @@ export default function CardPreview({ name, children }) {
     if (!canHover) return;
     ensure();
     const r = (elRef.current || e.currentTarget).getBoundingClientRect();
-    const W = 232, H = 324, gap = 10;
+    // Scale the float with the viewport so oracle text is readable: ~60% of
+    // the viewport height, clamped so small laptops still fit and huge
+    // monitors don't upscale past the source image. MTG card aspect is 63:88.
+    const gap = 10;
+    const H = Math.round(Math.min(window.innerHeight * 0.6, 540));
+    const W = Math.round((H * 63) / 88);
     let left = r.right + gap;
     if (left + W > window.innerWidth) left = Math.max(gap, r.left - W - gap);
     let top = r.top;
     if (top + H > window.innerHeight) top = Math.max(gap, window.innerHeight - H - gap);
-    setPos({ left, top });
+    setPos({ left, top, w: W, h: H });
     setHover(true);
   }
 
@@ -64,7 +69,7 @@ export default function CardPreview({ name, children }) {
       {hover && (
         <span className="card-float" style={{ left: pos.left, top: pos.top }}>
           {img
-            ? <img src={img} alt={name} width="232" height="324" loading="lazy" />
+            ? <img src={img} alt={name} style={{ width: pos.w, height: pos.h }} loading="lazy" />
             : <span className="card-float-empty">{data ? "No image" : "Loading…"}</span>}
         </span>
       )}
@@ -72,7 +77,15 @@ export default function CardPreview({ name, children }) {
       {modal && (
         <div className="card-modal" onClick={() => setModal(false)} role="dialog" aria-modal="true" aria-label={name}>
           {img
-            ? <img src={img} alt={name} width="488" height="680" loading="lazy" />
+            ? <img
+                // Scryfall CDN paths are predictable — swap in the `large`
+                // scan (672×936) so the scaled-up modal stays crisp; fall
+                // back to the stored `normal` URL if large is missing.
+                src={img.replace(/\/(normal|small)\//, "/large/")}
+                onError={(e) => { if (e.currentTarget.src !== img) e.currentTarget.src = img; }}
+                alt={name}
+                loading="lazy"
+              />
             : <div className="card-modal-empty">{data ? `No image for ${name}` : "Loading…"}</div>}
         </div>
       )}

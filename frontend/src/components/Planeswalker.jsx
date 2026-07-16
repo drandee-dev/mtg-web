@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, assembleDecklist } from "../lib/api";
+import { api, assembleDecklist, getCardImage } from "../lib/api";
 import { commanderDisplay } from "../lib/deckParser";
 import { useMediaQuery } from "../lib/hooks";
 import { goalsToApi } from "../lib/goals";
@@ -32,6 +32,13 @@ const QUICK_ACTIONS = [
   ["Find combos", "What combos or strong synergy packages exist in this deck? Any near-misses that are one card away?"],
   ["Rate my deck", "Rate this deck's power level and bracket. What are its biggest strengths and weaknesses?"],
   ["Budget swaps", "Suggest budget swaps for the most expensive cards in this deck without losing much power."],
+];
+
+// Quick actions shown before any deck is loaded — general MTG helper mode.
+const NO_DECK_ACTIONS = [
+  ["Upgrade a precon", "I have a preconstructed Commander deck I want to upgrade. Ask me which precon it is, then help me plan about 10 swaps that keep its bracket."],
+  ["Rules question", "I have a rules question about a specific interaction. Ask me for the details, then answer with rule citations."],
+  ["What can you do?", "What can you help me with in this app? Keep it brief."],
 ];
 
 const HISTORY_CAP = 40;
@@ -76,6 +83,10 @@ export default function Planeswalker({
   // track of what's been applied (queue applies + chat card-chip adds).
   const [optLog, setOptLog] = useState([]);
   const scrollRef = useRef(null);
+  const inputRef = useRef(null);
+  // Bottom-sheet drag (mobile): live translateY while the grabber is dragged.
+  const [dragY, setDragY] = useState(0);
+  const dragRef = useRef(null); // { startY, dy }
   const chibiArt = useMemo(() => CHIBI_ART[Math.floor(Math.random() * CHIBI_ART.length)], []);
   const isMobile = useMediaQuery("(max-width: 699px)");
   // Insights tab: mobile-only (desktop always has the deck sidebar in view).
@@ -137,11 +148,31 @@ export default function Planeswalker({
     return () => window.removeEventListener("mtgweb:optlog", onLog);
   }, [open, deckId]);
 
-  function toggleExpand() {
-    setExpanded((e) => {
-      try { localStorage.setItem("mtgweb:pwexpand", e ? "0" : "1"); } catch { /* best-effort */ }
-      return !e;
-    });
+  function setExpandPersist(v) {
+    setExpanded(v);
+    try { localStorage.setItem("mtgweb:pwexpand", v ? "1" : "0"); } catch { /* best-effort */ }
+  }
+
+  function toggleExpand() { setExpandPersist(!expanded); }
+
+  // Bottom-sheet gestures (mobile grabber): drag up snaps to full height,
+  // drag down snaps back to the default sheet, then dismisses.
+  function onGrabStart(e) {
+    dragRef.current = { startY: e.touches[0].clientY, dy: 0 };
+  }
+  function onGrabMove(e) {
+    if (!dragRef.current) return;
+    const dy = e.touches[0].clientY - dragRef.current.startY;
+    dragRef.current.dy = dy;
+    setDragY(Math.max(0, dy)); // panel follows downward drags only
+  }
+  function onGrabEnd() {
+    const dy = dragRef.current?.dy ?? 0;
+    dragRef.current = null;
+    setDragY(0);
+    if (dy < -60) setExpandPersist(true);          // swipe up → full screen
+    else if (dy > 80 && expanded) setExpandPersist(false); // swipe down → sheet
+    else if (dy > 80) setOpen(false);              // swipe down again → close
   }
 
   function toggleTextSize() {
@@ -164,15 +195,17 @@ export default function Planeswalker({
     }
   }, [open, commander, messages.length]);
 
-  async function send(promptText, topicLabel) {
+  async function send(promptText, topicLabel, baseOverride) {
     const text = (promptText ?? input).trim();
     if (!text || busy) return;
     const userMsg = { role: "user", content: text };
     // Quick actions drop a topic divider so long chats stay scannable.
     const divider = topicLabel ? [{ role: "divider", label: topicLabel }] : [];
-    const base = [...messages.filter((m) => m.role !== "system"), ...divider, userMsg];
+    const source = baseOverride ?? messages;
+    const base = [...source.filter((m) => m.role !== "system"), ...divider, userMsg];
     setMessages([...base, { role: "assistant", content: "", streaming: true }]);
     setInput("");
+    if (inputRef.current) inputRef.current.style.height = "";
     setBusy(true);
 
     const full = assembleDecklist(decklist || "", commander || "");
@@ -181,14 +214,41 @@ export default function Planeswalker({
       .slice(-HISTORY_SENT)
       .map(({ role, content }) => ({ role, content }));
     const apiGoals = goalsToApi(goals);
+    // Session memory: what's already been applied/undone this session, so the
+    // bot never re-suggests a change the user already made or rejected.
+    const recentChanges = loadLog(deckId)
+      .slice(-20)
+      .map((e) => `${e.action}: ${describeEntry(e)}`);
 
-    const finish = (finalText, isError = false) => {
-      let msgs = [...base, { role: "assistant", content: finalText }];
+    const finish = (finalText, isError = false, model = null) => {
+      const aMsg = {
+        role: "assistant",
+        content: finalText,
+        ...(model ? { model } : {}),
+        ...(isError ? { error: true, retryText: text } : {}),
+      };
+      let msgs = [...base, aMsg];
       if (!isError) {
         // Full-decklist detection (lines like "1 Card Name") → offer to load it.
         const deckLines = (finalText || "").split("\n").filter((l) => /^\d+\s+[A-Z]/.test(l.trim()));
         if (deckLines.length >= 10) {
           msgs = [...msgs, { role: "system", content: "_deck_detected_", deckLines: deckLines.join("\n") }];
+        }
+        // Verify [[card]] chips against the card database (batch-cached lookups
+        // that also prewarm hover previews); unknown names render as plain text
+        // so hallucinated cards never get an Add button.
+        const chipNames = [...new Set(
+          [...(finalText || "").matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1].trim()),
+        )];
+        if (chipNames.length) {
+          Promise.all(chipNames.map((n) => getCardImage(n).then((d) => [n, Boolean(d?.found)])))
+            .then((pairs) => {
+              const invalid = pairs.filter(([, ok]) => !ok).map(([n]) => n);
+              if (invalid.length) {
+                setMessages((cur) => cur.map((m) => (m === aMsg ? { ...m, invalidCards: invalid } : m)));
+              }
+            })
+            .catch(() => { /* validation is best-effort — chips stay tappable */ });
         }
       }
       setMessages(msgs);
@@ -196,30 +256,41 @@ export default function Planeswalker({
 
     try {
       let acc = "";
+      let modelUsed = null;
       let streamError = null;
-      await api.planeswalkerChatStream(apiMsgs, full, format, commander, bracket, apiGoals, (chunk) => {
+      await api.planeswalkerChatStream(apiMsgs, full, format, commander, bracket, apiGoals, recentChanges, (chunk) => {
         if (chunk.status === "streaming" && chunk.text) {
           acc += chunk.text;
           setMessages([...base, { role: "assistant", content: acc, streaming: true }]);
         } else if (chunk.status === "done") {
           acc = chunk.text || acc;
+          modelUsed = chunk.model || null;
         } else if (chunk.status === "error") {
           streamError = chunk.message || "AI request failed.";
         }
       });
       if (streamError) finish(`Error: ${streamError}`, true);
-      else finish(acc);
+      else finish(acc, false, modelUsed);
     } catch {
       // Streaming endpoint unreachable — fall back to the non-streaming API.
       try {
-        const r = await api.planeswalkerChat(apiMsgs, full, format, commander, bracket, apiGoals);
-        finish(r.error ? `Error: ${r.response}` : r.response, Boolean(r.error));
+        const r = await api.planeswalkerChat(apiMsgs, full, format, commander, bracket, apiGoals, recentChanges);
+        finish(r.error ? `Error: ${r.response}` : r.response, Boolean(r.error), r.model || null);
       } catch (e2) {
         finish(`Connection error: ${e2.message}`, true);
       }
     } finally {
       setBusy(false);
     }
+  }
+
+  // Re-send a failed message: drop the trailing error bubble (and the user
+  // message that produced it) so the retried exchange doesn't duplicate.
+  function retry(text) {
+    const trimmed = [...messages];
+    while (trimmed.length && trimmed[trimmed.length - 1].role !== "user") trimmed.pop();
+    if (trimmed.length && trimmed[trimmed.length - 1].role === "user") trimmed.pop();
+    send(text, null, trimmed);
   }
 
   function clearChat() {
@@ -259,7 +330,21 @@ export default function Planeswalker({
       )}
 
       {open && (
-        <div className={`planeswalker-panel${expanded ? " pw-expanded" : ""}${bigText ? " pw-textlg" : ""}`}>
+        <div
+          className={`planeswalker-panel${expanded ? " pw-expanded" : ""}${bigText ? " pw-textlg" : ""}`}
+          style={dragY ? { transform: `translateY(${dragY}px)`, transition: "none" } : undefined}
+        >
+          {isMobile && (
+            <div
+              className="pw-grabber"
+              onTouchStart={onGrabStart}
+              onTouchMove={onGrabMove}
+              onTouchEnd={onGrabEnd}
+              aria-hidden="true"
+            >
+              <span />
+            </div>
+          )}
           <div className="planeswalker-header">
             <div className="row" style={{ alignItems: "center", gap: ".45rem" }}>
               <img src={chibiArt} alt="" className="pw-header-chibi" />
@@ -326,12 +411,20 @@ export default function Planeswalker({
                     <div key={i} className="pw-divider" role="separator"><span>{m.label}</span></div>
                   ) : (
                   <div key={i} className={`pw-msg pw-${m.role}`}>
-                    <div className="pw-label">{m.role === "user" ? "You" : "Planeswalker"}</div>
+                    <div className="pw-label">
+                      {m.role === "user" ? "You" : "Planeswalker"}
+                      {m.role === "assistant" && /haiku/i.test(m.model || "") && (
+                        <span className="pw-model-badge" title="Answered by the fallback model — retry later for full quality">Haiku</span>
+                      )}
+                    </div>
                     {m.role === "assistant"
                       ? (m.content
-                          ? <BotText text={m.content} actions={chipActions} />
+                          ? <BotText text={m.content} actions={chipActions} invalidCards={m.invalidCards} />
                           : <div className="pw-text"><span className="loading-dot" /> Thinking…</div>)
                       : <div className="pw-text">{m.content}</div>}
+                    {m.role === "assistant" && m.error && m.retryText && !busy && (
+                      <button className="ghost small pw-retry" onClick={() => retry(m.retryText)}>↻ Retry</button>
+                    )}
                   </div>
                   )
                 ))}
@@ -362,9 +455,9 @@ export default function Planeswalker({
                 )}
               </div>
 
-              {hasDeck && !aiOff && serverStatus !== "offline" && serverStatus !== "waking" && (
+              {!aiOff && serverStatus !== "offline" && serverStatus !== "waking" && (
                 <div className="pw-chips" role="group" aria-label="Quick actions">
-                  {QUICK_ACTIONS.map(([label, prompt]) => (
+                  {(hasDeck ? QUICK_ACTIONS : NO_DECK_ACTIONS).map(([label, prompt]) => (
                     <button key={label} className="pw-chip" disabled={busy} onClick={() => send(prompt, label)}>
                       {label}
                     </button>
@@ -381,10 +474,19 @@ export default function Planeswalker({
                   <div className="pw-waking">AI chat isn't set up on this server — deck Insights still work.</div>
                 ) : (
                   <>
-                    <input
+                    <textarea
+                      ref={inputRef}
                       value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && send()}
+                      rows={1}
+                      onChange={(e) => {
+                        setInput(e.target.value);
+                        // Auto-grow up to ~4 lines, then scroll inside.
+                        e.target.style.height = "";
+                        e.target.style.height = `${Math.min(e.target.scrollHeight, 104)}px`;
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+                      }}
                       placeholder="Ask about cuts, fills, rules, combos…"
                       aria-label="Message Planeswalker"
                       disabled={busy}
