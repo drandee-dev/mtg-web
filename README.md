@@ -162,7 +162,28 @@ This needs your own logins, so it's a manual one-time setup. The app works witho
 For AI usage tracking (daily rate limit + monthly budget cap across all your users, not just
 per-browser), also set `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_JWT_SECRET` on
 the **backend** (see `backend/.env.example`) — this is a separate step from the frontend keys
-above and uses the service-role key, which must never be exposed to the client.
+above and uses the service-role key, which must never be exposed to the client. Run this once too:
+
+```sql
+create table public.ai_usage_events (
+  id            bigint generated always as identity primary key,
+  kind          text not null,               -- 'attempt' | 'cost'
+  limit_key     text,                         -- caller email/IP; attempt rows only
+  cost_cents    numeric,                      -- cost rows only
+  input_tokens  int,
+  output_tokens int,
+  created_at    timestamptz not null default now()
+);
+
+alter table public.ai_usage_events enable row level security;
+
+-- Written and read ONLY by the backend via the service-role key (bypasses
+-- RLS by design). This policy blocks the anon/authenticated roles outright
+-- so the table isn't left "RLS enabled, no policy" — Supabase's linter flags
+-- that as ambiguous even though it already denies client access by default.
+create policy "backend only" on public.ai_usage_events
+  for all using (false) with check (false);
+```
 
 ---
 

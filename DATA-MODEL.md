@@ -16,7 +16,7 @@ is split and, in places, denormalized. Two things make this model unusual:
 |--------|---------|-----------------|
 | **User** | Supabase — `auth.users` (managed) | Supabase auth |
 | **Deck** | Supabase — `decks` table (RLS: owner-only) | `frontend/src/lib/store.js`, README SQL |
-| **AIUsageEvent** | Supabase — `ai_usage_events` (append-only) | `backend/app/usage.py` |
+| **AIUsageEvent** | Supabase — `ai_usage_events` (append-only, RLS: backend-only) | `backend/app/usage.py` |
 | **Commander** | *Derived* — parsed from `decklist_text` | `frontend/src/lib/deckParser.js` |
 | **DeckCard** | *Derived* — parsed from `decklist_text` | `frontend/src/lib/deckParser.js`, `App.jsx` |
 | **DeckGoals** | localStorage — `mtgweb:goals:{deckId}` | `frontend/src/lib/goals.js` |
