@@ -12,7 +12,7 @@ import MoreMenu from "./MoreMenu";
 import { PaletteIcon, LinkIcon, SparkleIcon, LockIcon, UnlockIcon, ListIcon, SearchIcon } from "../Icons";
 import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderDisplay, setCommanderPrinting } from "../../lib/deckParser";
 import { goalsToApi } from "../../lib/goals";
-import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry } from "../../lib/optimizeLog";
+import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry, isVisibleEntry } from "../../lib/optimizeLog";
 import { deckSignature, loadInsights, saveInsights, PANEL_KEYS } from "../../lib/insightsCache";
 
 export default function DeckView({
@@ -590,8 +590,13 @@ export default function DeckView({
     setOptimizing(true);
     try {
       const full = assembleDecklist(decklist, isCommanderFmt ? commander : "");
+      // Session memory: applied/undone/skipped changes ride along so the AI
+      // doesn't re-propose something the user already decided on.
+      const recentChanges = loadLog(deckId)
+        .slice(-20)
+        .map((e) => `${e.action}: ${describeEntry(e)}`);
       const r = await api.optimize(full, format, apiGoals,
-        typeof focus === "string" ? focus : null);
+        typeof focus === "string" ? focus : null, recentChanges);
       r.changes = (r.changes || []).map((c, i) => ({ ...c, id: `${i}:${c.cut || ""}>${c.add || ""}` }));
       setOptimize(r);
       setOptDecided({});
@@ -613,6 +618,10 @@ export default function DeckView({
 
   function skipOptChange(ch) {
     setOptDecided((d) => ({ ...d, [ch.id]: "skipped" }));
+    const cut = ch.cut || null;
+    const add = ch.add || null;
+    const dup = optLog.some((e) => e.action === "skip" && e.cut === cut && e.add === add);
+    if (!dup) setOptLog(appendLog(deckId, makeEntry({ action: "skip", cut, add })));
   }
 
   function undoOptChange(entry) {
@@ -724,7 +733,7 @@ export default function DeckView({
     optDecided,
     onApplyChange: applyOptChange,
     onSkipChange: skipOptChange,
-    optLog,
+    optLog: optLog.filter(isVisibleEntry),
     onUndoChange: undoOptChange,
     onClearLog: clearOptLog,
     onGapChip: runOptimize,

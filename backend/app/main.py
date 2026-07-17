@@ -564,12 +564,17 @@ def deck_optimize(request: Request, payload: Annotated[dict, Body()]) -> dict:
     focus = payload.get("focus") or None
     if focus is not None and focus not in mtg.OPTIMIZE_FOCUS:
         raise HTTPException(400, "Invalid focus.")
+    raw_changes = payload.get("recent_changes") or []
+    if not isinstance(raw_changes, list):
+        raise HTTPException(400, "recent_changes must be a list.")
+    recent_changes = [str(s)[:120] for s in raw_changes[:30]]
     return mtg.ai_optimize(
         decklist,
         fmt=fmt,
         bracket=_target_bracket(payload),
         goals=_parse_goals(payload),
         focus=focus,
+        recent_changes=recent_changes,
     )
 
 
@@ -957,7 +962,8 @@ def _planeswalker_prompt(payload: ChatPayload) -> tuple[str, list[dict], bool]:
         note = (
             "\n\nChanges already made to this deck this session — do not re-suggest "
             "a cut that was already made, suggest adding a card that was already "
-            "added, or re-add something the user undid: "
+            "added, or re-add something the user undid. Lines starting 'skip:' are "
+            "proposals the user explicitly declined — do not suggest them again: "
             f"<user_input>{digest}</user_input>"
         )
         for m in reversed(messages):

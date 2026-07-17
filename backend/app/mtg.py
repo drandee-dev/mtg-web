@@ -1520,6 +1520,7 @@ def ai_optimize(
     bracket: int | None = None,
     goals: dict | None = None,
     focus: str | None = None,
+    recent_changes: list[str] | None = None,
     api_key: str | None = None,
 ) -> dict[str, Any]:
     """Goal-driven changeset: one AI call returns swap/cut/add proposals the
@@ -1535,12 +1536,35 @@ def ai_optimize(
             f"\n\nPRIORITY FOCUS: the user tapped the '{focus_label}' gap — "
             f"concentrate this changeset on fixing that shortage."
         )
+    # Deck summary stays in its own cached block; the session digest varies per
+    # run, so it rides in a separate uncached block (client text — <user_input>
+    # wrapped, never in the system prompt).
+    user_blocks: list[dict[str, Any]] = [
+        {
+            "type": "text",
+            "text": ctx["summary"] + goal_user,
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
+    if recent_changes:
+        digest = "; ".join(recent_changes[-30:])
+        user_blocks.append(
+            {
+                "type": "text",
+                "text": (
+                    "Session log — decisions the user already made this session. "
+                    "Lines are 'action: change'. Never propose a change matching a "
+                    "'skip:' line (the user declined it), never re-propose a cut or "
+                    "add already applied, and never re-add a card the user undid: "
+                    f"<user_input>{digest}</user_input>"
+                ),
+            }
+        )
     resp = _ai_call(
         _OPTIMIZE_SYSTEM + goal_sys,
-        ctx["summary"] + goal_user,
+        messages=[{"role": "user", "content": user_blocks}],
         api_key=api_key,
         max_tokens=2500,
-        cache_user_msg=True,
     )
     if resp["error"]:
         return {

@@ -29,6 +29,11 @@ function save(deckId, log) {
   window.dispatchEvent(new CustomEvent("mtgweb:optlog"));
 }
 
+// Skip entries (action: "skip") are AI session memory — proposals the user
+// declined, sent back to /api/deck/optimize and chat so they aren't
+// re-proposed. They aren't deck edits, so session-log UIs filter them out.
+export const isVisibleEntry = (e) => e.action !== "skip";
+
 // Shared entry factory so queue and chat write identical shapes.
 export function makeEntry({ action, cut = null, add = null, source }) {
   return {

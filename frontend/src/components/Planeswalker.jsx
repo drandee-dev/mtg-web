@@ -3,7 +3,7 @@ import { api, assembleDecklist, getCardImage } from "../lib/api";
 import { commanderDisplay } from "../lib/deckParser";
 import { useMediaQuery } from "../lib/hooks";
 import { goalsToApi } from "../lib/goals";
-import { loadLog, appendLog, describeEntry, makeEntry } from "../lib/optimizeLog";
+import { loadLog, appendLog, describeEntry, makeEntry, isVisibleEntry } from "../lib/optimizeLog";
 import { useBackClose } from "../lib/backstack";
 import { BotText } from "./BotText";
 
@@ -145,8 +145,8 @@ export default function Planeswalker({
   // (optimizeLog broadcasts "mtgweb:optlog" on every save).
   useEffect(() => {
     if (!open) return;
-    setOptLog(loadLog(deckId)); // eslint-disable-line react-hooks/set-state-in-effect
-    const onLog = () => setOptLog(loadLog(deckId));
+    setOptLog(loadLog(deckId).filter(isVisibleEntry)); // eslint-disable-line react-hooks/set-state-in-effect
+    const onLog = () => setOptLog(loadLog(deckId).filter(isVisibleEntry));
     window.addEventListener("mtgweb:optlog", onLog);
     return () => window.removeEventListener("mtgweb:optlog", onLog);
   }, [open, deckId]);
