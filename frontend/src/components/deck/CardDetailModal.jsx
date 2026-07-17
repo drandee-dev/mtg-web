@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { fmtUsd } from "../../lib/format";
 import { useCardImage, useEscapeKey, useFocusTrap } from "../../lib/hooks";
+import { useBackClose } from "../../lib/backstack";
 import ManaCost from "./ManaCost";
 
 // Scryfall exact-name search redirects to the card's page (which has a Rulings tab).
@@ -31,6 +32,7 @@ export default function CardDetailModal({
   const [showBack, setShowBack] = useState(false);
   const [prints, setPrints] = useState(null); // null=closed, "loading", or array
   useEscapeKey(Boolean(name), onClose);
+  useBackClose(Boolean(name), onClose);
   const panelRef = useFocusTrap(Boolean(name));
 
   // Mobile bottom-sheet swipe-to-dismiss — drag handle only (CSS hides it on

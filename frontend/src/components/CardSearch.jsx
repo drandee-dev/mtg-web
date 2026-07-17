@@ -2,18 +2,27 @@ import { useState } from "react";
 import { api } from "../lib/api";
 import CardPreview from "./CardPreview";
 
+// Tabs unmount on switch — this module-level snapshot keeps the last search
+// (filters + results) alive for the session, so hopping to another tab and
+// back doesn't blank the search. Deliberately not localStorage: a fresh page
+// load starts clean.
+const EMPTY_FILTERS = { name: "", type: "", oracle: "", color_identity: "", cmc_max: "" };
+let _lastSearch = { f: EMPTY_FILTERS, res: null };
+
 // Search Scryfall bulk data with deck-building filters.
 export default function CardSearch({ addCard, notify }) {
-  const [f, setF] = useState({ name: "", type: "", oracle: "", color_identity: "", cmc_max: "" });
-  const [res, setRes] = useState(null);
+  const [f, setF] = useState(_lastSearch.f);
+  const [res, setRes] = useState(_lastSearch.res);
   const [busy, setBusy] = useState(false);
 
-  function up(k, v) { setF((p) => ({ ...p, [k]: v })); }
+  function up(k, v) { setF((p) => { const next = { ...p, [k]: v }; _lastSearch = { ..._lastSearch, f: next }; return next; }); }
 
   async function run() {
     setBusy(true);
     try {
-      setRes(await api.cards({ ...f, limit: 25 }));
+      const r = await api.cards({ ...f, limit: 25 });
+      _lastSearch = { f, res: r };
+      setRes(r);
     } catch (e) {
       notify(`Search failed: ${e.message}`);
     } finally {
@@ -25,7 +34,9 @@ export default function CardSearch({ addCard, notify }) {
     <div>
       <div className="panel">
         <h2>Card search</h2>
-        <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+        {!res && <p className="muted small">Search every Magic card by name, type, text, or cost — tap + Add to drop one straight into your deck.</p>}
+        <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}
+          onKeyDown={(e) => { if (e.key === "Enter" && !busy) run(); }}>
           <div><label>Name</label><input value={f.name} onChange={(e) => up("name", e.target.value)} placeholder="bolt" /></div>
           <div><label>Type</label><input value={f.type} onChange={(e) => up("type", e.target.value)} placeholder="instant" /></div>
           <div><label>Oracle text (regex)</label><input value={f.oracle} onChange={(e) => up("oracle", e.target.value)} placeholder="draw a card" /></div>

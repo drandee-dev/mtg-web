@@ -1,11 +1,13 @@
 import { useEffect } from "react";
 import { useCardImage, useEscapeKey, useFocusTrap } from "../../lib/hooks";
+import { useBackClose } from "../../lib/backstack";
 import { fmtUsd } from "../../lib/format";
 
 export default function CardBottomSheet({ name, onClose, onRemove, onAddToConsidering }) {
   const data = useCardImage(name);
 
   useEscapeKey(Boolean(name), onClose);
+  useBackClose(Boolean(name), onClose);
   const sheetRef = useFocusTrap(Boolean(name));
 
   useEffect(() => {

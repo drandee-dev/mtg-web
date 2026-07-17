@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useFocusTrap } from "../../lib/hooks";
+import { useBackClose } from "../../lib/backstack";
 
 /** Import-cards modal with two tabs: paste a decklist, or import from a
  * Moxfield/Archidekt URL. `open` is falsy or the initial tab ("paste" | "url").
@@ -28,6 +29,7 @@ function ModalInner({ initialTab, onClose, onImportText, onImportUrl }) {
   const [busy, setBusy] = useState(false);
   const focusRef = useRef(null);
   const panelRef = useFocusTrap(true);
+  useBackClose(true, onClose);
 
   useEffect(() => {
     focusRef.current?.focus();

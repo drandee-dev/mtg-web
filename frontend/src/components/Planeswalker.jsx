@@ -4,6 +4,7 @@ import { commanderDisplay } from "../lib/deckParser";
 import { useMediaQuery } from "../lib/hooks";
 import { goalsToApi } from "../lib/goals";
 import { loadLog, appendLog, describeEntry, makeEntry } from "../lib/optimizeLog";
+import { useBackClose } from "../lib/backstack";
 import { BotText } from "./BotText";
 
 const CHIBI_ART = [
@@ -92,6 +93,8 @@ export default function Planeswalker({
   // Insights tab: mobile-only (desktop always has the deck sidebar in view).
   const showInsights = Boolean(insightsAvailable) && isMobile;
   const hasDeck = /^\s*\d+\s+\S/m.test(decklist || "");
+  // Mobile: the panel is a full-screen sheet — the back gesture closes it.
+  useBackClose(open && isMobile, () => setOpen(false));
 
   // First-contact badge — the FAB is unlabeled art, so until the chat has been
   // opened once (ever), pulse a dot + "Ask why" tag when a deck is in view.

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { downloadFile, useFocusTrap } from "../lib/hooks";
+import { useBackClose } from "../lib/backstack";
 
 /** Export modal (Archidekt-style): shows the normalized decklist text so it can
  * be copied straight into Archidekt / Moxfield's importer, or downloaded as a
@@ -16,6 +17,7 @@ function ModalInner({ deck, onClose, notify }) {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const panelRef = useFocusTrap(true);
+  useBackClose(true, onClose);
 
   useEffect(() => {
     let cancelled = false;

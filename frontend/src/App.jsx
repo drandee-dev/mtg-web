@@ -5,6 +5,7 @@ import { api, assembleDecklist, assembleForStorage, disassembleDecklist, setAcce
 import { commanderDisplay } from "./lib/deckParser";
 import { makeStore } from "./lib/store";
 import { downloadFile } from "./lib/hooks";
+import { historyTopIsGhost, registerTabHandler, useBackClose } from "./lib/backstack";
 import { DEFAULT_GOALS, loadGoals, saveGoals } from "./lib/goals";
 import GlobalToolbar from "./components/layout/GlobalToolbar";
 import BottomNav from "./components/layout/BottomNav";
@@ -102,6 +103,11 @@ export default function App() {
   const [_shared] = useState(_loadSharedDeck);
   const [tab, setTab] = useState(_shared ? "deck" : _initialTab());
   const [playtesting, setPlaytesting] = useState(false);
+  // Back/forward support: tab changes push real history entries; popstate
+  // restores the tab (lib/backstack also lets open layers intercept back).
+  const popNav = useRef(false);
+  // Per-tab window scroll positions, restored when a tab remounts.
+  const tabScroll = useRef({});
   const [session, setSession] = useState(null);
   const [decks, setDecks] = useState([]);
   const [toast, setToast] = useState("");
@@ -149,7 +155,21 @@ export default function App() {
   const [decksIntent, setDecksIntent] = useState(null);
   const clearDecksIntent = useCallback(() => setDecksIntent(null), []);
 
+  // In-app unsaved-changes guard: opening/creating another deck overwrites the
+  // editor, so unsaved edits get the same protection beforeunload already
+  // gives page exits. Refs keep the guard stable (and the callbacks dep-free).
+  const deckTextRef = useRef("");
+  useEffect(() => { deckTextRef.current = deckText; });
+  const confirmDiscardEdits = useCallback(() => {
+    const cur = deckTextRef.current;
+    if (cur && cur !== savedDeckText.current) {
+      return window.confirm("You have unsaved deck changes. Discard them?");
+    }
+    return true;
+  }, []);
+
   const newDeck = useCallback((importTab = null) => {
+    if (!confirmDiscardEdits()) return;
     setDeckText("");
     setCommander("");
     setMaybeboard("");
@@ -159,9 +179,10 @@ export default function App() {
     setStartInWizard(false);
     setStartImport(typeof importTab === "string" ? importTab : null);
     setTab("deck");
-  }, []);
+  }, [confirmDiscardEdits]);
 
   const guidedBuild = useCallback(() => {
+    if (!confirmDiscardEdits()) return;
     setDeckText("");
     setCommander("");
     setMaybeboard("");
@@ -171,7 +192,7 @@ export default function App() {
     setStartInWizard(true);
     setStartImport(null);
     setTab("deck");
-  }, []);
+  }, [confirmDiscardEdits]);
 
   const addToConsidering = useCallback((name) => {
     setMaybeboard((prev) => {
@@ -181,11 +202,40 @@ export default function App() {
     });
   }, []);
 
+  // Tab ⇄ history integration: user-initiated tab changes PUSH an entry (so
+  // back returns to the previous tab instead of exiting the app); back/forward
+  // restores the tab from the URL without pushing again.
+  useEffect(() => {
+    registerTabHandler(() => {
+      popNav.current = true;
+      setTab(_initialTab());
+    });
+  }, []);
+
   useEffect(() => {
     const url = new URL(window.location);
     if (tab === "decks") { url.searchParams.delete("tab"); }
     else { url.searchParams.set("tab", tab); }
-    window.history.replaceState({}, "", url);
+    if (popNav.current) { popNav.current = false; return; }
+    if (url.href !== window.location.href) {
+      // Recycle an abandoned layer entry rather than stacking on top of it.
+      if (historyTopIsGhost()) window.history.replaceState({ tab }, "", url);
+      else window.history.pushState({ tab }, "", url);
+    }
+  }, [tab]);
+
+  // Back gesture closes full-screen/system layers before walking tabs.
+  useBackClose(playtesting, () => setPlaytesting(false));
+  useBackClose(settingsOpen, () => setSettingsOpen(false));
+  useBackClose(feedbackOpen, () => setFeedbackOpen(false));
+
+  // Scroll restoration + document title per tab.
+  useEffect(() => {
+    const scrolls = tabScroll.current;
+    window.scrollTo(0, scrolls[tab] || 0);
+    const names = { decks: "My Decks", deck: "Deck Builder", rules: "Rules", cards: "Card Search" };
+    document.title = `${names[tab] || "MTG Workshop"} · MTG Workshop`;
+    return () => { scrolls[tab] = window.scrollY; };
   }, [tab]);
 
   useEffect(() => {
@@ -361,11 +411,28 @@ export default function App() {
       .finally(() => { autoSaveBusy.current = false; });
   }, [authReady, commander, currentDeck, tab, autoSaveNewDeck, notify]);
 
+  // Delete is destructive — pair it with a toast Undo (guideline: destructive
+  // actions need confirmation or undo). Restore re-creates the deck from the
+  // snapshot; a new id is acceptable (share links encode content, not id).
   const deleteDeck = useCallback(async (id) => {
+    const doomed = decks.find((d) => d.id === id);
     await store.remove(id);
     await refresh();
-    notify("Deleted.");
-  }, [store, refresh, notify]);
+    notify(
+      doomed ? `Deleted "${doomed.name}".` : "Deleted.",
+      doomed && {
+        label: "Undo",
+        onClick: async () => {
+          try {
+            await saveDeck({ name: doomed.name, format: doomed.format, decklist_text: doomed.decklist_text });
+            notify(`Restored "${doomed.name}".`);
+          } catch {
+            notify("Couldn't restore the deck.");
+          }
+        },
+      },
+    );
+  }, [store, refresh, notify, decks, saveDeck]);
 
   // Save from the deck view: update the open deck in place if there is one,
   // otherwise prompt for a name and create a new deck.
@@ -422,6 +489,7 @@ export default function App() {
   }, [deckText, commander, format, currentDeck, notify]);
 
   const openDeck = useCallback((deck) => {
+    if (deck.id !== currentDeck?.id && !confirmDiscardEdits()) return;
     const { commander: c, deckText: t, maybeboard: mb } = disassembleDecklist(deck.decklist_text);
     setFormat(deck.format || "commander");
     setCommander(c);
@@ -431,7 +499,7 @@ export default function App() {
     savedDeckText.current = t;
     setTab("deck");
     notify(`Opened "${deck.name}".`);
-  }, [notify]);
+  }, [notify, currentDeck, confirmDiscardEdits]);
 
   const addCardToDecklist = useCallback((name) => {
     setDeckText((prev) => `${prev.replace(/\s*$/, "")}\n1 ${name}`);

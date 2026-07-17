@@ -9,13 +9,39 @@ const CHIPS = [
   "Commander damage rules",
 ];
 
+// Q&A history persists across tab switches and reloads (same pattern/cap as
+// the Planeswalker chat) — leaving the tab no longer blanks your answers.
+const HISTORY_KEY = "mtgweb:ruleschat";
+const HISTORY_CAP = 40;
+
+function loadRulesHistory() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRulesHistory(messages) {
+  try {
+    if (messages.length) localStorage.setItem(HISTORY_KEY, JSON.stringify(messages.slice(-HISTORY_CAP)));
+    else localStorage.removeItem(HISTORY_KEY);
+  } catch { /* storage full/blocked — history is best-effort */ }
+}
+
 export default function Rules({ aiAvailable, notify, prefill, onPrefillConsumed }) {
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(loadRulesHistory);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [streamText, setStreamText] = useState("");
   const threadRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Persist completed exchanges (not per-token stream updates).
+  useEffect(() => {
+    if (!streaming) saveRulesHistory(messages);
+  }, [messages, streaming]);
 
   useEffect(() => {
     if (threadRef.current) {
@@ -87,7 +113,12 @@ export default function Rules({ aiAvailable, notify, prefill, onPrefillConsumed 
     <div className="rules-chat">
       {/* Header */}
       <div className="rules-header">
-        <h2>Rules Q&amp;A</h2>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: ".6rem" }}>
+          <h2>Rules Q&amp;A</h2>
+          {messages.length > 0 && !streaming && (
+            <button className="ghost small" onClick={() => setMessages([])}>Clear history</button>
+          )}
+        </div>
         <p>
           Ask any Magic: The Gathering rules question in plain English. Answers
           cite the Comprehensive Rules so you can verify every detail.

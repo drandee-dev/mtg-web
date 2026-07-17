@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { useFocusTrap } from "../../lib/hooks";
+import { useBackClose } from "../../lib/backstack";
 
 /** Mass art change: pick target set(s) and/or a rarity, preview which deck
  * cards have a printing there, then pin them all in one apply. Set order is
@@ -39,6 +40,7 @@ function ModalInner({ names, onClose, onApply, onClearPins, pinnedCount }) {
   const debounce = useRef();
   const focusRef = useRef(null);
   const trapRef = useFocusTrap(true);
+  useBackClose(true, onClose);
 
   useEffect(() => { focusRef.current?.focus(); }, []);
 

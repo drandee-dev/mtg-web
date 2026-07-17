@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCardImage } from "../lib/api";
 import { useCanHover, useEscapeKey, useFocusTrap } from "../lib/hooks";
+import { useBackClose } from "../lib/backstack";
 
 export default function CardPreview({ name, children }) {
   const canHover = useCanHover();
@@ -19,6 +20,7 @@ export default function CardPreview({ name, children }) {
   }, [name]);
 
   useEscapeKey(modal, () => setModal(false));
+  useBackClose(modal, () => setModal(false));
   const modalRef = useFocusTrap(modal);
 
   const ensure = useCallback(async () => {
