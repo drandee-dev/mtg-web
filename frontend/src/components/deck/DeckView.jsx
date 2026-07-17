@@ -903,7 +903,7 @@ export default function DeckView({
               className="deck-text-editor"
               value={decklist}
               onChange={(e) => setDecklist(e.target.value)}
-              placeholder={"1 Sol Ring\n1 Llanowar Elves\n..."}
+              placeholder={"1 Sol Ring\n1 Llanowar Elves\n…"}
               aria-label="Edit decklist as text"
             />
           )}

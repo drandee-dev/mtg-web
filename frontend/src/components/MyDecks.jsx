@@ -242,7 +242,7 @@ function NewUserLanding({ onNewDeck, onGuidedBuild, onShowImport, onImportUrl, b
               <div className="landing-mini-ai-avatar">
                 <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.5 6H14L10.5 9L12 13.5L8 11L4 13.5L5.5 9L2 6H6.5L8 1.5Z" fill="#14100a"/></svg>
               </div>
-              <div className="landing-mini-ai-text">Found 12 synergy cards — <span style={{ color: "var(--good)" }}>Eternal Witness</span>, <span style={{ color: "var(--good)" }}>Viscera Seer</span>...</div>
+              <div className="landing-mini-ai-text">Found 12 synergy cards — <span style={{ color: "var(--good)" }}>Eternal Witness</span>, <span style={{ color: "var(--good)" }}>Viscera Seer</span>…</div>
             </div>
           </div>
           <button className="landing-start-btn" onClick={onGuidedBuild}>Start Building →</button>
@@ -253,21 +253,24 @@ function NewUserLanding({ onNewDeck, onGuidedBuild, onShowImport, onImportUrl, b
 
         {/* 3 secondary CTAs */}
         <div className="landing-secondary-ctas">
-          <div className="landing-sec-cta" onClick={() => urlInputRef.current?.focus()}>
+          <div className="landing-sec-cta" onClick={() => urlInputRef.current?.focus()} role="button" tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); urlInputRef.current?.focus(); } }}>
             <div className="landing-sec-icon" style={{ background: "rgba(124,172,248,.1)" }}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#7cacf8" strokeWidth="1.5" strokeLinecap="round"><path d="M6 9.5a3.5 3.5 0 0 0 4.95 0l1.75-1.75a3.5 3.5 0 0 0-4.95-4.95L6.4 4.2"/><path d="M10 6.5a3.5 3.5 0 0 0-4.95 0L3.3 8.25a3.5 3.5 0 0 0 4.95 4.95L9.6 11.8"/></svg>
             </div>
             <div className="landing-sec-name">Import URL</div>
             <div className="landing-sec-sub">Archidekt · Moxfield</div>
           </div>
-          <div className="landing-sec-cta" onClick={onShowImport}>
+          <div className="landing-sec-cta" onClick={onShowImport} role="button" tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onShowImport(); } }}>
             <div className="landing-sec-icon" style={{ background: "rgba(61,206,138,.08)" }}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#3dce8a" strokeWidth="1.5" strokeLinecap="round"><path d="M3 5h10M3 8h10M3 11h6"/></svg>
             </div>
             <div className="landing-sec-name">Paste List</div>
             <div className="landing-sec-sub">Any format</div>
           </div>
-          <div className="landing-sec-cta" onClick={onGuidedBuild}>
+          <div className="landing-sec-cta" onClick={onGuidedBuild} role="button" tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onGuidedBuild(); } }}>
             <div className="landing-sec-icon" style={{ background: "rgba(229,184,76,.08)" }}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2L9 5.5H13L10 7.5L11 11L8 9L5 11L6 7.5L3 5.5H7L8 2Z" stroke="#e5b84c" strokeWidth="1.5" strokeLinejoin="round"/></svg>
             </div>
@@ -339,14 +342,14 @@ function AIChatPreview() {
               </div>
               <div className="chat-preview-card chat-preview-card-loading">
                 <div className="chat-preview-card-art-placeholder"><div className="chat-preview-blink" /></div>
-                <div className="chat-preview-card-meta" style={{ fontStyle: "italic" }}>Generating 10 more suggestions...</div>
+                <div className="chat-preview-card-meta" style={{ fontStyle: "italic" }}>Generating 10 more suggestions…</div>
               </div>
             </div>
           </div>
         </div>
       </div>
       <div className="chat-preview-input">
-        <div className="chat-preview-input-text">Describe your deck idea...</div>
+        <div className="chat-preview-input-text">Describe your deck idea…</div>
         <button className="chat-preview-send">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 8h12M9 3l5 5-5 5"/></svg>
         </button>
@@ -525,7 +528,7 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
               {FORMATS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
             </select>
           </div>
-          <textarea value={importText} onChange={(e) => setImportText(e.target.value)} placeholder={"1 Sol Ring\n..."} />
+          <textarea value={importText} onChange={(e) => setImportText(e.target.value)} placeholder={"1 Sol Ring\n…"} />
           <div className="row" style={{ marginTop: ".5rem" }}>
             <button className="primary" onClick={doImport} disabled={busy}>Save</button>
             <label style={{ margin: 0, cursor: "pointer" }}>
@@ -580,7 +583,7 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
                   type="text"
                   value={deckSearch}
                   onChange={(e) => setDeckSearch(e.target.value)}
-                  placeholder="Search decks..."
+                  placeholder="Search decks…"
                   className="mydecks-filter-input"
                 />
               </div>
@@ -641,7 +644,7 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNewDeck(); } }}>
                 <div style={{ textAlign: "center" }}>
                   <div style={{ fontSize: "2rem", lineHeight: 1, color: "var(--muted)" }}>+</div>
-                  <div style={{ fontSize: ".7rem", marginTop: ".3rem", color: "var(--muted)" }}>New Deck</div>
+                  <div style={{ fontSize: "var(--fs-xs)", marginTop: ".3rem", color: "var(--muted)" }}>New Deck</div>
                 </div>
               </div>
             )}

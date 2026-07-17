@@ -1,10 +1,12 @@
 import { useEffect } from "react";
-import { useCardImage, useEscapeKey } from "../../lib/hooks";
+import { useCardImage, useEscapeKey, useFocusTrap } from "../../lib/hooks";
+import { fmtUsd } from "../../lib/format";
 
 export default function CardBottomSheet({ name, onClose, onRemove, onAddToConsidering }) {
   const data = useCardImage(name);
 
   useEscapeKey(Boolean(name), onClose);
+  const sheetRef = useFocusTrap(Boolean(name));
 
   useEffect(() => {
     if (!name) return;
@@ -17,7 +19,7 @@ export default function CardBottomSheet({ name, onClose, onRemove, onAddToConsid
   return (
     <>
       <div className="bs-overlay" onClick={onClose} />
-      <div className="bs-sheet" role="dialog" aria-modal="true" aria-label={name}>
+      <div className="bs-sheet" role="dialog" aria-modal="true" aria-label={name} ref={sheetRef} tabIndex={-1}>
         <div className="bs-handle" />
         <div className="bs-content">
           {data?.image ? (
@@ -29,7 +31,7 @@ export default function CardBottomSheet({ name, onClose, onRemove, onAddToConsid
             <h3 className="bs-name">{name}</h3>
             {data?.type_line && <p className="bs-type muted small">{data.type_line}</p>}
             {data?.price_usd != null && (
-              <span className="badge small">${data.price_usd.toFixed(2)}</span>
+              <span className="badge small">{fmtUsd(data.price_usd)}</span>
             )}
           </div>
           <div className="bs-actions">

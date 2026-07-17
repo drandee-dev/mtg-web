@@ -1,4 +1,5 @@
 import { useCardImage } from "../../lib/hooks";
+import { fmtUsd } from "../../lib/format";
 
 export default function CardListRow({ name, qty, typeLine, price, isMdfc, onRemove, onPreview }) {
   const data = useCardImage(name);
@@ -29,7 +30,7 @@ export default function CardListRow({ name, qty, typeLine, price, isMdfc, onRemo
         {isMdfc && <span className="mdfc-tag" title="Modal double-faced card">MDFC</span>}
       </span>
       <span className="card-list-price muted small">
-        {price != null ? `$${Number(price).toFixed(2)}` : ""}
+        {price != null ? fmtUsd(price) : ""}
       </span>
       {onRemove && (
         <button

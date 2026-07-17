@@ -104,7 +104,7 @@ export default function Settings({ session, notify }) {
               onKeyDown={(e) => e.key === "Enter" && handlePasswordAuth()} />
             <div className="row" style={{ marginTop: ".5rem", gap: ".5rem" }}>
               <button className="primary" onClick={handlePasswordAuth} disabled={busy}>
-                {busy ? "Working..." : authMode === "signup" ? "Create Account" : "Sign In"}
+                {busy ? "Working…" : authMode === "signup" ? "Create Account" : "Sign In"}
               </button>
             </div>
             <div className="row" style={{ marginTop: ".25rem", gap: ".75rem" }}>

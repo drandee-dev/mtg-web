@@ -164,7 +164,7 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
                     className="account-email-input"
                   />
                   <button onClick={sendLink} disabled={busy} className="account-magic-link-btn">
-                    {busy ? "Sending..." : "Send magic link"}
+                    {busy ? "Sending…" : "Send magic link"}
                   </button>
                   <div className="account-magic-hint">We'll email you a one-tap sign-in link</div>
                   <button className="account-auth-toggle" onClick={() => setAuthMode("signin")}>
@@ -182,7 +182,7 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
                     className="account-email-input"
                   />
                   <button onClick={sendPasswordReset} disabled={busy} className="account-magic-link-btn">
-                    {busy ? "Sending..." : "Send reset link"}
+                    {busy ? "Sending…" : "Send reset link"}
                   </button>
                   <div className="account-magic-hint">We'll email you a link to set a new password</div>
                   <button className="account-auth-toggle" onClick={() => setAuthMode("signin")}>
@@ -227,7 +227,7 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
                     </label>
                   )}
                   <button onClick={handlePasswordAuth} disabled={busy} className="account-magic-link-btn">
-                    {busy ? "Working..." : authMode === "signup" ? "Create Account" : "Sign In"}
+                    {busy ? "Working…" : authMode === "signup" ? "Create Account" : "Sign In"}
                   </button>
                   <div className="account-auth-links">
                     {authMode === "signin" && (

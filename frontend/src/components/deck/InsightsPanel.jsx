@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import Curve from "../Curve";
+import { fmtUsd } from "../../lib/format";
 import CardPreview from "../CardPreview";
 import LoadingIndicator from "../LoadingIndicator";
 import DrawProbability from "./DrawProbability";
@@ -191,7 +192,7 @@ function AnalyticsPane({ result, format }) {
       <div className="stat-grid">
         <Stat k="Cards" v={cardCount != null ? (isCmdr ? `${cardCount}/100` : `${cardCount}/60+`) : "—"} className={cardCountStatus === "bad" ? "stat-danger" : ""} />
         <Stat k="Avg CMC" v={s.avg_cmc} />
-        <Stat k="Price" v={price != null ? `$${price.toFixed(2)}` : "—"}
+        <Stat k="Price" v={price != null ? fmtUsd(price) : "—"}
           title={bd.prices_as_of ? `Prices as of ${bd.prices_as_of}` : null} />
         <Stat k="Bracket" v={bracket.bracket ?? "—"} />
       </div>
@@ -488,7 +489,7 @@ function UpgradesPane({ budgetSwaps, upgrades, upgradeMode, setUpgradeMode, onSw
             <CardPreview name={u.replaces} />
             <span className="insp-swap-arrow">→</span>
             <CardPreview name={u.replacement} />
-            {u.price_usd != null && <span className="muted"> ${u.price_usd.toFixed(2)}</span>}
+            {u.price_usd != null && <span className="muted"> {fmtUsd(u.price_usd)}</span>}
           </span>
           <span className="insp-row-actions">
             <button className="insp-act insp-act-good" onClick={() => onSwapCard(u.replaces, u.replacement)}>Swap</button>

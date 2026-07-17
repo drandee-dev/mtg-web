@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useFocusTrap } from "../lib/hooks";
 
 const FORMSPREE_ID = import.meta.env.VITE_FORMSPREE_ID;
 
@@ -9,6 +10,7 @@ export default function Feedback({ open, onClose, notify }) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const panelRef = useRef(null);
+  const trapRef = useFocusTrap(Boolean(FORMSPREE_ID && open));
 
   useEffect(() => {
     if (!open) return;
@@ -50,7 +52,7 @@ export default function Feedback({ open, onClose, notify }) {
 
   return (
     <div className="feedback-modal" onClick={onClose}
-      role="dialog" aria-modal="true" aria-label="Send feedback">
+      role="dialog" aria-modal="true" aria-label="Send feedback" ref={trapRef} tabIndex={-1}>
       <div className="feedback-panel" ref={panelRef} onClick={(e) => e.stopPropagation()}>
         <h3>Send feedback</h3>
         <p className="muted small">Bug reports, feature requests, or general thoughts — all welcome.</p>

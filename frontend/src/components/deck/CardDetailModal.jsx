@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
+import { fmtUsd } from "../../lib/format";
 import { useCardImage, useEscapeKey, useFocusTrap } from "../../lib/hooks";
 import ManaCost from "./ManaCost";
 
@@ -179,7 +180,7 @@ export default function CardDetailModal({
           {typeLine && <p className="cdm-type muted small">{typeLine}</p>}
           <div className="cdm-meta">
             {data?.mana_cost && <ManaCost cost={data.mana_cost} />}
-            {price != null && <span className="badge small">${price.toFixed(2)}</span>}
+            {price != null && <span className="badge small">{fmtUsd(price)}</span>}
           </div>
 
           {isCommander ? (

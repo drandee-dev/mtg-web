@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
-import { downloadFile } from "../lib/hooks";
+import { downloadFile, useFocusTrap } from "../lib/hooks";
 
 /** Export modal (Archidekt-style): shows the normalized decklist text so it can
  * be copied straight into Archidekt / Moxfield's importer, or downloaded as a
@@ -15,6 +15,7 @@ function ModalInner({ deck, onClose, notify }) {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const panelRef = useFocusTrap(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,7 +58,7 @@ function ModalInner({ deck, onClose, notify }) {
 
   return (
     <div className="edm-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="edm-panel" role="dialog" aria-modal="true" aria-label={`Export ${deck.name}`}>
+      <div className="edm-panel" role="dialog" aria-modal="true" aria-label={`Export ${deck.name}`} ref={panelRef} tabIndex={-1}>
         <div className="edm-head">
           <h3>Export deck</h3>
           <button className="edm-close" onClick={onClose} aria-label="Close">✕</button>

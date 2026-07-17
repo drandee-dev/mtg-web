@@ -46,7 +46,7 @@ function PasswordResetModal({ onDone, notify }) {
             placeholder="New password (min 6 characters)" className="account-email-input"
             onKeyDown={(e) => e.key === "Enter" && submit()} autoFocus />
           <button onClick={submit} disabled={busy} className="account-magic-link-btn">
-            {busy ? "Updating..." : "Update Password"}
+            {busy ? "Updating…" : "Update Password"}
           </button>
         </div>
       </div>

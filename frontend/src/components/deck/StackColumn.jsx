@@ -1,5 +1,6 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { useCanHover } from "../../lib/hooks";
+import { fmtUsd } from "../../lib/format";
 import MoreMenu from "./MoreMenu";
 
 // Shared column shell for both image and text stacks. Owns the column header
@@ -69,7 +70,7 @@ export default function StackColumn({
         <span className="stack-column-meta">
           <span className="stack-column-count">{count}</span>
           {countSuffix && <span className="stack-column-count mdfc-hint" title="Cards whose back face is a land">{countSuffix}</span>}
-          {price > 0 && <span className="stack-column-price">${price.toFixed(2)}</span>}
+          {price > 0 && <span className="stack-column-price">{fmtUsd(price)}</span>}
           {menuItems && menuItems.length > 0 && (
             <span onPointerDown={(e) => e.stopPropagation()}>
               <MoreMenu items={menuItems} label={`${label} options`} />

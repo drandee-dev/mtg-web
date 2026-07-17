@@ -45,7 +45,7 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
     () => localStorage.getItem("mtgweb:groupBy") || "type"
   );
   const [metaMap, setMetaMap] = useState({});
-  // Per-groupBy column order overrides: { [groupBy]: [label, ...] }. Reordering a
+  // Per-groupBy column order overrides: { [groupBy]: [label, …] }. Reordering a
   // column persists only for the mode it was reordered in.
   const [columnOrder, setColumnOrder] = useState(() => {
     try { return JSON.parse(localStorage.getItem("mtgweb:colOrder") || "{}"); }

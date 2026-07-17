@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useFocusTrap } from "../../lib/hooks";
 
 /** Import-cards modal with two tabs: paste a decklist, or import from a
  * Moxfield/Archidekt URL. `open` is falsy or the initial tab ("paste" | "url").
@@ -26,6 +27,7 @@ function ModalInner({ initialTab, onClose, onImportText, onImportUrl }) {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const focusRef = useRef(null);
+  const panelRef = useFocusTrap(true);
 
   useEffect(() => {
     focusRef.current?.focus();
@@ -53,7 +55,7 @@ function ModalInner({ initialTab, onClose, onImportText, onImportUrl }) {
 
   return (
     <div className="icm-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="icm-panel" role="dialog" aria-modal="true" aria-label="Import cards">
+      <div className="icm-panel" role="dialog" aria-modal="true" aria-label="Import cards" ref={panelRef} tabIndex={-1}>
         <div className="icm-head">
           <h3>Import cards</h3>
           <button className="icm-close" onClick={onClose} aria-label="Close">✕</button>

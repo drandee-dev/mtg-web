@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCardImage } from "../lib/api";
-import { useCanHover, useEscapeKey } from "../lib/hooks";
+import { useCanHover, useEscapeKey, useFocusTrap } from "../lib/hooks";
 
 export default function CardPreview({ name, children }) {
   const canHover = useCanHover();
@@ -19,6 +19,7 @@ export default function CardPreview({ name, children }) {
   }, [name]);
 
   useEscapeKey(modal, () => setModal(false));
+  const modalRef = useFocusTrap(modal);
 
   const ensure = useCallback(async () => {
     if (data && nameRef.current === name) return data;
@@ -75,7 +76,7 @@ export default function CardPreview({ name, children }) {
       )}
 
       {modal && (
-        <div className="card-modal" onClick={() => setModal(false)} role="dialog" aria-modal="true" aria-label={name}>
+        <div className="card-modal" onClick={() => setModal(false)} role="dialog" aria-modal="true" aria-label={name} ref={modalRef} tabIndex={-1}>
           {img
             ? <img
                 // Scryfall CDN paths are predictable — swap in the `large`

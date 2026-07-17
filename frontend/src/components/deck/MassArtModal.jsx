@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
+import { useFocusTrap } from "../../lib/hooks";
 
 /** Mass art change: pick target set(s) and/or a rarity, preview which deck
  * cards have a printing there, then pin them all in one apply. Set order is
@@ -37,6 +38,7 @@ function ModalInner({ names, onClose, onApply, onClearPins, pinnedCount }) {
   const [error, setError] = useState("");
   const debounce = useRef();
   const focusRef = useRef(null);
+  const trapRef = useFocusTrap(true);
 
   useEffect(() => { focusRef.current?.focus(); }, []);
 
@@ -96,7 +98,7 @@ function ModalInner({ names, onClose, onApply, onClearPins, pinnedCount }) {
 
   return (
     <div className="icm-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="icm-panel mam-panel" role="dialog" aria-modal="true" aria-label="Mass change art">
+      <div className="icm-panel mam-panel" role="dialog" aria-modal="true" aria-label="Mass change art" ref={trapRef} tabIndex={-1}>
         <div className="icm-head">
           <h3>Mass change art</h3>
           <button className="icm-close" onClick={onClose} aria-label="Close">✕</button>

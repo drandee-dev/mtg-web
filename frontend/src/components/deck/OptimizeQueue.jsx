@@ -2,6 +2,7 @@ import { useState } from "react";
 import CardPreview from "../CardPreview";
 import LoadingIndicator from "../LoadingIndicator";
 import { describeEntry } from "../../lib/optimizeLog";
+import { fmtUsd } from "../../lib/format";
 
 const COLLAPSE_KEY = "mtgweb:optCollapsed";
 
@@ -123,7 +124,7 @@ function ChangeCard({ ch, onApply, onSkip }) {
         {ch.category && <span className="opt-cat">{ch.category}</span>}
         {delta != null && delta !== 0 && (
           <span className={`opt-delta ${delta > 0 ? "up" : "down"}`}>
-            {delta > 0 ? `+$${delta.toFixed(2)}` : `−$${Math.abs(delta).toFixed(2)}`}
+            {delta > 0 ? `+${fmtUsd(delta)}` : `−${fmtUsd(Math.abs(delta))}`}
           </span>
         )}
       </div>
