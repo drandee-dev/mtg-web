@@ -900,12 +900,20 @@ def _planeswalker_prompt(payload: ChatPayload) -> tuple[str, list[dict], bool]:
                 card_lines.append(f"{head}\n  {oracle}" if oracle else head)
             system += "\n\nSERVER CARD DATA (authoritative):\n" + "\n".join(card_lines)
 
-        # Precon grounding: a named preconstructed deck in the message gets its
-        # real list injected (MTGJSON), so the bot never recites one from memory.
-        try:
-            hit = precons.match_precon(last_user)
-        except Exception:
-            hit = None
+        # Precon grounding: a named preconstructed deck anywhere in the
+        # conversation gets its real list injected (MTGJSON) — follow-up turns
+        # rarely repeat the deck name, and without the list in context the
+        # model disavows its own earlier grounded answers. Newest mention wins.
+        hit = None
+        for m in reversed(messages):
+            if m["role"] != "user":
+                continue
+            try:
+                hit = precons.match_precon(m["content"])
+            except Exception:
+                hit = None
+            if hit:
+                break
         if hit:
             try:
                 pre = precons.fetch_precon(hit["fileName"])

@@ -80,7 +80,13 @@ def match_precon(text: str) -> dict[str, Any] | None:
         name = d.get("name") or ""
         if len(name) < _MIN_MATCH_LEN:
             continue
-        if re.search(rf"\b{re.escape(name.lower())}\b", t):
+        name_l = name.lower()
+        # Cheap substring pre-filter — the word-boundary regex only runs on
+        # candidates, keeping per-message scans fast enough to run over the
+        # whole conversation.
+        if name_l not in t:
+            continue
+        if re.search(rf"\b{re.escape(name_l)}\b", t):
             key = (len(name), d.get("releaseDate") or "")
             if best is None or key > best[0]:
                 best = (key, d)
