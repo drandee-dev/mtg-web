@@ -42,6 +42,7 @@ test-results/
 # Design reference screenshots (binary, regenerate locally with Playwright)
 design/reference/
 design/code-handoff-*.png
+design/marketing/
 
 # Codex agent config (local-only)
 .codex/
