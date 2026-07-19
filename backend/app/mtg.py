@@ -1757,6 +1757,9 @@ def budget_swaps(
                     if label == role:
                         search_cfg = {"oracle": pattern, "type": None}
                         break
+            # Lands classify as Land only (never Ramp) — replace like for like.
+            if not search_cfg and role == "Land":
+                search_cfg = {"oracle": None, "type": "land"}
             if search_cfg:
                 try:
                     cands = _search_cards(
@@ -1881,6 +1884,9 @@ def ai_suggest_cuts(
                     if label == role:
                         search_cfg = {"oracle": pattern, "type": None}
                         break
+            # Lands classify as Land only (never Ramp) — replace like for like.
+            if not search_cfg and role == "Land":
+                search_cfg = {"oracle": None, "type": "land"}
             if search_cfg:
                 try:
                     cands = _search_cards(
@@ -2220,6 +2226,16 @@ def _classify_roles(card: dict | None) -> list[str]:
     """Tag a card with its functional roles (draw, removal, ramp, etc.)."""
     if not card:
         return []
+
+    # Lands are always their own category, full stop. Every land's oracle text
+    # matches the Ramp mana/fetch patterns below ("Add {G}", "search your
+    # library for a … land"), which used to bucket lands under Ramp in every
+    # roles[0] consumer (role grouping, wizard badges, AI role profiles).
+    # Front face only: an MDFC with a spell front keeps its spell roles.
+    front_type = (card.get("type_line") or "").lower().split("//")[0]
+    if "land" in front_type:
+        return ["Land"]
+
     roles: list[str] = []
 
     # 1. Theme preset matchers (from composition system)
@@ -2234,16 +2250,22 @@ def _classify_roles(card: dict | None) -> list[str]:
 
     # 2. Oracle text pattern matching for roles without presets — face-aware
     # so transform/MDFC cards (top-level oracle_text is empty) still classify.
-    oracle = _full_oracle(card).lower()
+    # Land faces are excluded: a spell//land MDFC's back side ("Add {B}")
+    # would otherwise tag the whole card Ramp.
+    faces = card.get("card_faces") or []
+    nonland_face_text = "\n".join(
+        face.get("oracle_text") or ""
+        for face in faces
+        if "land" not in (face.get("type_line") or "").lower()
+    ).strip()
+    oracle = (
+        nonland_face_text.lower() if nonland_face_text else _full_oracle(card).lower()
+    )
     for pattern, label in _ORACLE_ROLES:
         if label not in roles and re.search(pattern, oracle, re.IGNORECASE):
             roles.append(label)
 
-    # 3. Type-line based roles — use front face only for MDFCs
-    type_line = (card.get("type_line") or "").lower()
-    front_type = type_line.split("//")[0].strip()
-    if "land" in front_type and "Land" not in roles:
-        roles.append("Land")
+    # 3. Type-line based roles (lands already returned above)
     if "creature" in front_type and not roles:
         roles.append("Creature")
     if "planeswalker" in front_type:
