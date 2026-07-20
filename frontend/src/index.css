@@ -469,6 +469,50 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 .insp-act-bad:hover { background: rgba(239,83,80,.12); border-color: rgba(239,83,80,.5); }
 .insp-swap { display: flex; align-items: center; gap: .25rem; flex-wrap: wrap; }
 .insp-swap-arrow { color: var(--muted); }
+
+/* ── Combos — rich combo cards (result + steps + mana), not bare name rows ── */
+.badge.gold { color: var(--accent); background: rgba(201,138,58,.14); }
+.combo-list { display: flex; flex-direction: column; gap: .5rem; }
+.combo-card {
+  position: relative; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--panel-2, var(--hover)); padding: .55rem .6rem .55rem .7rem; overflow: hidden;
+}
+.combo-card::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--accent); opacity: .8;
+}
+.combo-win::before { background: var(--bad); }
+.combo-value::before { background: var(--good); }
+.combo-miss::before { background: var(--warn); }
+.combo-top { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin-bottom: .3rem; }
+.combo-chip {
+  font-size: var(--fs-2xs); color: var(--text-secondary); border: 1px solid var(--border);
+  border-radius: 5px; padding: .05rem .35rem; font-variant-numeric: tabular-nums;
+}
+.combo-mana { font-family: var(--mono, ui-monospace, monospace); color: var(--accent-2); }
+.combo-add { margin-left: auto; }
+.combo-cards { font-size: var(--fs-xs); font-weight: 600; line-height: 1.4; }
+.combo-plus { color: var(--muted); font-weight: 400; }
+.combo-missing { color: var(--warn); }
+.combo-result {
+  font-size: var(--fs-xs); font-weight: 600; color: var(--accent);
+  margin-top: .2rem; display: flex; gap: .3rem;
+}
+.combo-arrow { color: var(--muted); }
+.combo-desc { font-size: var(--fs-2xs); color: var(--text-secondary); line-height: 1.5; margin: .35rem 0 0; }
+.combo-foot { display: flex; align-items: center; gap: .5rem; margin-top: .35rem; }
+.combo-fold {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  font-size: var(--fs-2xs); font-weight: 600; color: var(--accent-2); padding: 0;
+}
+.combo-fold:hover { text-decoration: underline; }
+.combo-goldfish {
+  background: none; border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+  font-size: var(--fs-2xs); font-weight: 600; color: var(--text-secondary); padding: .12rem .45rem;
+}
+.combo-goldfish:hover { background: var(--hover); border-color: var(--border-strong); color: var(--accent); }
+/* When the fold button is absent, the goldfish button owns the right edge. */
+.combo-foot > .combo-goldfish:last-child { margin-left: auto; }
 .insp-mode-toggle { margin-bottom: .45rem; }
 .insp-pane-bar { display: flex; justify-content: flex-end; align-items: center; gap: .45rem; margin-bottom: .35rem; }
 .insp-refresh { display: inline-flex; align-items: center; gap: .3rem; }
@@ -947,6 +991,18 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 .bfill.fW { background: var(--mtg-w); } .bfill.fU { background: var(--mtg-u); }
 .bfill.fB { background: var(--mtg-b); } .bfill.fR { background: var(--mtg-r); }
 .bfill.fG { background: var(--mtg-g); } .bfill.fC { background: var(--mtg-c); }
+
+/* Analytics: type composition, deck-DNA roles, signal chips */
+.type-swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+.bfill-good { background: var(--good) !important; }
+.bfill-warn { background: var(--warn) !important; }
+.bval.role-thin { color: var(--warn); }
+.signal-chips { display: flex; flex-wrap: wrap; gap: .35rem; margin: .3rem 0 .2rem; }
+.signal-chip {
+  font-size: var(--fs-2xs); color: var(--text-secondary);
+  background: var(--hover); border: 1px solid var(--border); border-radius: 999px;
+  padding: .15rem .5rem; white-space: nowrap;
+}
 
 /* Mana-base explainer */
 .manabase { display: grid; gap: 0; }
@@ -2650,9 +2706,23 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 
 /* Assessment — bracket meter, strategy summary, gap chips */
 .asmt { padding: .5rem .65rem .65rem; }
-.asmt-head { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
+.asmt-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.asmt-head-text { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; min-width: 0; }
 .asmt-title { font-size: var(--fs-xs); font-weight: 700; }
 .asmt-sub { font-size: var(--fs-2xs); color: var(--muted); }
+
+/* Deck-health ring — one glanceable 0–100 progress read */
+.health-ring { position: relative; flex: none; width: 46px; height: 46px; display: grid; place-items: center; }
+.health-ring svg { position: absolute; inset: 0; }
+.hr-track { stroke: rgba(255,255,255,.08); }
+.hr-fill { stroke: var(--good); transition: stroke-dashoffset .5s ease; }
+.hr-warn .hr-fill { stroke: var(--warn); }
+.hr-bad .hr-fill { stroke: var(--bad); }
+.hr-score { font-size: var(--fs-sm); font-weight: 700; font-variant-numeric: tabular-nums; z-index: 1; }
+.hr-good .hr-score { color: var(--good); }
+.hr-warn .hr-score { color: var(--warn); }
+.hr-bad .hr-score { color: var(--bad); }
+@media (prefers-reduced-motion: reduce) { .hr-fill { transition: none; } }
 .asmt-meter { display: flex; gap: 3px; margin-top: .45rem; }
 .asmt-seg {
   flex: 1; text-align: center; font-size: var(--fs-2xs); font-weight: 600; color: var(--muted);

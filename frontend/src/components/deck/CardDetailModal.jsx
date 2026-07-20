@@ -27,6 +27,7 @@ export default function CardDetailModal({
   currentCategory = null,
   onMove,
   onChangeCommander,
+  onMakeCommander,
 }) {
   const data = useCardImage(name, printing);
   const [showBack, setShowBack] = useState(false);
@@ -134,6 +135,13 @@ export default function CardDetailModal({
   }
 
   const price = data?.price_usd;
+  // A card in the 99 can be promoted to the command zone if it's a legendary
+  // creature (or explicitly "can be your commander"). type_line loads async, so
+  // the action simply appears once the record arrives.
+  const canBeCommander = Boolean(onMakeCommander) && (
+    /legendary creature/i.test(data?.type_line || "")
+    || /can be your commander/i.test(data?.oracle_text || "")
+  );
   const hasBack = Boolean(data?.back_image);
   const artSrc = showBack && hasBack ? data.back_image : data?.image;
   const typeLine = showBack && hasBack ? (data?.back_type_line || data?.type_line) : data?.type_line;
@@ -238,6 +246,9 @@ export default function CardDetailModal({
               {renderPrintingSwitcher()}
 
               <div className="cdm-actions">
+                {canBeCommander && (
+                  <button className="primary small" onClick={() => { onMakeCommander(name); onClose(); }}>♛ Make commander</button>
+                )}
                 {onConsider && (
                   <button className="ghost small" onClick={() => { onConsider(name); onClose(); }}>Considering</button>
                 )}

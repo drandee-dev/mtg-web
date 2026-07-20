@@ -10,7 +10,7 @@ import ImportCardsModal from "./ImportCardsModal";
 import MassArtModal from "./MassArtModal";
 import MoreMenu from "./MoreMenu";
 import { PaletteIcon, LinkIcon, SparkleIcon, LockIcon, UnlockIcon, ListIcon, SearchIcon } from "../Icons";
-import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderDisplay, setCommanderPrinting } from "../../lib/deckParser";
+import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderDisplay, commanderNamesClean, setCommanderPrinting } from "../../lib/deckParser";
 import { goalsToApi } from "../../lib/goals";
 import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry, isVisibleEntry } from "../../lib/optimizeLog";
 import { deckSignature, loadInsights, saveInsights, PANEL_KEYS } from "../../lib/insightsCache";
@@ -18,7 +18,7 @@ import { deckSignature, loadInsights, saveInsights, PANEL_KEYS } from "../../lib
 export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
   maybeboard, setMaybeboard,
-  deckName, deckId, onSave, onClone, onExport, onPlaytest, onShare, onRenameDeck,
+  deckName, deckId, onSave, onClone, onExport, onPlaytest, onGoldfish, onShare, onRenameDeck,
   startInWizard, onWizardConsumed, startImport, onImportConsumed, onBack, notify, serverWarmed,
   pwInsightsEl, pwStatsEl, goals, setGoals,
 }) {
@@ -248,17 +248,46 @@ export default function DeckView({
     return () => { cancelled = true; };
   }, [decklist, commander, format]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function addCard(name) {
-    setDecklist((prev) => `${prev.replace(/\s*$/, "")}\n1 ${name}`);
-    // A pinned suggestion that lands in the deck has served its purpose.
-    setPinned((prev) => { if (!prev.has(name)) return prev; const n = new Set(prev); n.delete(name); return n; });
-    notify?.(`Added ${name}`);
-  }
-
   // Deck lines may carry a pinned printing suffix: "1 Sol Ring (C21) 263".
   const PRINT_SUFFIX_SRC = "(\\s+\\([A-Za-z0-9]{2,6}\\)\\s+[A-Za-z0-9★†-]{1,10})?";
 
+  // The exact decklist line for a card (with its qty + printing), so an Undo can
+  // restore it verbatim instead of a lossy "1 Name".
+  function findDeckLine(name) {
+    const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`^\\s*\\d+\\s+${esc}${PRINT_SUFFIX_SRC}\\s*$`, "i");
+    return decklist.split("\n").find((l) => re.test(l)) || null;
+  }
+  function appendLine(line) {
+    setDecklist((prev) => `${prev.replace(/\s*$/, "")}\n${line}`);
+  }
+
+  // Did adding `name` complete a known near-miss combo? near_misses is only loaded
+  // once the Combos panel has been opened; absent it, this is simply a no-op and the
+  // add gets the ordinary toast. Returns the payoff text to celebrate, or null.
+  function comboUnlockedBy(name) {
+    const nm = (combos?.near_misses || []).find((c) => c.missing_card === name);
+    if (!nm) return null;
+    const payoff = (nm.result || [])
+      .map((r) => (typeof r === "string" ? r : r?.name || "")).filter(Boolean).join(", ");
+    return payoff || "a new combo";
+  }
+
+  function addCard(name, { silent = false } = {}) {
+    appendLine(`1 ${name}`);
+    // A pinned suggestion that lands in the deck has served its purpose.
+    setPinned((prev) => { if (!prev.has(name)) return prev; const n = new Set(prev); n.delete(name); return n; });
+    if (silent) return;
+    const payoff = comboUnlockedBy(name);
+    if (payoff) {
+      notify?.(`⚡ Combo unlocked! ${name} → ${payoff}`, { label: "View", onClick: () => setActivePanel("Combos") });
+    } else {
+      notify?.(`Added ${name}`, { label: "Undo", onClick: () => removeCard(name, { silent: true }) });
+    }
+  }
+
   function removeCard(name, { silent = false } = {}) {
+    const removedLine = findDeckLine(name);
     setDecklist((prev) => {
       const lines = prev.split("\n");
       const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -266,13 +295,40 @@ export default function DeckView({
       if (idx >= 0) lines.splice(idx, 1);
       return lines.join("\n");
     });
-    if (!silent) notify?.(`Removed ${name}`);
+    if (!silent) {
+      notify?.(`Removed ${name}`, removedLine
+        ? { label: "Undo", onClick: () => appendLine(removedLine) }
+        : undefined);
+    }
   }
 
   function swapCard(oldName, newName) {
-    removeCard(oldName);
-    addCard(newName);
+    const removedLine = findDeckLine(oldName);
+    removeCard(oldName, { silent: true });
+    addCard(newName, { silent: true });
     skip(oldName);
+    notify?.(`Swapped ${oldName} → ${newName}`, {
+      label: "Undo",
+      onClick: () => {
+        removeCard(newName, { silent: true });
+        if (removedLine) appendLine(removedLine); else addCard(oldName, { silent: true });
+      },
+    });
+  }
+
+  // Promote a card in the 99 to the command zone (from card inspection). Pulls it
+  // out of the decklist and demotes the current commander(s), if any, back into
+  // the 99 so nothing is lost. Printing suffixes on the old commander are dropped.
+  function makeCommander(name) {
+    removeCard(name, { silent: true });
+    const demoted = commanderNamesClean(commander);
+    if (demoted.length) {
+      setDecklist((prev) => `${prev.replace(/\s*$/, "")}\n${demoted.map((d) => `1 ${d}`).join("\n")}`);
+    }
+    setCommander(name);
+    notify?.(demoted.length
+      ? `${name} is now your commander — ${demoted.join(", ")} moved to the 99`
+      : `${name} is now your commander`);
   }
 
   // Set a card's copy count, normalizing it to a single `N Name` line (collapses any
@@ -737,6 +793,8 @@ export default function DeckView({
     onUndoChange: undoOptChange,
     onClearLog: clearOptLog,
     onGapChip: runOptimize,
+    // "Goldfish this line" from a combo card → open Playtest with the pieces staged.
+    onGoldfish,
     // Over-budget chip → Budget swaps, pre-set to budget mode.
     onOverBudget: () => {
       setUpgradeMode("budget");
@@ -967,6 +1025,7 @@ export default function DeckView({
               onCardSearch={locked ? null : toggleSearch}
               notify={notify}
               onChangeCommander={locked ? null : () => setCommander("")}
+              onMakeCommander={locked || !isCommanderFmt ? null : makeCommander}
               setCardQty={locked ? null : setCardQty}
               onSetPrinting={locked ? null : setCardPrinting}
               onSetCommanderPrinting={locked ? null : setCommanderPrintingFor}

@@ -24,7 +24,7 @@ function parseCards(text) {
     });
 }
 
-export default function Playtest({ decklist, commander, onClose }) {
+export default function Playtest({ decklist, commander, stage, onClose }) {
   const [library, setLibrary] = useState([]);
   const [hand, setHand] = useState([]);
   const [battlefield, setBattlefield] = useState([]);
@@ -38,8 +38,28 @@ export default function Playtest({ decklist, commander, onClose }) {
   const reset = useCallback(() => {
     const cards = parseCards(decklist);
     const shuffled = shuffle(cards);
-    setLibrary(shuffled.slice(7));
-    setHand(shuffled.slice(0, 7));
+    // "Goldfish this line": seed the opening hand with the requested combo pieces
+    // (those that live in the 99 — commander pieces stay in the command zone), then
+    // fill the rest of the 7 at random. Absent a stage, it's an ordinary draw.
+    if (stage && stage.length) {
+      const wanted = new Set(stage.map((n) => n.toLowerCase()));
+      const staged = [];
+      const rest = [];
+      for (const c of shuffled) {
+        const nm = (c.name || "").toLowerCase();
+        if (wanted.has(nm) && staged.length < 7 && !staged.some((s) => (s.name || "").toLowerCase() === nm)) {
+          staged.push(c);
+        } else {
+          rest.push(c);
+        }
+      }
+      const fill = Math.max(0, 7 - staged.length);
+      setHand([...staged, ...rest.slice(0, fill)]);
+      setLibrary(rest.slice(fill));
+    } else {
+      setLibrary(shuffled.slice(7));
+      setHand(shuffled.slice(0, 7));
+    }
     setBattlefield([]);
     setGraveyard([]);
     setExile([]);
@@ -47,7 +67,7 @@ export default function Playtest({ decklist, commander, onClose }) {
     setLife(40);
     setMulliganCount(0);
     setPhase("mulligan");
-  }, [decklist]);
+  }, [decklist, stage]);
 
   useEffect(() => { reset(); }, [reset]);
 

@@ -103,6 +103,8 @@ export default function App() {
   const [_shared] = useState(_loadSharedDeck);
   const [tab, setTab] = useState(_shared ? "deck" : _initialTab());
   const [playtesting, setPlaytesting] = useState(false);
+  // Cards to seed into the opening hand when Playtest opens ("goldfish this line").
+  const [playtestStage, setPlaytestStage] = useState(null);
   // Back/forward support: tab changes push real history entries; popstate
   // restores the tab (lib/backstack also lets open layers intercept back).
   const popNav = useRef(false);
@@ -559,7 +561,8 @@ export default function App() {
           <Playtest
             decklist={assembleDecklist(deckText, commander)}
             commander={commander}
-            onClose={() => setPlaytesting(false)}
+            stage={playtestStage}
+            onClose={() => { setPlaytesting(false); setPlaytestStage(null); }}
           />
         )}
         {!playtesting && tab === "deck" && (
@@ -578,7 +581,8 @@ export default function App() {
             onRenameDeck={renameCurrentDeck}
             onClone={cloneCurrentDeck}
             onExport={exportCurrentDeck}
-            onPlaytest={() => setPlaytesting(true)}
+            onPlaytest={() => { setPlaytestStage(null); setPlaytesting(true); }}
+            onGoldfish={(cards) => { setPlaytestStage(cards); setPlaytesting(true); }}
             onShare={shareDeck}
             startInWizard={startInWizard}
             onWizardConsumed={() => setStartInWizard(false)}

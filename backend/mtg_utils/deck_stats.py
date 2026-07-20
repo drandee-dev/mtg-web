@@ -20,6 +20,18 @@ from mtg_utils.card_classify import (
 )
 from mtg_utils.hydrated_deck import HydratedDeck
 
+
+def _numeric_pt(value: object) -> float | None:
+    """Parse a power/toughness value to a number, or None for variable ('*', 'X',
+    '1+*', etc.) — those are excluded from the average rather than counted as 0."""
+    if value is None:
+        return None
+    try:
+        return float(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
 ALTERNATIVE_COST_KEYWORDS = {
     "suspend",
     "evoke",
@@ -144,6 +156,45 @@ def detect_bracket(hydrated: Sequence[dict | None], avg_cmc: float) -> dict:
     }
 
 
+# Well-known fast-mana pieces (mana rocks / rituals that produce more mana than
+# they cost, or free-cast). A bracket-relevant "how explosive is this deck" signal
+# players ask for — matched by canonical name so it's stable across printings.
+FAST_MANA_NAMES = frozenset(
+    {
+        "Sol Ring",
+        "Mana Crypt",
+        "Mana Vault",
+        "Grim Monolith",
+        "Chrome Mox",
+        "Mox Diamond",
+        "Mox Opal",
+        "Mox Amber",
+        "Mox Emerald",
+        "Mox Jet",
+        "Mox Pearl",
+        "Mox Ruby",
+        "Mox Sapphire",
+        "Jeweled Lotus",
+        "Lotus Petal",
+        "Black Lotus",
+        "Lion's Eye Diamond",
+        "Dark Ritual",
+        "Cabal Ritual",
+        "Rite of Flame",
+        "Pyretic Ritual",
+        "Desperate Ritual",
+        "Seething Song",
+        "Simian Spirit Guide",
+        "Elvish Spirit Guide",
+        "Jeska's Will",
+        "Ancient Tomb",
+        "City of Traitors",
+        "Gaea's Cradle",
+        "Carpet of Flowers",
+    }
+)
+
+
 def deck_stats(hd: HydratedDeck) -> dict:
     """Compute deck statistics from a HydratedDeck (deck + joined card records)."""
     total_cards = 0
@@ -151,6 +202,10 @@ def deck_stats(hd: HydratedDeck) -> dict:
     creature_count = 0
     ramp_count = 0
     game_changer_count = 0
+    fast_mana_count = 0
+    power_sum = 0.0
+    toughness_sum = 0.0
+    pt_creatures = 0
     nonland_cmcs: list[float] = []
     curve: Counter[int] = Counter()
     sources: Counter[str] = Counter()
@@ -173,12 +228,21 @@ def deck_stats(hd: HydratedDeck) -> dict:
 
         if is_creature(card):
             creature_count += qty
+            p = _numeric_pt(card.get("power"))
+            t = _numeric_pt(card.get("toughness"))
+            if p is not None and t is not None:
+                power_sum += p * qty
+                toughness_sum += t * qty
+                pt_creatures += qty
 
         if is_ramp(card):
             ramp_count += qty
 
         if card.get("game_changer"):
             game_changer_count += qty
+
+        if card.get("name") in FAST_MANA_NAMES:
+            fast_mana_count += qty
 
         for color in color_sources(card):
             sources[color] += qty
@@ -206,6 +270,11 @@ def deck_stats(hd: HydratedDeck) -> dict:
         "creature_count": creature_count,
         "ramp_count": ramp_count,
         "game_changer_count": game_changer_count,
+        "fast_mana_count": fast_mana_count,
+        "avg_power": round(power_sum / pt_creatures, 2) if pt_creatures else None,
+        "avg_toughness": round(toughness_sum / pt_creatures, 2)
+        if pt_creatures
+        else None,
         "avg_cmc": round(avg_cmc, 2),
         "curve": dict(sorted(curve.items())),
         "color_sources": dict(sorted(sources.items())),

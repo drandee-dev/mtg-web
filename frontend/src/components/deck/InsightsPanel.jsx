@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Curve from "../Curve";
 import { fmtUsd } from "../../lib/format";
 import CardPreview from "../CardPreview";
@@ -50,11 +50,11 @@ function statusBadge(status) {
 }
 
 export default function InsightsPanel({
-  result, activePanel, onPanelClick, onRefreshPanel, busy, stalePanels,
+  result, comp, activePanel, onPanelClick, onRefreshPanel, busy, stalePanels,
   recs, recCat, setRecCat, skipped, onSkip, onClearSkipped, onAddCard,
   pinned, onTogglePin,
   cuts, onRemoveCard, dismissedCuts, onDismissCut, onClearDismissedCuts,
-  combos,
+  combos, onGoldfish,
   budgetSwaps, upgrades, upgradeMode, setUpgradeMode, onSwapCard,
   commander, format,
 }) {
@@ -124,7 +124,7 @@ export default function InsightsPanel({
             {["Recommendations", "Cuts", "Combos", "Upgrades"].includes(active) && onRefreshPanel && (
               <RefreshBar onRefresh={() => onRefreshPanel(active)} stale={stalePanels?.has(active)} />
             )}
-            {active === "Analytics" && <AnalyticsPane result={result} format={format} />}
+            {active === "Analytics" && <AnalyticsPane result={result} comp={comp} format={format} />}
             {active === "Recommendations" && (
               <SuggestPane recs={recs} recCat={recCat} setRecCat={setRecCat}
                 skipped={skipped} onSkip={onSkip} onClearSkipped={onClearSkipped}
@@ -135,7 +135,7 @@ export default function InsightsPanel({
                 dismissedCuts={dismissedCuts} onDismissCut={onDismissCut}
                 onClearDismissedCuts={onClearDismissedCuts} />
             )}
-            {active === "Combos" && <CombosPane combos={combos} onAddCard={onAddCard} />}
+            {active === "Combos" && <CombosPane combos={combos} onAddCard={onAddCard} onGoldfish={onGoldfish} />}
             {active === "Upgrades" && (
               <UpgradesPane budgetSwaps={budgetSwaps} upgrades={upgrades}
                 upgradeMode={upgradeMode} setUpgradeMode={setUpgradeMode} onSwapCard={onSwapCard} />
@@ -171,7 +171,7 @@ function RefreshBar({ onRefresh, stale }) {
 
 /* ── Analytics (resting tab — local data only) ─────────────────────────────── */
 
-function AnalyticsPane({ result, format }) {
+function AnalyticsPane({ result, comp, format }) {
   const s = result?.stats || {};
   const mana = result?.mana || {};
   const legality = result?.legality || {};
@@ -212,8 +212,11 @@ function AnalyticsPane({ result, format }) {
         </>
       )}
 
+      <TypeBreakdown types={bd.types} total={cardCount} />
       <Colors mana={mana} />
       <ManaBase mana={mana} />
+      <DeckDna comp={comp} />
+      <Signals stats={s} />
 
       {legality.violations?.length > 0 && (
         <>
@@ -297,6 +300,92 @@ function ManaBase({ mana }) {
             {mana.color_balance_flags.map((f, i) => <li key={i}>{f}</li>)}
           </ul>
         )}
+      </div>
+    </>
+  );
+}
+
+const TYPE_COLORS = {
+  Creature: "#58b56a", Instant: "#4a7fd6", Sorcery: "#e5624c", Artifact: "#b9a066",
+  Enchantment: "#b083d9", Planeswalker: "#d98cc0", Land: "#7f8598", Battle: "#d8a12b",
+  Other: "#6b7180",
+};
+
+// Card-type distribution (from deck_breakdown.types) — the "what is this deck made
+// of" read the old Analytics tab never surfaced.
+function TypeBreakdown({ types, total }) {
+  const entries = Object.entries(types || {});
+  if (!entries.length) return null;
+  const max = Math.max(...entries.map(([, n]) => n));
+  return (
+    <>
+      <h4 className="insp-subhead">Composition</h4>
+      <div className="barlist">
+        {entries.map(([label, n]) => (
+          <div className="barrow" key={label}>
+            <span className="blabel">
+              <span className="type-swatch" style={{ background: TYPE_COLORS[label] || TYPE_COLORS.Other }} />
+              {label}
+            </span>
+            <span className="btrack">
+              <span className="bfill" style={{ width: `${(n / max) * 100}%`, background: TYPE_COLORS[label] || TYPE_COLORS.Other }} />
+            </span>
+            <span className="bval">{total ? `${n}` : n}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// Role coverage ("Deck DNA") — reuses the composition categories that already drive
+// the Assessment gap chips, shown here as count-vs-target bars.
+function DeckDna({ comp }) {
+  const cats = comp?.categories?.filter((c) => c.target) || [];
+  if (!cats.length) return null;
+  return (
+    <>
+      <h4 className="insp-subhead">Deck DNA — roles</h4>
+      <div className="barlist">
+        {cats.map((c) => {
+          const pct = c.target ? Math.min(100, (c.count / c.target) * 100) : 100;
+          const thin = c.status === "thin";
+          return (
+            <div className="barrow" key={c.key}>
+              <span className="blabel">{c.label}</span>
+              <span className="btrack">
+                <span className={`bfill ${thin ? "bfill-warn" : "bfill-good"}`} style={{ width: `${pct}%` }} />
+              </span>
+              <span className={`bval${thin ? " role-thin" : ""}`}>
+                {c.count}{c.target ? `/${c.target}` : ""}{thin ? " ·thin" : ""}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+// At-a-glance power signals — game-changers, fast mana, free/alt-cost spells, and
+// average creature body. Only chips with data render.
+function Signals({ stats }) {
+  const chips = [];
+  if (stats.game_changer_count > 0) chips.push(["⚡", `${stats.game_changer_count} game-changer${stats.game_changer_count > 1 ? "s" : ""}`]);
+  if (stats.fast_mana_count > 0) chips.push(["🚀", `${stats.fast_mana_count} fast mana`]);
+  const altCount = stats.alternative_cost_cards?.length || 0;
+  if (altCount > 0) chips.push(["🪄", `${altCount} free / alt-cost`]);
+  if (stats.avg_power != null && stats.avg_toughness != null) {
+    chips.push(["🛡️", `avg body ${stats.avg_power}/${stats.avg_toughness}`]);
+  }
+  if (!chips.length) return null;
+  return (
+    <>
+      <h4 className="insp-subhead">Signals</h4>
+      <div className="signal-chips">
+        {chips.map(([icon, label]) => (
+          <span className="signal-chip" key={label}><span aria-hidden="true">{icon}</span> {label}</span>
+        ))}
       </div>
     </>
   );
@@ -422,34 +511,100 @@ function CutsPane({ cuts, onRemoveCard, dismissedCuts, onDismissCut, onClearDism
 
 /* ── Combos ────────────────────────────────────────────────────────────────── */
 
-function CombosPane({ combos, onAddCard }) {
-  if (!combos) return null;
-  const none = !combos.combos?.length && !combos.near_misses?.length;
-  if (none) return <p className="muted small insp-empty">No combos or near-misses found.</p>;
+// Mirror combo_search.py::_is_game_winning so the UI classification matches the
+// backend's own labelling.
+function comboResultText(c) {
+  return (c.result || []).map((r) => (typeof r === "string" ? r : r?.name || "")).filter(Boolean);
+}
+function comboKind(c) {
+  const t = comboResultText(c).join(" ").toLowerCase();
+  if (t.includes("win the game") || t.includes("lose the game")) return "win";
+  if (t.includes("infinite")) return "infinite";
+  return "value";
+}
+const KIND_BADGE = {
+  win: ["bad", "game-winning"],
+  infinite: ["gold", "infinite"],
+  value: ["good", "value"],
+};
+
+function ComboCard({ combo, missing, addable, onAddCard, onGoldfish }) {
+  const [open, setOpen] = useState(false);
+  const kind = comboKind(combo);
+  const [badgeCls, badgeLabel] = KIND_BADGE[kind];
+  const results = comboResultText(combo);
+  const otherCards = missing
+    ? (combo.cards || []).filter((n) => n !== missing)
+    : (combo.cards || []);
   return (
-    <>
-      {combos.combos?.map((c, i) => (
-        <div key={`c${i}`} className="insp-row insp-row-tall">
-          <span className="insp-row-name">
-            <span className="badge good small">combo</span>{" "}
-            <span className="small">{c.cards?.join(" + ")}</span>
+    <div className={`combo-card combo-${missing ? "miss" : kind}`}>
+      <div className="combo-top">
+        {missing
+          ? <span className="badge warn small">1 card away</span>
+          : <span className={`badge ${badgeCls} small`}>{badgeLabel}</span>}
+        {combo.bracket_tag && <span className="combo-chip">bracket {combo.bracket_tag}</span>}
+        {addable && (
+          <button className="insp-act insp-act-good combo-add" onClick={() => onAddCard(missing)}>
+            + Add {missing.length > 22 ? "card" : missing}
+          </button>
+        )}
+      </div>
+      <div className="combo-cards">
+        {otherCards.map((n, i) => (
+          <span key={n}>
+            {i > 0 && <span className="combo-plus"> + </span>}
+            <CardPreview name={n} />
           </span>
-        </div>
-      ))}
-      {combos.near_misses?.map((c, i) => (
-        <div key={`n${i}`} className="insp-row insp-row-tall">
-          <span className="insp-row-name">
-            <span className="badge warn small">1 away</span>{" "}
-            <span className="small">{c.missing_card || c.missing_template}</span>
-          </span>
-          {c.missing_card && (
-            <span className="insp-row-actions">
-              <button className="insp-act insp-act-good" onClick={() => onAddCard(c.missing_card)}>+ Add</button>
-            </span>
+        ))}
+        {missing && (
+          <>
+            <span className="combo-plus"> + </span>
+            <span className="combo-missing"><CardPreview name={missing} /></span>
+          </>
+        )}
+      </div>
+      {results.length > 0 && (
+        <div className="combo-result"><span className="combo-arrow">→</span> {results.join(", ")}</div>
+      )}
+      {open && combo.description && <p className="combo-desc">{combo.description}</p>}
+      {(combo.description || (!missing && onGoldfish)) && (
+        <div className="combo-foot">
+          {combo.mana_needed && <span className="combo-chip combo-mana">{combo.mana_needed}</span>}
+          {!missing && onGoldfish && (combo.cards?.length > 0) && (
+            <button className="combo-goldfish" onClick={() => onGoldfish(combo.cards)}
+              title="Open Playtest with these pieces in your opening hand">
+              ▶ Goldfish
+            </button>
+          )}
+          {combo.description && (
+            <button className="combo-fold" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+              {open ? "Hide steps ▴" : "Show steps ▾"}
+            </button>
           )}
         </div>
-      ))}
-    </>
+      )}
+    </div>
+  );
+}
+
+function CombosPane({ combos, onAddCard, onGoldfish }) {
+  if (!combos) return null;
+  const list = combos.combos || [];
+  const near = combos.near_misses || [];
+  if (!list.length && !near.length) return <p className="muted small insp-empty">No combos or near-misses found.</p>;
+  return (
+    <div className="combo-list">
+      {list.map((c, i) => <ComboCard key={`c${i}`} combo={c} onAddCard={onAddCard} onGoldfish={onGoldfish} />)}
+      {near.length > 0 && (
+        <>
+          {list.length > 0 && <h4 className="insp-subhead">One card away</h4>}
+          {near.map((c, i) => (
+            <ComboCard key={`n${i}`} combo={c} missing={c.missing_card || c.missing_template}
+              addable={Boolean(c.missing_card)} onAddCard={onAddCard} />
+          ))}
+        </>
+      )}
+    </div>
   );
 }
 

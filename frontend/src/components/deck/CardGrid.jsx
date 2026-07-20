@@ -29,7 +29,7 @@ const GROUPS = [
   { id: "price", label: "Price range" },
 ];
 
-export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, onRemove, onConsider, addCard, onCardSearch, notify, onChangeCommander, setCardQty, onSetPrinting, onSetCommanderPrinting, maybeboard, onMoveFromConsidering, onRemoveConsidering, onSuggestConsiderations, suggesting }) {
+export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, onRemove, onConsider, addCard, onCardSearch, notify, onChangeCommander, onMakeCommander, setCardQty, onSetPrinting, onSetCommanderPrinting, maybeboard, onMoveFromConsidering, onRemoveConsidering, onSuggestConsiderations, suggesting }) {
   const canHover = useCanHover();
   const [filterHelpOpen, setFilterHelpOpen] = useState(false);
   const [viewMode, setViewMode] = useState(
@@ -618,6 +618,7 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
             currentCategory={currentCategory}
             onMove={handleCardMove}
             onChangeCommander={isCmdr ? onChangeCommander : null}
+            onMakeCommander={!isCmdr && !isConsidering ? onMakeCommander : null}
           />
         );
       })()}

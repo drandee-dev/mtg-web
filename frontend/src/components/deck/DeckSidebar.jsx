@@ -25,7 +25,7 @@ export default function DeckSidebar({
   goalSuggestion, onAcceptGoalSuggestion, onDismissGoalSuggestion,
   optimize, optimizing, onRunOptimize, optGapCount, optDecided,
   onApplyChange, onSkipChange, optLog, onUndoChange, onClearLog,
-  onGapChip, onOverBudget, section,
+  onGapChip, onOverBudget, onGoldfish, section,
 }) {
   // Hub tabs render this sidebar twice via portals: the Optimize tab shows the
   // goal-driven surface, the Stats tab the insights toolbox. Desktop renders both.
@@ -85,6 +85,7 @@ export default function DeckSidebar({
       {showStats && (
         <InsightsPanel
           result={result}
+          comp={comp}
           activePanel={activePanel}
           onPanelClick={onPanelClick}
           onRefreshPanel={onRefreshPanel}
@@ -105,6 +106,7 @@ export default function DeckSidebar({
           onDismissCut={onDismissCut}
           onClearDismissedCuts={onClearDismissedCuts}
           combos={combos}
+          onGoldfish={onGoldfish}
           budgetSwaps={budgetSwaps}
           upgrades={upgrades}
           upgradeMode={upgradeMode}
