@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { getCardImage } from "../lib/api";
 import { useCanHover, useEscapeKey, useFocusTrap } from "../lib/hooks";
 import { useBackClose } from "../lib/backstack";
@@ -22,6 +23,15 @@ export default function CardPreview({ name, children }) {
   useEscapeKey(modal, () => setModal(false));
   useBackClose(modal, () => setModal(false));
   const modalRef = useFocusTrap(modal);
+
+  // The float is position:fixed and portaled to <body>, so any scroll makes its
+  // pinned coordinates stale — dismiss it rather than let it hang over the page.
+  useEffect(() => {
+    if (!hover) return undefined;
+    const dismiss = () => setHover(false);
+    window.addEventListener("scroll", dismiss, true);
+    return () => window.removeEventListener("scroll", dismiss, true);
+  }, [hover]);
 
   const ensure = useCallback(async () => {
     if (data && nameRef.current === name) return data;
@@ -69,15 +79,21 @@ export default function CardPreview({ name, children }) {
         {children || name}
       </span>
 
-      {hover && (
+      {/* Float + modal are portaled to <body> so their position:fixed geometry is
+          always relative to the viewport. Rendered inline, an ancestor with a
+          transform/filter (e.g. the animated Planeswalker panel that hosts the
+          portaled insights sidebar) would become their containing block and shove
+          the preview far off over the deck. */}
+      {hover && createPortal(
         <span className="card-float" style={{ left: pos.left, top: pos.top }}>
           {img
             ? <img src={img} alt={name} style={{ width: pos.w, height: pos.h }} loading="lazy" />
             : <span className="card-float-empty">{data ? "No image" : "Loading…"}</span>}
-        </span>
+        </span>,
+        document.body,
       )}
 
-      {modal && (
+      {modal && createPortal(
         <div className="card-modal" onClick={() => setModal(false)} role="dialog" aria-modal="true" aria-label={name} ref={modalRef} tabIndex={-1}>
           {img
             ? <img
@@ -90,7 +106,8 @@ export default function CardPreview({ name, children }) {
                 loading="lazy"
               />
             : <div className="card-modal-empty">{data ? `No image for ${name}` : "Loading…"}</div>}
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

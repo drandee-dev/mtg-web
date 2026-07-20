@@ -1020,7 +1020,9 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 /* Card name + image preview (hover desktop / tap mobile) */
 .cardname { cursor: pointer; border-bottom: 1px dotted var(--accent-2); }
 .cardname:hover, .cardname:focus { color: var(--accent-2); }
-.card-float { position: fixed; z-index: 40; pointer-events: none;
+/* Portaled to <body>; z sits above the Planeswalker sheet/panel (--z-sheet) so the
+   hover preview is never occluded by it, but below toasts. */
+.card-float { position: fixed; z-index: 1500; pointer-events: none;
   border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
 .card-float img { display: block; border-radius: 12px; }
 .card-float-empty { display: inline-block; background: var(--panel-2); border: 1px solid var(--border);
