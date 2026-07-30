@@ -4,6 +4,7 @@ Downloads oracle_cards and strips it to only the fields the app uses,
 cutting memory from ~200MB to ~60MB when loaded — fits in 512MB free tier.
 """
 
+import gzip
 import json
 import os
 import re
@@ -87,13 +88,16 @@ def download_bulk():
     with urlopen(req) as resp:
         catalog = json.loads(resp.read())
 
+    # Scryfall dropped the plain-JSON `download_uri` in favour of a gzipped JSONL
+    # file exposed as `jsonl_download_uri`. Prefer the old field if it ever returns,
+    # otherwise fall back to the JSONL download (content-sniffed + decompressed below).
     uri = None
     for entry in catalog.get("data", []):
         if entry.get("type") == "oracle_cards":
-            uri = entry["download_uri"]
+            uri = entry.get("download_uri") or entry.get("jsonl_download_uri")
             break
     if not uri:
-        print("ERROR: Could not find oracle_cards in Scryfall bulk catalog.")
+        print("ERROR: Could not find an oracle_cards download URI in Scryfall bulk catalog.")
         sys.exit(1)
 
     print(f"Downloading {uri} ...")
@@ -101,9 +105,20 @@ def download_bulk():
     with urlopen(req) as resp:
         raw = resp.read()
 
+    # Gunzip if it's a .gz payload (gzip magic bytes 1f 8b); urllib does not
+    # auto-decompress a gzipped file body.
+    if raw[:2] == b"\x1f\x8b":
+        raw = gzip.decompress(raw)
+
     print(f"Downloaded {len(raw) / 1_000_000:.0f} MB. Stripping to essential fields...")
-    cards = json.loads(raw)
-    del raw  # free the raw bytes immediately
+    # Two possible shapes: a single JSON array (old `download_uri`) or JSONL —
+    # one card object per line (new `jsonl_download_uri`). Sniff the first byte.
+    body = raw.lstrip()
+    if body[:1] == b"[":
+        cards = json.loads(body)
+    else:
+        cards = [json.loads(line) for line in body.splitlines() if line.strip()]
+    del raw, body  # free the raw bytes immediately
     stripped = [_strip_card(c) for c in cards]
     del cards
 
