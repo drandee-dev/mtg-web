@@ -5,6 +5,21 @@ import ThemeSwitcher from "./ThemeSwitcher";
 const REMEMBER_EMAIL_KEY = "mtgweb:rememberedEmail";
 const REMEMBER_ME_KEY = "mtgweb:rememberMe";
 
+// Shared by every address field. type and inputMode bring up the @ keyboard,
+// autoCapitalize stops an address arriving with a capital first letter, and
+// autoComplete is what makes iOS offer a saved login — "username" when a
+// password sits beside it, plain "email" when one doesn't.
+const EMAIL_FIELD = {
+  type: "email",
+  name: "email",
+  inputMode: "email",
+  autoCapitalize: "none",
+  autoCorrect: "off",
+  spellCheck: false,
+  placeholder: "your@email.com",
+  className: "account-email-input",
+};
+
 export default function AccountDropdown({ session, supabaseEnabled, deckCount = 0, onClose, notify }) {
   const [email, setEmail] = useState(() => localStorage.getItem(REMEMBER_EMAIL_KEY) || "");
   const [password, setPassword] = useState("");
@@ -31,7 +46,8 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
     }
   }
 
-  async function handlePasswordAuth() {
+  async function handlePasswordAuth(e) {
+    e?.preventDefault();
     if (!email.trim()) return notify("Enter your email.");
     if (!password) return notify("Enter your password.");
     setBusy(true);
@@ -61,7 +77,8 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
     }
   }
 
-  async function sendLink() {
+  async function sendLink(e) {
+    e?.preventDefault();
     if (!email.trim()) return notify("Enter your email.");
     setBusy(true);
     try {
@@ -78,7 +95,8 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
     }
   }
 
-  async function sendPasswordReset() {
+  async function sendPasswordReset(e) {
+    e?.preventDefault();
     if (!email.trim()) return notify("Enter your email first.");
     setBusy(true);
     try {
@@ -154,67 +172,71 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
           {supabaseEnabled && !session && (
             <div>
               {authMode === "magic" ? (
-                <>
+                <form onSubmit={sendLink}>
                   <div className="account-section-title">Magic Link</div>
                   <input
-                    type="email"
+                    {...EMAIL_FIELD}
+                    autoComplete="email"
+                    enterKeyHint="send"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    className="account-email-input"
                   />
-                  <button onClick={sendLink} disabled={busy} className="account-magic-link-btn">
+                  <button type="submit" disabled={busy} className="account-magic-link-btn">
                     {busy ? "Sending…" : "Send magic link"}
                   </button>
                   <div className="account-magic-hint">We'll email you a one-tap sign-in link</div>
-                  <button className="account-auth-toggle" onClick={() => setAuthMode("signin")}>
+                  <button type="button" className="account-auth-toggle" onClick={() => setAuthMode("signin")}>
                     ← Back to password sign-in
                   </button>
-                </>
+                </form>
               ) : authMode === "forgot" ? (
-                <>
+                <form onSubmit={sendPasswordReset}>
                   <div className="account-section-title">Reset Password</div>
                   <input
-                    type="email"
+                    {...EMAIL_FIELD}
+                    autoComplete="email"
+                    enterKeyHint="send"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    className="account-email-input"
                   />
-                  <button onClick={sendPasswordReset} disabled={busy} className="account-magic-link-btn">
+                  <button type="submit" disabled={busy} className="account-magic-link-btn">
                     {busy ? "Sending…" : "Send reset link"}
                   </button>
                   <div className="account-magic-hint">We'll email you a link to set a new password</div>
-                  <button className="account-auth-toggle" onClick={() => setAuthMode("signin")}>
+                  <button type="button" className="account-auth-toggle" onClick={() => setAuthMode("signin")}>
                     ← Back to sign-in
                   </button>
-                </>
+                </form>
               ) : (
-                <>
+                <form onSubmit={handlePasswordAuth}>
                   <div className="account-auth-tabs">
                     <button
+                      type="button"
                       className={`account-auth-tab ${authMode === "signin" ? "active" : ""}`}
                       onClick={() => setAuthMode("signin")}
                     >Sign In</button>
                     <button
+                      type="button"
                       className={`account-auth-tab ${authMode === "signup" ? "active" : ""}`}
                       onClick={() => setAuthMode("signup")}
                     >Create Account</button>
                   </div>
                   <input
-                    type="email"
+                    {...EMAIL_FIELD}
+                    autoComplete="username"
+                    enterKeyHint="next"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    className="account-email-input"
                   />
                   <input
                     type="password"
+                    name="password"
+                    autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+                    enterKeyHint="go"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={authMode === "signup" ? "Choose a password" : "Password"}
                     className="account-email-input"
-                    onKeyDown={(e) => e.key === "Enter" && handlePasswordAuth()}
                   />
                   {authMode === "signin" && (
                     <label className="account-remember-me">
@@ -226,20 +248,20 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
                       <span>Remember me</span>
                     </label>
                   )}
-                  <button onClick={handlePasswordAuth} disabled={busy} className="account-magic-link-btn">
+                  <button type="submit" disabled={busy} className="account-magic-link-btn">
                     {busy ? "Working…" : authMode === "signup" ? "Create Account" : "Sign In"}
                   </button>
                   <div className="account-auth-links">
                     {authMode === "signin" && (
-                      <button className="account-auth-toggle" onClick={() => setAuthMode("forgot")}>
+                      <button type="button" className="account-auth-toggle" onClick={() => setAuthMode("forgot")}>
                         Forgot password?
                       </button>
                     )}
-                    <button className="account-auth-toggle" onClick={() => setAuthMode("magic")}>
+                    <button type="button" className="account-auth-toggle" onClick={() => setAuthMode("magic")}>
                       Use magic link instead
                     </button>
                   </div>
-                </>
+                </form>
               )}
             </div>
           )}
