@@ -15,10 +15,10 @@ Both frontend and backend are separate Vercel projects in the same account. Ther
 Render/other host in the loop — Render was the original rollback target during the 2026-07
 serverless cutover and was retired once Vercel proved stable.
 
-![Deck view with the card grid and the AI copilot panel](docs/img/deck-view.png)
+![MTG Workshop, showing the deck builder and the Planeswalker AI panel](docs/img/landing.png)
 
 <p align="center">
-  <img src="docs/img/deck-view-mobile.png" alt="The same deck view on a phone" width="300">
+  <img src="docs/img/landing-mobile.png" alt="MTG Workshop running on a phone" width="300">
 </p>
 
 ## Features
