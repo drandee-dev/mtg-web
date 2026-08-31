@@ -15,6 +15,12 @@ Both frontend and backend are separate Vercel projects in the same account. Ther
 Render/other host in the loop — Render was the original rollback target during the 2026-07
 serverless cutover and was retired once Vercel proved stable.
 
+![Deck view with the card grid and the AI copilot panel](docs/img/deck-view.png)
+
+<p align="center">
+  <img src="docs/img/deck-view-mobile.png" alt="The same deck view on a phone" width="300">
+</p>
+
 ## Features
 
 ### Deck building
@@ -60,6 +66,25 @@ serverless cutover and was retired once Vercel proved stable.
 
 AI usage is metered per-server: a daily per-user rate limit and a monthly budget cap (see
 `backend/app/usage.py`), tracked in Supabase if configured — fails open (no enforcement) if not.
+
+---
+
+## How this was built
+
+Claude Code did most of the implementation here. The architecture decisions, the code
+review, and the debugging were mine, and I am accountable for everything that shipped.
+
+That workflow is visible in the repo rather than just claimed. `CLAUDE.md` and
+`.claude/rules/` are the working context I maintain for the tool, and they get updated
+whenever a decision turns out to be load-bearing. `DATA-MODEL.md` documents the Supabase
+and localStorage entities. The commit history is a record of incremental reviewed changes
+rather than one bulk import.
+
+The parts that took real judgment are the ones I would point at in an interview: moving
+the backend off Render onto Vercel Python Functions, setting cache TTLs against Scryfall's
+own published headers rather than guessing, metering AI spend against a monthly ceiling in
+`backend/app/usage.py`, and the Playwright suite in `frontend/e2e/` that runs against a
+hermetic mock backend so no test needs the network or a live API key.
 
 ---
 
