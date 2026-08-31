@@ -80,11 +80,11 @@ whenever a decision turns out to be load-bearing. `DATA-MODEL.md` documents the 
 and localStorage entities. The commit history is a record of incremental reviewed changes
 rather than one bulk import.
 
-The parts that took real judgment are the ones I would point at in an interview: moving
-the backend off Render onto Vercel Python Functions, setting cache TTLs against Scryfall's
-own published headers rather than guessing, metering AI spend against a monthly ceiling in
-`backend/app/usage.py`, and the Playwright suite in `frontend/e2e/` that runs against a
-hermetic mock backend so no test needs the network or a live API key.
+The parts that took the most judgment: moving the backend off Render onto Vercel Python
+Functions, setting cache TTLs against Scryfall's own published headers rather than
+guessing, metering AI spend against a monthly ceiling in `backend/app/usage.py`, and the
+Playwright suite in `frontend/e2e/` that runs against a hermetic mock backend so no test
+needs the network or a live API key.
 
 ---
 
