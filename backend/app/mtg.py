@@ -8,6 +8,7 @@ are loaded once and cached as module-level singletons, then reused across reques
 from __future__ import annotations
 
 import functools
+import json
 import os
 import re
 from typing import Any
@@ -22,6 +23,7 @@ from mtg_utils.bulk_loader import bulk_mtime, load_bulk_cards  # noqa: E402
 from mtg_utils.card_classify import extract_price, partner_ability, valid_partner_search  # noqa: E402
 from mtg_utils.card_search import search_cards as _search_cards  # noqa: E402
 from mtg_utils.combo_search import combo_search  # noqa: E402
+from mtg_utils.commander_directory import build_commander_directory, load_chips  # noqa: E402
 from mtg_utils.deck_stats import deck_stats, detect_bracket  # noqa: E402
 from mtg_utils.edhrec_lookup import edhrec_lookup  # noqa: E402
 from mtg_utils.format_config import FORMAT_CONFIGS  # noqa: E402
@@ -691,6 +693,39 @@ def commander_search(
             entry["partner_kind"] = partner_ability(c)["kind"]
         out.append(entry)
     return out
+
+
+# Commander browse directory (Job 2: commander pages). Cached by bulk mtime like
+# _bulk_index() — prefers the static JSON vercel_build.py writes (guaranteed fresh
+# at deploy time), falls back to building it in-process so local dev works without
+# anyone running the build script by hand.
+_commander_dir_cache: tuple[float, list[dict]] | None = None
+
+
+def commander_directory() -> list[dict]:
+    """Every commander-eligible card, ordered by EDHREC rank, with strategy
+    chips (playstyle/difficulty/wins_via/themes) where the one-time Haiku
+    classification has run."""
+    global _commander_dir_cache
+    token = bulk_mtime(config.BULK_PATH)
+    if _commander_dir_cache is not None and _commander_dir_cache[0] == token:
+        return _commander_dir_cache[1]
+
+    static_path = config.BULK_PATH.parent / "commanders.json"
+    directory: list[dict] | None = None
+    if static_path.exists():
+        try:
+            data = json.loads(static_path.read_text(encoding="utf-8"))
+            if isinstance(data, list):
+                directory = data
+        except (OSError, ValueError):
+            directory = None
+    if directory is None:
+        chips = load_chips(config.BULK_PATH.parent / "commander_chips.json")
+        directory = build_commander_directory(config.BULK_PATH, chips)
+
+    _commander_dir_cache = (token, directory)
+    return directory
 
 
 # Deterministic "what's my deck made of / missing" view. Each category counts deck cards

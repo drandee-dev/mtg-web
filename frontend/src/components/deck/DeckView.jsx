@@ -25,7 +25,7 @@ export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
   maybeboard, setMaybeboard,
   deckName, deckId, onSave, onClone, onExport, onPlaytest, onGoldfish, onShare, onRenameDeck,
-  startInWizard, onWizardConsumed, startImport, onImportConsumed, onBack, notify, serverWarmed,
+  startInWizard, onWizardConsumed, initialCommander, startImport, onImportConsumed, onBack, notify, serverWarmed,
   pwInsightsEl, pwStatsEl, goals, setGoals,
 }) {
   const [mode, setMode] = useState(startInWizard ? "wizard" : "manual");
@@ -558,7 +558,7 @@ export default function DeckView({
             <button className="ghost small" onClick={() => setMode("manual")}>← Back to deck view</button>
           </div>
         </div>
-        <DeckGenerator onFinish={handleWizardFinish} notify={notify} />
+        <DeckGenerator onFinish={handleWizardFinish} notify={notify} initialCommander={initialCommander} />
       </div>
     );
   }

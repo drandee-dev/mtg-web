@@ -25,11 +25,17 @@ const ICONS = {
       <line x1="10" y1="10" x2="14.5" y2="14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
     </svg>
   ),
+  commanders: (
+    <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+      <path d="M2 12.5h12l-1-6.5-3 3-2-4-2 4-3-3-1 6.5z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+    </svg>
+  ),
 };
 
 const LABELS = {
   decks: "Decks",
   deck: "Build",
+  commanders: "Commanders",
   rules: "Rules",
   cards: "Cards",
 };

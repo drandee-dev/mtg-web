@@ -14,6 +14,7 @@ everything written to ./data ships inside the deployment:
    the 3-8s JSON parse.
 """
 
+import json
 import os
 from pathlib import Path
 
@@ -48,7 +49,24 @@ marker.write_text(datetime.date.today().isoformat(), encoding="utf-8")
 print(f"Wrote data-as-of marker: {marker.read_text(encoding='utf-8')}")
 
 print("Pre-building pickle caches (bulk index + parsed rules)...")
-from app import mtg  # noqa: E402  (bootstraps mtg_utils on import)
+from app import config, mtg  # noqa: E402  (bootstraps mtg_utils on import)
 
 mtg.warm()
+
+# Commander browse directory (Job 2): pre-build against the bulk data we just
+# fetched, so cold start never has to. commander_chips.json (the one-time Haiku
+# classification) is a committed static file, not regenerated here — see
+# mtg_utils/commander_directory.py's module docstring.
+print("Building commander directory...")
+from mtg_utils.commander_directory import (  # noqa: E402
+    build_commander_directory,
+    load_chips,
+)
+
+_chips = load_chips(Path(os.environ["MTG_DATA_DIR"]) / "commander_chips.json")
+_directory = build_commander_directory(config.BULK_PATH, _chips)
+_out_path = Path(os.environ["MTG_DATA_DIR"]) / "commanders.json"
+_out_path.write_text(json.dumps(_directory), encoding="utf-8")
+print(f"Wrote {len(_directory)} commanders to {_out_path} ({len(_chips)} with chips).")
+
 print("Build complete: data + caches ready for the function bundle.")

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, FORMATS } from "../lib/api";
 import { parseNarration } from "../lib/buildNotes";
 import CardPreview from "./CardPreview";
@@ -132,7 +132,7 @@ function toLines(cards, basics) {
   ].join("\n");
 }
 
-export default function DeckGenerator({ onFinish, notify }) {
+export default function DeckGenerator({ onFinish, notify, initialCommander }) {
   const [branch, setBranch] = useState(null);
   const [stepIdx, setStepIdx] = useState(0);
   const [format, setFormat] = useState("commander");
@@ -153,6 +153,20 @@ export default function DeckGenerator({ onFinish, notify }) {
   const steps = branch ? BRANCHES[branch].steps : null;
   const stepCount = steps?.length ?? null;
   const pct = stepCount ? Math.round((stepIdx / (stepCount - 1)) * 100) : 0;
+
+  // "Build with strategy" from a commander page (Job 2) already picked a
+  // commander — re-asking the user to type it into the search box would be
+  // pure friction. Skip straight to the known-commander door and start the
+  // one-shot generate. Guarded so it fires exactly once even if the parent
+  // re-renders with the same prop.
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (!initialCommander || seededRef.current) return;
+    seededRef.current = true;
+    pickBranch("commander");
+    generate(initialCommander);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCommander]);
 
   function pickBranch(id) {
     setBranch(id);
