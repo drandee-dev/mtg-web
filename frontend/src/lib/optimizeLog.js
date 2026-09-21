@@ -35,10 +35,17 @@ function save(deckId, log) {
 export const isVisibleEntry = (e) => e.action !== "skip";
 
 // Shared entry factory so queue and chat write identical shapes.
-export function makeEntry({ action, cut = null, add = null, source }) {
+//
+// `cutLine` is the decklist line the cut card actually occupied — "4 Lightning
+// Bolt" or "1 Sol Ring (C21) 263" — captured before the removal. Undo replays
+// that verbatim; rebuilding a bare "1 Name" silently drops extra copies and any
+// pinned printing. Entries written before this existed (and chat entries, which
+// have no line to capture) simply omit it and fall back.
+export function makeEntry({ action, cut = null, add = null, cutLine = null, source }) {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     ts: Date.now(), action, cut, add,
+    ...(cutLine ? { cutLine } : {}),
     ...(source ? { source } : {}),
   };
 }

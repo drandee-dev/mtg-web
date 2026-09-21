@@ -26,8 +26,11 @@ export function deckSignature(decklist, commander, format) {
   return `${format}|${cmdr.sort().join(",")}|${[...new Set(names)].sort().join(",")}`;
 }
 
-/** → { panels: {key: {data, sig}}, activePanel, upgradeMode,
- *      pinned: [names], dismissed: [names], dismissedCuts: [names] } or null. */
+/** → { panels: {key: {data, sig}}, activePanel, upgradeMode, pinned: [names],
+ *      dismissed: [names], dismissedCuts: [names], declinedUpgrades: [names] }
+ *  or null. The three verdict lists are deliberately separate: declining an
+ *  upgrade, skipping a suggestion and keeping a card off the cut list are
+ *  different decisions, and each has its own "show again" control. */
 export function loadInsights(deckId) {
   try {
     const raw = localStorage.getItem(key(deckId));
@@ -38,13 +41,15 @@ export function loadInsights(deckId) {
   }
 }
 
-export function saveInsights(deckId, { panels, activePanel, upgradeMode, pinned, dismissed, dismissedCuts }) {
+export function saveInsights(deckId, { panels, activePanel, upgradeMode, pinned, dismissed, dismissedCuts, declinedUpgrades, insightDecided }) {
   try {
     const kept = {};
     for (const k of PANEL_KEYS) {
       if (panels[k]?.data != null) kept[k] = panels[k];
     }
-    const hasPrefs = pinned?.length || dismissed?.length || dismissedCuts?.length;
+    const decidedCount = Object.keys(insightDecided || {}).length;
+    const hasPrefs = pinned?.length || dismissed?.length || dismissedCuts?.length
+      || declinedUpgrades?.length || decidedCount;
     if (Object.keys(kept).length === 0 && !activePanel && !hasPrefs) {
       localStorage.removeItem(key(deckId));
       return;
@@ -54,6 +59,10 @@ export function saveInsights(deckId, { panels, activePanel, upgradeMode, pinned,
       // User verdicts on individual suggestions — deliberately NOT tied to the
       // deck signature: pins and dismissals survive deck edits and refreshes.
       pinned: pinned || [], dismissed: dismissed || [], dismissedCuts: dismissedCuts || [],
+      declinedUpgrades: declinedUpgrades || [],
+      // Changes proposals already applied or skipped, by change id. Keeps an
+      // applied proposal off screen so it can't be applied a second time.
+      insightDecided: insightDecided || {},
       savedAt: Date.now(),
     }));
   } catch {

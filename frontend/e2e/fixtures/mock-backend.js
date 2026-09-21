@@ -92,6 +92,11 @@ export async function mockBackend(page) {
         `data: ${JSON.stringify({ status: "done", text: reply })}\n\n`;
       return route.fulfill({ status: 200, contentType: "text/event-stream", body });
     }
+    if (path.endsWith("/api/planeswalker/chat")) {
+      // Non-streaming chat — the generator's "describe what you like" route
+      // uses it to name one commander from free text.
+      return json({ response: "Atraxa, Praetors' Voice" });
+    }
     if (path.endsWith("/api/deck/composition")) {
       return json({
         format: "commander", is_commander: true,
@@ -142,6 +147,84 @@ export async function mockBackend(page) {
           { action: "cut", cut: "Kodama's Reach", add: null, reason: "Deck is over its card count; weakest duplicate effect.", category: "Ramp", impact: "medium", price_usd: null, cut_price_usd: 0.75, price_delta: -0.75 },
         ],
         model: "mock",
+      });
+    }
+    if (path.endsWith("/api/deck/wizard/skeleton")) {
+      return json({
+        error: false,
+        commander: {
+          name: "Atraxa, Praetors' Voice",
+          color_identity: ["W", "U", "B", "G"],
+          type_line: "Legendary Creature — Phyrexian Angel Horror",
+          oracle_text: "Flying, vigilance, deathtouch, lifelink.",
+          keywords: [], mana_cost: "{G}{W}{U}{B}",
+        },
+        skeleton: {
+          staples: [
+            { name: "Sol Ring", reason: "format staple" },
+            { name: "Arcane Signet", reason: "format staple" },
+          ],
+          suggested_lands: [
+            { name: "Command Tower", reason: "staple" },
+            { name: "Plains" }, { name: "Island" }, { name: "Swamp" }, { name: "Forest" },
+          ],
+          high_synergy: [
+            { name: "Deepglow Skate", synergy: 0.92 },
+            { name: "Rhystic Study", synergy: 0.71 },
+          ],
+          top_cards: [
+            { name: "Smothering Tithe", synergy: 0.6 },
+            { name: "Cultivate", synergy: 0.4 },
+          ],
+          instants: [
+            { name: "Swords to Plowshares", synergy: 0.5 },
+            { name: "Counterspell", synergy: 0.45 },
+          ],
+          sorceries: [{ name: "Kodama's Reach", synergy: 0.3 }],
+        },
+        bracket: null,
+      });
+    }
+    if (path.endsWith("/api/deck/wizard/narrate")) {
+      // Echo the names back one per line, in the "Name: reason" shape the real
+      // prompt asks for, so the client-side narration parser is exercised.
+      const body = route.request().postDataJSON() || {};
+      const names = body.card_names || [];
+      return json({
+        error: false,
+        model: "mock",
+        narration: names.map((n) => `- ${n}: Pulls its weight in the ${body.category || "deck"}.`).join("\n"),
+      });
+    }
+    if (path.endsWith("/api/deck/ai/fills")) {
+      return json({
+        error: false,
+        model: "mock",
+        fills: [{
+          category: "Card draw",
+          suggestions: [{ name: "Malakir Rebirth", reason: "Cheap protection the draw-thin build wants." }],
+          pool: [],
+        }],
+      });
+    }
+    if (path.endsWith("/api/deck/ai/cuts")) {
+      return json({
+        error: false,
+        model: "mock",
+        cuts: [{ name: "Cultivate", reason: "Weakest ramp once the signets are in." }],
+      });
+    }
+    if (path.endsWith("/api/deck/budget-swaps")) {
+      return json({
+        total_savings: 19.01,
+        swaps: [{ card: "Smothering Tithe", price: 20.0, alternative: { name: "Arcane Signet", price: 0.99 } }],
+      });
+    }
+    if (path.endsWith("/api/deck/ai/upgrades")) {
+      return json({
+        error: false,
+        model: "mock",
+        upgrades: [{ replaces: "Cultivate", replacement: "Rhystic Study", reason: "Straight power increase.", price_usd: 25.0 }],
       });
     }
     // Generic fallback for deck analysis / AI endpoints not exercised here.

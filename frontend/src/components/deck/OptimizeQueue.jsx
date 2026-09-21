@@ -114,7 +114,10 @@ export default function OptimizeQueue({
 
 const ACTION_LABEL = { swap: "Swap", cut: "Cut", add: "Add" };
 
-function ChangeCard({ ch, onApply, onSkip }) {
+// Also used by the Insights "Changes" tab, which feeds it suggestions, cuts and
+// upgrades in the same shape — one apply/skip interaction for every proposal.
+// `extra` is an optional control (the suggestion pin) beside Skip/Apply.
+export function ChangeCard({ ch, onApply, onSkip, extra = null }) {
   const delta = ch.price_delta;
   return (
     <div className="opt-card">
@@ -135,6 +138,7 @@ function ChangeCard({ ch, onApply, onSkip }) {
       </div>
       {ch.reason && <p className="opt-reason">{ch.reason}</p>}
       <div className="opt-actions">
+        {extra}
         <button className="ghost small" onClick={() => onSkip(ch)}>Skip</button>
         <button className="primary small" onClick={() => onApply(ch)}>Apply</button>
       </div>

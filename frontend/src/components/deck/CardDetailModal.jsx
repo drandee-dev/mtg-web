@@ -3,6 +3,7 @@ import { api } from "../../lib/api";
 import { fmtUsd } from "../../lib/format";
 import { useCardImage, useEscapeKey, useFocusTrap } from "../../lib/hooks";
 import { useBackClose } from "../../lib/backstack";
+import { getBuildNote } from "../../lib/buildNotes";
 import ManaCost from "./ManaCost";
 
 // Scryfall exact-name search redirects to the card's page (which has a Rulings tab).
@@ -30,6 +31,7 @@ export default function CardDetailModal({
   onMakeCommander,
 }) {
   const data = useCardImage(name, printing);
+  const buildNote = getBuildNote(name);
   const [showBack, setShowBack] = useState(false);
   const [prints, setPrints] = useState(null); // null=closed, "loading", or array
   useEscapeKey(Boolean(name), onClose);
@@ -192,6 +194,9 @@ export default function CardDetailModal({
             {data?.mana_cost && <ManaCost cost={data.mana_cost} />}
             {price != null && <span className="badge small">{fmtUsd(price)}</span>}
           </div>
+
+          {/* Why the generator put this card in the deck, when it did. */}
+          {buildNote && <p className="cdm-why">{buildNote}</p>}
 
           {isCommander ? (
             <>

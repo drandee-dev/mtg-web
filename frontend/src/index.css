@@ -2888,6 +2888,84 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .empty-action-t { font-weight: 600; font-size: var(--fs-sm); }
 .empty-action-d { font-size: var(--fs-xs); color: var(--muted); }
 
+/* ===== Deck generator (branching entry screen) =====
+   Four labelled routes plus the one-shot build. Layout only — every colour
+   comes from the shared tokens, so accent still means "actionable". */
+.gen { max-width: 720px; margin: 0 auto; padding: 0 1rem 2rem; }
+.gen-hero { text-align: center; padding: 1.6rem 0 1rem; }
+.gen-title {
+  font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
+  font-weight: 600; font-size: var(--fs-xl); margin: 0; text-wrap: balance;
+}
+.gen-sub {
+  margin: .5rem auto 0; max-width: 34rem; color: var(--text-secondary);
+  font-size: var(--fs-base); line-height: 1.5; text-wrap: balance;
+}
+.gen-head { display: flex; align-items: center; gap: .8rem; padding: .6rem 0; flex-wrap: wrap; }
+.gen-progress { flex: 1 1 16rem; display: flex; flex-direction: column; gap: .3rem; }
+.gen-progress-row { display: flex; justify-content: space-between; align-items: baseline; gap: .6rem; }
+.gen-step {
+  font-size: var(--fs-2xs); letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); min-width: 0; overflow-wrap: anywhere;
+}
+.gen-pct { font-size: var(--fs-2xs); letter-spacing: .12em; color: var(--muted); font-variant-numeric: tabular-nums; }
+.gen-track { height: 3px; border-radius: 2px; background: var(--hover-strong); overflow: hidden; }
+.gen-fill { height: 3px; border-radius: 2px; background: var(--accent); transition: width .25s ease; }
+.gen-h2 {
+  font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
+  font-weight: 600; font-size: var(--fs-lg); margin: 1.4rem 0 .3rem; text-wrap: balance;
+}
+.gen-lede { margin: 0 0 1rem; color: var(--text-secondary); font-size: var(--fs-sm); line-height: 1.5; }
+.gen-doors { display: grid; gap: .6rem; }
+.gen-door {
+  display: flex; align-items: flex-start; gap: 1rem; width: 100%; text-align: left;
+  padding: 1rem 1.1rem; background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); cursor: pointer; color: var(--text);
+  transition: border-color .12s, background .12s;
+}
+.gen-door-accent { border-color: var(--accent); background: var(--accent-soft); }
+.gen-door-good { border-color: rgba(61,206,138,.45); background: var(--good-soft); }
+.gen-door:disabled { cursor: default; opacity: .72; }
+.gen-door-txt { display: flex; flex-direction: column; gap: .3rem; min-width: 0; flex: 1 1 auto; }
+.gen-door-t {
+  font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
+  font-weight: 600; font-size: var(--fs-md);
+}
+.gen-door-d { font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.45; }
+.gen-door-soon { font-size: var(--fs-xs); color: var(--warn); }
+.gen-badge {
+  flex: none; padding: .2rem .55rem; border-radius: 999px; background: var(--panel-2);
+  color: var(--text-secondary); font-size: var(--fs-2xs); font-weight: 600;
+  letter-spacing: .09em; text-transform: uppercase; white-space: nowrap;
+}
+.gen-badge-accent { background: var(--accent-soft); color: var(--accent); }
+.gen-badge-good { background: var(--good-soft); color: var(--good); }
+.gen-describe { width: 100%; min-height: 6rem; resize: vertical; margin-bottom: .6rem; }
+.gen-building { display: flex; flex-direction: column; gap: .6rem; }
+.gen-candidates { display: grid; gap: .3rem; margin-top: .6rem; }
+.gen-candidate {
+  display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; width: 100%;
+  text-align: left; padding: .6rem .8rem; background: var(--panel-2);
+  border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; color: var(--text);
+}
+.gen-candidate:hover { border-color: var(--accent); background: var(--accent-soft); }
+.gen-candidate-name { font-weight: 600; font-size: var(--fs-sm); }
+.gen-candidate-go { margin-left: auto; color: var(--accent); font-size: var(--fs-xs); white-space: nowrap; }
+.gen-cat { margin: 0 0 .4rem; font-size: var(--fs-sm); }
+.gen-card-row {
+  display: flex; flex-direction: column; gap: .15rem;
+  border-top: 1px solid var(--border); padding: .4rem 0;
+}
+.gen-card-name { font-size: var(--fs-sm); }
+.gen-card-why { font-size: var(--fs-xs); color: var(--text-secondary); line-height: 1.5; }
+
+/* Why the generator picked this card, shown in the card detail modal. */
+.cdm-why {
+  margin: .5rem 0 0; padding: .45rem .6rem; border-left: 2px solid var(--accent);
+  background: var(--accent-soft); border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: var(--fs-xs); color: var(--text-secondary); line-height: 1.5;
+}
+
 /* ===== Import cards modal ===== */
 .icm-overlay {
   position: fixed; inset: 0; z-index: 130; background: rgba(0,0,0,.6);

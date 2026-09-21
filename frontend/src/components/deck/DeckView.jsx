@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, assembleDecklist, disassembleDecklist, getCardImage, FORMATS } from "../../lib/api";
 import CommanderInput from "../CommanderInput";
-import Wizard from "../Wizard";
+import DeckGenerator from "../DeckGenerator";
 import CardGrid from "./CardGrid";
 import CardTypeahead from "./CardTypeahead";
 import DeckSidebar from "./DeckSidebar";
@@ -14,6 +14,12 @@ import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, co
 import { goalsToApi } from "../../lib/goals";
 import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry, isVisibleEntry } from "../../lib/optimizeLog";
 import { deckSignature, loadInsights, saveInsights, PANEL_KEYS } from "../../lib/insightsCache";
+import { clearBuildNotes, setBuildNotes } from "../../lib/buildNotes";
+
+// Suggest / Cuts / Upgrades collapsed into one "Changes" tab — a cache written
+// before that still names the old tabs, so map it forward on hydrate.
+const OLD_CHANGE_PANELS = new Set(["Recommendations", "Cuts", "Upgrades"]);
+const migratePanel = (p) => (OLD_CHANGE_PANELS.has(p) ? "Changes" : p);
 
 export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
@@ -81,7 +87,7 @@ export default function DeckView({
   const [strategyLoading, setStrategyLoading] = useState(false);
   const [busy, setBusy] = useState("");
   const [cat, setCat] = useState("high_synergy");
-  const [activePanel, setActivePanel] = useState(hydrated?.activePanel ?? null);
+  const [activePanel, setActivePanel] = useState(migratePanel(hydrated?.activePanel ?? null));
   const [deckFilter, setDeckFilter] = useState("");
   // Per-suggestion user verdicts — persisted with the insight cache and, unlike
   // panel results, never invalidated by deck edits: a skip stays skipped and a
@@ -89,6 +95,18 @@ export default function DeckView({
   const [skipped, setSkipped] = useState(() => new Set(hydrated?.dismissed || []));
   const [pinned, setPinned] = useState(() => new Set(hydrated?.pinned || []));
   const [dismissedCuts, setDismissedCuts] = useState(() => new Set(hydrated?.dismissedCuts || []));
+  // Declining an upgrade is its own verdict, kept apart from `skipped`: these
+  // are cards already IN the deck that the user has decided to keep, not
+  // suggestions they passed on. Sharing one Set would make the suggestions'
+  // "Show again" silently revive every upgrade the user turned down.
+  const [declinedUpgrades, setDeclinedUpgrades] = useState(() => new Set(hydrated?.declinedUpgrades || []));
+  // Which Changes proposals have been APPLIED, by change id. Deliberately NOT
+  // the Optimize queue's `optDecided`: that map is wiped every time the queue
+  // re-runs, which would put already-applied suggestions back on screen. It
+  // persists with the other verdicts so a tab switch can't resurrect them
+  // either — an applied proposal offered again is a duplicate card waiting to
+  // happen.
+  const [insightDecided, setInsightDecided] = useState(() => hydrated?.insightDecided || {});
   const [cmdrData, setCmdrData] = useState(null);
   const [suggesting, setSuggesting] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -118,11 +136,13 @@ export default function DeckView({
     const d = (k) => c?.panels?.[k]?.data ?? null;
     setResult(d("result")); setComp(d("comp")); setRecs(d("recs")); setCuts(d("cuts"));
     setCombos(d("combos")); setBudgetSwaps(d("budgetSwaps")); setUpgrades(d("upgrades")); setStrategy(d("strategy"));
-    setActivePanel(c?.activePanel ?? null);
+    setActivePanel(migratePanel(c?.activePanel ?? null));
     if (c?.upgradeMode) setUpgradeMode(c.upgradeMode);
     setSkipped(new Set(c?.dismissed || []));
     setPinned(new Set(c?.pinned || []));
     setDismissedCuts(new Set(c?.dismissedCuts || []));
+    setDeclinedUpgrades(new Set(c?.declinedUpgrades || []));
+    setInsightDecided(c?.insightDecided || {});
     const sigs = {};
     for (const k of PANEL_KEYS) { const sg = c?.panels?.[k]?.sig; if (sg) sigs[k] = sg; }
     setPanelSigs(sigs);
@@ -143,8 +163,9 @@ export default function DeckView({
     saveInsights(deckId, {
       panels, activePanel, upgradeMode,
       pinned: [...pinned], dismissed: [...skipped], dismissedCuts: [...dismissedCuts],
+      declinedUpgrades: [...declinedUpgrades], insightDecided,
     });
-  }, [deckId, result, comp, recs, cuts, combos, budgetSwaps, upgrades, strategy, activePanel, upgradeMode, panelSigs, pinned, skipped, dismissedCuts]);
+  }, [deckId, result, comp, recs, cuts, combos, budgetSwaps, upgrades, strategy, activePanel, upgradeMode, panelSigs, pinned, skipped, dismissedCuts, declinedUpgrades, insightDecided]);
 
   // Stay in sync with log writes from other surfaces (chat card-chip adds).
   useEffect(() => {
@@ -177,8 +198,10 @@ export default function DeckView({
     setSkipped((prev) => { if (!prev.has(name)) return prev; const n = new Set(prev); n.delete(name); return n; });
   }
   function dismissCut(name) { setDismissedCuts((prev) => new Set(prev).add(name)); }
+  function declineUpgrade(name) { setDeclinedUpgrades((prev) => new Set(prev).add(name)); }
   function clearSkipped() { setSkipped(new Set()); }
   function clearDismissedCuts() { setDismissedCuts(new Set()); }
+  function clearDeclinedUpgrades() { setDeclinedUpgrades(new Set()); }
 
   // Auto-analyze on decklist change (debounced)
   useEffect(() => {
@@ -300,20 +323,6 @@ export default function DeckView({
         ? { label: "Undo", onClick: () => appendLine(removedLine) }
         : undefined);
     }
-  }
-
-  function swapCard(oldName, newName) {
-    const removedLine = findDeckLine(oldName);
-    removeCard(oldName, { silent: true });
-    addCard(newName, { silent: true });
-    skip(oldName);
-    notify?.(`Swapped ${oldName} → ${newName}`, {
-      label: "Undo",
-      onClick: () => {
-        removeCard(newName, { silent: true });
-        if (removedLine) appendLine(removedLine); else addCard(oldName, { silent: true });
-      },
-    });
   }
 
   // Promote a card in the 99 to the command zone (from card inspection). Pulls it
@@ -471,6 +480,8 @@ export default function DeckView({
     if (!mainLines && !impCmdr) throw new Error("no cards found in the import");
     const wasEmpty = !decklist.trim() && !commander;
     if (wasEmpty) {
+      // Wholesale replacement — whatever the generator explained is gone.
+      clearBuildNotes();
       setDecklist(mainLines);
       if (impCmdr) setCommander(impCmdr);
       if (impMaybe) setMaybeboard(impMaybe);
@@ -496,6 +507,8 @@ export default function DeckView({
   // pack). Empty deck → apply immediately; populated deck → confirm first.
   function applyUrlImport(res) {
     const { commander: impCmdr, deckText: impMain, maybeboard: impMaybe } = disassembleDecklist(res.decklist || "");
+    // A URL import is a whole different deck, so the generator's notes go too.
+    clearBuildNotes();
     setDecklist((impMain || "").trim());
     setCommander(impCmdr || "");
     // Sideboard/maybeboard from the source land in Considering — never maindeck.
@@ -520,11 +533,14 @@ export default function DeckView({
     }
   }
 
-  function handleWizardFinish(dl, cmd) {
+  // `notes` (name → why it's here) only comes from the one-shot generator; the
+  // step-by-step wizard passes nothing and the card modal simply shows no note.
+  function handleWizardFinish(dl, cmd, notes) {
     setDecklist(dl.split("\n").filter((l) => !/^\s*(Commander|Deck)\s*$/i.test(l)).join("\n"));
     setCommander(cmd);
+    setBuildNotes(notes || {});
     setMode("manual");
-    notify?.("Deck loaded from wizard — tune it here.");
+    notify?.("Deck loaded — tune it here.");
   }
 
   if (mode === "wizard") {
@@ -536,7 +552,7 @@ export default function DeckView({
             <button className="ghost small" onClick={() => setMode("manual")}>← Back to deck view</button>
           </div>
         </div>
-        <Wizard onFinish={handleWizardFinish} notify={notify} />
+        <DeckGenerator onFinish={handleWizardFinish} notify={notify} />
       </div>
     );
   }
@@ -663,13 +679,47 @@ export default function DeckView({
     }
   }
 
+  // A proposal is generated against a snapshot of the deck, so by the time it
+  // is applied either half may already be moot: the cut card can be gone, the
+  // add card already present. Work out what will really change FIRST, do only
+  // that, and log only that — an entry claiming an edit that never happened
+  // gives Undo a live button that corrupts the deck.
   function applyOptChange(ch) {
-    if (ch.cut) removeCard(ch.cut, { silent: true });
-    if (ch.add) setDecklist((prev) => `${prev.replace(/\s*$/, "")}\n1 ${ch.add}`);
+    // The cut card's real line (quantity + any pinned printing), captured
+    // before it goes so Undo can put back exactly what was there. Null also
+    // means "not in the deck", which is the stale-proposal case.
+    const cutLine = ch.cut ? findDeckLine(ch.cut) : null;
+    const willCut = Boolean(ch.cut && cutLine);
+    // Never append a card the deck already holds — a second "1 Name" line
+    // parses as a second copy.
+    const willAdd = Boolean(ch.add && !findDeckLine(ch.add));
+
+    if (!willCut && !willAdd) {
+      setOptDecided((d) => ({ ...d, [ch.id]: "applied" }));
+      let msg = "Nothing to change — the deck already matches this.";
+      if (ch.add && !ch.cut) msg = `${ch.add} is already in the deck.`;
+      else if (ch.cut && !ch.add) msg = `${ch.cut} is no longer in the deck.`;
+      notify?.(msg);
+      return;
+    }
+
+    if (willCut) removeCard(ch.cut, { silent: true });
+    if (willAdd) appendLine(`1 ${ch.add}`);
     setOptDecided((d) => ({ ...d, [ch.id]: "applied" }));
-    const entry = makeEntry({ action: ch.action, cut: ch.cut || null, add: ch.add || null });
+    // Half a swap is a cut or an add, and the log (which also feeds the AI's
+    // session memory) should say so rather than claim a swap.
+    const action = willCut && willAdd ? ch.action : willCut ? "cut" : "add";
+    const entry = makeEntry({
+      action,
+      cut: willCut ? ch.cut : null,
+      add: willAdd ? ch.add : null,
+      cutLine: willCut ? cutLine : null,
+    });
     setOptLog(appendLog(deckId, entry));
-    notify?.(describeEntry(entry));
+    // One-click Undo on the toast, same as every other deck edit here. The
+    // session log keeps the entry too, but that lives behind a collapsed
+    // accordion — an applied change shouldn't need two clicks to take back.
+    notify?.(describeEntry(entry), { label: "Undo", onClick: () => undoOptChange(entry) });
   }
 
   function skipOptChange(ch) {
@@ -682,7 +732,10 @@ export default function DeckView({
 
   function undoOptChange(entry) {
     if (entry.add) removeCard(entry.add, { silent: true });
-    if (entry.cut) setDecklist((prev) => `${prev.replace(/\s*$/, "")}\n1 ${entry.cut}`);
+    // Restore the line the card actually had, the way removeCard's own undo
+    // does. `1 ${cut}` is the fallback for entries logged before cutLine
+    // existed and for chat-sourced entries, which never had a line to capture.
+    if (entry.cut) appendLine(entry.cutLine || `1 ${entry.cut}`);
     setOptLog(removeLogEntry(deckId, entry.id));
     notify?.(`Undid: ${describeEntry(entry)}`);
   }
@@ -699,11 +752,93 @@ export default function DeckView({
     const check = (k, tab, data) => {
       if (data != null && panelSigs[k] && panelSigs[k] !== currentSig) stalePanels.add(tab);
     };
-    check("recs", "Recommendations", recs);
-    check("cuts", "Cuts", cuts);
+    // The Changes tab is stale if ANY of the three sources feeding it is.
+    check("recs", "Changes", recs);
+    check("cuts", "Changes", cuts);
     check("combos", "Combos", combos);
-    if (upgradeMode === "budget") check("budgetSwaps", "Upgrades", budgetSwaps);
-    else check("upgrades", "Upgrades", upgrades);
+    if (upgradeMode === "budget") check("budgetSwaps", "Changes", budgetSwaps);
+    else check("upgrades", "Changes", upgrades);
+  }
+
+  // The three sources behind the Changes tab, loaded together so one click
+  // fills the whole queue. Cached results are reused unless `force` is set
+  // (the pane's Refresh action), same rule the individual tabs had.
+  //
+  // `mode` is an explicit override for callers that flip the upgrade mode in
+  // the same handler (the over-budget chip). A setState in this render does
+  // NOT update `upgradeMode` in this closure, so reading the state here would
+  // fetch the mode the user was on before the click.
+  async function loadChanges({ force = false, mode } = {}) {
+    if (!decklist.trim()) return notify?.("Add some cards first.");
+    const wantMode = mode ?? upgradeMode;
+    // Refresh means "give me a fresh changeset", so past apply/skip decisions
+    // stop hiding proposals. Anything already in the deck comes back marked
+    // in_deck by the server, so applied adds still don't reappear.
+    if (force) setInsightDecided({});
+    setActivePanel("Changes");
+    setBusy("Changes");
+    const sig = currentSig; // capture: the deck may be edited mid-flight
+    const full = assembleDecklist(decklist, isCommanderFmt ? commander : "");
+    const jobs = [];
+    if (force || !recs) {
+      jobs.push(api.recommend(full, format).then((r) => { setRecs(r); markFresh("recs", sig); }));
+    }
+    if (force || !cuts) {
+      jobs.push(api.aiCuts(full, format, null, apiGoals).then((r) => { setCuts(r); markFresh("cuts", sig); }));
+    }
+    if (wantMode === "budget") {
+      if (force || !budgetSwaps) {
+        jobs.push(api.budgetSwaps(full, format).then((r) => { setBudgetSwaps(r); markFresh("budgetSwaps", sig); }));
+      }
+    } else if (force || !upgrades) {
+      jobs.push(api.aiUpgrades(full, format, commander, null, "power", apiGoals)
+        .then((r) => { setUpgrades(r); markFresh("upgrades", sig); }));
+    }
+    const settled = await Promise.allSettled(jobs);
+    setBusy("");
+    const failed = settled.filter((s) => s.status === "rejected");
+    if (failed.length) notify?.(`${failed.length} of ${jobs.length} change sources failed.`);
+  }
+
+  // Flipping budget ⇄ power inside the Changes tab pulls in the other source.
+  // Routed through loadChanges so the "reuse what's cached" rule lives in one
+  // place; recs and cuts are already loaded by the time this can be clicked,
+  // so it costs no extra calls.
+  function changeUpgradeMode(mode) {
+    setUpgradeMode(mode);
+    if (activePanel !== "Changes") return;
+    loadChanges({ mode });
+  }
+
+  // Apply/skip for a Changes proposal. Apply routes through the Optimize
+  // queue's own handler so every accepted change lands in the same per-deck
+  // session log with undo; skip lands in whichever persisted set that source
+  // owns, so a skipped suggestion and a kept cut behave as they always did.
+  function applyInsightChange(ch) {
+    if (insightDecided[ch.id]) return; // already acted on — never apply twice
+    setInsightDecided((d) => ({ ...d, [ch.id]: "applied" }));
+    applyOptChange(ch);
+    if (ch.source === "rec" && ch.add) {
+      setPinned((prev) => { if (!prev.has(ch.add)) return prev; const n = new Set(prev); n.delete(ch.add); return n; });
+    }
+    // A card you just swapped OUT must not come straight back as a suggested
+    // add — that's what `skipped` means, and it's what the old swapCard did.
+    // Deliberately not `declinedUpgrades`: you accepted this upgrade, you
+    // didn't decline it.
+    if (ch.source === "upgrade" && ch.cut && ch.add) skip(ch.cut);
+  }
+
+  // Each source owns its own persisted verdict list, so one source's "Show
+  // again" never revives another's declines.
+  function skipInsightChange(ch) {
+    if (insightDecided[ch.id]) return; // already applied — can't also skip it
+    // Deliberately no `insightDecided` write: a skip is already remembered by
+    // that source's own verdict set, which has a "Show again" control. Marking
+    // it decided too would hide the proposal behind a second latch that "Show
+    // again" doesn't lift.
+    if (ch.source === "rec") skip(ch.add);
+    else if (ch.source === "cut") dismissCut(ch.cut);
+    else declineUpgrade(ch.cut);
   }
 
   // One props object for every DeckSidebar render (desktop layout + the
@@ -716,61 +851,41 @@ export default function DeckView({
     onPanelClick: (id) => {
       if (activePanel === id) { setActivePanel(null); return; }
       if (id === "DrawOdds") { setActivePanel("DrawOdds"); return; }
-      if (id === "Upgrades") {
-        setActivePanel("Upgrades");
-        if (upgradeMode === "budget" && !budgetSwaps) {
-          loadPanel("Upgrades", api.budgetSwaps, setBudgetSwaps, "budgetSwaps");
-        } else if (upgradeMode === "power" && !upgrades) {
-          loadPanel("Upgrades", (dl, fmt) => api.aiUpgrades(dl, fmt, commander, null, "power", apiGoals), setUpgrades, "upgrades");
-        }
-        return;
+      // Tab switches reuse loaded data (cuts and upgrades are paid AI calls —
+      // don't refetch just for browsing); the pane's Refresh action reloads.
+      if (id === "Changes") { loadChanges(); return; }
+      if (id === "Combos") {
+        if (combos) { setActivePanel("Combos"); return; }
+        loadPanel("Combos", api.combos, setCombos, "combos");
       }
-      // Tab switches reuse loaded data (Cuts is a paid AI call — don't refetch
-      // just for browsing); the pane's Refresh action forces a reload.
-      const cached = { Recommendations: recs, Cuts: cuts, Combos: combos }[id];
-      if (cached) { setActivePanel(id); return; }
-      const map = {
-        Recommendations: [api.recommend, setRecs, "recs"],
-        Cuts: [(dl, fmt) => api.aiCuts(dl, fmt, null, apiGoals), setCuts, "cuts"],
-        Combos: [api.combos, setCombos, "combos"],
-      };
-      if (map[id]) loadPanel(id, ...map[id]);
     },
     onRefreshPanel: (id) => {
-      if (id === "Upgrades") {
-        if (upgradeMode === "budget") loadPanel("Upgrades", api.budgetSwaps, setBudgetSwaps, "budgetSwaps");
-        else loadPanel("Upgrades", (dl, fmt) => api.aiUpgrades(dl, fmt, commander, null, "power", apiGoals), setUpgrades, "upgrades");
-        return;
-      }
-      const map = {
-        Recommendations: [api.recommend, setRecs, "recs"],
-        Cuts: [(dl, fmt) => api.aiCuts(dl, fmt, null, apiGoals), setCuts, "cuts"],
-        Combos: [api.combos, setCombos, "combos"],
-      };
-      if (map[id]) loadPanel(id, ...map[id]);
+      if (id === "Changes") { loadChanges({ force: true }); return; }
+      if (id === "Combos") loadPanel("Combos", api.combos, setCombos, "combos");
     },
     stalePanels,
     recs,
     recCat: cat,
     setRecCat: setCat,
     skipped,
-    onSkip: skip,
     onClearSkipped: clearSkipped,
     pinned,
     onTogglePin: togglePin,
     dismissedCuts,
-    onDismissCut: dismissCut,
     onClearDismissedCuts: clearDismissedCuts,
+    declinedUpgrades,
+    onClearDeclinedUpgrades: clearDeclinedUpgrades,
+    insightDecided,
     onAddCard: addCard,
     combos,
     comp,
     budgetSwaps,
-    onSwapCard: swapCard,
     cuts,
-    onRemoveCard: removeCard,
     upgrades,
     upgradeMode,
-    setUpgradeMode,
+    setUpgradeMode: changeUpgradeMode,
+    onApplyInsightChange: applyInsightChange,
+    onSkipInsightChange: skipInsightChange,
     commander,
     format,
     strategy,
@@ -795,11 +910,12 @@ export default function DeckView({
     onGapChip: runOptimize,
     // "Goldfish this line" from a combo card → open Playtest with the pieces staged.
     onGoldfish,
-    // Over-budget chip → Budget swaps, pre-set to budget mode.
+    // Over-budget chip → the Changes queue, pre-set to budget swaps. The mode
+    // is passed explicitly: setUpgradeMode won't have landed by the time
+    // loadChanges reads it out of this render's closure.
     onOverBudget: () => {
       setUpgradeMode("budget");
-      if (budgetSwaps) { setActivePanel("Upgrades"); return; }
-      loadPanel("Upgrades", api.budgetSwaps, setBudgetSwaps, "budgetSwaps");
+      loadChanges({ mode: "budget" });
     },
   };
 

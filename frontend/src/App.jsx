@@ -7,6 +7,7 @@ import { makeStore } from "./lib/store";
 import { downloadFile } from "./lib/hooks";
 import { historyTopIsGhost, registerTabHandler, useBackClose } from "./lib/backstack";
 import { DEFAULT_GOALS, loadGoals, saveGoals } from "./lib/goals";
+import { clearBuildNotes } from "./lib/buildNotes";
 import GlobalToolbar from "./components/layout/GlobalToolbar";
 import BottomNav from "./components/layout/BottomNav";
 import ServerStatusBanner from "./components/ServerStatusBanner";
@@ -170,8 +171,13 @@ export default function App() {
     return true;
   }, []);
 
+  // The generator's per-card notes describe one deck and are keyed by card
+  // name alone, so they have to go the moment a different deck is on screen.
+  // These three callbacks are every way that happens; auto-save giving the
+  // just-generated deck an id deliberately isn't one of them.
   const newDeck = useCallback((importTab = null) => {
     if (!confirmDiscardEdits()) return;
+    clearBuildNotes();
     setDeckText("");
     setCommander("");
     setMaybeboard("");
@@ -185,6 +191,7 @@ export default function App() {
 
   const guidedBuild = useCallback(() => {
     if (!confirmDiscardEdits()) return;
+    clearBuildNotes();
     setDeckText("");
     setCommander("");
     setMaybeboard("");
@@ -492,6 +499,7 @@ export default function App() {
 
   const openDeck = useCallback((deck) => {
     if (deck.id !== currentDeck?.id && !confirmDiscardEdits()) return;
+    clearBuildNotes();
     const { commander: c, deckText: t, maybeboard: mb } = disassembleDecklist(deck.decklist_text);
     setFormat(deck.format || "commander");
     setCommander(c);

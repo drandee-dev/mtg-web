@@ -1,0 +1,206 @@
+// Branching entry screen + one-shot full-deck generator. Runs entirely
+// against the hermetic mock backend — no live FastAPI, no model key.
+import { test, expect } from "./fixtures/test-base.js";
+import { waitForAppReady, dismissColdStart, navigateToTab, seedLocalDecks } from "./fixtures/helpers.js";
+
+async function openGenerator(page) {
+  await page.goto("/");
+  await waitForAppReady(page);
+  await dismissColdStart(page);
+  // The empty deck view's "Guided build" action is the entry point.
+  await navigateToTab(page, "Analyze & Build");
+  await page.locator(".empty-action", { hasText: "Guided build" }).click();
+  await expect(page.locator(".gen-doors")).toBeVisible();
+}
+
+test.describe("Deck generator entry screen", () => {
+  test("offers four labelled routes with honest effort badges", async ({ page }) => {
+    await openGenerator(page);
+    const doors = page.locator(".gen-door");
+    await expect(doors).toHaveCount(4);
+    await expect(doors.nth(0)).toContainText("Describe what you like");
+    await expect(doors.nth(0).locator(".gen-badge")).toHaveText("Uses AI");
+    await expect(doors.nth(1)).toContainText("Guide me step by step");
+    await expect(doors.nth(1).locator(".gen-badge")).toHaveText("No AI");
+    await expect(doors.nth(2)).toContainText("I know my commander");
+    await expect(doors.nth(3)).toContainText("Build from my collection");
+    await expect(doors.nth(3).locator(".gen-badge")).toHaveText("New");
+    // The collection route is reserved, not built — it says so and can't be opened.
+    await expect(doors.nth(3)).toBeDisabled();
+    await expect(doors.nth(3)).toContainText("Not available yet");
+  });
+
+  test("step counter reflects the chosen route, not a fixed total", async ({ page }) => {
+    await openGenerator(page);
+
+    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+    await expect(page.locator(".gen-step")).toContainText("Step 2 of 3");
+
+    await page.locator(".gen-head button", { hasText: "Back" }).click();
+    await page.locator(".gen-door", { hasText: "Describe what you like" }).click();
+    await expect(page.locator(".gen-step")).toContainText("Step 2 of 4");
+  });
+
+  test("known commander builds a legal 100-card deck that lands in the deck view", async ({ page }) => {
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+
+    await page.locator("#gen-cmd").fill("atraxa");
+    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
+
+    // Review step: the build is 100 cards and most picks carry a reason.
+    await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
+    await expect(page.locator(".gen-step")).toContainText("Step 3 of 3");
+    await expect(page.locator(".gen-summary")).toContainText("100 cards");
+    // wizard/narrate supplies the per-card sentences. Every non-basic pick
+    // gets one; the basic-land panel is counts only, so it has none.
+    const whys = page.locator(".gen-card-why");
+    expect(await whys.count()).toBeGreaterThanOrEqual(10);
+    await expect(whys.first()).toContainText("Pulls its weight");
+    // ai/fills closed a category gap, trading a basic for a real card.
+    await expect(page.locator(".gen-cat", { hasText: "Card draw" })).toBeVisible();
+
+    await page.locator("button", { hasText: "Open in deck view" }).click();
+
+    // Normal deck view, not a bespoke display surface.
+    await expect(page.locator(".deck-layout")).toBeVisible();
+    await expect(page.locator(".card-grid-container")).toBeVisible();
+  });
+
+  test("describing a deck names a commander and builds from it", async ({ page }) => {
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "Describe what you like" }).click();
+
+    await page.locator("#gen-describe").fill("I want counters on everything and lots of proliferate");
+    await page.locator("button", { hasText: "Find my commander" }).click();
+
+    await expect(page.locator(".gen-candidate").first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator(".gen-step")).toContainText("Step 3 of 4");
+    await page.locator(".gen-candidate").first().click();
+
+    await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
+    await expect(page.locator(".gen-summary")).toContainText("100 cards");
+  });
+
+  test("guided route still hands off to the category-fill wizard", async ({ page }) => {
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "Guide me step by step" }).click();
+    await expect(page.locator(".gen-step")).toContainText("Step 2 of 3");
+    await expect(page.locator("h2", { hasText: "Deck wizard" })).toBeVisible();
+  });
+});
+
+test.describe("Generated deck reasons", () => {
+  test.skip(({ isMobile }) => isMobile, "desktop card grid flow");
+
+  test("a generated card explains itself in the card detail modal", async ({ page }) => {
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+    await page.locator("#gen-cmd").fill("atraxa");
+    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
+    await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
+    await page.locator("button", { hasText: "Open in deck view" }).click();
+
+    await page.locator('.card-thumb[aria-label="1x Sol Ring"]').first().click();
+    await expect(page.locator(".cdm-why")).toContainText("Pulls its weight");
+  });
+
+  // Regression: build notes are keyed by card name with no deck in the key, so
+  // switching decks without clearing them made the generated deck's reasoning
+  // show up on a same-named card in an entirely different deck.
+  test("build notes do not follow a card into another deck", async ({ page }) => {
+    const OTHER = {
+      id: "other-deck",
+      name: "Hand-built deck",
+      format: "commander",
+      decklist_text: "Commander\n1 Atraxa, Praetors' Voice\nDeck\n1 Sol Ring\n1 Counterspell",
+    };
+    await page.goto("/");
+    await waitForAppReady(page);
+    await dismissColdStart(page);
+    await seedLocalDecks(page, [OTHER]);
+    await page.reload();
+    await waitForAppReady(page);
+    await dismissColdStart(page);
+
+    // Generate a deck — Sol Ring picks up a note.
+    await navigateToTab(page, "Analyze & Build");
+    await page.locator(".empty-action", { hasText: "Guided build" }).click();
+    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+    await page.locator("#gen-cmd").fill("atraxa");
+    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
+    await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
+    await page.locator("button", { hasText: "Open in deck view" }).click();
+    await page.locator('.card-thumb[aria-label="1x Sol Ring"]').first().click();
+    await expect(page.locator(".cdm-why")).toContainText("Pulls its weight");
+    await page.locator(".cdm-close").click();
+
+    // Switch to the hand-built deck WITHOUT a reload — same page, same module
+    // state. Its Sol Ring was never explained by anything.
+    await navigateToTab(page, "My Decks");
+    await page.locator(".deck-card", { hasText: OTHER.name }).locator(".deck-card-art").click();
+    await expect(page.locator(".card-grid-container")).toBeVisible({ timeout: 10000 });
+    await page.locator('.card-thumb[aria-label="1x Sol Ring"]').first().click();
+    await expect(page.locator(".cdm-name")).toHaveText("Sol Ring");
+    await expect(page.locator(".cdm-why")).toHaveCount(0);
+  });
+
+  // Regression: a URL import replaces the deck wholesale, same as opening a
+  // saved one. The mock import also contains Sol Ring, so a surviving note
+  // would attach itself to a card this deck never explained.
+  test("build notes do not survive a URL import over the generated deck", async ({ page }) => {
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+    await page.locator("#gen-cmd").fill("atraxa");
+    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
+    await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
+    await page.locator("button", { hasText: "Open in deck view" }).click();
+    await page.locator('.card-thumb[aria-label="1x Sol Ring"]').first().click();
+    await expect(page.locator(".cdm-why")).toContainText("Pulls its weight");
+    await page.locator(".cdm-close").click();
+
+    // Replace it with an imported deck that also runs Sol Ring.
+    await page.locator(".dh-actions button", { hasText: "Import cards" }).click();
+    await page.locator('.icm-tabs [role="tab"]', { hasText: "From URL" }).click();
+    await page.locator(".icm-panel input").fill("https://archidekt.com/decks/12345");
+    await page.locator(".icm-foot button", { hasText: "Import" }).click();
+    await page.locator(".icm-confirm button", { hasText: "Replace deck" }).click();
+    await expect(page.locator(".deck-title")).toContainText("Mock Import");
+
+    await page.locator('.card-thumb[aria-label="1x Sol Ring"]').first().click();
+    await expect(page.locator(".cdm-name")).toHaveText("Sol Ring");
+    await expect(page.locator(".cdm-why")).toHaveCount(0);
+  });
+
+  // Regression: emptying the deck by hand and pasting a list is a wholesale
+  // replacement too, and it goes through mergeImportedText's wasEmpty branch
+  // rather than any of App's deck-switch callbacks.
+  test("build notes do not survive a paste into an emptied deck", async ({ page }) => {
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+    await page.locator("#gen-cmd").fill("atraxa");
+    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
+    await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
+    await page.locator("button", { hasText: "Open in deck view" }).click();
+    await page.locator('.card-thumb[aria-label="1x Sol Ring"]').first().click();
+    await expect(page.locator(".cdm-why")).toContainText("Pulls its weight");
+    await page.locator(".cdm-close").click();
+
+    // Strip the deck back to nothing: clear the 99, then the commander.
+    await page.locator(".dh-actions .more-menu-btn").click();
+    await page.locator(".more-menu-item", { hasText: "Edit as text" }).click();
+    await page.locator(".deck-text-editor").fill("");
+    await page.locator('.card-thumb[aria-label*="Atraxa"]').first().click();
+    await page.locator(".cdm-actions button", { hasText: "Change commander" }).click();
+    await expect(page.locator(".empty-deck")).toBeVisible();
+
+    // Paste a fresh list that also runs Sol Ring.
+    await page.locator(".empty-action", { hasText: "Paste a decklist" }).click();
+    await page.locator(".icm-panel textarea").fill("1 Sol Ring\n1 Counterspell");
+    await page.locator(".icm-foot button", { hasText: "Import" }).click();
+
+    await page.locator('.card-thumb[aria-label="1x Sol Ring"]').first().click();
+    await expect(page.locator(".cdm-name")).toHaveText("Sol Ring");
+    await expect(page.locator(".cdm-why")).toHaveCount(0);
+  });
+});
