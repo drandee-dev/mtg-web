@@ -75,6 +75,38 @@ export async function mockBackend(page) {
     if (path.endsWith("/api/commanders/search")) {
       return json({ results: [cardPayload("Atraxa, Praetors' Voice")] });
     }
+    if (path.endsWith("/api/commanders/directory")) {
+      return json({
+        as_of: "2026-01-01",
+        commanders: [
+          {
+            name: "Atraxa, Praetors' Voice", slug: "atraxa-praetors-voice",
+            color_identity: ["W", "U", "B", "G"], mana_cost: "{G}{W}{U}{B}", cmc: 4,
+            type_line: "Legendary Creature — Phyrexian Angel Horror",
+            oracle_text: "Flying, vigilance, deathtouch, lifelink\nAt the beginning of your end step, proliferate.",
+            edhrec_rank: 3, price_usd: 12.0,
+            playstyle: "Superfriends counters", difficulty: "Moderate",
+            wins_via: ["Combat damage", "Planeswalker ultimates"], themes: ["Proliferate", "+1/+1 counters"],
+          },
+          {
+            name: "Lightning Bolt", slug: "lightning-bolt-cmdr",
+            color_identity: ["R"], mana_cost: "{R}", cmc: 1,
+            type_line: "Legendary Creature — Mock Goblin",
+            oracle_text: "Deal 3 damage to any target.",
+            edhrec_rank: 500, price_usd: 2.5,
+          },
+        ],
+      });
+    }
+    if (path.endsWith("/api/deck/wizard/skeleton")) {
+      return json({
+        commander: { name: "Atraxa, Praetors' Voice" },
+        skeleton: {
+          staples: [{ name: "Sol Ring", roles: ["Ramp"] }],
+          suggested_lands: [{ name: "Command Tower", roles: [] }],
+        },
+      });
+    }
     if (path.endsWith("/api/rules/ask/stream")) {
       // Server-sent events: the client reads `data: {json}` lines.
       const body =

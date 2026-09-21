@@ -95,6 +95,7 @@ export const api = {
   combos: (decklist, format) => post("/api/deck/combos", { decklist, format }),
   composition: (decklist, format) => post("/api/deck/composition", { decklist, format }),
   commanders: (q, partnerOf) => get("/api/commanders/search", { q, partner_of: partnerOf }),
+  commanderDirectory: () => get("/api/commanders/directory"),
   cardImage: (name) => get("/api/cards/image", { name }),
   cardPrints: (name) => get("/api/cards/prints", { name }),
   cardPrinting: (set, cn) => get("/api/cards/printing", { set, cn }),

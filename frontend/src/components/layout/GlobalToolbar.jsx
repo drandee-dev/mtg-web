@@ -21,6 +21,11 @@ const TAB_ICONS = {
       <path d="M8 3.5v10M8 3.5C8 3.5 6.5 2 3 2v10c3.5 0 5 1.5 5 1.5M8 3.5C8 3.5 9.5 2 13 2v10c-3.5 0-5 1.5-5 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   ),
+  commanders: (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+      <path d="M2 12.5h12l-1-6.5-3 3-2-4-2 4-3-3-1 6.5z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+    </svg>
+  ),
   cards: (
     <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
       <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.5"/>

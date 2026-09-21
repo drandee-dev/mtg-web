@@ -1202,3 +1202,14 @@ def commanders_search(
         }
     except Exception as e:  # noqa: BLE001
         raise HTTPException(400, "Commander search failed.") from e
+
+
+@app.get("/api/commanders/directory")
+def commanders_directory() -> dict:
+    """Full commander browse directory (~3,300 cards), ordered by EDHREC rank,
+    with strategy chips where the one-time classification batch has run.
+    Fetched once by the frontend and filtered/paginated client-side."""
+    try:
+        return {"commanders": mtg.commander_directory(), "as_of": mtg.data_as_of()}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(400, "Commander directory failed.") from e

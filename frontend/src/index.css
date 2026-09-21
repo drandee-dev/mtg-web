@@ -2323,6 +2323,23 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 .ts-pip-c { background: #c8c2d4; color: #2b2533; }
 .ts-pip-x { background: #b9b3aa; color: #2b2823; font-style: italic; }
 
+/* Color-identity filter chips (Commanders browse) — bigger, clickable pips reusing
+   the ts-pip-* color set; hit target extended via ::after (adjacent-controls case,
+   see the coarse-pointer block below), not by growing the visible circle. */
+.color-filter-pip {
+  position: relative; width: 28px; height: 28px; min-height: auto; padding: 0;
+  border: 2px solid transparent; cursor: pointer;
+  font-size: var(--fs-xs); font-weight: 700;
+}
+.color-filter-pip.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+/* Commander detail hero */
+.commander-detail-hero { display: flex; gap: 1.2rem; flex-wrap: wrap; align-items: flex-start; }
+.commander-detail-art {
+  width: 100%; max-width: 320px; aspect-ratio: 626 / 457; object-fit: cover;
+  border-radius: var(--radius-lg); background: var(--panel-2); flex: none;
+}
+
 /* ── Touch fallbacks (drag-and-drop / hover don't exist on touch) ── */
 /* ⋯ "move to category" menu on image cards — pointer devices use drag instead. */
 .stack-card-movemenu { position: absolute; top: 3px; right: 3px; z-index: 5; }
@@ -3007,7 +3024,7 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
    close buttons -- are exempted and get an invisible ::after hit extender;
    tight stacks extend less so neighboring zones don't overlap. */
 @media (pointer: coarse) {
-  button:not(.card-rail-btn):not(.cdm-close):not(.cdm-flip):not(.pw-cardchip-btn):not(.sync-nudge-x):not(.dg-suggest-x),
+  button:not(.card-rail-btn):not(.cdm-close):not(.cdm-flip):not(.pw-cardchip-btn):not(.sync-nudge-x):not(.dg-suggest-x):not(.color-filter-pip),
   input, select {
     min-height: 44px !important;
   }
@@ -3018,7 +3035,8 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
     content: ""; position: absolute; left: 50%; top: 50%;
     width: 44px; height: 44px; transform: translate(-50%, -50%);
   }
-  .card-rail-btn::after, .cdm-stepper button::after, .pw-cardchip-btn::after {
+  .card-rail-btn::after, .cdm-stepper button::after, .pw-cardchip-btn::after,
+  .color-filter-pip::after {
     content: ""; position: absolute; inset: -5px;
   }
 }
