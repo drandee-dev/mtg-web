@@ -13,21 +13,37 @@ async function openGenerator(page) {
   await expect(page.locator(".gen-doors")).toBeVisible();
 }
 
+// The raw decklist, via the deck view's own text editor. The card grid renders
+// the commander as its own column and never in the 99, so it cannot show
+// whether the commander was also left in the maindeck — this can.
+async function rawDecklist(page) {
+  // Desktop and mobile each render their own ⋯ menu; use whichever is visible.
+  await page.locator(".more-menu-btn:visible").first().click();
+  await page.locator(".more-menu-item", { hasText: "Edit as text" }).click();
+  const text = await page.locator(".deck-text-editor").inputValue();
+  await page.locator(".more-menu-btn:visible").first().click();
+  await page.locator(".more-menu-item", { hasText: "Hide text editor" }).click();
+  return text;
+}
+
 test.describe("Deck generator entry screen", () => {
-  test("offers four labelled routes with honest effort badges", async ({ page }) => {
+  test("offers five labelled routes with honest effort badges", async ({ page }) => {
     await openGenerator(page);
     const doors = page.locator(".gen-door");
-    await expect(doors).toHaveCount(4);
+    await expect(doors).toHaveCount(5);
     await expect(doors.nth(0)).toContainText("Describe what you like");
     await expect(doors.nth(0).locator(".gen-badge")).toHaveText("Uses AI");
     await expect(doors.nth(1)).toContainText("Guide me step by step");
     await expect(doors.nth(1).locator(".gen-badge")).toHaveText("No AI");
     await expect(doors.nth(2)).toContainText("I know my commander");
-    await expect(doors.nth(3)).toContainText("Build from my collection");
-    await expect(doors.nth(3).locator(".gen-badge")).toHaveText("New");
+    // Precon is free: the published list, straight from the endpoint.
+    await expect(doors.nth(3)).toContainText("Start from a precon");
+    await expect(doors.nth(3).locator(".gen-badge")).toHaveText("No AI");
+    await expect(doors.nth(4)).toContainText("Build from my collection");
+    await expect(doors.nth(4).locator(".gen-badge")).toHaveText("New");
     // The collection route is reserved, not built — it says so and can't be opened.
-    await expect(doors.nth(3)).toBeDisabled();
-    await expect(doors.nth(3)).toContainText("Not available yet");
+    await expect(doors.nth(4)).toBeDisabled();
+    await expect(doors.nth(4)).toContainText("Not available yet");
   });
 
   test("step counter reflects the chosen route, not a fixed total", async ({ page }) => {
@@ -65,6 +81,8 @@ test.describe("Deck generator entry screen", () => {
     // Normal deck view, not a bespoke display surface.
     await expect(page.locator(".deck-layout")).toBeVisible();
     await expect(page.locator(".card-grid-container")).toBeVisible();
+    // The commander goes to the command zone, not into the 99 as well.
+    await expect(await rawDecklist(page)).not.toContain("Atraxa");
   });
 
   test("describing a deck names a commander and builds from it", async ({ page }) => {
@@ -80,6 +98,42 @@ test.describe("Deck generator entry screen", () => {
 
     await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
     await expect(page.locator(".gen-summary")).toContainText("100 cards");
+  });
+
+  test("precon route imports a published decklist into the deck view", async ({ page }) => {
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "Start from a precon" }).click();
+    await expect(page.locator(".gen-step")).toContainText("Step 2 of 3");
+
+    // Partial name is enough — the endpoint fuzzy-matches server side.
+    await page.locator("#gen-precon").fill("necron");
+    await page.locator("button", { hasText: "Find this deck" }).click();
+
+    await expect(page.locator(".gen-summary")).toContainText("43 cards");
+    await expect(page.locator(".gen-step")).toContainText("Step 3 of 3");
+    await expect(page.locator(".gen-h2")).toContainText("Necron Dynasties");
+    // Other matches from the same search are offered rather than hidden.
+    await expect(page.locator(".gen-candidate", { hasText: "Tyranid Swarm" })).toBeVisible();
+
+    await page.locator("button", { hasText: "Open in deck view" }).click();
+    await expect(page.locator(".card-grid-container")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.card-thumb[aria-label="1x Sol Ring"]')).toHaveCount(1);
+    // The commander belongs in the command zone only. The card grid hides it
+    // from the 99 either way, so check the decklist text itself — that's what
+    // gets saved, shared, exported and analyzed.
+    await expect(await rawDecklist(page)).not.toContain("Atraxa");
+    // Imported list is not generator output, so nothing claims to explain it.
+    await page.locator('.card-thumb[aria-label="1x Sol Ring"]').click();
+    await expect(page.locator(".cdm-why")).toHaveCount(0);
+  });
+
+  test("an unmatched precon name reports it and stays put", async ({ page }) => {
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "Start from a precon" }).click();
+    await page.locator("#gen-precon").fill("not a real deck");
+    await page.locator("button", { hasText: "Find this deck" }).click();
+    await expect(page.locator(".toast")).toContainText("No precon found");
+    await expect(page.locator("#gen-precon")).toBeVisible();
   });
 
   test("guided route still hands off to the category-fill wizard", async ({ page }) => {

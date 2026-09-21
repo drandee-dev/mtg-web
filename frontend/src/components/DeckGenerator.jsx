@@ -33,6 +33,13 @@ const BRANCHES = {
     tone: "plain",
     steps: ["Choose a path", "Pick a commander", "Review the deck"],
   },
+  precon: {
+    label: "Start from a precon",
+    desc: "Name a preconstructed Commander deck and get its real decklist, ready to tune. Straight from the published list, no model calls.",
+    badge: "No AI",
+    tone: "plain",
+    steps: ["Choose a path", "Name the precon", "Review the deck"],
+  },
   collection: {
     label: "Build from my collection",
     desc: "Reads your collection.csv, builds the best deck from cards you already own, and prices only the gaps.",
@@ -42,7 +49,7 @@ const BRANCHES = {
   },
 };
 
-const DOOR_ORDER = ["describe", "guided", "commander", "collection"];
+const DOOR_ORDER = ["describe", "guided", "commander", "precon", "collection"];
 
 // Skeleton categories that supply the non-land half of the deck, in the order
 // they get drawn from.
@@ -110,6 +117,14 @@ function assembleSkeleton(skeleton, commanderNames) {
   return { cards: [...chosenSpells, ...utilLands], basics };
 }
 
+/** Total copies in a raw "N Card Name" decklist. */
+function parseDeckLines(text) {
+  return (text || "").split("\n").reduce((n, l) => {
+    const m = l.trim().match(/^(\d+)\s+\S/);
+    return n + (m ? Number(m[1]) : 0);
+  }, 0);
+}
+
 function toLines(cards, basics) {
   return [
     ...cards.map((c) => `${c.qty} ${c.name}`),
@@ -132,6 +147,8 @@ export default function DeckGenerator({ onFinish, notify }) {
 
   const [progress, setProgress] = useState(null); // null | {label, pct}
   const [built, setBuilt] = useState(null); // {commander, cards, basics, notes}
+  const [preconQuery, setPreconQuery] = useState("");
+  const [precon, setPrecon] = useState(null); // the import-precon payload
 
   const steps = branch ? BRANCHES[branch].steps : null;
   const stepCount = steps?.length ?? null;
@@ -142,11 +159,41 @@ export default function DeckGenerator({ onFinish, notify }) {
     setStepIdx(1);
     setCandidates(null);
     setBuilt(null);
+    setPrecon(null);
   }
 
   function back() {
+    setPrecon(null);
     if (stepIdx <= 1) { setBranch(null); setStepIdx(0); return; }
     setStepIdx((i) => i - 1);
+  }
+
+  // --- Precon ---------------------------------------------------------------
+  // The endpoint fuzzy-matches server side (exact > prefix > substring) and
+  // returns the best hit plus `alternates`, so there is no matching to do here.
+  async function findPrecon() {
+    const name = preconQuery.trim();
+    if (name.length < 3) return notify?.("Type at least part of the deck's name.");
+    setSearching(true);
+    try {
+      const r = await api.importPrecon(name);
+      setPrecon(r);
+      setStepIdx(2);
+    } catch (e) {
+      notify?.(`No precon found: ${e.message}`);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function finishPrecon() {
+    const cmds = (precon.commander || "").split(" && ").filter(Boolean);
+    const decklist = cmds.length
+      ? `Commander\n${cmds.map((c) => `1 ${c}`).join("\n")}\nDeck\n${precon.decklist}`
+      : precon.decklist;
+    // No notes: nothing explained these picks, and inventing a reason would be
+    // worse than showing none.
+    onFinish(decklist, precon.commander || "", {});
   }
 
   // --- Describe → commander ------------------------------------------------
@@ -336,6 +383,64 @@ export default function DeckGenerator({ onFinish, notify }) {
             );
           })}
         </div>
+      </div>
+    );
+  }
+
+  /* ── Precon: name it, then confirm what came back ─────────────────────── */
+  if (branch === "precon") {
+    const cardCount = precon ? parseDeckLines(precon.decklist) : 0;
+    return (
+      <div className="gen">
+        <GenHeader steps={steps} stepIdx={stepIdx} pct={pct} onBack={back} />
+        {!precon ? (
+          <div className="panel">
+            <label htmlFor="gen-precon">Precon name</label>
+            <input
+              id="gen-precon"
+              value={preconQuery}
+              onChange={(e) => setPreconQuery(e.target.value.slice(0, 80))}
+              onKeyDown={(e) => { if (e.key === "Enter") findPrecon(); }}
+              placeholder="e.g. Necron Dynasties"
+              autoComplete="off"
+            />
+            <p className="gen-lede" style={{ marginTop: ".4rem" }}>
+              Part of the name is enough. You get the published decklist, which you can then change freely.
+            </p>
+            <button className="primary" onClick={findPrecon} disabled={searching}>
+              {searching ? "Looking it up…" : "Find this deck →"}
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="panel">
+              <h2 className="gen-h2" style={{ marginTop: 0 }}>{precon.name}</h2>
+              <p className="gen-lede gen-summary">
+                {cardCount} cards{precon.set ? ` · ${precon.set}` : ""}
+                {precon.release ? ` · ${precon.release}` : ""}
+                {precon.commander ? ` · led by ${precon.commander.split(" && ").join(" and ")}` : ""}
+              </p>
+              <div className="row" style={{ gap: ".4rem" }}>
+                <button className="primary" onClick={finishPrecon}>Open in deck view →</button>
+                <button className="ghost" onClick={() => { setPrecon(null); setStepIdx(1); }}>Pick another</button>
+              </div>
+            </div>
+            {precon.alternates?.length > 0 && (
+              <div className="panel">
+                <h3 className="gen-cat">Other matches</h3>
+                <div className="gen-candidates">
+                  {precon.alternates.map((a) => (
+                    <button key={a.name} className="gen-candidate"
+                      onClick={() => { setPreconQuery(a.name); setPrecon(null); setStepIdx(1); }}>
+                      <span className="gen-candidate-name">{a.name}</span>
+                      <span className="muted small">{a.release}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     );
   }

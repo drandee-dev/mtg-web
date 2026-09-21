@@ -15,6 +15,13 @@ test.describe("Insights persistence", () => {
     await expect(page.locator(".insp-body")).toContainText("No combos or near-misses found");
   }
 
+  // Opening the tab buys only the free EDHREC suggestions. Cuts and upgrades
+  // are metered, so a test that needs them asks for them the way a user does.
+  async function openChanges(page, { deep = false } = {}) {
+    await page.locator('.insp-tab:has-text("Changes")').click();
+    if (deep) await page.locator(".insp-deep").click();
+  }
+
   function countRequests(page, pathSuffix) {
     const counter = { n: 0 };
     page.on("request", (req) => {
@@ -61,13 +68,42 @@ test.describe("Insights persistence", () => {
     expect(combosCalls.n).toBe(2);
   });
 
+  // Opening a tab must not silently spend metered model calls. Suggestions are
+  // free EDHREC data and load on open; cuts and upgrades wait to be asked for.
+  test("opening Changes buys only the free suggestions until asked for more", async ({ page }) => {
+    const recCalls = countRequests(page, "/api/deck/recommend");
+    const cutCalls = countRequests(page, "/api/deck/ai/cuts");
+    const swapCalls = countRequests(page, "/api/deck/budget-swaps");
+    await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
+
+    await page.locator('.insp-tab:has-text("Changes")').click();
+    await expect(page.locator(".insp-body")).toContainText("Lightning Bolt");
+    expect(recCalls.n).toBe(1);
+    expect(cutCalls.n).toBe(0);
+    expect(swapCalls.n).toBe(0);
+    // Nothing to toggle between yet, so the upgrade-mode switch stays hidden.
+    await expect(page.locator(".insp-mode-toggle")).toHaveCount(0);
+
+    // The labelled button is the only thing that spends a call.
+    const deep = page.locator(".insp-deep");
+    await expect(deep).toContainText("Uses AI");
+    await deep.click();
+    await expect(page.locator('.insp-body .opt-card:has(.opt-cat:text-is("Cut"))')).toHaveCount(1, { timeout: 10000 });
+    expect(cutCalls.n).toBe(1);
+    expect(swapCalls.n).toBe(1);
+    expect(recCalls.n).toBe(1); // the free source was not re-bought
+    await expect(page.locator(".insp-mode-toggle")).toHaveCount(1);
+    await expect(deep).toHaveCount(0);
+  });
+
   test("pins and skips persist across screens and survive a refresh", async ({ page }) => {
     await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
 
     // Suggest / Cuts / Upgrades are one Changes queue now — the mocked
     // recommend list (Lightning Bolt / Rhystic Study / Smothering Tithe)
     // arrives as "Add" proposals in the same cards the Optimize queue uses.
-    await page.locator('.insp-tab:has-text("Changes")').click();
+    // Suggestions are free, so the plain tab open is enough.
+    await openChanges(page);
     const pane = page.locator(".insp-body");
     await expect(pane).toContainText("Lightning Bolt");
 
@@ -107,7 +143,7 @@ test.describe("Insights persistence", () => {
   // suggestions' "Show again" silently revive every declined upgrade.
   test("declining an upgrade is separate from skipping a suggestion", async ({ page }) => {
     await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
-    await page.locator('.insp-tab:has-text("Changes")').click();
+    await openChanges(page, { deep: true });
     const pane = page.locator(".insp-body");
 
     const budgetCard = pane.locator('.opt-card:has(.opt-cat:text-is("Budget"))');
@@ -139,7 +175,7 @@ test.describe("Insights persistence", () => {
   // into the shared apply handler dropped that.
   test("applying an upgrade stops the cut card being re-suggested", async ({ page }) => {
     await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
-    await page.locator('.insp-tab:has-text("Changes")').click();
+    await openChanges(page, { deep: true });
     const pane = page.locator(".insp-body");
 
     // Smothering Tithe is both a budget-swap target and a standing suggestion.
@@ -162,7 +198,7 @@ test.describe("Insights persistence", () => {
   // duplicate card, plus a second session-log entry.
   test("an applied proposal leaves the queue and cannot be applied twice", async ({ page }) => {
     await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
-    await page.locator('.insp-tab:has-text("Changes")').click();
+    await openChanges(page); // a suggestion is enough to exercise this
     const pane = page.locator(".insp-body");
 
     const bolt = pane.locator('.opt-card:has(.opt-cat:text-is("High synergy")):has-text("Lightning Bolt")');
@@ -193,7 +229,7 @@ test.describe("Insights persistence", () => {
   // collapsed session log as the only way back.
   test("applying a change offers a one-click Undo on the toast", async ({ page }) => {
     await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
-    await page.locator('.insp-tab:has-text("Changes")').click();
+    await openChanges(page, { deep: true });
     const pane = page.locator(".insp-body");
 
     const cutCard = pane.locator('.opt-card:has(.opt-cat:text-is("Cut"))');
@@ -222,7 +258,7 @@ test.describe("Insights persistence", () => {
     const cultivate = (qty) => page.locator(`.card-grid-container [aria-label="${qty}x Cultivate"]`);
     await expect(cultivate(4).first()).toBeVisible();
 
-    await page.locator('.insp-tab:has-text("Changes")').click();
+    await openChanges(page, { deep: true });
     const cutCard = page.locator('.insp-body .opt-card:has(.opt-cat:text-is("Cut"))');
     await expect(cutCard).toHaveCount(1, { timeout: 10000 });
     await cutCard.locator('button:has-text("Apply")').click();
@@ -243,7 +279,7 @@ test.describe("Insights persistence", () => {
     const thumb = (label) => page.locator(`.card-thumb[aria-label="${label}"]`);
     await expect(thumb("1x Arcane Signet")).toHaveCount(1);
 
-    await page.locator('.insp-tab:has-text("Changes")').click();
+    await openChanges(page, { deep: true });
     const budgetCard = page.locator('.insp-body .opt-card:has(.opt-cat:text-is("Budget"))');
     await expect(budgetCard).toHaveCount(1, { timeout: 10000 });
     await budgetCard.locator('button:has-text("Apply")').click();
@@ -267,7 +303,7 @@ test.describe("Insights persistence", () => {
     // Mock cuts always propose Cultivate; this deck does not run it.
     const NO_CULTIVATE = ["1 Sol Ring", "1 Counterspell", "10 Forest", "10 Plains"].join("\n");
     await loadSharedDeck(page, NO_CULTIVATE, "Atraxa, Praetors' Voice");
-    await page.locator('.insp-tab:has-text("Changes")').click();
+    await openChanges(page, { deep: true });
     const cutCard = page.locator('.insp-body .opt-card:has(.opt-cat:text-is("Cut"))');
     await expect(cutCard).toHaveCount(1, { timeout: 10000 });
     await cutCard.locator('button:has-text("Apply")').click();

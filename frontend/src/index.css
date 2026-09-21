@@ -2888,6 +2888,22 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .empty-action-t { font-weight: 600; font-size: var(--fs-sm); }
 .empty-action-d { font-size: var(--fs-xs); color: var(--muted); }
 
+/* Deeper-pass button in the Changes queue — the one action there that spends
+   model calls, so it carries its own effort label. */
+.insp-deep {
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  width: 100%; margin-bottom: .45rem; padding: .45rem .6rem;
+  background: var(--panel-2); border: 1px dashed var(--border-strong);
+  border-radius: var(--radius); color: var(--text); cursor: pointer;
+  font-size: var(--fs-xs); font-weight: 600; text-align: left;
+}
+.insp-deep:hover { border-color: var(--accent); background: var(--accent-soft); }
+.insp-deep-badge {
+  flex: none; padding: .1rem .4rem; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent);
+  font-size: var(--fs-2xs); letter-spacing: .08em; text-transform: uppercase;
+}
+
 /* ===== Deck generator (branching entry screen) =====
    Four labelled routes plus the one-shot build. Layout only — every colour
    comes from the shared tokens, so accent still means "actionable". */

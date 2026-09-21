@@ -536,8 +536,14 @@ export default function DeckView({
   // `notes` (name → why it's here) only comes from the one-shot generator; the
   // step-by-step wizard passes nothing and the card modal simply shows no note.
   function handleWizardFinish(dl, cmd, notes) {
-    setDecklist(dl.split("\n").filter((l) => !/^\s*(Commander|Deck)\s*$/i.test(l)).join("\n"));
-    setCommander(cmd);
+    // Split the Commander block off properly. Stripping just the bare
+    // "Commander"/"Deck" lines left the commander's own "1 Name" line behind,
+    // so it sat in the command zone AND the 99 — invisible in the card grid,
+    // which hides the commander there, but real in every saved, shared,
+    // exported and analyzed copy of the deck.
+    const { commander: parsedCmd, deckText } = disassembleDecklist(dl);
+    setDecklist(deckText);
+    setCommander(cmd || parsedCmd);
     setBuildNotes(notes || {});
     setMode("manual");
     notify?.("Deck loaded — tune it here.");
@@ -760,17 +766,22 @@ export default function DeckView({
     else check("upgrades", "Changes", upgrades);
   }
 
-  // The three sources behind the Changes tab, loaded together so one click
-  // fills the whole queue. Cached results are reused unless `force` is set
-  // (the pane's Refresh action), same rule the individual tabs had.
+  // The three sources behind the Changes tab.
+  //
+  // Opening the tab loads only `recommend`, which is free EDHREC data. Cuts
+  // and power upgrades are metered AI calls, so they wait for the pane's
+  // explicit "deeper pass" button (`deep`) rather than being spent on anyone
+  // who happens to click the tab. Refresh (`force`) re-runs what is already
+  // loaded and never buys a source the user hasn't asked for.
   //
   // `mode` is an explicit override for callers that flip the upgrade mode in
   // the same handler (the over-budget chip). A setState in this render does
   // NOT update `upgradeMode` in this closure, so reading the state here would
   // fetch the mode the user was on before the click.
-  async function loadChanges({ force = false, mode } = {}) {
+  async function loadChanges({ force = false, mode, deep = false } = {}) {
     if (!decklist.trim()) return notify?.("Add some cards first.");
     const wantMode = mode ?? upgradeMode;
+    const haveUpgrade = wantMode === "budget" ? budgetSwaps : upgrades;
     // Refresh means "give me a fresh changeset", so past apply/skip decisions
     // stop hiding proposals. Anything already in the deck comes back marked
     // in_deck by the server, so applied adds still don't reappear.
@@ -783,17 +794,20 @@ export default function DeckView({
     if (force || !recs) {
       jobs.push(api.recommend(full, format).then((r) => { setRecs(r); markFresh("recs", sig); }));
     }
-    if (force || !cuts) {
+    // Metered: bought only when asked for (`deep`), re-bought only when the
+    // user refreshes something they already have.
+    if ((deep && !cuts) || (force && cuts)) {
       jobs.push(api.aiCuts(full, format, null, apiGoals).then((r) => { setCuts(r); markFresh("cuts", sig); }));
     }
-    if (wantMode === "budget") {
-      if (force || !budgetSwaps) {
+    if ((deep && !haveUpgrade) || (force && haveUpgrade)) {
+      if (wantMode === "budget") {
         jobs.push(api.budgetSwaps(full, format).then((r) => { setBudgetSwaps(r); markFresh("budgetSwaps", sig); }));
+      } else {
+        jobs.push(api.aiUpgrades(full, format, commander, null, "power", apiGoals)
+          .then((r) => { setUpgrades(r); markFresh("upgrades", sig); }));
       }
-    } else if (force || !upgrades) {
-      jobs.push(api.aiUpgrades(full, format, commander, null, "power", apiGoals)
-        .then((r) => { setUpgrades(r); markFresh("upgrades", sig); }));
     }
+    if (!jobs.length) { setBusy(""); return; }
     const settled = await Promise.allSettled(jobs);
     setBusy("");
     const failed = settled.filter((s) => s.status === "rejected");
@@ -807,7 +821,9 @@ export default function DeckView({
   function changeUpgradeMode(mode) {
     setUpgradeMode(mode);
     if (activePanel !== "Changes") return;
-    loadChanges({ mode });
+    // Having either upgrade source already means the deeper pass was asked
+    // for, so flipping the toggle is allowed to fetch the other one.
+    loadChanges({ mode, deep: Boolean(budgetSwaps || upgrades) });
   }
 
   // Apply/skip for a Changes proposal. Apply routes through the Optimize
@@ -876,6 +892,7 @@ export default function DeckView({
     declinedUpgrades,
     onClearDeclinedUpgrades: clearDeclinedUpgrades,
     insightDecided,
+    onLoadDeepChanges: () => loadChanges({ deep: true }),
     onAddCard: addCard,
     combos,
     comp,
@@ -915,7 +932,9 @@ export default function DeckView({
     // loadChanges reads it out of this render's closure.
     onOverBudget: () => {
       setUpgradeMode("budget");
-      loadChanges({ mode: "budget" });
+      // Tapping "you're over budget" IS the request for swaps, so it opts into
+      // the deeper pass rather than landing on an empty queue.
+      loadChanges({ mode: "budget", deep: true });
     },
   };
 

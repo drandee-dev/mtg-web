@@ -48,7 +48,7 @@ export default function InsightsPanel({
   recs, recCat, setRecCat, skipped, onClearSkipped, onAddCard,
   pinned, onTogglePin,
   cuts, dismissedCuts, onClearDismissedCuts,
-  declinedUpgrades, onClearDeclinedUpgrades, insightDecided,
+  declinedUpgrades, onClearDeclinedUpgrades, insightDecided, onLoadDeepChanges,
   combos, onGoldfish,
   budgetSwaps, upgrades, upgradeMode, setUpgradeMode,
   onApplyChange, onSkipChange,
@@ -131,6 +131,8 @@ export default function InsightsPanel({
                 skipped={skipped} onClearSkipped={onClearSkipped}
                 dismissedCuts={dismissedCuts} onClearDismissedCuts={onClearDismissedCuts}
                 declinedUpgrades={declinedUpgrades} onClearDeclinedUpgrades={onClearDeclinedUpgrades}
+                cuts={cuts} budgetSwaps={budgetSwaps} upgrades={upgrades}
+                onLoadDeepChanges={onLoadDeepChanges}
                 onApplyChange={onApplyChange} onSkipChange={onSkipChange} />
             )}
             {active === "Combos" && <CombosPane combos={combos} onAddCard={onAddCard} onGoldfish={onGoldfish} />}
@@ -407,20 +409,35 @@ function ChangesPane({
   changes, loaded, recs, recCat, setRecCat, upgradeMode, setUpgradeMode,
   onTogglePin, skipped, onClearSkipped, dismissedCuts, onClearDismissedCuts,
   declinedUpgrades, onClearDeclinedUpgrades,
+  cuts, budgetSwaps, upgrades, onLoadDeepChanges,
   onApplyChange, onSkipChange,
 }) {
   if (!loaded) return <p className="muted small insp-empty">No change proposals loaded yet.</p>;
   const hasRecs = recs?.categories && Object.keys(recs.categories).length > 0;
+  // Opening this tab only buys the free EDHREC suggestions. Cuts and power
+  // upgrades cost model calls, so they stay behind one labelled button.
+  const haveUpgrades = Boolean(budgetSwaps || upgrades);
+  const upgradeForMode = upgradeMode === "budget" ? budgetSwaps : upgrades;
+  const deepPending = !cuts || !upgradeForMode;
   return (
     <>
-      <div className="ai-panel-toggle insp-mode-toggle">
-        <button className={upgradeMode === "budget" ? "active" : ""} onClick={() => setUpgradeMode("budget")}>
-          Budget swaps
+      {deepPending && onLoadDeepChanges && (
+        <button className="insp-deep" onClick={onLoadDeepChanges}>
+          <span>Also find cuts and upgrades</span>
+          <span className="insp-deep-badge">Uses AI</span>
         </button>
-        <button className={upgradeMode === "power" ? "active" : ""} onClick={() => setUpgradeMode("power")}>
-          Power upgrades
-        </button>
-      </div>
+      )}
+
+      {haveUpgrades && (
+        <div className="ai-panel-toggle insp-mode-toggle">
+          <button className={upgradeMode === "budget" ? "active" : ""} onClick={() => setUpgradeMode("budget")}>
+            Budget swaps
+          </button>
+          <button className={upgradeMode === "power" ? "active" : ""} onClick={() => setUpgradeMode("power")}>
+            Power upgrades
+          </button>
+        </div>
+      )}
 
       {hasRecs && (
         <select className="insp-select" value={recCat} onChange={(e) => setRecCat(e.target.value)}

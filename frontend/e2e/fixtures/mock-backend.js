@@ -149,6 +149,26 @@ export async function mockBackend(page) {
         model: "mock",
       });
     }
+    if (path.endsWith("/api/deck/import-precon")) {
+      // Server-side fuzzy match: the real endpoint 404s when nothing scores.
+      const q = (url.searchParams.get("name") || "").toLowerCase();
+      if (!q || !"necron dynasties".includes(q)) {
+        return route.fulfill({
+          status: 404, contentType: "application/json",
+          body: JSON.stringify({ detail: "No preconstructed deck by that name." }),
+        });
+      }
+      return json({
+        name: "Necron Dynasties",
+        set: "40K", release: "2022-10-07", type: "Commander Deck",
+        commander: "Atraxa, Praetors' Voice",
+        decklist: ["1 Sol Ring", "1 Arcane Signet", "1 Counterspell", "20 Swamp", "20 Island"].join("\n"),
+        sideboard: "",
+        format: "commander",
+        alternates: [{ name: "Tyranid Swarm", release: "2022-10-07" }],
+        source: "mtgjson",
+      });
+    }
     if (path.endsWith("/api/deck/wizard/skeleton")) {
       return json({
         error: false,
