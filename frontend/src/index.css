@@ -2340,6 +2340,49 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
   border-radius: var(--radius-lg); background: var(--panel-2); flex: none;
 }
 
+/* ── Section bands ──
+   A micro uppercase label, then the heading. The label is the whole trick: it
+   gives a stacked page a reading rhythm at almost no cost. Kept generic so the
+   landing page and the build doors can take the same treatment later. */
+.cmdr-section-label {
+  font-size: var(--fs-2xs); font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: .25rem;
+}
+.cmdr-section-title { font-size: var(--fs-lg); margin: 0 0 .15rem; }
+.cmdr-section-sub { margin: 0 0 .8rem; }
+
+/* Signature cards: rank, name, play rate, synergy badge. */
+.cmdr-sig-list { list-style: none; margin: 0; padding: 0; }
+.cmdr-sig-row {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .5rem .1rem; border-bottom: 1px solid var(--border);
+}
+.cmdr-sig-row:last-child { border-bottom: 0; }
+.cmdr-sig-rank {
+  flex: none; width: 1.5rem; height: 1.5rem; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: var(--fs-2xs); font-weight: 700;
+  color: var(--accent); background: var(--accent-soft);
+}
+.cmdr-sig-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.cmdr-sig-pct { flex: none; font-variant-numeric: tabular-nums; }
+.cmdr-sig-syn { flex: none; font-variant-numeric: tabular-nums; }
+
+/* Printing tiles carry their set and price under the art, so they deliberately do
+   NOT reuse .card-thumb: that class pins a card aspect-ratio on the tile and gives
+   its image height:100%, which sizes the tile to the art alone and leaves the meta
+   row overlapping the grid row below. */
+.cmdr-print img {
+  display: block; width: 100%; aspect-ratio: 488 / 680; object-fit: cover;
+  border-radius: 4.8% / 3.4%; background: var(--panel-2);
+}
+.cmdr-print-meta { padding: .35rem .1rem 0; }
+.cmdr-print-set {
+  font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 /* ── Touch fallbacks (drag-and-drop / hover don't exist on touch) ── */
 /* ⋯ "move to category" menu on image cards — pointer devices use drag instead. */
 .stack-card-movemenu { position: absolute; top: 3px; right: 3px; z-index: 5; }

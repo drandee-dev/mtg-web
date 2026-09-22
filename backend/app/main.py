@@ -1208,6 +1208,25 @@ def commanders_search(
         raise HTTPException(400, "Commander search failed.") from e
 
 
+@app.get("/api/commanders/synergies")
+def commanders_synergies(
+    response: Response,
+    name: Annotated[str, Query(description="Exact commander name")],
+) -> dict:
+    """Signature cards for a commander page: the cards that most distinguish this
+    commander's decks from the format, with play rate and EDHREC synergy score."""
+    name = name.strip()
+    if not name or len(name) > _MAX_CARD_NAME_LEN:
+        raise HTTPException(400, "Provide a valid commander name.")
+    response.headers["Cache-Control"] = (
+        "public, s-maxage=43200, stale-while-revalidate=86400"
+    )
+    try:
+        return {"cards": mtg.commander_synergies(name)}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(400, "Commander synergies failed.") from e
+
+
 @app.get("/api/commanders/directory")
 def commanders_directory() -> dict:
     """Full commander browse directory (~3,300 cards), ordered by EDHREC rank,
