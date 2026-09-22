@@ -15,14 +15,39 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+from typing import Any
 
 log = logging.getLogger("mtg-web")
 
 _SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 _SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
-_INPUT_COST_CENTS_PER_M = 300
-_OUTPUT_COST_CENTS_PER_M = 1500
+# Cents per million tokens, per model. Anthropic list prices.
+#
+# This used to be two module constants pinned to Sonnet 4.6's $3/$15, which made
+# the ledger wrong in two directions at once: a Haiku fallback response (a third
+# of the price) was billed as Sonnet, and every model switch silently invalidated
+# the monthly cap until someone remembered to edit these numbers.
+_PRICES_CENTS_PER_M = {
+    "claude-opus-5-5": (400, 2000),
+    "claude-opus-5": (500, 2500),
+    "claude-sonnet-5": (200, 1000),
+    "claude-sonnet-4-6": (300, 1500),
+    "claude-haiku-4-5": (100, 500),
+}
+# Unknown model: charge the most expensive rate we know rather than zero, so a
+# typo in a model id overstates the bill instead of hiding it.
+_FALLBACK_PRICE = max(_PRICES_CENTS_PER_M.values())
+
+# Cache reads bill at 0.1x the input rate; the 5-minute write premium is 1.25x.
+# Two models break the 0.1x rule and are cheaper on reads than the multiplier
+# implies, so they need an override rather than the default.
+_CACHE_READ_MULTIPLIER = 0.1
+_CACHE_READ_OVERRIDES = {
+    "claude-opus-5-5": 0.05,
+    "claude-fable-5-1": 0.025,
+}
+_CACHE_WRITE_MULTIPLIER = 1.25
 
 _client = None
 if _SUPABASE_URL and _SUPABASE_SERVICE_ROLE_KEY:
@@ -110,21 +135,38 @@ def record_attempt(limit_key: str) -> None:
         log.exception("Failed to record AI usage attempt event.")
 
 
-def record_cost(input_tokens: int, output_tokens: int) -> None:
+def cost_cents(model: str, usage: Any) -> float:
+    """Price one response, at its own model's rate, including cached tokens.
+
+    `usage.input_tokens` counts only the uncached prefix: Anthropic reports cache
+    reads and cache writes as separate fields. Summing input + output alone
+    therefore billed the cached deck payload at zero, which is the bulk of the
+    input on every deck endpoint.
+    """
+    in_rate, out_rate = _PRICES_CENTS_PER_M.get(model, _FALLBACK_PRICE)
+    read_mult = _CACHE_READ_OVERRIDES.get(model, _CACHE_READ_MULTIPLIER)
+    read = getattr(usage, "cache_read_input_tokens", 0) or 0
+    write = getattr(usage, "cache_creation_input_tokens", 0) or 0
+    return (
+        usage.input_tokens / 1_000_000 * in_rate
+        + read / 1_000_000 * in_rate * read_mult
+        + write / 1_000_000 * in_rate * _CACHE_WRITE_MULTIPLIER
+        + usage.output_tokens / 1_000_000 * out_rate
+    )
+
+
+def record_cost(model: str, usage: Any) -> None:
     """Log actual token cost once the AI response returns (mtg.py's on_ai_usage hook)."""
     if not _client:
         return
-    cost = (
-        input_tokens / 1_000_000 * _INPUT_COST_CENTS_PER_M
-        + output_tokens / 1_000_000 * _OUTPUT_COST_CENTS_PER_M
-    )
+    cost = cost_cents(model, usage)
     try:
         _client.table("ai_usage_events").insert(
             {
                 "kind": "cost",
                 "cost_cents": cost,
-                "input_tokens": input_tokens,
-                "output_tokens": output_tokens,
+                "input_tokens": usage.input_tokens,
+                "output_tokens": usage.output_tokens,
             }
         ).execute()
     except Exception:
