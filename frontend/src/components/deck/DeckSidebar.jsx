@@ -6,18 +6,21 @@ import InsightsPanel from "./InsightsPanel";
 
 // Sidebar layout, top to bottom: the goal-driven copilot spine (Goals →
 // Assessment → Optimize queue), then the tabbed Insights toolbox (Analytics /
-// Suggest / Cuts / Combos / Upgrades / Odds). The old Accordion|Feed dual
-// modes and the separate Composition panel are gone — composition lives in
-// Assessment's gap chips + category table, and every tool renders at the top
-// of the toolbox instead of expanding mid-stack.
+// Changes / Combos / Odds). The old Accordion|Feed dual modes and the
+// separate Composition panel are gone — composition lives in Assessment's gap
+// chips + category table, and every tool renders at the top of the toolbox
+// instead of expanding mid-stack. Suggest/Cuts/Upgrades merged into Changes,
+// which shares the Optimize queue's changeset cards and its session log.
 export default function DeckSidebar({
   result, isAnalyzing,
   activePanel, onPanelClick, onRefreshPanel, busy, stalePanels,
-  recs, recCat, setRecCat, skipped, onSkip, onClearSkipped, onAddCard,
+  recs, recCat, setRecCat, skipped, onClearSkipped, onAddCard,
   pinned, onTogglePin,
-  combos, comp, budgetSwaps, onSwapCard,
-  cuts, onRemoveCard, dismissedCuts, onDismissCut, onClearDismissedCuts,
+  combos, comp, budgetSwaps,
+  cuts, dismissedCuts, onClearDismissedCuts,
+  declinedUpgrades, onClearDeclinedUpgrades, insightDecided, onLoadDeepChanges,
   upgrades, upgradeMode, setUpgradeMode,
+  onApplyInsightChange, onSkipInsightChange,
   commander, format,
   strategy, strategyLoading,
   serverWarmed,
@@ -95,23 +98,25 @@ export default function DeckSidebar({
           recCat={recCat}
           setRecCat={setRecCat}
           skipped={skipped}
-          onSkip={onSkip}
           onClearSkipped={onClearSkipped}
           pinned={pinned}
           onTogglePin={onTogglePin}
           onAddCard={onAddCard}
           cuts={cuts}
-          onRemoveCard={onRemoveCard}
           dismissedCuts={dismissedCuts}
-          onDismissCut={onDismissCut}
           onClearDismissedCuts={onClearDismissedCuts}
+          declinedUpgrades={declinedUpgrades}
+          insightDecided={insightDecided}
+          onLoadDeepChanges={onLoadDeepChanges}
+          onClearDeclinedUpgrades={onClearDeclinedUpgrades}
           combos={combos}
           onGoldfish={onGoldfish}
           budgetSwaps={budgetSwaps}
           upgrades={upgrades}
           upgradeMode={upgradeMode}
           setUpgradeMode={setUpgradeMode}
-          onSwapCard={onSwapCard}
+          onApplyChange={onApplyInsightChange}
+          onSkipChange={onSkipInsightChange}
           commander={commander}
           format={format}
         />

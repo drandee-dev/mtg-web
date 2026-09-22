@@ -4,7 +4,7 @@
 // card modal → Rules prefill.
 
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck } from "./fixtures/helpers.js";
+import { loadSharedDeck, seedLocalDecks, waitForAppReady, dismissColdStart } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
 test.describe("Activation flows", () => {
@@ -77,6 +77,51 @@ test.describe("Activation flows", () => {
 
     await chip.click();
     await expect(page.locator("#insp-pane")).toContainText("Rhystic Study", { timeout: 10000 });
+  });
+
+  // Regression: the chip sets budget mode and loads in the same handler, so
+  // the load must be told the mode explicitly — reading it back out of state
+  // gets the PREVIOUS mode. A user sitting on power upgrades who has never
+  // loaded budget swaps got a dead click: the pane flipped to budget mode and
+  // nothing ever fetched the swaps to put in it.
+  test("over-budget chip forces budget mode even when power upgrades were open", async ({ page }) => {
+    const DECK = {
+      id: "power-mode-deck",
+      name: "Power mode deck",
+      format: "commander",
+      decklist_text: `Commander\n1 ${TEST_COMMANDER}\nDeck\n${TEST_DECK_TEXT}`,
+    };
+    await page.goto("/");
+    await waitForAppReady(page);
+    await seedLocalDecks(page, [DECK]);
+    // This deck was last left on power upgrades, and budget swaps have never
+    // been fetched for it.
+    await page.evaluate((id) => {
+      localStorage.setItem(`mtgweb:insights:${id}`, JSON.stringify({
+        v: 1, panels: {}, activePanel: null, upgradeMode: "power",
+        pinned: [], dismissed: [], dismissedCuts: [], declinedUpgrades: [],
+      }));
+    }, DECK.id);
+    await page.reload();
+    await waitForAppReady(page);
+    await dismissColdStart(page);
+    await page.locator(".deck-card .deck-card-art").first().click();
+    await expect(page.locator(".card-grid-container")).toBeVisible({ timeout: 10000 });
+
+    // Declare a ceiling the mock deck ($68.93) busts.
+    await page.locator(".dg-head").click();
+    await page.locator('.dg-opts[aria-label="Budget ceiling"]').getByRole("button", { name: "$50", exact: true }).click();
+    await page.locator(".dg-head").click();
+
+    const chip = page.locator(".asmt-chip-budget");
+    await expect(chip).toBeVisible({ timeout: 15000 });
+
+    // The chip must fetch budget swaps, not the power upgrades the pane was on.
+    const budgetCall = page.waitForRequest((r) =>
+      new URL(r.url()).pathname.endsWith("/api/deck/budget-swaps"), { timeout: 10000 });
+    await chip.click();
+    await budgetCall;
+    await expect(page.locator('#insp-pane .opt-cat:has-text("Budget")').first()).toBeVisible({ timeout: 10000 });
   });
 
   test("empty Considering shows a zero-state CTA", async ({ page }) => {

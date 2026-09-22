@@ -75,6 +75,29 @@ export async function mockBackend(page) {
     if (path.endsWith("/api/commanders/search")) {
       return json({ results: [cardPayload("Atraxa, Praetors' Voice")] });
     }
+    if (path.endsWith("/api/commanders/directory")) {
+      return json({
+        as_of: "2026-01-01",
+        commanders: [
+          {
+            name: "Atraxa, Praetors' Voice", slug: "atraxa-praetors-voice",
+            color_identity: ["W", "U", "B", "G"], mana_cost: "{G}{W}{U}{B}", cmc: 4,
+            type_line: "Legendary Creature — Phyrexian Angel Horror",
+            oracle_text: "Flying, vigilance, deathtouch, lifelink\nAt the beginning of your end step, proliferate.",
+            edhrec_rank: 3, price_usd: 12.0,
+            playstyle: "Superfriends counters", difficulty: "Moderate",
+            wins_via: ["Combat damage", "Planeswalker ultimates"], themes: ["Proliferate", "+1/+1 counters"],
+          },
+          {
+            name: "Lightning Bolt", slug: "lightning-bolt-cmdr",
+            color_identity: ["R"], mana_cost: "{R}", cmc: 1,
+            type_line: "Legendary Creature — Mock Goblin",
+            oracle_text: "Deal 3 damage to any target.",
+            edhrec_rank: 500, price_usd: 2.5,
+          },
+        ],
+      });
+    }
     if (path.endsWith("/api/rules/ask/stream")) {
       // Server-sent events: the client reads `data: {json}` lines.
       const body =
@@ -91,6 +114,11 @@ export async function mockBackend(page) {
         `data: ${JSON.stringify({ status: "streaming", text: reply })}\n\n` +
         `data: ${JSON.stringify({ status: "done", text: reply })}\n\n`;
       return route.fulfill({ status: 200, contentType: "text/event-stream", body });
+    }
+    if (path.endsWith("/api/planeswalker/chat")) {
+      // Non-streaming chat — the generator's "describe what you like" route
+      // uses it to name one commander from free text.
+      return json({ response: "Atraxa, Praetors' Voice" });
     }
     if (path.endsWith("/api/deck/composition")) {
       return json({
@@ -118,7 +146,7 @@ export async function mockBackend(page) {
         stats: { avg_cmc: 2.5 },
         mana: { overall_status: "OK", pip_demand_pct: {} },
         legality: { overall_status: "PASS", violations: [] },
-        bracket: { bracket: 2, game_changers: [] },
+        bracket: { bracket: 2, name: "Core", game_changers: [], mass_land_denial: [] },
         breakdown: { price_usd: 68.93, prices_as_of: "2026-07-01" },
       });
     }
@@ -142,6 +170,113 @@ export async function mockBackend(page) {
           { action: "cut", cut: "Kodama's Reach", add: null, reason: "Deck is over its card count; weakest duplicate effect.", category: "Ramp", impact: "medium", price_usd: null, cut_price_usd: 0.75, price_delta: -0.75 },
         ],
         model: "mock",
+      });
+    }
+    if (path.endsWith("/api/deck/import-precon")) {
+      // Server-side fuzzy match: the real endpoint 404s when nothing scores.
+      const q = (url.searchParams.get("name") || "").toLowerCase();
+      if (!q || !"necron dynasties".includes(q)) {
+        return route.fulfill({
+          status: 404, contentType: "application/json",
+          body: JSON.stringify({ detail: "No preconstructed deck by that name." }),
+        });
+      }
+      return json({
+        name: "Necron Dynasties",
+        set: "40K", release: "2022-10-07", type: "Commander Deck",
+        commander: "Atraxa, Praetors' Voice",
+        decklist: ["1 Sol Ring", "1 Arcane Signet", "1 Counterspell", "20 Swamp", "20 Island"].join("\n"),
+        sideboard: "",
+        format: "commander",
+        alternates: [{ name: "Tyranid Swarm", release: "2022-10-07" }],
+        source: "mtgjson",
+      });
+    }
+    if (path.endsWith("/api/deck/wizard/skeleton")) {
+      return json({
+        error: false,
+        commander: {
+          name: "Atraxa, Praetors' Voice",
+          color_identity: ["W", "U", "B", "G"],
+          type_line: "Legendary Creature — Phyrexian Angel Horror",
+          oracle_text: "Flying, vigilance, deathtouch, lifelink.",
+          keywords: [], mana_cost: "{G}{W}{U}{B}",
+        },
+        skeleton: {
+          staples: [
+            { name: "Sol Ring", reason: "format staple" },
+            { name: "Arcane Signet", reason: "format staple" },
+          ],
+          suggested_lands: [
+            { name: "Command Tower", reason: "staple" },
+            { name: "Plains" }, { name: "Island" }, { name: "Swamp" }, { name: "Forest" },
+          ],
+          high_synergy: [
+            { name: "Deepglow Skate", synergy: 0.92 },
+            { name: "Rhystic Study", synergy: 0.71 },
+          ],
+          top_cards: [
+            { name: "Smothering Tithe", synergy: 0.6 },
+            { name: "Cultivate", synergy: 0.4 },
+          ],
+          instants: [
+            { name: "Swords to Plowshares", synergy: 0.5 },
+            { name: "Counterspell", synergy: 0.45 },
+          ],
+          sorceries: [{ name: "Kodama's Reach", synergy: 0.3 }],
+        },
+        bracket: null,
+      });
+    }
+    if (path.endsWith("/api/deck/wizard/narrate")) {
+      // Echo the names back one per line, in the "Name: reason" shape the real
+      // prompt asks for, so the client-side narration parser is exercised.
+      const body = route.request().postDataJSON() || {};
+      const names = body.card_names || [];
+      return json({
+        error: false,
+        model: "mock",
+        narration: names.map((n) => `- ${n}: Pulls its weight in the ${body.category || "deck"}.`).join("\n"),
+      });
+    }
+    if (path.endsWith("/api/deck/ai/fills")) {
+      return json({
+        error: false,
+        model: "mock",
+        fills: [{
+          category: "Card draw",
+          suggestions: [{ name: "Malakir Rebirth", reason: "Cheap protection the draw-thin build wants." }],
+          pool: [],
+        }],
+      });
+    }
+    if (path.endsWith("/api/deck/ai/cuts")) {
+      return json({
+        error: false,
+        model: "mock",
+        cuts: [{ name: "Cultivate", reason: "Weakest ramp once the signets are in." }],
+      });
+    }
+    if (path.endsWith("/api/deck/ai/explain")) {
+      const body = route.request().postDataJSON() || {};
+      const names = body.card_names || [];
+      return json({
+        error: false,
+        model: "mock",
+        explanations: names.map((n) => ({ name: n, explanation: `Rated: pulls its weight for ${n}.` })),
+      });
+    }
+    if (path.endsWith("/api/deck/budget-swaps")) {
+      return json({
+        total_savings: 19.01,
+        swaps: [{ card: "Smothering Tithe", price: 20.0, alternative: { name: "Arcane Signet", price: 0.99 } }],
+      });
+    }
+    if (path.endsWith("/api/deck/ai/upgrades")) {
+      return json({
+        error: false,
+        model: "mock",
+        upgrades: [{ replaces: "Cultivate", replacement: "Rhystic Study", reason: "Straight power increase.", price_usd: 25.0 }],
       });
     }
     // Generic fallback for deck analysis / AI endpoints not exercised here.

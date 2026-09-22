@@ -2323,6 +2323,23 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 .ts-pip-c { background: #c8c2d4; color: #2b2533; }
 .ts-pip-x { background: #b9b3aa; color: #2b2823; font-style: italic; }
 
+/* Color-identity filter chips (Commanders browse) — bigger, clickable pips reusing
+   the ts-pip-* color set; hit target extended via ::after (adjacent-controls case,
+   see the coarse-pointer block below), not by growing the visible circle. */
+.color-filter-pip {
+  position: relative; width: 28px; height: 28px; min-height: auto; padding: 0;
+  border: 2px solid transparent; cursor: pointer;
+  font-size: var(--fs-xs); font-weight: 700;
+}
+.color-filter-pip.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+/* Commander detail hero */
+.commander-detail-hero { display: flex; gap: 1.2rem; flex-wrap: wrap; align-items: flex-start; }
+.commander-detail-art {
+  width: 100%; max-width: 320px; aspect-ratio: 626 / 457; object-fit: cover;
+  border-radius: var(--radius-lg); background: var(--panel-2); flex: none;
+}
+
 /* ── Touch fallbacks (drag-and-drop / hover don't exist on touch) ── */
 /* ⋯ "move to category" menu on image cards — pointer devices use drag instead. */
 .stack-card-movemenu { position: absolute; top: 3px; right: 3px; z-index: 5; }
@@ -2888,6 +2905,99 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .empty-action-t { font-weight: 600; font-size: var(--fs-sm); }
 .empty-action-d { font-size: var(--fs-xs); color: var(--muted); }
 
+/* Deeper-pass button in the Changes queue — the one action there that spends
+   model calls, so it carries its own effort label. */
+.insp-deep {
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  width: 100%; margin-bottom: .45rem; padding: .45rem .6rem;
+  background: var(--panel-2); border: 1px dashed var(--border-strong);
+  border-radius: var(--radius); color: var(--text); cursor: pointer;
+  font-size: var(--fs-xs); font-weight: 600; text-align: left;
+}
+.insp-deep:hover { border-color: var(--accent); background: var(--accent-soft); }
+.insp-deep-badge {
+  flex: none; padding: .1rem .4rem; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent);
+  font-size: var(--fs-2xs); letter-spacing: .08em; text-transform: uppercase;
+}
+
+/* ===== Deck generator (branching entry screen) =====
+   Four labelled routes plus the one-shot build. Layout only — every colour
+   comes from the shared tokens, so accent still means "actionable". */
+.gen { max-width: 720px; margin: 0 auto; padding: 0 1rem 2rem; }
+.gen-hero { text-align: center; padding: 1.6rem 0 1rem; }
+.gen-title {
+  font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
+  font-weight: 600; font-size: var(--fs-xl); margin: 0; text-wrap: balance;
+}
+.gen-sub {
+  margin: .5rem auto 0; max-width: 34rem; color: var(--text-secondary);
+  font-size: var(--fs-base); line-height: 1.5; text-wrap: balance;
+}
+.gen-head { display: flex; align-items: center; gap: .8rem; padding: .6rem 0; flex-wrap: wrap; }
+.gen-progress { flex: 1 1 16rem; display: flex; flex-direction: column; gap: .3rem; }
+.gen-progress-row { display: flex; justify-content: space-between; align-items: baseline; gap: .6rem; }
+.gen-step {
+  font-size: var(--fs-2xs); letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); min-width: 0; overflow-wrap: anywhere;
+}
+.gen-pct { font-size: var(--fs-2xs); letter-spacing: .12em; color: var(--muted); font-variant-numeric: tabular-nums; }
+.gen-track { height: 3px; border-radius: 2px; background: var(--hover-strong); overflow: hidden; }
+.gen-fill { height: 3px; border-radius: 2px; background: var(--accent); transition: width .25s ease; }
+.gen-h2 {
+  font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
+  font-weight: 600; font-size: var(--fs-lg); margin: 1.4rem 0 .3rem; text-wrap: balance;
+}
+.gen-lede { margin: 0 0 1rem; color: var(--text-secondary); font-size: var(--fs-sm); line-height: 1.5; }
+.gen-doors { display: grid; gap: .6rem; }
+.gen-door {
+  display: flex; align-items: flex-start; gap: 1rem; width: 100%; text-align: left;
+  padding: 1rem 1.1rem; background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); cursor: pointer; color: var(--text);
+  transition: border-color .12s, background .12s;
+}
+.gen-door-accent { border-color: var(--accent); background: var(--accent-soft); }
+.gen-door-good { border-color: rgba(61,206,138,.45); background: var(--good-soft); }
+.gen-door:disabled { cursor: default; opacity: .72; }
+.gen-door-txt { display: flex; flex-direction: column; gap: .3rem; min-width: 0; flex: 1 1 auto; }
+.gen-door-t {
+  font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
+  font-weight: 600; font-size: var(--fs-md);
+}
+.gen-door-d { font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.45; }
+.gen-badge {
+  flex: none; padding: .2rem .55rem; border-radius: 999px; background: var(--panel-2);
+  color: var(--text-secondary); font-size: var(--fs-2xs); font-weight: 600;
+  letter-spacing: .09em; text-transform: uppercase; white-space: nowrap;
+}
+.gen-badge-accent { background: var(--accent-soft); color: var(--accent); }
+.gen-badge-good { background: var(--good-soft); color: var(--good); }
+.gen-describe { width: 100%; min-height: 6rem; resize: vertical; margin-bottom: .6rem; }
+.gen-building { display: flex; flex-direction: column; gap: .6rem; }
+.gen-candidates { display: grid; gap: .3rem; margin-top: .6rem; }
+.gen-candidate {
+  display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; width: 100%;
+  text-align: left; padding: .6rem .8rem; background: var(--panel-2);
+  border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; color: var(--text);
+}
+.gen-candidate:hover { border-color: var(--accent); background: var(--accent-soft); }
+.gen-candidate-name { font-weight: 600; font-size: var(--fs-sm); }
+.gen-candidate-go { margin-left: auto; color: var(--accent); font-size: var(--fs-xs); white-space: nowrap; }
+.gen-cat { margin: 0 0 .4rem; font-size: var(--fs-sm); }
+.gen-card-row {
+  display: flex; flex-direction: column; gap: .15rem;
+  border-top: 1px solid var(--border); padding: .4rem 0;
+}
+.gen-card-name { font-size: var(--fs-sm); }
+.gen-card-why { font-size: var(--fs-xs); color: var(--text-secondary); line-height: 1.5; }
+
+/* Why the generator picked this card, shown in the card detail modal. */
+.cdm-why {
+  margin: .5rem 0 0; padding: .45rem .6rem; border-left: 2px solid var(--accent);
+  background: var(--accent-soft); border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: var(--fs-xs); color: var(--text-secondary); line-height: 1.5;
+}
+
 /* ===== Import cards modal ===== */
 .icm-overlay {
   position: fixed; inset: 0; z-index: 130; background: rgba(0,0,0,.6);
@@ -2922,6 +3032,15 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .icm-srcs { display: flex; gap: .4rem; margin-top: .6rem; }
 .icm-src { font-size: var(--fs-xs); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 999px; padding: .15rem .55rem; }
 .icm-foot { display: flex; justify-content: flex-end; gap: .5rem; padding: 0 1.1rem .9rem; }
+
+/* ── Upgrade-review guide (Job 3) — the icm shell, gen-* progress bar and
+   gen-card-row rating rows are all reused as-is; only the content is new. */
+.upr-panel { width: min(560px, 100%); }
+.upr-progress { padding: 0 1.1rem; margin-top: .6rem; }
+.upr-body { display: flex; flex-direction: column; gap: .6rem; max-height: 60vh; overflow-y: auto; }
+.upr-lede { margin: 0; font-size: var(--fs-xs); color: var(--text-secondary); line-height: 1.5; }
+.upr-bracket { display: flex; flex-direction: column; gap: .3rem; align-items: flex-start; }
+.upr-error { color: var(--bad); }
 
 /* ── Mass art modal — set chips + preview grid on the .icm shell ── */
 .mam-panel { max-width: 34rem; }
@@ -3007,7 +3126,7 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
    close buttons -- are exempted and get an invisible ::after hit extender;
    tight stacks extend less so neighboring zones don't overlap. */
 @media (pointer: coarse) {
-  button:not(.card-rail-btn):not(.cdm-close):not(.cdm-flip):not(.pw-cardchip-btn):not(.sync-nudge-x):not(.dg-suggest-x),
+  button:not(.card-rail-btn):not(.cdm-close):not(.cdm-flip):not(.pw-cardchip-btn):not(.sync-nudge-x):not(.dg-suggest-x):not(.color-filter-pip),
   input, select {
     min-height: 44px !important;
   }
@@ -3018,7 +3137,8 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
     content: ""; position: absolute; left: 50%; top: 50%;
     width: 44px; height: 44px; transform: translate(-50%, -50%);
   }
-  .card-rail-btn::after, .cdm-stepper button::after, .pw-cardchip-btn::after {
+  .card-rail-btn::after, .cdm-stepper button::after, .pw-cardchip-btn::after,
+  .color-filter-pip::after {
     content: ""; position: absolute; inset: -5px;
   }
 }

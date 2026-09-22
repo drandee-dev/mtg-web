@@ -7,6 +7,7 @@ import { makeStore } from "./lib/store";
 import { downloadFile } from "./lib/hooks";
 import { historyTopIsGhost, registerTabHandler, useBackClose } from "./lib/backstack";
 import { DEFAULT_GOALS, loadGoals, saveGoals } from "./lib/goals";
+import { clearBuildNotes } from "./lib/buildNotes";
 import GlobalToolbar from "./components/layout/GlobalToolbar";
 import BottomNav from "./components/layout/BottomNav";
 import ServerStatusBanner from "./components/ServerStatusBanner";
@@ -20,6 +21,7 @@ import Feedback from "./components/Feedback";
 const FEEDBACK_ENABLED = Boolean(import.meta.env.VITE_FORMSPREE_ID);
 import Playtest from "./components/Playtest";
 import Planeswalker from "./components/Planeswalker";
+import Commanders from "./components/Commanders";
 
 function PasswordResetModal({ onDone, notify }) {
   const [pw, setPw] = useState("");
@@ -58,6 +60,7 @@ function PasswordResetModal({ onDone, notify }) {
 const TABS = [
   ["decks", "My Decks"],
   ["deck", "Analyze & Build"],
+  ["commanders", "Commanders"],
   ["rules", "Rules"],
   ["cards", "Card Search"],
 ];
@@ -97,11 +100,22 @@ function _initialTab() {
   return "decks";
 }
 
+// Sub-navigation within the Commanders tab: ?tab=commanders&slug=<slug> opens a
+// commander's page. Deliberately a query param through the app's one existing
+// history mechanism, not a second router — see the Commanders tab section below.
+function _initialSlug() {
+  return new URLSearchParams(window.location.search).get("slug") || null;
+}
+
 export default function App() {
   // Parsed once per page load (lazy init) — the ?deck= param persists in the
   // URL now, so re-decoding on every render would be wasted work.
   const [_shared] = useState(_loadSharedDeck);
   const [tab, setTab] = useState(_shared ? "deck" : _initialTab());
+  // Which commander page is open within the Commanders tab (?slug=), and the
+  // commander the Wizard should pre-seed when "Build with strategy" is clicked.
+  const [commanderSlug, setCommanderSlug] = useState(_shared ? null : _initialSlug());
+  const [wizardInitialCommander, setWizardInitialCommander] = useState("");
   const [playtesting, setPlaytesting] = useState(false);
   // Cards to seed into the opening hand when Playtest opens ("goldfish this line").
   const [playtestStage, setPlaytestStage] = useState(null);
@@ -170,10 +184,17 @@ export default function App() {
     return true;
   }, []);
 
-  const newDeck = useCallback((importTab = null) => {
+  // The generator's per-card notes describe one deck and are keyed by card
+  // name alone, so they have to go the moment a different deck is on screen.
+  // These three callbacks are every way that happens; auto-save giving the
+  // just-generated deck an id deliberately isn't one of them.
+  // initialCommander pre-seeds the manual builder — "Build from scratch" from a
+  // commander page (Job 2).
+  const newDeck = useCallback((importTab = null, initialCommander = "") => {
     if (!confirmDiscardEdits()) return;
+    clearBuildNotes();
     setDeckText("");
-    setCommander("");
+    setCommander(initialCommander || "");
     setMaybeboard("");
     setFormat("commander");
     setCurrentDeck(null);
@@ -183,8 +204,11 @@ export default function App() {
     setTab("deck");
   }, [confirmDiscardEdits]);
 
-  const guidedBuild = useCallback(() => {
+  // initialCommander pre-seeds the Wizard — "Build with strategy" from a
+  // commander page (Job 2).
+  const guidedBuild = useCallback((initialCommander = "") => {
     if (!confirmDiscardEdits()) return;
+    clearBuildNotes();
     setDeckText("");
     setCommander("");
     setMaybeboard("");
@@ -192,6 +216,7 @@ export default function App() {
     setCurrentDeck(null);
     savedDeckText.current = "";
     setStartInWizard(true);
+    setWizardInitialCommander(initialCommander || "");
     setStartImport(null);
     setTab("deck");
   }, [confirmDiscardEdits]);
@@ -211,6 +236,7 @@ export default function App() {
     registerTabHandler(() => {
       popNav.current = true;
       setTab(_initialTab());
+      setCommanderSlug(_initialSlug());
     });
   }, []);
 
@@ -218,13 +244,15 @@ export default function App() {
     const url = new URL(window.location);
     if (tab === "decks") { url.searchParams.delete("tab"); }
     else { url.searchParams.set("tab", tab); }
+    if (tab === "commanders" && commanderSlug) { url.searchParams.set("slug", commanderSlug); }
+    else { url.searchParams.delete("slug"); }
     if (popNav.current) { popNav.current = false; return; }
     if (url.href !== window.location.href) {
       // Recycle an abandoned layer entry rather than stacking on top of it.
       if (historyTopIsGhost()) window.history.replaceState({ tab }, "", url);
       else window.history.pushState({ tab }, "", url);
     }
-  }, [tab]);
+  }, [tab, commanderSlug]);
 
   // Back gesture closes full-screen/system layers before walking tabs.
   useBackClose(playtesting, () => setPlaytesting(false));
@@ -235,7 +263,7 @@ export default function App() {
   useEffect(() => {
     const scrolls = tabScroll.current;
     window.scrollTo(0, scrolls[tab] || 0);
-    const names = { decks: "My Decks", deck: "Deck Builder", rules: "Rules", cards: "Card Search" };
+    const names = { decks: "My Decks", deck: "Deck Builder", commanders: "Commanders", rules: "Rules", cards: "Card Search" };
     document.title = `${names[tab] || "MTG Workshop"} · MTG Workshop`;
     return () => { scrolls[tab] = window.scrollY; };
   }, [tab]);
@@ -492,6 +520,7 @@ export default function App() {
 
   const openDeck = useCallback((deck) => {
     if (deck.id !== currentDeck?.id && !confirmDiscardEdits()) return;
+    clearBuildNotes();
     const { commander: c, deckText: t, maybeboard: mb } = disassembleDecklist(deck.decklist_text);
     setFormat(deck.format || "commander");
     setCommander(c);
@@ -586,6 +615,7 @@ export default function App() {
             onShare={shareDeck}
             startInWizard={startInWizard}
             onWizardConsumed={() => setStartInWizard(false)}
+            initialCommander={wizardInitialCommander}
             startImport={startImport}
             onImportConsumed={() => setStartImport(null)}
             onBack={() => setTab("decks")}
@@ -614,6 +644,15 @@ export default function App() {
             decksIntent={decksIntent}
             onIntentConsumed={clearDecksIntent}
             onOpenAccount={supabaseEnabled ? () => setSettingsOpen(true) : null}
+          />
+        )}
+        {tab === "commanders" && (
+          <Commanders
+            slug={commanderSlug}
+            setSlug={setCommanderSlug}
+            onBuildWithStrategy={(name) => guidedBuild(name)}
+            onBuildFromScratch={(name) => newDeck(null, name)}
+            notify={notify}
           />
         )}
         {tab === "rules" && (

@@ -57,9 +57,9 @@ function RoleBadges({ roles }) {
   );
 }
 
-export default function Wizard({ onFinish, notify }) {
+export default function Wizard({ onFinish, notify, initialCommander }) {
   const [phase, setPhase] = useState("setup"); // setup | building | review
-  const [commander, setCommander] = useState("");
+  const [commander, setCommander] = useState(initialCommander || "");
   const [format, setFormat] = useState("commander");
   const [bracket, setBracket] = useState(null);
   const [skeleton, setSkeleton] = useState(null);

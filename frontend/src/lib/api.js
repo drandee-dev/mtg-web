@@ -95,6 +95,7 @@ export const api = {
   combos: (decklist, format) => post("/api/deck/combos", { decklist, format }),
   composition: (decklist, format) => post("/api/deck/composition", { decklist, format }),
   commanders: (q, partnerOf) => get("/api/commanders/search", { q, partner_of: partnerOf }),
+  commanderDirectory: () => get("/api/commanders/directory"),
   cardImage: (name) => get("/api/cards/image", { name }),
   cardPrints: (name) => get("/api/cards/prints", { name }),
   cardPrinting: (set, cn) => get("/api/cards/printing", { set, cn }),
@@ -105,20 +106,18 @@ export const api = {
     post("/api/deck/wizard/skeleton", { commander, format, ...(bracket != null ? { bracket } : {}) }),
   wizardNarrate: (commander, category, card_names, decklist) =>
     post("/api/deck/wizard/narrate", { commander, category, card_names, decklist }),
-  wizardChat: (commander, messages, decklist, format, bracket) =>
-    post("/api/deck/wizard/chat", { commander, messages, decklist, format, ...(bracket != null ? { bracket } : {}) }),
-  rulesAsk: (question) =>
-    post("/api/rules/ask", { question }),
+  // wizardChat / rulesAsk / aiCombos were removed 2026-09-20: duplicates of
+  // planeswalkerChat, rulesAskStream and combos respectively. The backend
+  // routes stay — someone may add a caller later — but nothing reaches them
+  // from the UI, and keeping two client methods for one job invited drift.
   rulesAskStream: (question, onChunk) =>
     postStream("/api/rules/ask/stream", { question }, onChunk),
   aiCuts: (decklist, format, bracket, goals) =>
     post("/api/deck/ai/cuts", { decklist, format, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}) }),
   aiFills: (decklist, format, bracket, goals) =>
     post("/api/deck/ai/fills", { decklist, format, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}) }),
-  aiExplain: (decklist, format, card_names, bracket) =>
-    post("/api/deck/ai/explain", { decklist, format, card_names, ...(bracket != null ? { bracket } : {}) }),
-  aiCombos: (decklist, format, combos, near_misses, bracket) =>
-    post("/api/deck/ai/combos", { decklist, format, combos, near_misses, ...(bracket != null ? { bracket } : {}) }),
+  aiExplain: (decklist, format, card_names, bracket, goals) =>
+    post("/api/deck/ai/explain", { decklist, format, card_names, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}) }),
   aiStrategy: (decklist, format, commander, bracket) =>
     post("/api/deck/ai/strategy", { decklist, format, ...(commander ? { commander } : {}), ...(bracket != null ? { bracket } : {}) }),
   aiUpgrades: (decklist, format, commander, bracket, mode, goals) =>
