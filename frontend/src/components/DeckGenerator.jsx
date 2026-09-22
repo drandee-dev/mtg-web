@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, FORMATS, getCardImage } from "../lib/api";
+import { searchCommanders as scryfallSearchCommanders } from "../lib/scryfall";
 import { parseNarration } from "../lib/buildNotes";
 import { parseCollectionCsv, buildOwnedIndex, ownedQuantity } from "../lib/collection";
 import { fmtUsd } from "../lib/format";
@@ -171,6 +172,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
   const [cmdQuery, setCmdQuery] = useState("");
   const searchDebounce = useRef(null);
   const searchSeq = useRef(0);
+  const searchAbort = useRef(null);
 
   const [progress, setProgress] = useState(null); // null | {label, pct}
   const [built, setBuilt] = useState(null); // {commander, cards, basics, notes}
@@ -275,20 +277,26 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
   }
 
   // Debounced, same 250ms the other typeaheads use, with a sequence guard so a
-  // slow early response can't overwrite a newer one.
+  // slow early response can't overwrite a newer one. Unconstrained (no partner
+  // legality involved, just "pick a commander to build around") — straight to
+  // Scryfall, same as CommanderInput's first-commander path. See lib/scryfall.js
+  // for why that split exists and what was verified before making the change.
   function searchCommanders(q) {
     clearTimeout(searchDebounce.current);
+    searchAbort.current?.abort();
     const query = q.trim();
     if (query.length < 2) { setCandidates(null); setSearching(false); return; }
     setSearching(true);
     searchDebounce.current = setTimeout(async () => {
       const mine = ++searchSeq.current;
+      const controller = new AbortController();
+      searchAbort.current = controller;
       try {
-        const r = await api.commanders(query);
+        const results = await scryfallSearchCommanders(query, { signal: controller.signal });
         if (mine !== searchSeq.current) return;
-        setCandidates(r.results || []);
+        setCandidates(results);
       } catch (e) {
-        if (mine !== searchSeq.current) return;
+        if (e.name === "AbortError" || mine !== searchSeq.current) return;
         setCandidates([]);
         notify?.(`Search failed: ${e.message}`);
       } finally {
