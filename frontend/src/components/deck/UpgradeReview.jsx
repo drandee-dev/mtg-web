@@ -18,23 +18,33 @@ const RATE_LIMIT = 15;
  * Changes queue for swaps. Every payoff already exists (DeckGoals, analyze's
  * bracket detection, aiExplain, the Changes tab) — this only sequences them
  * in the order an upgrade flow needs. Opens once, right after a paste import
- * lands on a previously-empty deck (see DeckView's handleImportText). */
+ * lands on a previously-empty deck (see DeckView's handleImportText).
+ *
+ * `ratings` is DeckView's own persisted state (same PANEL_KEYS cache every
+ * other paid AI panel uses), not local — closing the guide or switching tabs
+ * must not throw away an AI call already paid for. `ratingsStale` means the
+ * cached ratings were fetched for a decklist that no longer matches (e.g.
+ * the deck was emptied and refilled since); treated as absent here so the
+ * guide never shows ratings for cards that aren't in the deck any more. */
 export default function UpgradeReview({
-  open, onClose, goals, setGoals, deckCardNames, result, onLoadRatings, onGoToChanges,
+  open, onClose, goals, setGoals, deckCardNames, result,
+  ratings, ratingsStale, onLoadRatings, onGoToChanges,
 }) {
   if (!open) return null;
   return (
     <ModalInner
       goals={goals} setGoals={setGoals} deckCardNames={deckCardNames}
       result={result} onClose={onClose}
+      ratings={ratingsStale ? null : ratings}
       onLoadRatings={onLoadRatings} onGoToChanges={onGoToChanges}
     />
   );
 }
 
-function ModalInner({ goals, setGoals, deckCardNames, result, onClose, onLoadRatings, onGoToChanges }) {
+function ModalInner({ goals, setGoals, deckCardNames, result, onClose, ratings, onLoadRatings, onGoToChanges }) {
   const [step, setStep] = useState(0);
-  const [ratings, setRatings] = useState(null); // null | {loading} | {explanations} | {error}
+  const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
   const panelRef = useFocusTrap(true);
   useBackClose(true, onClose);
 
@@ -43,13 +53,18 @@ function ModalInner({ goals, setGoals, deckCardNames, result, onClose, onLoadRat
   const truncated = (deckCardNames || []).length > RATE_LIMIT;
 
   async function rateCards() {
-    setRatings({ loading: true });
+    setLoading(true);
+    setFetchError(null);
     try {
       const r = await onLoadRatings(names);
-      if (r.error) setRatings({ error: r.message || "Rating failed." });
-      else setRatings({ explanations: r.explanations || [] });
+      // A successful call lands in DeckView's `ratings` state and flows back
+      // down as a prop — nothing to set here. A failure only needs the
+      // inline message; whatever was cached before (if anything) stays put.
+      if (r.error) setFetchError(r.message || "Rating failed.");
     } catch (e) {
-      setRatings({ error: e.message });
+      setFetchError(e.message);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -98,18 +113,18 @@ function ModalInner({ goals, setGoals, deckCardNames, result, onClose, onLoadRat
                 <p className="muted small">Analyzing your decklist…</p>
               )}
 
-              {!ratings && (
+              {!ratings && !loading && (
                 <button className="insp-deep" onClick={rateCards} disabled={!names.length}>
                   <span>Rate my {names.length} card{names.length === 1 ? "" : "s"}</span>
                   <span className="insp-deep-badge">Uses AI</span>
                 </button>
               )}
-              {truncated && !ratings && (
+              {truncated && !ratings && !loading && (
                 <p className="small muted">Rates the first {RATE_LIMIT} cards in the list.</p>
               )}
 
-              {ratings?.loading && <LoadingIndicator label="Rating cards" active />}
-              {ratings?.error && <p className="small upr-error">{ratings.error}</p>}
+              {loading && <LoadingIndicator label="Rating cards" active />}
+              {fetchError && <p className="small upr-error">{fetchError}</p>}
               {ratings?.explanations?.map((c, i) => (
                 <div className="gen-card-row" key={c.name || i}>
                   <span className="gen-card-name"><CardPreview name={c.name} /></span>

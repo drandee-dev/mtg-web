@@ -75,6 +75,10 @@ export default function DeckView({
   const [budgetSwaps, setBudgetSwaps] = useState(() => hp("budgetSwaps"));
   const [cuts, setCuts] = useState(() => hp("cuts"));
   const [upgrades, setUpgrades] = useState(() => hp("upgrades"));
+  // Job 3 card ratings (aiExplain) — persisted the same way as every other
+  // paid AI panel so closing the guide, switching tabs, or reloading doesn't
+  // discard explanations already paid for with an AI call.
+  const [ratings, setRatings] = useState(() => hp("ratings"));
   const [upgradeMode, setUpgradeMode] = useState(hydrated?.upgradeMode || "budget");
   const [panelSigs, setPanelSigs] = useState(() => {
     const sigs = {};
@@ -141,6 +145,7 @@ export default function DeckView({
     const d = (k) => c?.panels?.[k]?.data ?? null;
     setResult(d("result")); setComp(d("comp")); setRecs(d("recs")); setCuts(d("cuts"));
     setCombos(d("combos")); setBudgetSwaps(d("budgetSwaps")); setUpgrades(d("upgrades")); setStrategy(d("strategy"));
+    setRatings(d("ratings"));
     setActivePanel(migratePanel(c?.activePanel ?? null));
     if (c?.upgradeMode) setUpgradeMode(c.upgradeMode);
     setSkipped(new Set(c?.dismissed || []));
@@ -160,7 +165,7 @@ export default function DeckView({
   // during the render where deckId has changed but state hasn't rehydrated.
   useEffect(() => {
     if (hydratedFor.current !== deckId) return;
-    const data = { result, comp, recs, cuts, combos, budgetSwaps, upgrades, strategy };
+    const data = { result, comp, recs, cuts, combos, budgetSwaps, upgrades, strategy, ratings };
     const panels = {};
     for (const k of PANEL_KEYS) {
       if (data[k] != null) panels[k] = { data: data[k], sig: panelSigs[k] || null };
@@ -170,7 +175,7 @@ export default function DeckView({
       pinned: [...pinned], dismissed: [...skipped], dismissedCuts: [...dismissedCuts],
       declinedUpgrades: [...declinedUpgrades], insightDecided,
     });
-  }, [deckId, result, comp, recs, cuts, combos, budgetSwaps, upgrades, strategy, activePanel, upgradeMode, panelSigs, pinned, skipped, dismissedCuts, declinedUpgrades, insightDecided]);
+  }, [deckId, result, comp, recs, cuts, combos, budgetSwaps, upgrades, strategy, ratings, activePanel, upgradeMode, panelSigs, pinned, skipped, dismissedCuts, declinedUpgrades, insightDecided]);
 
   // Stay in sync with log writes from other surfaces (chat card-chip adds).
   useEffect(() => {
@@ -534,8 +539,15 @@ export default function DeckView({
       const res = await api.importUrl((url || "").trim());
       if (!(res.decklist || "").trim() && !(res.sideboard || "").trim()) throw new Error("no cards found in the import");
       const deckPopulated = Boolean(decklist.trim() || commander);
-      if (deckPopulated) setPendingImport(res); // confirm before replacing
-      else applyUrlImport(res);
+      if (deckPopulated) {
+        setPendingImport(res); // confirm before replacing
+      } else {
+        applyUrlImport(res);
+        // Same "I have a list, help me upgrade it" state a paste into an
+        // empty deck lands in — the guide shouldn't care which import path
+        // got the user there.
+        setUpgradeReviewOpen(true);
+      }
     } catch (e) {
       notify?.(`Import failed: ${e.message}`);
       throw e;
@@ -799,16 +811,26 @@ export default function DeckView({
     setBusy("Changes");
     const sig = currentSig; // capture: the deck may be edited mid-flight
     const full = assembleDecklist(decklist, isCommanderFmt ? commander : "");
+    // Cached cuts/upgrades can be non-null but stale: deckId-keyed state
+    // persists across the deck being emptied and refilled with an unrelated
+    // list (the Job 3 guide reopens exactly there), so "already have it"
+    // must mean "have it for THIS decklist", not merely "not null". `force`
+    // already re-buys deliberately; a stale cache under `deep` needs the
+    // same treatment or it silently serves swap suggestions for cards that
+    // are no longer in the deck.
+    const stale = (k) => panelSigs[k] != null && panelSigs[k] !== sig;
     const jobs = [];
     if (force || !recs) {
       jobs.push(api.recommend(full, format).then((r) => { setRecs(r); markFresh("recs", sig); }));
     }
     // Metered: bought only when asked for (`deep`), re-bought only when the
-    // user refreshes something they already have.
-    if ((deep && !cuts) || (force && cuts)) {
+    // user refreshes something they already have, or when what's cached no
+    // longer matches the deck on screen.
+    if ((deep && (!cuts || stale("cuts"))) || (force && cuts)) {
       jobs.push(api.aiCuts(full, format, null, apiGoals).then((r) => { setCuts(r); markFresh("cuts", sig); }));
     }
-    if ((deep && !haveUpgrade) || (force && haveUpgrade)) {
+    const upgradeKey = wantMode === "budget" ? "budgetSwaps" : "upgrades";
+    if ((deep && (!haveUpgrade || stale(upgradeKey))) || (force && haveUpgrade)) {
       if (wantMode === "budget") {
         jobs.push(api.budgetSwaps(full, format).then((r) => { setBudgetSwaps(r); markFresh("budgetSwaps", sig); }));
       } else {
@@ -856,16 +878,24 @@ export default function DeckView({
   // Job 3 guided flow — ratings and the hand-off into the existing Changes
   // queue. Kept next to applyInsightChange/skipInsightChange since it feeds
   // the same sidebar state (activePanel, the Changes deep-load).
+  //
+  // Ratings persist into the same panel cache every other paid AI result
+  // uses (PANEL_KEYS/insightsCache) — a spent AI call is kept on a close, a
+  // tab switch, or a reload, same as cuts/upgrades/strategy. Only a
+  // successful call is cached; a failure leaves whatever was cached before.
   function loadCardRatings(cardNames) {
     if (!decklist.trim()) return Promise.resolve({ error: true, message: "Add some cards first." });
+    const sig = currentSig; // capture: the deck may be edited mid-flight
     const full = assembleDecklist(decklist, isCommanderFmt ? commander : "");
-    return api.aiExplain(full, format, cardNames, null, apiGoals);
+    return api.aiExplain(full, format, cardNames, null, apiGoals).then((r) => {
+      if (!r.error) { setRatings(r); markFresh("ratings", sig); }
+      return r;
+    });
   }
 
   function goToChangesFromReview() {
     setUpgradeReviewOpen(false);
-    setActivePanel("Changes");
-    loadChanges({ deep: true });
+    loadChanges({ deep: true }); // sets activePanel("Changes") itself
   }
 
   // Each source owns its own persisted verdict list, so one source's "Show
@@ -1222,6 +1252,8 @@ export default function DeckView({
         setGoals={setGoals}
         deckCardNames={deckCardNames}
         result={result}
+        ratings={ratings}
+        ratingsStale={Boolean(ratings && panelSigs.ratings && panelSigs.ratings !== currentSig)}
         onLoadRatings={loadCardRatings}
         onGoToChanges={goToChangesFromReview}
       />

@@ -16,7 +16,7 @@ const key = (deckId) => `mtgweb:insights:${deckId || "current"}`;
 
 // Panel state keys DeckView persists (result/comp are free recomputes but
 // hydrating them makes the sidebar render instantly; the rest are lazy or AI).
-export const PANEL_KEYS = ["result", "comp", "recs", "cuts", "combos", "budgetSwaps", "upgrades", "strategy"];
+export const PANEL_KEYS = ["result", "comp", "recs", "cuts", "combos", "budgetSwaps", "upgrades", "strategy", "ratings"];
 
 /** Card-presence signature: sorted unique card names + commanders + format.
  * Quantities and printing suffixes deliberately excluded. */

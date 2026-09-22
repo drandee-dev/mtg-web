@@ -26,6 +26,18 @@ async function pasteIntoEmptyDeck(page) {
   await page.locator(".icm-foot button", { hasText: "Import" }).click();
 }
 
+// Strip a populated deck back to nothing by hand: clear the 99 via the text
+// editor, then drop the commander from its card-detail modal. Same sequence
+// deck-generator.spec.js's regression test uses.
+async function emptyDeckByHand(page) {
+  await page.locator(".dh-actions .more-menu-btn").click();
+  await page.locator(".more-menu-item", { hasText: "Edit as text" }).click();
+  await page.locator(".deck-text-editor").fill("");
+  await page.locator(`.card-thumb[aria-label*="${TEST_COMMANDER.split(",")[0]}"]`).first().click();
+  await page.locator(".cdm-actions button", { hasText: "Change commander" }).click();
+  await expect(page.locator(".empty-deck")).toBeVisible();
+}
+
 test.describe("Upgrade review — guided flow", () => {
   test.skip(({ isMobile }) => isMobile, "desktop sidebar flow");
 
@@ -113,5 +125,87 @@ test.describe("Upgrade review — guided flow", () => {
 
     await modal.locator(".insp-deep").click();
     await expect(modal.locator(".gen-card-row")).toHaveCount(15, { timeout: 10000 });
+  });
+
+  test("re-pasting into the same emptied deck re-buys cuts/upgrades instead of reusing a stale cache", async ({ page }) => {
+    const cutCalls = countRequests(page, "/api/deck/ai/cuts");
+    const swapCalls = countRequests(page, "/api/deck/budget-swaps");
+    await pasteIntoEmptyDeck(page); // list A
+    const modal = page.locator(".upr-panel");
+    await modal.locator(".icm-foot button", { hasText: "Continue" }).click();
+    await modal.locator(".icm-foot button", { hasText: "See suggested swaps" }).click();
+    await expect(page.locator('.insp-body .opt-card:has(.opt-cat:text-is("Cut"))')).toHaveCount(1, { timeout: 10000 });
+    expect(cutCalls.n).toBe(1);
+    expect(swapCalls.n).toBe(1);
+
+    // Empty the same deck and paste an unrelated list B into it — cuts/
+    // upgrades cached for list A are now stale, not merely absent.
+    await emptyDeckByHand(page);
+    await page.locator(".empty-action", { hasText: "Paste a decklist" }).click();
+    await page.locator(".icm-panel textarea").fill(
+      `Commander\n1 ${TEST_COMMANDER}\n\nDeck\n1 Lightning Bolt\n1 Rhystic Study`,
+    );
+    await page.locator(".icm-foot button", { hasText: "Import" }).click();
+
+    const modal2 = page.locator(".upr-panel");
+    await expect(modal2).toBeVisible();
+    await modal2.locator(".icm-foot button", { hasText: "Continue" }).click();
+    await modal2.locator(".icm-foot button", { hasText: "See suggested swaps" }).click();
+    await expect(page.locator('.insp-body .opt-card:has(.opt-cat:text-is("Cut"))')).toHaveCount(1, { timeout: 10000 });
+    // Re-bought for the new decklist, not served stale from list A.
+    expect(cutCalls.n).toBe(2);
+    expect(swapCalls.n).toBe(2);
+  });
+
+  test("URL import into an empty deck opens the guide too", async ({ page }) => {
+    await page.goto("/");
+    await waitForAppReady(page);
+    await dismissColdStart(page);
+    await navigateToTab(page, "Analyze & Build");
+    await page.locator(".empty-action", { hasText: "Import from URL" }).click();
+    await page.locator(".icm-panel input").fill("https://archidekt.com/decks/12345");
+    await page.locator(".icm-foot button", { hasText: "Import" }).click();
+    await expect(page.locator(".upr-panel")).toBeVisible();
+  });
+
+  test("URL import replacing a populated deck (confirmed) does not open the guide", async ({ page }) => {
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await page.locator(".dh-actions button", { hasText: "Import cards" }).click();
+    await page.locator('.icm-tabs [role="tab"]', { hasText: "From URL" }).click();
+    await page.locator(".icm-panel input").fill("https://archidekt.com/decks/12345");
+    await page.locator(".icm-foot button", { hasText: "Import" }).click();
+    await page.locator(".icm-confirm button", { hasText: "Replace deck" }).click();
+    await expect(page.locator(".upr-panel")).toHaveCount(0);
+  });
+
+  test("ratings survive closing the guide and a tab switch; reopening on the same list serves the cache", async ({ page }) => {
+    const explainCalls = countRequests(page, "/api/deck/ai/explain");
+    await pasteIntoEmptyDeck(page);
+    const modal = page.locator(".upr-panel");
+    await modal.locator(".icm-foot button", { hasText: "Continue" }).click();
+    await modal.locator(".insp-deep").click();
+    await expect(modal.locator(".gen-card-row")).toHaveCount(10, { timeout: 10000 });
+    expect(explainCalls.n).toBe(1);
+
+    // Close without going to swaps — the spent AI call must not be thrown away.
+    await modal.locator(".icm-close").click();
+    await expect(modal).toHaveCount(0);
+
+    // Tab switch unmounts DeckView entirely; only the persisted cache survives it.
+    await navigateToTab(page, "Rules");
+    await navigateToTab(page, "Analyze & Build");
+
+    // Empty the deck and paste the exact same list back in — the guide
+    // reopens with the same signature, so cached ratings should reappear
+    // without spending a second AI call.
+    await emptyDeckByHand(page);
+    await page.locator(".empty-action", { hasText: "Paste a decklist" }).click();
+    await page.locator(".icm-panel textarea").fill(PASTE_TEXT);
+    await page.locator(".icm-foot button", { hasText: "Import" }).click();
+
+    const modal2 = page.locator(".upr-panel");
+    await modal2.locator(".icm-foot button", { hasText: "Continue" }).click();
+    await expect(modal2.locator(".gen-card-row")).toHaveCount(10);
+    expect(explainCalls.n).toBe(1); // served from the persisted cache, not re-bought
   });
 });
