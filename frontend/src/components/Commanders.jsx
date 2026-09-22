@@ -66,10 +66,10 @@ function ChipRow({ label, values }) {
 // read as composed rather than stacked. Reusable beyond this file on purpose.
 function Section({ label, title, sub, children }) {
   return (
-    <div className="panel cmdr-section">
-      <div className="cmdr-section-label">{label}</div>
-      <h3 className="cmdr-section-title">{title}</h3>
-      {sub && <p className="muted small cmdr-section-sub">{sub}</p>}
+    <div className="panel">
+      <div className="band-eyebrow">{label}</div>
+      <h3 className="band-title">{title}</h3>
+      {sub && <p className="muted small band-sub">{sub}</p>}
       {children}
     </div>
   );
