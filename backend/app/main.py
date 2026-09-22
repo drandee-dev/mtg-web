@@ -290,6 +290,29 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def _always_vary_on_origin(request: Request, call_next):
+    """Make every response cacheable per-origin, including ones with no Origin.
+
+    Eight endpoints here set `s-maxage`, so Vercel's CDN stores them. CORSMiddleware
+    adds `Access-Control-Allow-Origin` and `Vary: Origin` only when the request
+    carries an Origin, which a browser always does and curl, a crawler or an
+    uptime check never does. If one of those lands on a cold URL first, the CDN
+    stores a copy with neither header and no Vary key to distinguish it — and then
+    serves that header-less copy to every browser until the entry expires. The
+    request succeeds, returns 200, and the browser refuses to hand it to the page,
+    so it surfaces as a CORS error on an endpoint that works fine under curl.
+
+    Setting Vary unconditionally means the CDN keys on Origin from the first
+    request, whoever makes it.
+    """
+    response = await call_next(request)
+    vary = response.headers.get("vary", "")
+    if "origin" not in vary.lower():
+        response.headers["vary"] = f"{vary}, Origin" if vary else "Origin"
+    return response
+
+
 @app.get("/api/health")
 def health() -> dict:
     total_cents = usage.monthly_total_cents()
