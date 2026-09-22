@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { api, disassembleDecklist, getCardImage, FORMATS } from "../lib/api";
 import { commanderNamesClean } from "../lib/deckParser";
 import ExportDeckModal from "./ExportDeckModal";
-import NewUserLanding, { UrlImportInline } from "./Landing";
+import NewUserLanding, { UrlImportInline, CommanderTeaser } from "./Landing";
 
 const WUBRG_COLORS = ["W", "U", "B", "R", "G"];
 
@@ -117,7 +117,7 @@ function DeckHero({ deck, meta, onOpen, onPlaytest, onDelete, onRename, onClone,
 }
 
 
-export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onPlaytest, onNewDeck, onGuidedBuild, notify, refresh, setTab, decksIntent, onIntentConsumed, onOpenAccount }) {
+export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onPlaytest, onNewDeck, onGuidedBuild, notify, refresh, setTab, decksIntent, onIntentConsumed, onOpenAccount, onOpenCommander }) {
   const [syncNudgeDismissed, setSyncNudgeDismissed] = useState(
     () => { try { return localStorage.getItem("mtgweb:syncnudge") === "1"; } catch { return true; } }
   );
@@ -132,6 +132,12 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
   const [busy, setBusy] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [fetchedMeta, setFetchedMeta] = useState({});
+  // Most recently edited deck, for the resume band. Sorts a copy: decks is a
+  // prop and sorting it in place would reorder the caller's array.
+  const mostRecent = useMemo(
+    () => [...decks].sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""))[0],
+    [decks],
+  );
   const [deckSearch, setDeckSearch] = useState("");
   const [formatFilter, setFormatFilter] = useState("all");
   const [sortBy, setSortBy] = useState("updated");
@@ -307,15 +313,47 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
           onShowImport={() => setShowImport(true)}
           onImportUrl={doImportUrl}
           busy={busy}
+          onOpenCommander={onOpenCommander}
+          onBrowseCommanders={() => setTab("commanders")}
         />
       )}
 
       {/* Returning user */}
       {decks.length > 0 && (
         <>
+          {/* Pick up where you left off. The most recently touched deck gets a
+              band of its own: on a return visit it is what you came for, and
+              hunting for it in a date-sorted grid was the old behaviour.
+              Hidden at one deck, where the band and the grid would be the same
+              deck twice over and the grid already says it. */}
+          {decks.length > 1 && mostRecent && (
+            <section className="panel landing-band resume-band">
+              <div className="band-eyebrow">Pick up where you left off</div>
+              <div className="spread" style={{ alignItems: "center", flexWrap: "wrap", gap: ".75rem" }}>
+                <div style={{ minWidth: 0 }}>
+                  <h2 className="band-title" style={{ overflowWrap: "anywhere" }}>
+                    {mostRecent.name || "Untitled deck"}
+                  </h2>
+                  <p className="muted small" style={{ margin: 0 }}>
+                    {deckCardCount(mostRecent.decklist_text)} cards
+                    {mostRecent.format ? ` · ${mostRecent.format}` : ""}
+                    {mostRecent.updated_at ? ` · edited ${relativeTime(mostRecent.updated_at)}` : ""}
+                  </p>
+                </div>
+                <div className="row" style={{ gap: ".5rem" }}>
+                  <button className="primary" onClick={() => onOpen?.(mostRecent)}>Resume</button>
+                  {onPlaytest && (
+                    <button className="ghost small" onClick={() => onPlaytest(mostRecent)}>Playtest</button>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Header row */}
           <div className="spread" style={{ margin: ".5rem 0 .75rem", flexWrap: "wrap" }}>
             <div>
+              <div className="band-eyebrow">Your library</div>
               <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, letterSpacing: "-.02em" }}>My Decks</h2>
               <span className="muted small">{cloud ? "Cloud-synced" : "This device"} · {decks.length} deck{decks.length !== 1 ? "s" : ""}</span>
             </div>
@@ -442,6 +480,14 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
             <button className="feature-strip-btn" onClick={() => setTab("cards")}>🔍 Card Search</button>
             <button className="feature-strip-btn" onClick={() => setTab("deck")}>✨ AI Advisor</button>
           </div>
+
+          {/* Same band as the new-user landing. A returning user is the one most
+              likely to want the next deck, so the discovery surface belongs here
+              too rather than only on the empty state. */}
+          <CommanderTeaser
+            onOpenCommander={onOpenCommander}
+            onBrowseAll={() => setTab("commanders")}
+          />
         </>
       )}
     </div>

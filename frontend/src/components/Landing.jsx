@@ -2,8 +2,65 @@
 // deck library and the front door stop sharing a 690-line file. UrlImportInline
 // is exported because MyDecks still uses it in the returning-user toolbar.
 import { useRef, useState } from "react";
+import { useCardImage } from "../lib/hooks";
 
 const HERO_ART = "https://cards.scryfall.io/art_crop/front/8/a/8a2813cb-c73c-4a50-b278-2f13deb71773.jpg";
+
+// A curated six rather than the top six by EDHREC rank, because ranking them
+// means loading the whole commander directory: ~505KB over the wire even after
+// Vercel's brotli (2.4MB uncompressed). That is far too much to spend on six
+// tiles above the fold. Each tile resolves its own art through the same cached
+// per-card lookup the rest of the app uses. Slugs verified against the
+// directory, so none of these dead-end.
+const TEASER_COMMANDERS = [
+  { name: "Atraxa, Praetors' Voice", slug: "atraxa-praetors-voice", tag: "Superfriends" },
+  { name: "Krenko, Mob Boss", slug: "krenko-mob-boss", tag: "Goblin tokens" },
+  { name: "Muldrotha, the Gravetide", slug: "muldrotha-the-gravetide", tag: "Graveyard value" },
+  { name: "Isshin, Two Heavens as One", slug: "isshin-two-heavens-as-one", tag: "Combat triggers" },
+  { name: "Edgar Markov", slug: "edgar-markov", tag: "Vampire aggro" },
+  { name: "Miirym, Sentinel Wyrm", slug: "miirym-sentinel-wyrm", tag: "Dragon tribal" },
+];
+
+function TeaserTile({ entry, onOpen }) {
+  const data = useCardImage(entry.name);
+  const img = data?.art_crop || data?.image || null;
+  return (
+    <button type="button" className="teaser-tile" onClick={() => onOpen?.(entry.slug)}>
+      <span className="teaser-tile-art">
+        {img && <img src={img} alt="" loading="lazy" />}
+      </span>
+      <span className="teaser-tile-name">{entry.name.split(",")[0]}</span>
+      <span className="teaser-tile-tag">{entry.tag}</span>
+    </button>
+  );
+}
+
+/** "Discover" band. Shared by both landings: the new-user one and the deck library. */
+export function CommanderTeaser({ onOpenCommander, onBrowseAll }) {
+  return (
+    <section className="panel landing-band">
+      <div className="spread" style={{ alignItems: "flex-end", flexWrap: "wrap", gap: ".5rem" }}>
+        <div>
+          <div className="band-eyebrow">Discover</div>
+          <h2 className="band-title">Start from a commander</h2>
+          <p className="muted small band-sub">
+            Every legal commander, with its signature cards and every printing.
+          </p>
+        </div>
+        {onBrowseAll && (
+          <button type="button" className="ghost small" onClick={onBrowseAll}>
+            Browse all →
+          </button>
+        )}
+      </div>
+      <div className="teaser-row">
+        {TEASER_COMMANDERS.map((e) => (
+          <TeaserTile key={e.slug} entry={e} onOpen={onOpenCommander} />
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export function UrlImportInline({ onImport, busy }) {
   const [url, setUrl] = useState("");
@@ -25,7 +82,7 @@ export function UrlImportInline({ onImport, busy }) {
   );
 }
 
-export default function NewUserLanding({ onNewDeck, onGuidedBuild, onShowImport, onImportUrl, busy }) {
+export default function NewUserLanding({ onNewDeck, onGuidedBuild, onShowImport, onImportUrl, busy, onOpenCommander, onBrowseCommanders }) {
   const [importUrl, setImportUrl] = useState("");
   const [desktopUrl, setDesktopUrl] = useState("");
   const [showDesktopUrl, setShowDesktopUrl] = useState(false);
@@ -185,6 +242,11 @@ export default function NewUserLanding({ onNewDeck, onGuidedBuild, onShowImport,
           </button>
         </div>
       </div>
+
+      {/* A second thing to do. The hero already carries five entry points, so
+          this band deliberately is not more doors — it is the other way in:
+          browse, and start from a commander instead of from a blank deck. */}
+      <CommanderTeaser onOpenCommander={onOpenCommander} onBrowseAll={onBrowseCommanders} />
     </div>
   );
 }
