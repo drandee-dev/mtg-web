@@ -41,9 +41,7 @@ test.describe("Deck generator entry screen", () => {
     await expect(doors.nth(3).locator(".gen-badge")).toHaveText("No AI");
     await expect(doors.nth(4)).toContainText("Build from my collection");
     await expect(doors.nth(4).locator(".gen-badge")).toHaveText("New");
-    // The collection route is reserved, not built — it says so and can't be opened.
-    await expect(doors.nth(4)).toBeDisabled();
-    await expect(doors.nth(4)).toContainText("Not available yet");
+    await expect(doors.nth(4)).toBeEnabled();
   });
 
   test("step counter reflects the chosen route, not a fixed total", async ({ page }) => {
@@ -141,6 +139,69 @@ test.describe("Deck generator entry screen", () => {
     await page.locator(".gen-door", { hasText: "Guide me step by step" }).click();
     await expect(page.locator(".gen-step")).toContainText("Step 2 of 3");
     await expect(page.locator("h2", { hasText: "Deck wizard" })).toBeVisible();
+  });
+});
+
+test.describe("Collection route", () => {
+  // Owns 6 of the 9 mock skeleton picks plus the util land; leaves Deepglow
+  // Skate, Smothering Tithe, Counterspell and Kodama's Reach un-owned. A
+  // blank-name row exercises the skip-and-continue malformed-row path.
+  const COLLECTION_CSV = [
+    "name,set,quantity",
+    "Sol Ring,cmr,1",
+    "Arcane Signet,,1",
+    "Command Tower,40k,2",
+    "Rhystic Study,,1",
+    "Cultivate,,1",
+    "Swords to Plowshares,,1",
+    ",,3",
+  ].join("\n");
+
+  test("step counter reflects the collection route's four steps", async ({ page }) => {
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "Build from my collection" }).click();
+    await expect(page.locator(".gen-step")).toContainText("Step 2 of 4");
+  });
+
+  test("a malformed row is skipped and reported, not fatal to the import", async ({ page }) => {
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "Build from my collection" }).click();
+    await page.locator("#gen-collection").fill(COLLECTION_CSV);
+    await expect(page.locator(".gen .panel")).toContainText("6 unique cards recognized");
+    await expect(page.locator(".gen .panel")).toContainText("1 row skipped");
+  });
+
+  test("builds a deck weighted toward owned cards, buying only the gap", async ({ page }) => {
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "Build from my collection" }).click();
+
+    // Upload a file rather than paste, to exercise the file-load path too.
+    await page.locator('input[type="file"]').setInputFiles({
+      name: "collection.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(COLLECTION_CSV),
+    });
+    await expect(page.locator(".gen .panel")).toContainText("6 unique cards recognized");
+    await page.locator("button", { hasText: "Continue" }).click();
+
+    await expect(page.locator(".gen-step")).toContainText("Step 3 of 4");
+    await page.locator("#gen-cmd").fill("atraxa");
+    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
+
+    await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
+    await expect(page.locator(".gen-step")).toContainText("Step 4 of 4");
+    await expect(page.locator(".gen-summary")).toContainText("100 cards");
+
+    // Owned picks carry no Buy badge; a known-unowned pick does, priced.
+    const solRingRow = page.locator(".gen-card-row", { hasText: "Sol Ring" });
+    await expect(solRingRow.locator(".badge.warn")).toHaveCount(0);
+    const counterspellRow = page.locator(".gen-card-row", { hasText: "Counterspell" }).first();
+    await expect(counterspellRow.locator(".badge.warn")).toContainText("Buy");
+
+    // The buy summary totals only the gap, priced from the same per-card lookup.
+    const buySummary = page.locator(".gen-cat", { hasText: "picks already in your collection" });
+    await expect(buySummary).toBeVisible();
+    await expect(page.locator(".gen-lede", { hasText: "cards to buy" })).toContainText("$26.05");
   });
 });
 

@@ -2965,7 +2965,6 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
   font-weight: 600; font-size: var(--fs-md);
 }
 .gen-door-d { font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.45; }
-.gen-door-soon { font-size: var(--fs-xs); color: var(--warn); }
 .gen-badge {
   flex: none; padding: .2rem .55rem; border-radius: 999px; background: var(--panel-2);
   color: var(--text-secondary); font-size: var(--fs-2xs); font-weight: 600;
