@@ -1449,9 +1449,66 @@ def _deck_context(
 
 
 # --------------------------------------------------------------------------- #
+# Shared caching layout for the five deck-analysis AI calls below (strategy,
+# upgrades, cuts, explain, optimize). Cost-optimization pass, 2026-09-22.
+#
+# system precedes messages in Anthropic's cache prefix, so if it differs per
+# endpoint — as it did before this pass, each with its own "you are an
+# expert..." framing plus that endpoint's task instruction baked in — no two
+# endpoints can ever share a cache entry, no matter how the user message is
+# built. Real usage measured this session: strategy auto-fires on deck load,
+# then optimize/cuts/upgrades/explain fire later in the same session on the
+# same still-unedited deck, each previously paying full price for the same
+# ~5,600-token deck payload the others had already sent.
+#
+# _DECKBUILDER_SYSTEM is the fix's load-bearing constant: one sentence, never
+# varying, shared by every one of these endpoints. Each endpoint's own task
+# and output-format instruction — what used to live in that endpoint's own
+# _XXX_SYSTEM constant — moved into the user message instead, via
+# _cached_deck_messages below. Same information Claude reads either way,
+# just relocated so this prefix stays request-invariant.
+_DECKBUILDER_SYSTEM = (
+    "You are an expert Magic: The Gathering deckbuilder, analyzing the deck "
+    "context given below."
+)
+
+
+def _cached_deck_messages(payload: str, instruction: str, *, tail: str = "") -> list[dict]:
+    """Two-breakpoint user message for a deck-analysis AI call. Pass
+    _DECKBUILDER_SYSTEM as the call's `system` — this only pays off if that
+    stays constant; see its comment above for why.
+
+    1. payload — ctx["summary"], byte-identical for this deck across every
+       endpoint that calls this helper. Cached alone, so a second, different
+       endpoint's call on the same still-unedited deck reads this block from
+       cache instead of paying for it again.
+    2. instruction — the endpoint's own task + output-format spec, plus any
+       *validated* (non-free-text) goal constraints — see goals_prompt_parts:
+       those are server-cast scalars (int/float/a fixed lookup), never
+       attacker-controlled text, so moving them out of `system` doesn't touch
+       the injection boundary that matters, which is the <user_input>
+       wrapping around genuinely free text (still built by the caller into
+       `tail`, unchanged). Cached separately from `payload` so repeat calls
+       to the SAME endpoint with the SAME goals on the same deck hit this
+       block too, without forcing a rewrite of block 1 on every call.
+    3. tail — genuinely per-call content: a card list, the session's
+       recent-changes digest, free-text goal fields already wrapped in
+       <user_input> by the caller. Changes on essentially every call, so it
+       rides uncached after both breakpoints rather than busting either one.
+    """
+    blocks = [
+        {"type": "text", "text": payload, "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": instruction, "cache_control": {"type": "ephemeral"}},
+    ]
+    if tail:
+        blocks.append({"type": "text", "text": tail})
+    return [{"role": "user", "content": blocks}]
+
+
+# --------------------------------------------------------------------------- #
 # AI Strategy Summary
 # --------------------------------------------------------------------------- #
-_STRATEGY_SYSTEM = """You are an expert Magic: The Gathering deckbuilder. Analyze the deck and provide two things:
+_STRATEGY_INSTRUCTION = """Analyze the deck above and provide two things:
 
 1. A 2-3 sentence strategy summary: describe the deck's primary strategy, win condition, and play style. Be specific — name the key cards and interactions. Start with the archetype name in bold.
 2. The archetype name (e.g. "Voltron", "Aristocrats", "Spellslinger", "Stax", "Combo", "Midrange value", "Tokens", "Reanimator", etc.)
@@ -1469,29 +1526,23 @@ def ai_strategy(
     api_key: str | None = None,
 ) -> dict[str, Any]:
     """Generate a concise strategy summary and archetype classification for a deck."""
+    # fmt/bracket are already folded into ctx["summary"] itself (see
+    # _deck_context) — the old code re-stated them in a header line here, which
+    # was pure duplication once that block sits in a shared, cached payload
+    # block read by every one of these endpoints.
     ctx = _deck_context_cached(text, fmt, bracket=bracket)
-    cmd_name = commander or (ctx["commanders"][0] if ctx["commanders"] else "Unknown")
-
-    # Build a compact summary for the prompt
-    deck = ctx["deck"]
-    total = deck.get("total_cards", 0)
-    summary_lines = [f"Format: {fmt}, Commander: {cmd_name}, Cards: {total}"]
-    if ctx.get("bracket", {}).get("bracket") is not None:
-        summary_lines.append(f"Detected bracket: {ctx['bracket']['bracket']}")
-    summary_lines.append("")
-    summary_lines.append(ctx["summary"])
-
-    user_msg = (
-        f"You are an expert Magic: The Gathering deckbuilder. "
-        f"Given this {fmt} deck led by {cmd_name}:\n\n"
-        + "\n".join(summary_lines)
-        + "\n\nIn 2-3 sentences, describe the deck's primary strategy, win condition, "
-        "and play style. Be specific — name the key cards and interactions. "
-        "Start with the archetype name in bold."
-    )
+    # commander is likewise usually redundant with ctx["commanders"] (parsed
+    # straight from the decklist text — every real caller assembles the
+    # commander into that text before calling this). Kept as a per-call
+    # fallback, in the uncached tail so it costs nothing when unused, for the
+    # narrow case a caller supplies a decklist with no parseable commander.
+    tail = "" if ctx["commanders"] else (f"\nCommander: {commander}" if commander else "")
 
     resp = _ai_call(
-        _STRATEGY_SYSTEM, user_msg, api_key=api_key, max_tokens=700, cache_user_msg=True
+        _DECKBUILDER_SYSTEM,
+        messages=_cached_deck_messages(ctx["summary"], _STRATEGY_INSTRUCTION, tail=tail),
+        api_key=api_key,
+        max_tokens=700,
     )
     if resp["error"]:
         return {
@@ -1522,7 +1573,7 @@ def ai_strategy(
 # --------------------------------------------------------------------------- #
 # AI Upgrade Suggestions
 # --------------------------------------------------------------------------- #
-_UPGRADES_POWER_SYSTEM = """You are an expert MTG deck builder. Suggest specific card upgrades to increase the deck's power level. For each upgrade, identify a card currently in the deck that should be replaced, name the replacement card, and explain why it's strictly better for this deck's strategy.
+_UPGRADES_POWER_INSTRUCTION = """Suggest specific card upgrades to increase the deck's power level. For each upgrade, identify a card currently in the deck that should be replaced, name the replacement card, and explain why it's strictly better for this deck's strategy.
 
 Focus on:
 - Cards that are underperforming for the deck's strategy
@@ -1534,7 +1585,7 @@ IMPORTANT: Your entire response must be ONLY valid JSON. No preamble, no explana
 
 Suggest 5-8 upgrades, ordered from highest impact to lowest. Include an approximate price in USD for each replacement card (use null if unknown)."""
 
-_UPGRADES_BUDGET_SYSTEM = """You are an expert MTG deck builder focused on budget optimization. Suggest specific card upgrades that improve the deck while REDUCING its total cost. For each upgrade, identify an expensive card currently in the deck and name a cheaper replacement that fills the same role adequately.
+_UPGRADES_BUDGET_INSTRUCTION = """Focused on budget optimization: suggest specific card upgrades that improve the deck while REDUCING its total cost. For each upgrade, identify an expensive card currently in the deck and name a cheaper replacement that fills the same role adequately.
 
 Focus on:
 - Expensive cards ($5+) that have cheaper functional alternatives
@@ -1566,15 +1617,16 @@ def ai_upgrades(
         }
 
     ctx = _deck_context_cached(text, fmt, bracket=bracket)
-    system = _UPGRADES_POWER_SYSTEM if mode == "power" else _UPGRADES_BUDGET_SYSTEM
+    instruction = _UPGRADES_POWER_INSTRUCTION if mode == "power" else _UPGRADES_BUDGET_INSTRUCTION
     goal_sys, goal_user = goals_prompt_parts(goals)
 
     resp = _ai_call(
-        system + goal_sys,
-        ctx["summary"] + goal_user,
+        _DECKBUILDER_SYSTEM,
+        messages=_cached_deck_messages(
+            ctx["summary"], instruction + goal_sys, tail=goal_user
+        ),
         api_key=api_key,
         max_tokens=2000,
-        cache_user_msg=True,
     )
     if resp["error"]:
         return {"error": True, "message": resp["result"], "upgrades": []}
@@ -1613,7 +1665,7 @@ def ai_upgrades(
 # --------------------------------------------------------------------------- #
 # AI Optimize — goal-driven changeset behind the Optimize queue
 # --------------------------------------------------------------------------- #
-_OPTIMIZE_SYSTEM = """You are an expert MTG deck optimizer. You receive full deck context (commander oracle text, card list with oracle text, detected combos, composition, bracket) and the user's deck goals. Produce ONE prioritized changeset that moves this deck toward those goals.
+_OPTIMIZE_INSTRUCTION = """You receive full deck context above (commander oracle text, card list with oracle text, detected combos, composition, bracket) and the user's deck goals below. Produce ONE prioritized changeset that moves this deck toward those goals.
 
 CRITICAL RULES:
 1. READ THE COMMANDER'S ORACLE TEXT. Never cut cards that synergize with its key mechanics, and never cut combo pieces listed in the context.
@@ -1674,33 +1726,25 @@ def ai_optimize(
             f"\n\nPRIORITY FOCUS: the user tapped the '{focus_label}' gap — "
             f"concentrate this changeset on fixing that shortage."
         )
-    # Deck summary stays in its own cached block; the session digest varies per
-    # run, so it rides in a separate uncached block (client text — <user_input>
-    # wrapped, never in the system prompt).
-    user_blocks: list[dict[str, Any]] = [
-        {
-            "type": "text",
-            "text": ctx["summary"] + goal_user,
-            "cache_control": {"type": "ephemeral"},
-        }
-    ]
+    # goal_user (free text — <user_input> wrapped) and the session log both
+    # vary essentially every call, so both ride in the uncached tail rather
+    # than the cached payload block; the old code glued goal_user onto the
+    # payload block, which busted its own cache on every goals edit.
+    tail = goal_user
     if recent_changes:
         digest = "; ".join(recent_changes[-30:])
-        user_blocks.append(
-            {
-                "type": "text",
-                "text": (
-                    "Session log — decisions the user already made this session. "
-                    "Lines are 'action: change'. Never propose a change matching a "
-                    "'skip:' line (the user declined it), never re-propose a cut or "
-                    "add already applied, and never re-add a card the user undid: "
-                    f"<user_input>{digest}</user_input>"
-                ),
-            }
+        tail += (
+            "\n\nSession log — decisions the user already made this session. "
+            "Lines are 'action: change'. Never propose a change matching a "
+            "'skip:' line (the user declined it), never re-propose a cut or "
+            "add already applied, and never re-add a card the user undid: "
+            f"<user_input>{digest}</user_input>"
         )
     resp = _ai_call(
-        _OPTIMIZE_SYSTEM + goal_sys,
-        messages=[{"role": "user", "content": user_blocks}],
+        _DECKBUILDER_SYSTEM,
+        messages=_cached_deck_messages(
+            ctx["summary"], _OPTIMIZE_INSTRUCTION + goal_sys, tail=tail
+        ),
         api_key=api_key,
         max_tokens=2500,
     )
@@ -1813,7 +1857,7 @@ def ai_optimize(
 # --------------------------------------------------------------------------- #
 # AI Suggested Cuts
 # --------------------------------------------------------------------------- #
-_CUTS_SYSTEM = """You are an expert MTG deck builder evaluating cuts for a Commander deck. You have the FULL deck context: commander oracle text, card list with keywords, detected combos, composition, and the target power bracket.
+_CUTS_INSTRUCTION = """Evaluate the deck above for cuts. You have the FULL deck context above: commander oracle text, card list with keywords, detected combos, composition, and the target power bracket.
 
 CRITICAL RULES FOR SUGGESTING CUTS:
 1. READ THE COMMANDER'S ORACLE TEXT CAREFULLY. Identify the key mechanics and strategies the commander enables. Any card that synergizes with those mechanics — even if it looks weak in isolation — is a core piece, not a cut.
@@ -1972,11 +2016,12 @@ def ai_suggest_cuts(
     ctx = _deck_context_cached(text, fmt, bracket=bracket)
     goal_sys, goal_user = goals_prompt_parts(goals)
     resp = _ai_call(
-        _CUTS_SYSTEM + goal_sys,
-        ctx["summary"] + goal_user,
+        _DECKBUILDER_SYSTEM,
+        messages=_cached_deck_messages(
+            ctx["summary"], _CUTS_INSTRUCTION + goal_sys, tail=goal_user
+        ),
         api_key=api_key,
         max_tokens=2000,
-        cache_user_msg=True,
     )
     if resp["error"]:
         return {"error": True, "message": resp["result"], "cuts": []}
@@ -2230,7 +2275,7 @@ def ai_composition_fills(
 # --------------------------------------------------------------------------- #
 # AI Recommendation Explanations
 # --------------------------------------------------------------------------- #
-_EXPLAIN_SYSTEM = """You are an expert MTG deck builder. Explain why each recommended card fits this specific deck and commander strategy.
+_EXPLAIN_INSTRUCTION = """Explain why each recommended card below fits this specific deck and commander strategy.
 
 For each card, provide a 1-2 sentence explanation of WHY it synergizes — not just what the card does, but how it specifically works with the commander's abilities, the deck's combos, and the target power bracket.
 
@@ -2253,10 +2298,19 @@ def ai_explain_recommendations(
     # list alone — goals (esp. the flavor note) are what make a rating land
     # on "why this fits THIS deck" instead of a generic card summary.
     goal_sys, goal_user = goals_prompt_parts(goals)
-    user_msg = f"{ctx['summary']}\n\n## Cards to explain\n{cards_list}{goal_user}"
+    # cards_list genuinely varies call to call (a different rating request
+    # picks different cards), so it belongs in the uncached tail, not glued
+    # into the cached blocks the way the old single-string user_msg had it —
+    # that accidentally busted the cache on every request with a different
+    # card selection, even repeats of the same endpoint on the same deck.
+    tail = f"## Cards to explain\n{cards_list}{goal_user}"
 
     resp = _ai_call(
-        _EXPLAIN_SYSTEM + goal_sys, user_msg, api_key=api_key, cache_user_msg=True
+        _DECKBUILDER_SYSTEM,
+        messages=_cached_deck_messages(
+            ctx["summary"], _EXPLAIN_INSTRUCTION + goal_sys, tail=tail
+        ),
+        api_key=api_key,
     )
     if resp["error"]:
         return {"error": True, "message": resp["result"], "explanations": []}
