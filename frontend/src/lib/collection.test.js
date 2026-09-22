@@ -59,3 +59,19 @@ test("an unowned card reads as 0, not undefined or a throw", () => {
   const idx = buildOwnedIndex(parseCollectionCsv("Sol Ring,,1").rows);
   assert.equal(ownedQuantity("Counterspell", idx), 0);
 });
+
+test("an explicit quantity of 0 is kept as 0, not defaulted to owning 1", () => {
+  const { rows } = parseCollectionCsv("Sol Ring,cmr,0");
+  assert.equal(rows[0].quantity, 0);
+  const idx = buildOwnedIndex(rows);
+  assert.equal(ownedQuantity("Sol Ring", idx), 0);
+});
+
+test("a quoted name that itself starts and ends with a literal quote round-trips", () => {
+  // "Ach! Hans, Run!" is a real card name; a spec-compliant CSV export of a
+  // field containing both quotes and a comma doubles the inner quotes.
+  const { rows } = parseCollectionCsv('"""Ach! Hans, Run!""",,1');
+  assert.equal(rows[0].name, '"Ach! Hans, Run!"');
+  const idx = buildOwnedIndex(rows);
+  assert.equal(ownedQuantity('"Ach! Hans, Run!"', idx), 1);
+});

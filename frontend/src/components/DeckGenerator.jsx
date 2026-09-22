@@ -179,7 +179,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
 
   const [collectionText, setCollectionText] = useState("");
   const [ownedIndex, setOwnedIndex] = useState(null); // Map(normalizedName -> {name, quantity})
-  const [collectionStats, setCollectionStats] = useState(null); // {rows, skipped, unique}
+  const [collectionStats, setCollectionStats] = useState(null); // {skipped} | null (unique count reads from ownedIndex.size)
 
   const steps = branch ? BRANCHES[branch].steps : null;
   const stepCount = steps?.length ?? null;
@@ -382,7 +382,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
       return;
     }
     setOwnedIndex(buildOwnedIndex(rows));
-    setCollectionStats({ rows: rows.length, skipped });
+    setCollectionStats({ skipped });
   }
 
   function onCollectionFile(e) {

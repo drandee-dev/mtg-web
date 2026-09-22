@@ -22,14 +22,21 @@ export function normalizeCardName(name) {
 }
 
 /** Split one CSV line into fields, honoring double-quoted fields that may
- *  contain commas (e.g. `"Nykthos, Shrine to Nyx",,2`). No escaped-quote
- *  support — the collection export is plain name/set/quantity, never that. */
+ *  contain commas (e.g. `"Nykthos, Shrine to Nyx",,2`) and standard CSV
+ *  escaped quotes (`""` inside a quoted field -> one literal `"`) — needed
+ *  for a card like "Ach! Hans, Run!", whose name literally starts and ends
+ *  with a quote and would CSV-export as `"""Ach! Hans, Run!"""`. */
 function splitCsvLine(line) {
   const fields = [];
   let cur = "";
   let inQuotes = false;
-  for (const ch of line) {
-    if (ch === '"') { inQuotes = !inQuotes; continue; }
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { cur += '"'; i++; continue; } // escaped quote
+      inQuotes = !inQuotes;
+      continue;
+    }
     if (ch === "," && !inQuotes) { fields.push(cur); cur = ""; continue; }
     cur += ch;
   }
@@ -41,7 +48,10 @@ function splitCsvLine(line) {
  *  empty `set` field (a card with no set recorded), and malformed rows —
  *  a row with no name is skipped rather than aborting the whole import; a
  *  missing or unparseable quantity defaults to 1, matching the CLI's own
- *  CSV path (`parse_deck.parse_csv`). Returns `{rows, skipped}`. */
+ *  CSV path (`parse_deck.parse_csv`). An explicit `0` (or negative) is kept
+ *  as-is rather than defaulted — mark_owned.py's own rule is "qty >= 1 else
+ *  unowned", and a `0` is a common export convention for "tracked, not
+ *  owned". Returns `{rows, skipped}`. */
 export function parseCollectionCsv(text) {
   const lines = (text || "").split(/\r?\n/).filter((l) => l.trim().length > 0);
   const rows = [];
@@ -52,7 +62,7 @@ export function parseCollectionCsv(text) {
     if (!name) { skipped++; continue; }
     if (name.toLowerCase() === "name") continue; // header row, not data
     const parsedQty = Number.parseInt((qtyRaw || "").trim(), 10);
-    const quantity = Number.isFinite(parsedQty) && parsedQty > 0 ? parsedQty : 1;
+    const quantity = Number.isFinite(parsedQty) ? parsedQty : 1;
     rows.push({ name, set: (setRaw || "").trim(), quantity });
   }
   return { rows, skipped };
