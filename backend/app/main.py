@@ -510,7 +510,11 @@ def deck_ai_explain(request: Request, payload: Annotated[dict, Body()]) -> dict:
         if len(cn) > _MAX_CARD_NAME_LEN:
             raise HTTPException(400, f"Card name too long: {cn[:30]}…")
     return mtg.ai_explain_recommendations(
-        decklist, card_names, fmt=fmt, bracket=_target_bracket(payload)
+        decklist,
+        card_names,
+        fmt=fmt,
+        bracket=_target_bracket(payload),
+        goals=_parse_goals(payload),
     )
 
 

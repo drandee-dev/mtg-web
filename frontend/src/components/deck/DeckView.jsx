@@ -8,6 +8,7 @@ import CardTypeahead from "./CardTypeahead";
 import DeckSidebar from "./DeckSidebar";
 import ImportCardsModal from "./ImportCardsModal";
 import MassArtModal from "./MassArtModal";
+import UpgradeReview from "./UpgradeReview";
 import MoreMenu from "./MoreMenu";
 import { PaletteIcon, LinkIcon, SparkleIcon, LockIcon, UnlockIcon, ListIcon, SearchIcon } from "../Icons";
 import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderDisplay, commanderNamesClean, setCommanderPrinting } from "../../lib/deckParser";
@@ -39,6 +40,10 @@ export default function DeckView({
   }, [startInWizard, onWizardConsumed]);
   const [importOpen, setImportOpen] = useState(null); // null | "paste" | "url"
   const [massArtOpen, setMassArtOpen] = useState(false);
+  // Job 3 guided flow: opens once, right after a pasted decklist replaces an
+  // empty deck (see handleImportText) — that's the "I already have a list,
+  // upgrade it" case, distinct from pasting more cards into a deck in progress.
+  const [upgradeReviewOpen, setUpgradeReviewOpen] = useState(false);
   const [pendingImport, setPendingImport] = useState(null); // URL import awaiting replace-confirm
   const [titleEdit, setTitleEdit] = useState(null); // null | in-progress rename text
 
@@ -496,7 +501,11 @@ export default function DeckView({
 
   async function handleImportText(text) {
     try {
-      mergeImportedText(text);
+      const wasEmpty = mergeImportedText(text);
+      // A paste into an empty deck is "I have a list, help me upgrade it" —
+      // guide the user through goals → bracket/ratings → swaps. Adding cards
+      // to a deck already in progress skips the guide.
+      if (wasEmpty) setUpgradeReviewOpen(true);
     } catch (e) {
       notify?.(`Import failed: ${e.message}`);
       throw e;
@@ -844,6 +853,21 @@ export default function DeckView({
     if (ch.source === "upgrade" && ch.cut && ch.add) skip(ch.cut);
   }
 
+  // Job 3 guided flow — ratings and the hand-off into the existing Changes
+  // queue. Kept next to applyInsightChange/skipInsightChange since it feeds
+  // the same sidebar state (activePanel, the Changes deep-load).
+  function loadCardRatings(cardNames) {
+    if (!decklist.trim()) return Promise.resolve({ error: true, message: "Add some cards first." });
+    const full = assembleDecklist(decklist, isCommanderFmt ? commander : "");
+    return api.aiExplain(full, format, cardNames, null, apiGoals);
+  }
+
+  function goToChangesFromReview() {
+    setUpgradeReviewOpen(false);
+    setActivePanel("Changes");
+    loadChanges({ deep: true });
+  }
+
   // Each source owns its own persisted verdict list, so one source's "Show
   // again" never revives another's declines.
   function skipInsightChange(ch) {
@@ -1189,6 +1213,17 @@ export default function DeckView({
         onClose={() => setImportOpen(null)}
         onImportText={handleImportText}
         onImportUrl={handleImportUrl}
+      />
+
+      <UpgradeReview
+        open={upgradeReviewOpen}
+        onClose={() => setUpgradeReviewOpen(false)}
+        goals={goals}
+        setGoals={setGoals}
+        deckCardNames={deckCardNames}
+        result={result}
+        onLoadRatings={loadCardRatings}
+        onGoToChanges={goToChangesFromReview}
       />
 
       <MassArtModal

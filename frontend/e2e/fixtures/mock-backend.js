@@ -146,7 +146,7 @@ export async function mockBackend(page) {
         stats: { avg_cmc: 2.5 },
         mana: { overall_status: "OK", pip_demand_pct: {} },
         legality: { overall_status: "PASS", violations: [] },
-        bracket: { bracket: 2, game_changers: [] },
+        bracket: { bracket: 2, name: "Core", game_changers: [], mass_land_denial: [] },
         breakdown: { price_usd: 68.93, prices_as_of: "2026-07-01" },
       });
     }
@@ -255,6 +255,15 @@ export async function mockBackend(page) {
         error: false,
         model: "mock",
         cuts: [{ name: "Cultivate", reason: "Weakest ramp once the signets are in." }],
+      });
+    }
+    if (path.endsWith("/api/deck/ai/explain")) {
+      const body = route.request().postDataJSON() || {};
+      const names = body.card_names || [];
+      return json({
+        error: false,
+        model: "mock",
+        explanations: names.map((n) => ({ name: n, explanation: `Rated: pulls its weight for ${n}.` })),
       });
     }
     if (path.endsWith("/api/deck/budget-swaps")) {

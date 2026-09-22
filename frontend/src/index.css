@@ -3034,6 +3034,15 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .icm-src { font-size: var(--fs-xs); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 999px; padding: .15rem .55rem; }
 .icm-foot { display: flex; justify-content: flex-end; gap: .5rem; padding: 0 1.1rem .9rem; }
 
+/* ── Upgrade-review guide (Job 3) — the icm shell, gen-* progress bar and
+   gen-card-row rating rows are all reused as-is; only the content is new. */
+.upr-panel { width: min(560px, 100%); }
+.upr-progress { padding: 0 1.1rem; margin-top: .6rem; }
+.upr-body { display: flex; flex-direction: column; gap: .6rem; max-height: 60vh; overflow-y: auto; }
+.upr-lede { margin: 0; font-size: var(--fs-xs); color: var(--text-secondary); line-height: 1.5; }
+.upr-bracket { display: flex; flex-direction: column; gap: .3rem; align-items: flex-start; }
+.upr-error { color: var(--bad); }
+
 /* ── Mass art modal — set chips + preview grid on the .icm shell ── */
 .mam-panel { max-width: 34rem; }
 .mam-panel label { display: block; font-size: var(--fs-xs); font-weight: 600; margin: .6rem 0 .25rem; }

@@ -248,10 +248,13 @@ test.describe("Generated deck reasons", () => {
     await page.locator(".cdm-actions button", { hasText: "Change commander" }).click();
     await expect(page.locator(".empty-deck")).toBeVisible();
 
-    // Paste a fresh list that also runs Sol Ring.
+    // Paste a fresh list that also runs Sol Ring. A paste into an empty deck
+    // opens the Job 3 guided review (goals → bracket/ratings → swaps); close
+    // it to get back to the deck grid, same as a user would.
     await page.locator(".empty-action", { hasText: "Paste a decklist" }).click();
     await page.locator(".icm-panel textarea").fill("1 Sol Ring\n1 Counterspell");
     await page.locator(".icm-foot button", { hasText: "Import" }).click();
+    await page.locator(".upr-panel .icm-close").click();
 
     await page.locator('.card-thumb[aria-label="1x Sol Ring"]').first().click();
     await expect(page.locator(".cdm-name")).toHaveText("Sol Ring");

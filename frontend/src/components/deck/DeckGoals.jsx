@@ -12,8 +12,9 @@ const BUDGET_PRESETS = [50, 100, 275, 500];
 export default function DeckGoals({
   goals, setGoals, deckCardNames = [],
   suggestion, onAcceptSuggestion, onDismissSuggestion,
+  defaultOpen = false,
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [protectQuery, setProtectQuery] = useState("");
   const [customBudget, setCustomBudget] = useState("");
 

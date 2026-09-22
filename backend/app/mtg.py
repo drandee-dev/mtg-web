@@ -2141,13 +2141,20 @@ def ai_explain_recommendations(
     *,
     fmt: str = "commander",
     bracket: int | None = None,
+    goals: dict | None = None,
     api_key: str | None = None,
 ) -> dict[str, Any]:
     ctx = _deck_context_cached(text, fmt, bracket=bracket)
     cards_list = "\n".join(f"- {n}" for n in card_names[:15])
-    user_msg = f"{ctx['summary']}\n\n## Cards to explain\n{cards_list}"
+    # Without a stated game plan the model can only guess intent from the
+    # list alone — goals (esp. the flavor note) are what make a rating land
+    # on "why this fits THIS deck" instead of a generic card summary.
+    goal_sys, goal_user = goals_prompt_parts(goals)
+    user_msg = f"{ctx['summary']}\n\n## Cards to explain\n{cards_list}{goal_user}"
 
-    resp = _ai_call(_EXPLAIN_SYSTEM, user_msg, api_key=api_key, cache_user_msg=True)
+    resp = _ai_call(
+        _EXPLAIN_SYSTEM + goal_sys, user_msg, api_key=api_key, cache_user_msg=True
+    )
     if resp["error"]:
         return {"error": True, "message": resp["result"], "explanations": []}
 
