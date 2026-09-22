@@ -2341,15 +2341,25 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 }
 
 /* ── Section bands ──
-   A micro uppercase label, then the heading. The label is the whole trick: it
-   gives a stacked page a reading rhythm at almost no cost. Kept generic so the
-   landing page and the build doors can take the same treatment later. */
-.cmdr-section-label {
+   An eyebrow label, then the heading, then one line of subtext. The eyebrow is
+   the whole trick: it gives a stacked page a reading rhythm at almost no cost.
+   Named band-* rather than section-*: .section-title already exists above with
+   an unrelated meaning (a baseline flex row).
+
+   This is also the app's third type role. The display face (Clash Display) and
+   the body face (Satoshi) are already loaded and applied to h1-h3 and body; the
+   uppercase UI label was the role that had no home. Use .band-eyebrow anywhere
+   a small caps-and-tracking label is wanted, band or not. */
+.band-eyebrow {
   font-size: var(--fs-2xs); font-weight: 700; letter-spacing: .09em;
   text-transform: uppercase; color: var(--accent); margin-bottom: .25rem;
 }
-.cmdr-section-title { font-size: var(--fs-lg); margin: 0 0 .15rem; }
-.cmdr-section-sub { margin: 0 0 .8rem; }
+.band-title {
+  font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
+  font-size: var(--fs-lg); line-height: 1.25; font-weight: 600;
+  margin: 0 0 .15rem;
+}
+.band-sub { margin: 0 0 .8rem; }
 
 /* Signature cards: rank, name, play rate, synergy badge. */
 .cmdr-sig-list { list-style: none; margin: 0; padding: 0; }
