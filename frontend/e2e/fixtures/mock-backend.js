@@ -282,4 +282,33 @@ export async function mockBackend(page) {
     // Generic fallback for deck analysis / AI endpoints not exercised here.
     return json({});
   });
+
+  // CommanderInput's unconstrained (non-partner) search goes straight to
+  // Scryfall now (see lib/scryfall.js), bypassing the /api/** route above
+  // entirely — a different host, not a FastAPI path. Without this, any test
+  // that types into #cmd-input makes a real live call to api.scryfall.com,
+  // quietly breaking the "no network needed" guarantee this suite exists for.
+  await page.route("https://api.scryfall.com/cards/search**", async (route) => {
+    const url = new URL(route.request().url());
+    const q = url.searchParams.get("q") || "";
+    const m = /name:"((?:[^"\\]|\\.)*)"/.exec(q);
+    const needle = (m ? m[1].replace(/\\(.)/g, "$1") : "").toLowerCase();
+    const matches = Object.keys(MOCK_CARDS).filter((n) => n.toLowerCase().includes(needle));
+    if (!matches.length) {
+      return route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({ object: "error", code: "not_found", details: "no matches" }),
+      });
+    }
+    const data = matches.map((n) => {
+      const c = MOCK_CARDS[n];
+      return { name: n, type_line: c.type_line, color_identity: c.color_identity, mana_cost: c.mana_cost };
+    });
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ object: "list", total_cards: data.length, data }),
+    });
+  });
 }

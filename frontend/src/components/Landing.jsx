@@ -3,6 +3,7 @@
 // is exported because MyDecks still uses it in the returning-user toolbar.
 import { useRef, useState } from "react";
 import { useCardImage } from "../lib/hooks";
+import { fmtUsd } from "../lib/format";
 
 const HERO_ART = "https://cards.scryfall.io/art_crop/front/8/a/8a2813cb-c73c-4a50-b278-2f13deb71773.jpg";
 
@@ -30,7 +31,10 @@ function TeaserTile({ entry, onOpen }) {
         {img && <img src={img} alt="" loading="lazy" />}
       </span>
       <span className="teaser-tile-name">{entry.name.split(",")[0]}</span>
-      <span className="teaser-tile-tag">{entry.tag}</span>
+      <span className="teaser-tile-tag">
+        {entry.tag}
+        {data?.price_usd != null && <span className="teaser-tile-price"> · {fmtUsd(data.price_usd)}</span>}
+      </span>
     </button>
   );
 }

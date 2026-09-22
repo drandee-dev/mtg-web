@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
+import { searchCommanders } from "../lib/scryfall";
 import { commanderNamesClean } from "../lib/deckParser";
 
 export default function CommanderInput({ commander, setCommander }) {
@@ -25,21 +26,32 @@ export default function CommanderInput({ commander, setCommander }) {
     if (q.length < 2) { setResults([]); setError(""); setLoading(false); return; }
     setLoading(true);
     const myseq = ++seq.current;
+    const controller = new AbortController();
     debounce.current = setTimeout(async () => {
       try {
-        const r = await api.commanders(q, pickingPartner ? cmd1Name : undefined);
+        // Partner search needs the backend's partner-legality filter (six
+        // distinct ability kinds — see lib/scryfall.js). The far more common
+        // case, picking the first commander, goes straight to Scryfall: no
+        // server hop, and the FastAPI cold-start delay never applies to it.
+        const results = pickingPartner
+          ? (await api.commanders(q, cmd1Name)).results || []
+          : await searchCommanders(q, { signal: controller.signal });
         if (myseq !== seq.current) return;
-        setResults(r.results || []);
+        setResults(results);
         setError("");
       } catch (e) {
-        if (myseq !== seq.current) return;
+        if (e.name === "AbortError" || myseq !== seq.current) return;
         setResults([]);
-        setError(e.message === "Failed to fetch" ? "Server waking up — try again in a moment." : "Couldn't load suggestions.");
+        setError(
+          pickingPartner && e.message === "Failed to fetch"
+            ? "Server waking up — try again in a moment."
+            : "Couldn't load suggestions."
+        );
       } finally {
         if (myseq === seq.current) setLoading(false);
       }
     }, 250);
-    return () => clearTimeout(debounce.current);
+    return () => { clearTimeout(debounce.current); controller.abort(); };
   }, [query, pickingPartner, cmd1Name]);
 
   function pickFirst(name, result) {
