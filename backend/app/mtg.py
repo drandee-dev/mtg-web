@@ -839,11 +839,54 @@ def deck_composition(text: str, *, fmt: str = "commander") -> dict[str, Any]:
 # --------------------------------------------------------------------------- #
 # Shared AI helper
 # --------------------------------------------------------------------------- #
-_AI_MODEL = "claude-sonnet-4-6"
+_AI_MODEL = "claude-sonnet-5"
 _AI_MODEL_FALLBACK = "claude-haiku-4-5"
 
-# Set by main.py to record token usage for cost tracking
-on_ai_usage: Any = None  # callable(input_tokens, output_tokens) or None
+# Output caps here were raised ~30% when moving off Sonnet 4.6. Models from the
+# 4.7 generation on use a newer tokenizer that produces roughly 30% more tokens
+# for the same English text, so the old numbers bought ~30% less prose. The cap
+# is a ceiling, not a target: raising it costs nothing unless the model uses it,
+# whereas leaving it low silently truncates mid-sentence.
+
+# Models that run adaptive thinking when `thinking` is omitted. Their reasoning
+# tokens are drawn from max_tokens, so on a 500-token call they can consume the
+# whole budget and return no visible text at all. Every call here is short and
+# cost-sensitive, so thinking is switched off rather than budgeted for.
+# Haiku 4.5 does not think unless asked and rejects nothing here, but it is left
+# out because passing the parameter to a model that never needed it is noise.
+#
+# Do NOT add claude-opus-5-5 or claude-fable-5-1 here. Their thinking is
+# always on and an explicit {"type": "disabled"} is rejected with a 400; depth
+# on those is steered with output_config.effort instead, and their reasoning
+# bills as output. Adopting one means raising every cap below first.
+_THINKS_BY_DEFAULT = {"claude-sonnet-5"}
+
+
+def _model_kwargs(model: str) -> dict[str, Any]:
+    if model in _THINKS_BY_DEFAULT:
+        return {"thinking": {"type": "disabled"}}
+    return {}
+
+
+def _first_text(response: Any) -> str:
+    """The first text block of a response.
+
+    Not content[0]: on a thinking model the first block is a thinking block,
+    which has no .text, so indexing blindly raises AttributeError and the whole
+    call reads as a failure. Survives a response that is thinking-only.
+    """
+    for block in response.content:
+        if getattr(block, "type", None) == "text":
+            return block.text
+    return ""
+
+
+# Set by main.py to record token usage for cost tracking.
+# callable(model: str, usage) -> None, where `usage` is the SDK usage object.
+# The model has to travel with the tokens: the fallback path bills at a third of
+# the primary model's rate, and pricing a Haiku response as Sonnet overstated it
+# threefold against the monthly cap.
+on_ai_usage: Any = None
 
 
 def _ai_call(
@@ -894,14 +937,15 @@ def _ai_call(
                 max_tokens=max_tokens,
                 system=system,
                 messages=messages,
+                **_model_kwargs(model),
             )
             usage = response.usage
             cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
             if on_ai_usage and callable(on_ai_usage):
-                on_ai_usage(usage.input_tokens, usage.output_tokens)
+                on_ai_usage(model, usage)
             return {
                 "error": False,
-                "result": response.content[0].text,
+                "result": _first_text(response),
                 "model": model,
                 "input_tokens": usage.input_tokens,
                 "output_tokens": usage.output_tokens,
@@ -979,7 +1023,7 @@ def _ai_call_stream(
                 resp = stream.get_final_message()
                 usage = resp.usage
                 if on_ai_usage and callable(on_ai_usage):
-                    on_ai_usage(usage.input_tokens, usage.output_tokens)
+                    on_ai_usage(model, usage)
 
                 yield f"data: {_json.dumps({'status': 'done', 'text': full_text, 'model': model, 'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens})}\n\n"
                 return
@@ -1447,7 +1491,7 @@ def ai_strategy(
     )
 
     resp = _ai_call(
-        _STRATEGY_SYSTEM, user_msg, api_key=api_key, max_tokens=500, cache_user_msg=True
+        _STRATEGY_SYSTEM, user_msg, api_key=api_key, max_tokens=700, cache_user_msg=True
     )
     if resp["error"]:
         return {
@@ -2162,7 +2206,7 @@ def ai_composition_fills(
             _FILLS_SYSTEM + goal_sys,
             user_msg,
             api_key=api_key,
-            max_tokens=600,
+            max_tokens=800,
             cache_user_msg=True,
         )
         if resp["error"]:
@@ -2526,7 +2570,7 @@ def wizard_narrate(
         f"Suggested cards:\n" + "\n".join(card_details)
     )
 
-    resp = _ai_call(_WIZARD_NARRATE, user_msg, api_key=api_key, max_tokens=500)
+    resp = _ai_call(_WIZARD_NARRATE, user_msg, api_key=api_key, max_tokens=700)
     if resp["error"]:
         return {"error": True, "message": resp["result"]}
     return {"error": False, "narration": resp["result"], "model": resp.get("model")}
@@ -2589,10 +2633,15 @@ def wizard_chat(
             max_tokens=2000,
             system=system,
             messages=messages,
+            **_model_kwargs(model),
         )
+        # This path used to return without recording anything, so every chat
+        # turn was free as far as the monthly cap was concerned.
+        if on_ai_usage and callable(on_ai_usage):
+            on_ai_usage(model, response.usage)
         return {
             "error": False,
-            "response": response.content[0].text,
+            "response": _first_text(response),
             "model": model,
         }
     except Exception as exc:
@@ -2602,7 +2651,7 @@ def wizard_chat(
 # --------------------------------------------------------------------------- #
 # AI Rules Q&A (Phase 2 — lightweight RAG over Comprehensive Rules + cards)
 # --------------------------------------------------------------------------- #
-_RULES_QA_MAX_TOKENS = 1800
+_RULES_QA_MAX_TOKENS = 2300
 _RULES_QA_GREP_LIMIT = 40
 # Per matched topic, how many of its rules to seed wholesale. Enough to cover a
 # category's full skeleton (e.g. 613's eleven top-level layer/dependency rules)
