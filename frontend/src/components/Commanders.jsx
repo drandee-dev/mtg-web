@@ -61,6 +61,93 @@ function ChipRow({ label, values }) {
   );
 }
 
+// Section band: a micro uppercase label above the heading, then the content.
+// Tapped Decks uses this rhythm on every page and it is most of why their pages
+// read as composed rather than stacked. Reusable beyond this file on purpose.
+function Section({ label, title, sub, children }) {
+  return (
+    <div className="panel cmdr-section">
+      <div className="cmdr-section-label">{label}</div>
+      <h3 className="cmdr-section-title">{title}</h3>
+      {sub && <p className="muted small cmdr-section-sub">{sub}</p>}
+      {children}
+    </div>
+  );
+}
+
+// Small hook for the two lazy per-commander fetches below. Both endpoints are
+// cached server-side, so remounting a page is cheap.
+function useCommanderExtra(fetcher, name) {
+  // The result carries the name it was fetched for, so switching commanders reads
+  // as loading rather than briefly showing the previous commander's cards. Clearing
+  // it from inside the effect instead would be a second render pass for nothing.
+  const [state, setState] = useState({ data: null, error: "", name: null });
+  useEffect(() => {
+    let cancelled = false;
+    fetcher(name)
+      .then((r) => { if (!cancelled) setState({ data: r, error: "", name }); })
+      .catch((e) => { if (!cancelled) setState({ data: null, error: e.message, name }); });
+    return () => { cancelled = true; };
+  }, [fetcher, name]);
+  return state.name === name ? state : { data: null, error: "" };
+}
+
+function SignatureCards({ name }) {
+  const { data, error } = useCommanderExtra(api.commanderSynergies, name);
+  const cards = data?.cards || [];
+
+  if (error) return null; // EDHREC is a third party; a page without this section still works
+  if (!data) return <Section label="Signature cards" title="Signature cards"><p className="muted small">Loading…</p></Section>;
+  if (cards.length === 0) return null;
+
+  return (
+    <Section
+      label="Signature cards"
+      title="What makes this commander different"
+      sub="Played far more here than across the format. Share of decks, and EDHREC synergy score."
+    >
+      <ol className="cmdr-sig-list">
+        {cards.map((c, i) => (
+          <li key={c.name} className="cmdr-sig-row">
+            <span className="cmdr-sig-rank">{i + 1}</span>
+            <span className="cmdr-sig-name">{c.name}</span>
+            {c.pct != null && <span className="muted small cmdr-sig-pct">{c.pct}%</span>}
+            <span className="badge gold cmdr-sig-syn">+{c.synergy}</span>
+          </li>
+        ))}
+      </ol>
+    </Section>
+  );
+}
+
+function ArtVariants({ name }) {
+  const { data, error } = useCommanderExtra(api.cardPrints, name);
+  const prints = data?.prints || [];
+
+  if (error || (data && prints.length < 2)) return null; // one printing is not a gallery
+  if (!data) return null;
+
+  return (
+    <Section
+      label="Art variants"
+      title={`${prints.length} printings`}
+      sub="Every version of this card ever printed."
+    >
+      <div className="card-grid" role="list">
+        {prints.map((p) => (
+          <div key={`${p.set}-${p.cn}`} className="cmdr-print" role="listitem">
+            <img src={p.thumb || p.image} alt={`${name} — ${p.set_name}`} loading="lazy" />
+            <div className="cmdr-print-meta">
+              <div className="cmdr-print-set">{p.set_name}</div>
+              {p.price_usd != null && <div className="muted small">{fmtUsd(p.price_usd)}</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
 function CommanderDetail({ entry, onBack, onBuildWithStrategy, onBuildFromScratch }) {
   const data = useCardImage(entry.name);
   const hasChips = entry.playstyle || entry.difficulty || entry.wins_via?.length || entry.themes?.length;
@@ -73,12 +160,15 @@ function CommanderDetail({ entry, onBack, onBuildWithStrategy, onBuildFromScratc
 
       <div className="panel">
         <div className="commander-detail-hero">
-          <img
-            src={data?.art_crop || data?.image || ""}
-            alt={entry.name}
-            className="commander-detail-art"
-            loading="lazy"
-          />
+          {/* Rendering src="" makes the browser re-request the page itself. */}
+          {(data?.art_crop || data?.image) && (
+            <img
+              src={data.art_crop || data.image}
+              alt={entry.name}
+              className="commander-detail-art"
+              loading="lazy"
+            />
+          )}
           <div>
             <h2 style={{ marginBottom: ".2rem" }}>{entry.name}</h2>
             <div className="row" style={{ marginBottom: ".4rem" }}>
@@ -120,6 +210,9 @@ function CommanderDetail({ entry, onBack, onBuildWithStrategy, onBuildFromScratc
           <p style={{ whiteSpace: "pre-wrap" }}>{entry.oracle_text}</p>
         </div>
       )}
+
+      <SignatureCards name={entry.name} />
+      <ArtVariants name={entry.name} />
     </div>
   );
 }

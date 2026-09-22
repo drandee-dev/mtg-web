@@ -728,6 +728,65 @@ def commander_directory() -> list[dict]:
     return directory
 
 
+# Signature cards for a commander page, straight off the same EDHREC feed the deck
+# skeleton already uses. Cached hard because this is an outbound call to someone
+# else's free JSON API and a browse session would otherwise hit it per page view.
+# Keyed by commander, valued (expires_at, cards) — an expiry rather than a start time,
+# so hits and misses can age at different rates without a second structure.
+_synergy_cache: dict[str, tuple[float, list[dict]]] = {}
+_SYNERGY_TTL = 12 * 3600  # EDHREC recomputes daily at most
+# Failures expire far sooner than successes: a 403 usually means "no page for this
+# commander", but it is also what a block looks like, and that must be allowed to recover.
+_SYNERGY_MISS_TTL = 300
+
+
+def commander_synergies(name: str, limit: int = 10) -> list[dict]:
+    """The cards that most distinguish this commander's decks from the format.
+
+    Two numbers per card, both derived rather than read off the response:
+
+    - ``pct`` is ``num_decks / potential_decks``. The ``inclusion`` field that the
+      EDHREC payload also carries is always 0, so reading that instead — which is
+      what the field name invites — yields 0% on every row.
+    - ``synergy`` is the raw 0-1 score scaled to the whole-number badge EDHREC
+      itself displays (0.2732 -> 27).
+    """
+    key = name.strip().lower()
+    now = _time.time()
+    hit = _synergy_cache.get(key)
+    if hit is not None and now < hit[0]:
+        return hit[1]
+
+    # EDHREC answers 403 (not 404) for a commander it has no page for, e.g. meld
+    # back-faces like Brisela, so edhrec_lookup's 404 branch doesn't catch it and the
+    # HTTPError escapes. A browse page with no synergy section is the right outcome;
+    # the shared lookup keeps raising for deck building, where an empty result would
+    # silently produce a worse deck instead of an obvious failure.
+    try:
+        cats = edhrec_lookup([name])
+    except Exception:  # noqa: BLE001 — third-party boundary, and only this call
+        _synergy_cache[key] = (now + _SYNERGY_MISS_TTL, [])
+        return []
+
+    idx = _bulk_index()
+    out: list[dict] = []
+    for cv in cats.get("high_synergy", [])[:limit]:
+        card_name = cv.get("name", "")
+        potential = cv.get("potential_decks") or 0
+        if not card_name or not idx.get(card_name):
+            continue
+        out.append(
+            {
+                "name": card_name,
+                "pct": round(100 * cv.get("num_decks", 0) / potential) if potential else None,
+                "synergy": round(100 * cv.get("synergy", 0.0)),
+            }
+        )
+
+    _synergy_cache[key] = (now + _SYNERGY_TTL, out)
+    return out
+
+
 # Deterministic "what's my deck made of / missing" view. Each category counts deck cards
 # matching a theme preset (or a deck_stats field), with a Commander rule-of-thumb target.
 # Targets only flag thin categories in commander-style formats.
