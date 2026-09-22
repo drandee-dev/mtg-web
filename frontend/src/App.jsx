@@ -644,6 +644,7 @@ export default function App() {
             decksIntent={decksIntent}
             onIntentConsumed={clearDecksIntent}
             onOpenAccount={supabaseEnabled ? () => setSettingsOpen(true) : null}
+            onOpenCommander={(slug) => { setCommanderSlug(slug); setTab("commanders"); }}
           />
         )}
         {tab === "commanders" && (
