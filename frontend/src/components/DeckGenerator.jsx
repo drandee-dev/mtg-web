@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { api, FORMATS } from "../lib/api";
+import { api, FORMATS, getCardImage } from "../lib/api";
 import { parseNarration } from "../lib/buildNotes";
+import { parseCollectionCsv, buildOwnedIndex, ownedQuantity } from "../lib/collection";
+import { fmtUsd } from "../lib/format";
 import CardPreview from "./CardPreview";
 import LoadingIndicator from "./LoadingIndicator";
 import Wizard from "./Wizard";
@@ -45,7 +47,7 @@ const BRANCHES = {
     desc: "Reads your collection.csv, builds the best deck from cards you already own, and prices only the gaps.",
     badge: "New",
     tone: "good",
-    steps: ["Choose a path", "Build from what you own"],
+    steps: ["Choose a path", "Load your collection", "Pick a commander", "Review the deck"],
   },
 };
 
@@ -117,6 +119,31 @@ function assembleSkeleton(skeleton, commanderNames) {
   return { cards: [...chosenSpells, ...utilLands], basics };
 }
 
+/** Stably reorder every skeleton category (and land lists) owned-first, so
+ *  assembleSkeleton's greedy slice — which just takes the first N candidates
+ *  per category — keeps owned cards over unowned ones wherever it has a
+ *  choice. Cards the collection doesn't have keep their place at the back,
+ *  so a thin owned pool still falls back to them rather than leaving gaps. */
+function ownedFirstSkeleton(skeleton, ownedIndex) {
+  const rank = (c) => (ownedQuantity(c.name, ownedIndex) > 0 ? 0 : 1);
+  const sortOwnedFirst = (list) => [...(list || [])].sort((a, b) => rank(a) - rank(b));
+  const out = { ...skeleton };
+  for (const [key] of SPELL_CATS) out[key] = sortOwnedFirst(skeleton?.[key]);
+  out.suggested_lands = sortOwnedFirst(skeleton?.suggested_lands);
+  out.lands = sortOwnedFirst(skeleton?.lands);
+  return out;
+}
+
+/** Split a fill-suggestion list into [owned, notOwned], each keeping its
+ *  original order. The gap-closing loop processes owned first so an unowned
+ *  suggestion is only used once the owned pool can't fill the slot. */
+function partitionOwned(list, ownedIndex) {
+  const owned = [];
+  const other = [];
+  for (const item of list) (ownedQuantity(item.name, ownedIndex) > 0 ? owned : other).push(item);
+  return [owned, other];
+}
+
 /** Total copies in a raw "N Card Name" decklist. */
 function parseDeckLines(text) {
   return (text || "").split("\n").reduce((n, l) => {
@@ -150,6 +177,10 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
   const [preconQuery, setPreconQuery] = useState("");
   const [precon, setPrecon] = useState(null); // the import-precon payload
 
+  const [collectionText, setCollectionText] = useState("");
+  const [ownedIndex, setOwnedIndex] = useState(null); // Map(normalizedName -> {name, quantity})
+  const [collectionStats, setCollectionStats] = useState(null); // {rows, skipped, unique}
+
   const steps = branch ? BRANCHES[branch].steps : null;
   const stepCount = steps?.length ?? null;
   const pct = stepCount ? Math.round((stepIdx / (stepCount - 1)) * 100) : 0;
@@ -174,6 +205,9 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
     setCandidates(null);
     setBuilt(null);
     setPrecon(null);
+    setCollectionText("");
+    setOwnedIndex(null);
+    setCollectionStats(null);
   }
 
   function back() {
@@ -339,6 +373,124 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
     onFinish(built.decklist, built.commander, built.notes);
   }
 
+  // --- Collection -----------------------------------------------------------
+  function loadCollection(text) {
+    const { rows, skipped } = parseCollectionCsv(text);
+    if (!rows.length) {
+      setOwnedIndex(null);
+      setCollectionStats(null);
+      return;
+    }
+    setOwnedIndex(buildOwnedIndex(rows));
+    setCollectionStats({ rows: rows.length, skipped });
+  }
+
+  function onCollectionFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const txt = String(reader.result);
+      setCollectionText(txt);
+      loadCollection(txt);
+    };
+    reader.onerror = () => notify?.("Could not read that file.");
+    reader.readAsText(file);
+  }
+
+  // Same one-shot composition as generate(), constrained to the owned
+  // collection first: the skeleton categories are reordered owned-first
+  // before assembleSkeleton picks its slots, and ai/fills gap-closers only
+  // reach for an unowned card once the owned pool can't fill the slot.
+  // Every non-basic pick is then flagged owned or not, and the unowned ones
+  // get priced via the same per-name lookup CardPreview/CardBottomSheet use.
+  async function generateFromCollection(commanderName) {
+    const cmdNames = [commanderName];
+    setProgress({ label: "Building the skeleton", pct: 15 });
+    try {
+      const sk = await api.wizardSkeleton(commanderName, format, bracket);
+      if (sk?.error) throw new Error(sk.message || "Commander not found.");
+      const colors = sk.commander?.color_identity || [];
+      const ownedFirst = ownedFirstSkeleton(sk.skeleton, ownedIndex);
+      const { cards, basics } = assembleSkeleton({ ...ownedFirst, _colors: colors }, cmdNames);
+      if (!cards.length) throw new Error("No suggestions came back for that commander.");
+
+      const notes = {};
+      for (const c of cards) if (c.reason) notes[c.name] = c.reason;
+
+      const header = `Commander\n${cmdNames.map((n) => `1 ${n}`).join("\n")}\nDeck\n`;
+      let full = header + toLines(cards, basics);
+
+      setProgress({ label: "Writing the reasoning", pct: 40 });
+      const byCat = new Map();
+      for (const c of cards) {
+        if (!byCat.has(c.category)) byCat.set(c.category, []);
+        byCat.get(c.category).push(c.name);
+      }
+      const narrations = await Promise.allSettled(
+        [...byCat.entries()].map(([label, names]) =>
+          api.wizardNarrate(commanderName, label, names.slice(0, 10), full)
+            .then((r) => (r?.error ? {} : parseNarration(r?.narration, names))),
+        ),
+      );
+      for (const n of narrations) {
+        if (n.status === "fulfilled") Object.assign(notes, n.value);
+      }
+
+      setProgress({ label: "Closing category gaps", pct: 65 });
+      const nextBasics = new Map(basics);
+      const added = [];
+      try {
+        const fills = await api.aiFills(full, format, bracket);
+        const have = new Set([...cards.map((c) => c.name.toLowerCase()), ...cmdNames.map((n) => n.toLowerCase())]);
+        const proposed = (fills?.fills || []).flatMap((f) =>
+          (f.suggestions || []).map((s) => ({ ...s, category: f.category || "Fills" })),
+        );
+        const [ownedProposed, otherProposed] = partitionOwned(proposed, ownedIndex);
+        for (const s of [...ownedProposed, ...otherProposed]) {
+          const name = s.name;
+          if (!name || have.has(name.toLowerCase())) continue;
+          const donor = [...nextBasics.entries()].find(([, q]) => q > 0);
+          if (!donor) break;
+          nextBasics.set(donor[0], donor[1] - 1);
+          if (nextBasics.get(donor[0]) === 0) nextBasics.delete(donor[0]);
+          have.add(name.toLowerCase());
+          added.push({ name, qty: 1, category: s.category, reason: s.reason || null });
+          if (s.reason) notes[name] = s.reason;
+        }
+      } catch { /* fills are optional — the skeleton deck stands on its own */ }
+
+      const finalCards = [...cards, ...added];
+      full = header + toLines(finalCards, nextBasics);
+
+      // Owned vs buy: flag every non-basic pick, then price only the gap.
+      setProgress({ label: "Pricing what you'd need to buy", pct: 88 });
+      const buyList = [];
+      for (const c of finalCards) {
+        c.owned = ownedQuantity(c.name, ownedIndex) > 0;
+        if (!c.owned) buyList.push(c);
+      }
+      const priced = await Promise.allSettled(buyList.map((c) => getCardImage(c.name)));
+      let buyTotal = 0;
+      priced.forEach((r, i) => {
+        const price = r.status === "fulfilled" ? r.value?.price_usd : null;
+        buyList[i].price_usd = price ?? null;
+        if (price != null) buyTotal += price;
+      });
+
+      setProgress({ label: "Done", pct: 100 });
+      setBuilt({
+        commander: commanderName, cards: finalCards, basics: nextBasics, notes, decklist: full,
+        buyList, buyTotal, ownedCount: finalCards.length - buyList.length,
+      });
+      setStepIdx(steps.length - 1);
+    } catch (e) {
+      notify?.(`Build failed: ${e.message}`);
+    } finally {
+      setProgress(null);
+    }
+  }
+
   /* ── Guided branch: the existing category-fill wizard, unchanged ───────── */
   if (branch === "guided") {
     return (
@@ -374,23 +526,16 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
         <div className="gen-doors">
           {DOOR_ORDER.map((id) => {
             const b = BRANCHES[id];
-            const soon = id === "collection";
             return (
               <button
                 key={id}
                 type="button"
                 className={`gen-door gen-door-${b.tone}`}
-                disabled={soon}
                 onClick={() => pickBranch(id)}
               >
                 <span className="gen-door-txt">
                   <span className="gen-door-t">{b.label}</span>
                   <span className="gen-door-d">{b.desc}</span>
-                  {soon && (
-                    <span className="gen-door-soon">
-                      Not available yet. It needs the collection import, which is not built.
-                    </span>
-                  )}
                 </span>
                 <span className={`gen-badge gen-badge-${b.tone}`}>{b.badge}</span>
               </button>
@@ -459,6 +604,97 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
     );
   }
 
+  /* ── Collection: load it, then pick a commander to build around ───────── */
+  if (branch === "collection" && !built) {
+    const canContinue = Boolean(ownedIndex && ownedIndex.size > 0);
+    return (
+      <div className="gen">
+        <GenHeader steps={steps} stepIdx={stepIdx} pct={pct} onBack={back} />
+        {stepIdx === 1 ? (
+          <div className="panel">
+            <label htmlFor="gen-collection">Collection CSV</label>
+            <textarea
+              id="gen-collection"
+              className="gen-describe"
+              value={collectionText}
+              onChange={(e) => { setCollectionText(e.target.value); loadCollection(e.target.value); }}
+              placeholder={"name,set,quantity\nSol Ring,cmr,1\nCommand Tower,40k,2"}
+              rows={6}
+            />
+            <div className="row" style={{ gap: ".6rem", alignItems: "center", flexWrap: "wrap" }}>
+              <label style={{ margin: 0, cursor: "pointer" }}>
+                <input type="file" accept=".csv,.txt" onChange={onCollectionFile} style={{ display: "none" }} />
+                <span className="badge" style={{ cursor: "pointer" }}>Load file…</span>
+              </label>
+              {collectionStats && (
+                <span className="muted small">
+                  {ownedIndex.size} unique card{ownedIndex.size === 1 ? "" : "s"} recognized
+                  {collectionStats.skipped > 0
+                    ? ` · ${collectionStats.skipped} row${collectionStats.skipped === 1 ? "" : "s"} skipped`
+                    : ""}
+                </span>
+              )}
+              {collectionText.trim() && !canContinue && (
+                <span className="muted small">No cards recognized — check it has name,set,quantity columns.</span>
+              )}
+            </div>
+            <button className="primary" onClick={() => setStepIdx(2)} disabled={!canContinue} style={{ marginTop: ".6rem" }}>
+              Continue →
+            </button>
+          </div>
+        ) : progress ? (
+          <div className="panel gen-building">
+            <LoadingIndicator label={progress.label} active />
+            <div className="gen-track"><div className="gen-fill" style={{ width: `${progress.pct}%` }} /></div>
+            <p className="gen-lede">{progress.label}…</p>
+          </div>
+        ) : (
+          <div className="panel">
+            <div className="row" style={{ flexWrap: "wrap", marginBottom: ".6rem" }}>
+              <select value={format} onChange={(e) => setFormat(e.target.value)} style={{ width: "auto" }} aria-label="Format">
+                {FORMATS.filter(([v]) => v === "commander" || v === "paupercommander").map(([v, label]) => (
+                  <option key={v} value={v}>{label}</option>
+                ))}
+              </select>
+              <select value={bracket ?? ""} onChange={(e) => setBracket(e.target.value ? Number(e.target.value) : null)}
+                style={{ width: "auto" }} aria-label="Target bracket">
+                <option value="">Bracket: auto</option>
+                <option value="1">Bracket 1 — Precon</option>
+                <option value="2">Bracket 2 — Focused</option>
+                <option value="3">Bracket 3 — Optimized</option>
+                <option value="4">Bracket 4 — cEDH</option>
+              </select>
+            </div>
+            <label htmlFor="gen-cmd">Commander</label>
+            <input
+              id="gen-cmd"
+              value={cmdQuery}
+              onChange={(e) => { setCmdQuery(e.target.value); searchCommanders(e.target.value); }}
+              placeholder="Start typing… e.g. atraxa"
+              autoComplete="off"
+            />
+            {searching && <p className="muted small">Searching…</p>}
+            {candidates?.length > 0 && (
+              <div className="gen-candidates" role="listbox" aria-label="Commander choices">
+                {candidates.slice(0, 8).map((c) => (
+                  <button key={c.name} role="option" aria-selected="false" className="gen-candidate"
+                    onClick={() => generateFromCollection(c.name)}>
+                    <span className="gen-candidate-name">{c.name}</span>
+                    <span className="muted small">{c.type_line}</span>
+                    <span className="gen-candidate-go">Build the 99 →</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {candidates?.length === 0 && !searching && (
+              <p className="muted small">No commander matched. Try a different name.</p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   /* ── Review ───────────────────────────────────────────────────────────── */
   if (built) {
     const total = built.cards.reduce((n, c) => n + c.qty, 0)
@@ -482,12 +718,42 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
             <button className="ghost" onClick={() => { setBuilt(null); setStepIdx(1); }}>Start over</button>
           </div>
         </div>
+        {built.buyList && (
+          <div className="panel">
+            <h3 className="gen-cat">
+              {built.ownedCount} of {built.cards.length} picks already in your collection
+            </h3>
+            {built.buyList.length === 0 ? (
+              <p className="muted small">Nothing left to buy — the whole deck came from your collection.</p>
+            ) : (
+              <>
+                <p className="gen-lede" style={{ marginBottom: ".6rem" }}>
+                  {built.buyList.length} card{built.buyList.length === 1 ? "" : "s"} to buy
+                  {built.buyTotal > 0 ? `, about ${fmtUsd(built.buyTotal)} total` : ""}.
+                </p>
+                {built.buyList.map((c) => (
+                  <div key={c.name} className="gen-card-row">
+                    <span className="gen-card-name">
+                      {c.name}{" "}
+                      <span className="badge warn small">
+                        {c.price_usd != null ? `Buy · ${fmtUsd(c.price_usd)}` : "Buy · price unknown"}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
         {[...groups.entries()].map(([label, list]) => (
           <div className="panel" key={label}>
             <h3 className="gen-cat">{label} <span className="muted small">({list.length})</span></h3>
             {list.map((c) => (
               <div key={c.name} className="gen-card-row">
-                <span className="gen-card-name"><CardPreview name={c.name} /></span>
+                <span className="gen-card-name">
+                  <CardPreview name={c.name} />
+                  {c.owned === false && <span className="badge warn small">Buy</span>}
+                </span>
                 {built.notes[c.name] && <span className="gen-card-why">{built.notes[c.name]}</span>}
               </div>
             ))}
