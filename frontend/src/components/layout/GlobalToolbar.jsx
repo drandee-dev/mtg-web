@@ -1,4 +1,11 @@
 import AvatarPopup from "./AvatarPopup";
+import { loadDirectory } from "../../lib/commanderDirectory";
+
+// Per-tab data to warm on hover, keyed by tab id. Only Commanders has a heavy
+// fetch worth starting early (~500KB post-compression, see Commanders.jsx);
+// every other tab's data is small or already loaded. A no-op default keeps
+// the hover handler unconditional rather than branching per tab id.
+const PREFETCH = { commanders: loadDirectory };
 
 const TAB_ICONS = {
   decks: (
@@ -65,6 +72,7 @@ export default function GlobalToolbar({
             aria-selected={tab === id}
             className={`gt-tab${tab === id ? " active" : ""}`}
             onClick={() => setTab(id)}
+            onMouseEnter={() => PREFETCH[id]?.()}
             style={{ display: "flex", alignItems: "center", gap: "5px" }}
           >
             {TAB_ICONS[id]}{label}

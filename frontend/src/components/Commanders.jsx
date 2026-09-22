@@ -5,23 +5,11 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";
 import { fmtUsd } from "../lib/format";
 import { useCardImage } from "../lib/hooks";
+import { loadDirectory } from "../lib/commanderDirectory";
 import ManaCost from "./deck/ManaCost";
 
 const COLORS = ["W", "U", "B", "R", "G"];
 const PAGE_SIZE = 60;
-
-// Fetched once per session and shared across tab switches — the same
-// module-level-cache pattern CardSearch uses for its last search.
-let _dirPromise = null;
-function loadDirectory() {
-  if (!_dirPromise) {
-    _dirPromise = api.commanderDirectory().catch((e) => {
-      _dirPromise = null;
-      throw e;
-    });
-  }
-  return _dirPromise;
-}
 
 function colorMatches(identity, allowed) {
   if (allowed.size === 0) return true;
