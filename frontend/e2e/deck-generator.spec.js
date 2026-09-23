@@ -31,17 +31,46 @@ test.describe("Deck generator entry screen", () => {
     await openGenerator(page);
     const doors = page.locator(".gen-door");
     await expect(doors).toHaveCount(5);
+    // The two headline routes come first and render large, with a benefit
+    // list; the three compact routes follow.
     await expect(doors.nth(0)).toContainText("Describe what you like");
     await expect(doors.nth(0).locator(".gen-badge")).toHaveText("Uses AI");
-    await expect(doors.nth(1)).toContainText("Guide me step by step");
-    await expect(doors.nth(1).locator(".gen-badge")).toHaveText("No AI");
-    await expect(doors.nth(2)).toContainText("I know my commander");
+    await expect(doors.nth(1)).toContainText("I know my commander");
+    await expect(doors.nth(2)).toContainText("Guide me step by step");
+    await expect(doors.nth(2).locator(".gen-badge")).toHaveText("No AI");
     // Precon is free: the published list, straight from the endpoint.
     await expect(doors.nth(3)).toContainText("Start from a precon");
     await expect(doors.nth(3).locator(".gen-badge")).toHaveText("No AI");
     await expect(doors.nth(4)).toContainText("Build from my collection");
     await expect(doors.nth(4).locator(".gen-badge")).toHaveText("New");
     await expect(doors.nth(4)).toBeEnabled();
+  });
+
+  // The size split is the whole point of this screen: the two routes that get
+  // a benefit list are the two that render large, and nothing else does. A
+  // tone with no matching CSS rule used to leave a door unaccented, so this
+  // also asserts every door draws a real accent on its icon tile.
+  test("two primary doors are larger and every door carries a real accent", async ({ page }) => {
+    await openGenerator(page);
+    const primary = page.locator(".gen-door-lg");
+    await expect(primary).toHaveCount(2);
+    await expect(primary.nth(0)).toContainText("Describe what you like");
+    await expect(primary.nth(1)).toContainText("I know my commander");
+    await expect(page.locator(".gen-door-sm")).toHaveCount(3);
+    await expect(page.locator(".gen-door-lg .gen-door-win")).toHaveCount(6);
+    await expect(page.locator(".gen-door-sm .gen-door-win")).toHaveCount(0);
+
+    const heights = await page.locator(".gen-door").evaluateAll((els) =>
+      els.map((e) => e.getBoundingClientRect().height));
+    expect(Math.min(heights[0], heights[1])).toBeGreaterThan(Math.max(...heights.slice(2)));
+
+    // Every accent resolves from the door's own --door var, which only a
+    // .gen-door-<tone> rule sets. A tone with no rule (what "plain" was)
+    // leaves it empty here, and no two routes share a colour.
+    const tints = await page.locator(".gen-door").evaluateAll((els) =>
+      els.map((e) => getComputedStyle(e).getPropertyValue("--door").trim()));
+    expect(tints.filter(Boolean)).toHaveLength(5);
+    expect(new Set(tints).size).toBe(5);
   });
 
   test("step counter reflects the chosen route, not a fixed total", async ({ page }) => {
