@@ -2,13 +2,17 @@
 
 Hermetic: spies on _ai_call so no real API call happens, no cost. Uses the real
 bulk card index (already on disk for local dev) to build one real decklist and
-exercise all five rewritten endpoints against it.
+exercise the rewritten endpoints against it.
 
 This checks the one property the whole caching lever depends on: that every
 endpoint sends the SAME `system` string and the SAME first content-block text
 for the SAME deck. If either varies, Anthropic's cache prefix can never be
 shared across endpoints no matter how the rest of the message is built — see
 mtg.py's comment above _DECKBUILDER_SYSTEM for why.
+
+The old cuts/upgrades AI endpoints were deleted (Job 9, 2026-09-22): the
+Changes tab's deep pass now runs entirely through ai_optimize (Job 1). This
+file keeps testing the shared-cache property across the endpoints that remain.
 """
 import sys
 
@@ -33,9 +37,6 @@ DECKLIST = "\n".join(
 _captured: list[dict] = []
 _RESPONSES = [
     '{"strategy":"x","archetype":"y"}',  # ai_strategy
-    "[]",  # ai_upgrades (power)
-    "[]",  # ai_upgrades (budget)
-    "[]",  # ai_suggest_cuts
     "[]",  # ai_explain_recommendations
     '{"assessment":"x","changes":[]}',  # ai_optimize
 ]
@@ -52,14 +53,11 @@ def _run_all(goals=None):
     mtg._ai_call = _spy
     try:
         mtg.ai_strategy(DECKLIST, commander="Atraxa, Praetors' Voice")
-        mtg.ai_upgrades(DECKLIST, mode="power", goals=goals)
-        mtg.ai_upgrades(DECKLIST, mode="budget", goals=goals)
-        mtg.ai_suggest_cuts(DECKLIST, goals=goals)
         mtg.ai_explain_recommendations(DECKLIST, ["Sol Ring", "Rhystic Study"], goals=goals)
         mtg.ai_optimize(DECKLIST, goals=goals)
     finally:
         mtg._ai_call = real
-    assert len(_captured) == 6, f"expected 6 calls, got {len(_captured)}"
+    assert len(_captured) == 3, f"expected 3 calls, got {len(_captured)}"
     return list(_captured)
 
 
@@ -67,7 +65,7 @@ def test_every_endpoint_shares_one_system_string():
     calls = _run_all()
     systems = {c["system"] for c in calls}
     assert systems == {mtg._DECKBUILDER_SYSTEM}, systems
-    print("ok: all 6 calls (5 endpoints, upgrades called twice) share one system string")
+    print("ok: all 3 calls (3 endpoints) share one system string")
 
 
 def test_payload_block_is_byte_identical_across_endpoints():
@@ -91,9 +89,8 @@ def test_instruction_block_is_also_cached_and_endpoint_specific():
         second_block = c["messages"][0]["content"][1]
         assert second_block.get("cache_control") == {"type": "ephemeral"}, second_block
         instructions.append(second_block["text"])
-    # All 6 calls have their own instruction text (upgrades-power and
-    # upgrades-budget genuinely differ from each other, not just from the rest).
-    assert len(set(instructions)) == 6, instructions
+    # All 3 calls have their own instruction text.
+    assert len(set(instructions)) == 3, instructions
     print("ok: each endpoint's instruction block is its own text, still cached")
 
 

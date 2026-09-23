@@ -113,16 +113,12 @@ export const api = {
   // from the UI, and keeping two client methods for one job invited drift.
   rulesAskStream: (question, onChunk) =>
     postStream("/api/rules/ask/stream", { question }, onChunk),
-  aiCuts: (decklist, format, bracket, goals) =>
-    post("/api/deck/ai/cuts", { decklist, format, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}) }),
   aiFills: (decklist, format, bracket, goals) =>
     post("/api/deck/ai/fills", { decklist, format, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}) }),
   aiExplain: (decklist, format, card_names, bracket, goals) =>
     post("/api/deck/ai/explain", { decklist, format, card_names, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}) }),
   aiStrategy: (decklist, format, commander, bracket) =>
     post("/api/deck/ai/strategy", { decklist, format, ...(commander ? { commander } : {}), ...(bracket != null ? { bracket } : {}) }),
-  aiUpgrades: (decklist, format, commander, bracket, mode, goals) =>
-    post("/api/deck/ai/upgrades", { decklist, format, ...(commander ? { commander } : {}), ...(bracket != null ? { bracket } : {}), mode: mode || "power", ...(goals ? { goals } : {}) }),
   optimize: (decklist, format, goals, focus, recentChanges) =>
     post("/api/deck/optimize", { decklist, format, ...(goals ? { goals } : {}), ...(focus ? { focus } : {}), ...(recentChanges?.length ? { recent_changes: recentChanges } : {}) }),
   importUrl: (url) => post("/api/deck/import-url", { url }),

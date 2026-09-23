@@ -1,5 +1,5 @@
 // Per-deck persistence for the right-sidebar insight results (analysis,
-// suggestions, cuts, combos, upgrades, strategy) plus which tool was open.
+// suggestions, combos, budget swaps, strategy) plus which tool was open.
 // DeckView unmounts on every tab switch, so without this each paid AI panel
 // would be lost and re-bought on return. Keyed like goals/optlog:
 // `mtgweb:insights:{deckId||"current"}`.
@@ -16,7 +16,7 @@ const key = (deckId) => `mtgweb:insights:${deckId || "current"}`;
 
 // Panel state keys DeckView persists (result/comp are free recomputes but
 // hydrating them makes the sidebar render instantly; the rest are lazy or AI).
-export const PANEL_KEYS = ["result", "comp", "recs", "cuts", "combos", "budgetSwaps", "upgrades", "strategy", "ratings"];
+export const PANEL_KEYS = ["result", "comp", "recs", "combos", "budgetSwaps", "strategy", "ratings"];
 
 /** Card-presence signature: sorted unique card names + commanders + format.
  * Quantities and printing suffixes deliberately excluded. */

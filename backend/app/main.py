@@ -504,15 +504,6 @@ def deck_budget_swaps(payload: Annotated[dict, Body()]) -> dict:
     return mtg.budget_swaps(decklist, fmt=fmt, threshold=threshold)
 
 
-@app.post("/api/deck/ai/cuts")
-def deck_ai_cuts(request: Request, payload: Annotated[dict, Body()]) -> dict:
-    _check_ai_access(request)
-    decklist, fmt = _validate_decklist(payload)
-    return mtg.ai_suggest_cuts(
-        decklist, fmt=fmt, bracket=_target_bracket(payload), goals=_parse_goals(payload)
-    )
-
-
 @app.post("/api/deck/ai/fills")
 def deck_ai_fills(request: Request, payload: Annotated[dict, Body()]) -> dict:
     _check_ai_access(request)
@@ -562,24 +553,6 @@ def deck_ai_strategy(request: Request, payload: Annotated[dict, Body()]) -> dict
     commander = (payload.get("commander") or "").strip()[:_MAX_CARD_NAME_LEN] or None
     return mtg.ai_strategy(
         decklist, fmt=fmt, commander=commander, bracket=_target_bracket(payload)
-    )
-
-
-@app.post("/api/deck/ai/upgrades")
-def deck_ai_upgrades(request: Request, payload: Annotated[dict, Body()]) -> dict:
-    _check_ai_access(request)
-    decklist, fmt = _validate_decklist(payload)
-    commander = (payload.get("commander") or "").strip()[:_MAX_CARD_NAME_LEN] or None
-    mode = (payload.get("mode") or "power").strip().lower()
-    if mode not in ("power", "budget"):
-        raise HTTPException(400, "mode must be 'power' or 'budget'.")
-    return mtg.ai_upgrades(
-        decklist,
-        fmt=fmt,
-        commander=commander,
-        bracket=_target_bracket(payload),
-        mode=mode,
-        goals=_parse_goals(payload),
     )
 
 
