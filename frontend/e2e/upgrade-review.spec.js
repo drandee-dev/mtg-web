@@ -33,7 +33,7 @@ async function emptyDeckByHand(page) {
   await page.locator(".dh-actions .more-menu-btn").click();
   await page.locator(".more-menu-item", { hasText: "Edit as text" }).click();
   await page.locator(".deck-text-editor").fill("");
-  await page.locator(`.card-thumb[aria-label*="${TEST_COMMANDER.split(",")[0]}"]`).first().click();
+  await page.locator(`.card-grid-container [aria-label*="${TEST_COMMANDER.split(",")[0]}"]`).first().click();
   await page.locator(".cdm-actions button", { hasText: "Change commander" }).click();
   await expect(page.locator(".empty-deck")).toBeVisible();
 }

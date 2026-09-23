@@ -134,7 +134,7 @@ test.describe("Activation flows", () => {
 
   test("card modal Rules action lands on the Rules tab prefilled", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    await page.locator('.card-group [aria-label*="Sol Ring"]').first().click();
+    await page.locator('.card-grid-container [aria-label*="Sol Ring"]').first().click();
     const modal = page.locator(".cdm-panel");
     await expect(modal).toBeVisible();
     await modal.locator('button:has-text("Rules")').click();

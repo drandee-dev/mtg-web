@@ -115,13 +115,13 @@ test.describe("Deck generator entry screen", () => {
 
     await page.locator("button", { hasText: "Open in deck view" }).click();
     await expect(page.locator(".card-grid-container")).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('.card-thumb[aria-label="1x Sol Ring"]')).toHaveCount(1);
+    await expect(page.locator('.card-grid-container [aria-label="1x Sol Ring"]')).toHaveCount(1);
     // The commander belongs in the command zone only. The card grid hides it
     // from the 99 either way, so check the decklist text itself — that's what
     // gets saved, shared, exported and analyzed.
     await expect(await rawDecklist(page)).not.toContain("Atraxa");
     // Imported list is not generator output, so nothing claims to explain it.
-    await page.locator('.card-thumb[aria-label="1x Sol Ring"]').click();
+    await page.locator('.card-grid-container [aria-label="1x Sol Ring"]').click();
     await expect(page.locator(".cdm-why")).toHaveCount(0);
   });
 
@@ -216,7 +216,7 @@ test.describe("Generated deck reasons", () => {
     await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
     await page.locator("button", { hasText: "Open in deck view" }).click();
 
-    await page.locator('.card-thumb[aria-label="1x Sol Ring"]').first().click();
+    await page.locator('.card-grid-container [aria-label="1x Sol Ring"]').first().click();
     await expect(page.locator(".cdm-why")).toContainText("Pulls its weight");
   });
 
@@ -246,7 +246,7 @@ test.describe("Generated deck reasons", () => {
     await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
     await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
     await page.locator("button", { hasText: "Open in deck view" }).click();
-    await page.locator('.card-thumb[aria-label="1x Sol Ring"]').first().click();
+    await page.locator('.card-grid-container [aria-label="1x Sol Ring"]').first().click();
     await expect(page.locator(".cdm-why")).toContainText("Pulls its weight");
     await page.locator(".cdm-close").click();
 
@@ -255,7 +255,7 @@ test.describe("Generated deck reasons", () => {
     await navigateToTab(page, "My Decks");
     await page.locator(".deck-card", { hasText: OTHER.name }).locator(".deck-card-art").click();
     await expect(page.locator(".card-grid-container")).toBeVisible({ timeout: 10000 });
-    await page.locator('.card-thumb[aria-label="1x Sol Ring"]').first().click();
+    await page.locator('.card-grid-container [aria-label="1x Sol Ring"]').first().click();
     await expect(page.locator(".cdm-name")).toHaveText("Sol Ring");
     await expect(page.locator(".cdm-why")).toHaveCount(0);
   });
@@ -270,7 +270,7 @@ test.describe("Generated deck reasons", () => {
     await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
     await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
     await page.locator("button", { hasText: "Open in deck view" }).click();
-    await page.locator('.card-thumb[aria-label="1x Sol Ring"]').first().click();
+    await page.locator('.card-grid-container [aria-label="1x Sol Ring"]').first().click();
     await expect(page.locator(".cdm-why")).toContainText("Pulls its weight");
     await page.locator(".cdm-close").click();
 
@@ -282,7 +282,7 @@ test.describe("Generated deck reasons", () => {
     await page.locator(".icm-confirm button", { hasText: "Replace deck" }).click();
     await expect(page.locator(".deck-title")).toContainText("Mock Import");
 
-    await page.locator('.card-thumb[aria-label="1x Sol Ring"]').first().click();
+    await page.locator('.card-grid-container [aria-label="1x Sol Ring"]').first().click();
     await expect(page.locator(".cdm-name")).toHaveText("Sol Ring");
     await expect(page.locator(".cdm-why")).toHaveCount(0);
   });
@@ -297,7 +297,7 @@ test.describe("Generated deck reasons", () => {
     await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
     await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
     await page.locator("button", { hasText: "Open in deck view" }).click();
-    await page.locator('.card-thumb[aria-label="1x Sol Ring"]').first().click();
+    await page.locator('.card-grid-container [aria-label="1x Sol Ring"]').first().click();
     await expect(page.locator(".cdm-why")).toContainText("Pulls its weight");
     await page.locator(".cdm-close").click();
 
@@ -305,7 +305,7 @@ test.describe("Generated deck reasons", () => {
     await page.locator(".dh-actions .more-menu-btn").click();
     await page.locator(".more-menu-item", { hasText: "Edit as text" }).click();
     await page.locator(".deck-text-editor").fill("");
-    await page.locator('.card-thumb[aria-label*="Atraxa"]').first().click();
+    await page.locator('.card-grid-container [aria-label*="Atraxa"]').first().click();
     await page.locator(".cdm-actions button", { hasText: "Change commander" }).click();
     await expect(page.locator(".empty-deck")).toBeVisible();
 
@@ -317,7 +317,7 @@ test.describe("Generated deck reasons", () => {
     await page.locator(".icm-foot button", { hasText: "Import" }).click();
     await page.locator(".upr-panel .icm-close").click();
 
-    await page.locator('.card-thumb[aria-label="1x Sol Ring"]').first().click();
+    await page.locator('.card-grid-container [aria-label="1x Sol Ring"]').first().click();
     await expect(page.locator(".cdm-name")).toHaveText("Sol Ring");
     await expect(page.locator(".cdm-why")).toHaveCount(0);
   });

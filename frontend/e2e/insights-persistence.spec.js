@@ -203,8 +203,8 @@ test.describe("Insights persistence", () => {
 
     const bolt = pane.locator('.opt-card:has(.opt-cat:text-is("High synergy")):has-text("Lightning Bolt")');
     // A second copy parses as qty 2, so the thumbnail's own label is the tell.
-    const oneCopy = page.locator('.card-thumb[aria-label="1x Lightning Bolt"]');
-    const twoCopies = page.locator('.card-thumb[aria-label="2x Lightning Bolt"]');
+    const oneCopy = page.locator('.card-grid-container [aria-label="1x Lightning Bolt"]');
+    const twoCopies = page.locator('.card-grid-container [aria-label="2x Lightning Bolt"]');
 
     await expect(bolt).toHaveCount(1, { timeout: 10000 });
     await bolt.locator('button:has-text("Apply")').click();
@@ -279,7 +279,7 @@ test.describe("Insights persistence", () => {
     // Mock budget swap is Smothering Tithe → Arcane Signet; this deck has both.
     const BOTH = ["1 Sol Ring", "1 Arcane Signet", "1 Smothering Tithe", "10 Forest", "10 Plains"].join("\n");
     await loadSharedDeck(page, BOTH, "Atraxa, Praetors' Voice");
-    const thumb = (label) => page.locator(`.card-thumb[aria-label="${label}"]`);
+    const thumb = (label) => page.locator(`.card-grid-container [aria-label="${label}"]`);
     await expect(thumb("1x Arcane Signet")).toHaveCount(1);
 
     await openChanges(page, { deep: true });
@@ -348,7 +348,7 @@ test.describe("Insights persistence", () => {
     await expect(page.locator(".toast")).toContainText("no longer in the deck");
     await expect(page.locator(".toast .toast-action")).toHaveCount(0);
     await expect(page.locator(".opt-queue .opt-log")).toHaveCount(0);
-    await expect(page.locator('.card-thumb[aria-label*="Kodama\'s Reach"]')).toHaveCount(0);
+    await expect(page.locator('.card-grid-container [aria-label*="Kodama\'s Reach"]')).toHaveCount(0);
   });
 
   test("quantity change does NOT mark results stale", async ({ page }) => {

@@ -13,7 +13,7 @@ test.describe("Deck Builder", () => {
 
   test("card groups render for the loaded deck", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    // Default grid view groups by type — at least one group header should appear.
+    // Default stack view groups by type — at least one group header should appear.
     await expect(page.locator(".card-group, .stack-view").first()).toBeVisible({ timeout: 10000 });
   });
 
@@ -25,6 +25,11 @@ test.describe("Deck Builder", () => {
   });
 
   test("visual: deck view with cards (grid)", async ({ page }) => {
+    // This snapshot is specifically about the grid layout (see title) — force
+    // it rather than ride whatever the default happens to be.
+    await page.addInitScript(() => {
+      try { localStorage.setItem("mtgweb:viewMode", "grid"); } catch { /* ignore */ }
+    });
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await page.locator('.badge:has-text("/ 100")').first().waitFor({ state: "attached", timeout: 10000 });
     await page.waitForTimeout(800);
