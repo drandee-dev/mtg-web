@@ -1,13 +1,19 @@
-// One changeset out of the three "what should I change" sources.
+// One changeset out of the "what should I change" sources.
 //
-// Suggestions (deck/recommend), cuts (deck/ai/cuts) and upgrades
-// (deck/budget-swaps or deck/ai/upgrades) used to each own a tab, and all
-// three resolved to "cut this, add that". They produce one list here, in the
-// shape the Optimize queue's cards already render, so there is a single
-// apply/skip interaction and a single session log.
+// Suggestions (deck/recommend) and budget swaps (deck/budget-swaps) still own
+// their own EDHREC/algorithmic sources. Cuts (deck/ai/cuts) and power
+// upgrades (deck/ai/upgrades) used to be two more paid completions against
+// the same deck payload; they're now one AI-sourced list read off the same
+// `optimize` result (deck/optimize) the sidebar Optimize widget already
+// produces, instead of buying two more completions. They produce one list
+// here, in the shape the Optimize queue's cards already render, so there is a
+// single apply/skip interaction and a single session log.
 //
 // `source` rides along on every change so a skip lands in the set that source
-// owns: skipped suggestions and kept cuts are separate persisted verdicts.
+// owns: skipped suggestions and declined budget swaps are separate persisted
+// verdicts. Optimize-sourced changes have no source-owned verdict set of
+// their own (see DeckView's insightDecided comment) — a skip on one is just
+// an `insightDecided` write.
 
 import { fmtUsd } from "./format";
 
@@ -32,8 +38,8 @@ function recReason(synergy) {
 }
 
 export function buildChanges({
-  recs, recCat, cuts, budgetSwaps, upgrades, upgradeMode,
-  skipped, dismissedCuts, declinedUpgrades, pinned, decided,
+  recs, recCat, optimize, budgetSwaps, upgradeMode,
+  skipped, declinedUpgrades, pinned, decided,
 }) {
   const out = [];
   const synergyOf = (name) => {
@@ -60,12 +66,12 @@ export function buildChanges({
       reason: recReason(c.synergy),
     });
   }
-  for (const c of cuts?.cuts || []) {
-    if (dismissedCuts?.has(c.name)) continue;
-    out.push({
-      id: `cut:${c.name}`, source: "cut", action: "cut", cut: c.name,
-      category: "Cut", impact: "medium", reason: c.reason || null,
-    });
+  // AI-sourced changeset — cuts, adds and swaps in one pass, goal-aware.
+  // Unconditional (not upgradeMode-gated): it stands in for both the old
+  // cuts and power-upgrades sources, and budget mode adds budgetSwaps on
+  // top of it rather than replacing it.
+  for (const ch of optimize?.changes || []) {
+    out.push({ ...ch, source: "optimize" });
   }
   if (upgradeMode === "budget") {
     for (const sw of budgetSwaps?.swaps || []) {
@@ -80,15 +86,6 @@ export function buildChanges({
         reason: priced
           ? `Same job for ${fmtUsd(to)} instead of ${fmtUsd(from)}.`
           : "Cheaper card doing the same job.",
-      });
-    }
-  } else {
-    for (const u of upgrades?.upgrades || []) {
-      if (!u?.replacement || declinedUpgrades?.has(u.replaces)) continue;
-      out.push({
-        id: `up:${u.replaces}`, source: "upgrade", action: "swap",
-        cut: u.replaces, add: u.replacement, category: "Power", impact: "high",
-        price_delta: null, reason: u.reason || null,
       });
     }
   }

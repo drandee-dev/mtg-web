@@ -5,7 +5,7 @@
 import { test, expect } from "./fixtures/test-base.js";
 import { loadSharedDeck, navigateToTab } from "./fixtures/helpers.js";
 
-const DECK = ["1 Sol Ring", "1 Cultivate", "1 Counterspell", "10 Forest", "10 Plains"].join("\n");
+const DECK = ["1 Sol Ring", "1 Cultivate", "1 Kodama's Reach", "1 Counterspell", "10 Forest", "10 Plains"].join("\n");
 
 test.describe("Insights persistence", () => {
   test.skip(({ isMobile }) => isMobile, "desktop sidebar flow");
@@ -72,14 +72,14 @@ test.describe("Insights persistence", () => {
   // free EDHREC data and load on open; cuts and upgrades wait to be asked for.
   test("opening Changes buys only the free suggestions until asked for more", async ({ page }) => {
     const recCalls = countRequests(page, "/api/deck/recommend");
-    const cutCalls = countRequests(page, "/api/deck/ai/cuts");
+    const optimizeCalls = countRequests(page, "/api/deck/optimize");
     const swapCalls = countRequests(page, "/api/deck/budget-swaps");
     await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
 
     await page.locator('.insp-tab:has-text("Changes")').click();
     await expect(page.locator(".insp-body")).toContainText("Lightning Bolt");
     expect(recCalls.n).toBe(1);
-    expect(cutCalls.n).toBe(0);
+    expect(optimizeCalls.n).toBe(0);
     expect(swapCalls.n).toBe(0);
     // Nothing to toggle between yet, so the upgrade-mode switch stays hidden.
     await expect(page.locator(".insp-mode-toggle")).toHaveCount(0);
@@ -88,8 +88,8 @@ test.describe("Insights persistence", () => {
     const deep = page.locator(".insp-deep");
     await expect(deep).toContainText("Uses AI");
     await deep.click();
-    await expect(page.locator('.insp-body .opt-card:has(.opt-cat:text-is("Cut"))')).toHaveCount(1, { timeout: 10000 });
-    expect(cutCalls.n).toBe(1);
+    await expect(page.locator('.insp-body .opt-card:has(.opt-badge:text-is("Swap")):has-text("Cultivate")')).toHaveCount(1, { timeout: 10000 });
+    expect(optimizeCalls.n).toBe(1);
     expect(swapCalls.n).toBe(1);
     expect(recCalls.n).toBe(1); // the free source was not re-bought
     await expect(page.locator(".insp-mode-toggle")).toHaveCount(1);
@@ -232,18 +232,20 @@ test.describe("Insights persistence", () => {
     await openChanges(page, { deep: true });
     const pane = page.locator(".insp-body");
 
-    const cutCard = pane.locator('.opt-card:has(.opt-cat:text-is("Cut"))');
+    // Mock optimize's plain "cut" action always targets Kodama's Reach (the
+    // "swap" item targets Cultivate — see mock-backend.js).
+    const cutCard = pane.locator('.opt-card:has(.opt-badge:text-is("Cut"))');
     await expect(cutCard).toHaveCount(1, { timeout: 10000 });
     const gridCard = (name) => page.locator(`.card-grid-container [aria-label*="${name}"]`);
-    await expect(gridCard("Cultivate").first()).toBeVisible();
+    await expect(gridCard("Kodama's Reach").first()).toBeVisible();
 
     await cutCard.locator('button:has-text("Apply")').click();
-    await expect(gridCard("Cultivate")).toHaveCount(0);
+    await expect(gridCard("Kodama's Reach")).toHaveCount(0);
 
     const undo = page.locator(".toast .toast-action");
     await expect(undo).toHaveText("Undo");
     await undo.click();
-    await expect(gridCard("Cultivate").first()).toBeVisible();
+    await expect(gridCard("Kodama's Reach").first()).toBeVisible();
     await expect(page.locator(".opt-queue .opt-log")).toHaveCount(0);
   });
 
@@ -253,20 +255,21 @@ test.describe("Insights persistence", () => {
   test("undo restores the cut card's original line, not a bare single copy", async ({ page }) => {
     // 4 copies so a lossy restore is visible. Legality is server-side and
     // mocked out here; what's under test is decklist line restoration.
-    const FOUR = ["4 Cultivate", "1 Sol Ring", "1 Counterspell", "10 Forest", "10 Plains"].join("\n");
+    // Mock optimize's plain "cut" action always targets Kodama's Reach.
+    const FOUR = ["4 Kodama's Reach", "1 Sol Ring", "1 Counterspell", "10 Forest", "10 Plains"].join("\n");
     await loadSharedDeck(page, FOUR, "Atraxa, Praetors' Voice");
-    const cultivate = (qty) => page.locator(`.card-grid-container [aria-label="${qty}x Cultivate"]`);
-    await expect(cultivate(4).first()).toBeVisible();
+    const reachQty = (qty) => page.locator(`.card-grid-container [aria-label="${qty}x Kodama's Reach"]`);
+    await expect(reachQty(4).first()).toBeVisible();
 
     await openChanges(page, { deep: true });
-    const cutCard = page.locator('.insp-body .opt-card:has(.opt-cat:text-is("Cut"))');
+    const cutCard = page.locator('.insp-body .opt-card:has(.opt-badge:text-is("Cut"))');
     await expect(cutCard).toHaveCount(1, { timeout: 10000 });
     await cutCard.locator('button:has-text("Apply")').click();
-    await expect(page.locator('.card-grid-container [aria-label*="Cultivate"]')).toHaveCount(0);
+    await expect(page.locator('.card-grid-container [aria-label*="Kodama\'s Reach"]')).toHaveCount(0);
 
     await page.locator(".toast .toast-action").click();
-    await expect(cultivate(4).first()).toBeVisible();
-    await expect(cultivate(1)).toHaveCount(0);
+    await expect(reachQty(4).first()).toBeVisible();
+    await expect(reachQty(1)).toHaveCount(0);
   });
 
   // Regression: a swap whose add target is already in the deck correctly
@@ -296,15 +299,48 @@ test.describe("Insights persistence", () => {
     await expect(thumb("1x Arcane Signet")).toHaveCount(1);
   });
 
+  // Regression: the Changes tab's deep pass now reads its AI-sourced
+  // candidates off the same `optimize` result the sidebar Optimize widget
+  // produces (Job 9 Job 1). Optimize's own decision map (optDecided) is wiped
+  // on every re-run — including from the sidebar widget's own "Re-run"
+  // button — so an applied Changes proposal must stay hidden via the
+  // Changes tab's OWN persisted map (insightDecided), never optDecided.
+  test("an applied optimize-sourced proposal survives an Optimize-widget re-run and a reload", async ({ page }) => {
+    await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
+    await openChanges(page, { deep: true });
+    const pane = page.locator(".insp-body");
+    const cutCard = pane.locator('.opt-card:has(.opt-badge:text-is("Cut"))');
+    await expect(cutCard).toHaveCount(1, { timeout: 10000 });
+    await cutCard.locator('button:has-text("Apply")').click();
+    await expect(cutCard).toHaveCount(0);
+
+    // Re-running the sidebar Optimize widget wipes optDecided (see runOptimize)
+    // — the applied proposal must not come back via that map.
+    await page.locator(".opt-queue .opt-run").click();
+    await expect(page.locator(".opt-queue .opt-card")).toHaveCount(2, { timeout: 10000 });
+    await expect(pane.locator('.opt-card:has(.opt-badge:text-is("Cut"))')).toHaveCount(0);
+
+    // Reload re-hydrates from the persisted insight cache (loadInsights) —
+    // insightDecided is part of that cache, optimize's own result is not (see
+    // its declaration comment), so re-buy it and confirm the applied
+    // proposal still doesn't resurface even against a freshly-fetched list.
+    await page.reload();
+    await page.locator('.insp-tab:has-text("Changes")').click();
+    await page.locator(".insp-deep").click();
+    await expect(pane.locator('.opt-card:has(.opt-badge:text-is("Swap")):has-text("Cultivate")')).toHaveCount(1, { timeout: 10000 });
+    await expect(pane.locator('.opt-card:has(.opt-badge:text-is("Cut"))')).toHaveCount(0);
+  });
+
   // Regression: a cut proposal whose target has since left the deck removed
   // nothing but still logged `cut`, so Undo added a card back that this apply
   // never took away.
   test("a stale cut proposal logs nothing and offers no undo", async ({ page }) => {
-    // Mock cuts always propose Cultivate; this deck does not run it.
-    const NO_CULTIVATE = ["1 Sol Ring", "1 Counterspell", "10 Forest", "10 Plains"].join("\n");
-    await loadSharedDeck(page, NO_CULTIVATE, "Atraxa, Praetors' Voice");
+    // Mock optimize's plain "cut" action always proposes Kodama's Reach; this
+    // deck does not run it.
+    const NO_TARGET = ["1 Sol Ring", "1 Counterspell", "10 Forest", "10 Plains"].join("\n");
+    await loadSharedDeck(page, NO_TARGET, "Atraxa, Praetors' Voice");
     await openChanges(page, { deep: true });
-    const cutCard = page.locator('.insp-body .opt-card:has(.opt-cat:text-is("Cut"))');
+    const cutCard = page.locator('.insp-body .opt-card:has(.opt-badge:text-is("Cut"))');
     await expect(cutCard).toHaveCount(1, { timeout: 10000 });
     await cutCard.locator('button:has-text("Apply")').click();
 
@@ -312,7 +348,7 @@ test.describe("Insights persistence", () => {
     await expect(page.locator(".toast")).toContainText("no longer in the deck");
     await expect(page.locator(".toast .toast-action")).toHaveCount(0);
     await expect(page.locator(".opt-queue .opt-log")).toHaveCount(0);
-    await expect(page.locator('.card-thumb[aria-label*="Cultivate"]')).toHaveCount(0);
+    await expect(page.locator('.card-thumb[aria-label*="Kodama\'s Reach"]')).toHaveCount(0);
   });
 
   test("quantity change does NOT mark results stale", async ({ page }) => {

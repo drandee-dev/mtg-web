@@ -94,18 +94,20 @@ test.describe("Upgrade review — guided flow", () => {
     // apply/skip/undo queue Job 1 built, reached through the new entry point.
     await expect(page.locator('.insp-tab:has-text("Changes")')).toHaveClass(/active/);
     const pane = page.locator(".insp-body");
-    const cutCard = pane.locator('.opt-card:has(.opt-cat:text-is("Cut"))');
+    // Mock optimize's plain "cut" action always targets Kodama's Reach (the
+    // "swap" item targets Cultivate — see mock-backend.js).
+    const cutCard = pane.locator('.opt-card:has(.opt-badge:text-is("Cut"))');
     await expect(cutCard).toHaveCount(1, { timeout: 10000 });
 
     const gridCard = (name) => page.locator(`.card-grid-container [aria-label*="${name}"]`);
-    await expect(gridCard("Cultivate").first()).toBeVisible();
+    await expect(gridCard("Kodama's Reach").first()).toBeVisible();
     await cutCard.locator('button:has-text("Apply")').click();
-    await expect(gridCard("Cultivate")).toHaveCount(0);
+    await expect(gridCard("Kodama's Reach")).toHaveCount(0);
 
     const undo = page.locator(".toast .toast-action");
     await expect(undo).toHaveText("Undo");
     await undo.click();
-    await expect(gridCard("Cultivate").first()).toBeVisible();
+    await expect(gridCard("Kodama's Reach").first()).toBeVisible();
   });
 
   test("a longer decklist caps ratings at 15 cards and says so", async ({ page }) => {
@@ -127,19 +129,19 @@ test.describe("Upgrade review — guided flow", () => {
     await expect(modal.locator(".gen-card-row")).toHaveCount(15, { timeout: 10000 });
   });
 
-  test("re-pasting into the same emptied deck re-buys cuts/upgrades instead of reusing a stale cache", async ({ page }) => {
-    const cutCalls = countRequests(page, "/api/deck/ai/cuts");
+  test("re-pasting into the same emptied deck re-buys the AI changeset instead of reusing a stale cache", async ({ page }) => {
+    const optimizeCalls = countRequests(page, "/api/deck/optimize");
     const swapCalls = countRequests(page, "/api/deck/budget-swaps");
     await pasteIntoEmptyDeck(page); // list A
     const modal = page.locator(".upr-panel");
     await modal.locator(".icm-foot button", { hasText: "Continue" }).click();
     await modal.locator(".icm-foot button", { hasText: "See suggested swaps" }).click();
-    await expect(page.locator('.insp-body .opt-card:has(.opt-cat:text-is("Cut"))')).toHaveCount(1, { timeout: 10000 });
-    expect(cutCalls.n).toBe(1);
+    await expect(page.locator('.insp-body .opt-card:has(.opt-badge:text-is("Cut"))')).toHaveCount(1, { timeout: 10000 });
+    expect(optimizeCalls.n).toBe(1);
     expect(swapCalls.n).toBe(1);
 
-    // Empty the same deck and paste an unrelated list B into it — cuts/
-    // upgrades cached for list A are now stale, not merely absent.
+    // Empty the same deck and paste an unrelated list B into it — the
+    // changeset cached for list A is now stale, not merely absent.
     await emptyDeckByHand(page);
     await page.locator(".empty-action", { hasText: "Paste a decklist" }).click();
     await page.locator(".icm-panel textarea").fill(
@@ -151,9 +153,9 @@ test.describe("Upgrade review — guided flow", () => {
     await expect(modal2).toBeVisible();
     await modal2.locator(".icm-foot button", { hasText: "Continue" }).click();
     await modal2.locator(".icm-foot button", { hasText: "See suggested swaps" }).click();
-    await expect(page.locator('.insp-body .opt-card:has(.opt-cat:text-is("Cut"))')).toHaveCount(1, { timeout: 10000 });
+    await expect(page.locator('.insp-body .opt-card:has(.opt-badge:text-is("Cut"))')).toHaveCount(1, { timeout: 10000 });
     // Re-bought for the new decklist, not served stale from list A.
-    expect(cutCalls.n).toBe(2);
+    expect(optimizeCalls.n).toBe(2);
     expect(swapCalls.n).toBe(2);
   });
 
