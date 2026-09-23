@@ -6,6 +6,7 @@ import DeckGenerator from "../DeckGenerator";
 import CardGrid from "./CardGrid";
 import CardTypeahead from "./CardTypeahead";
 import DeckSidebar from "./DeckSidebar";
+import DeckGoalsAssessment from "./DeckGoalsAssessment";
 import ImportCardsModal from "./ImportCardsModal";
 import MassArtModal from "./MassArtModal";
 import UpgradeReview from "./UpgradeReview";
@@ -33,6 +34,23 @@ export default function DeckView({
 }) {
   const [mode, setMode] = useState(startInWizard ? "wizard" : "manual");
   const [textEditOpen, setTextEditOpen] = useState(false);
+  // Goals/Assessment collapse state — moved inline out of the rail (Job 6),
+  // collapsed by default, persisted the same way Planeswalker's own expand
+  // toggle does (mtgweb:pwexpand: "1"/"0" behind a try/catch).
+  const [goalsOpen, setGoalsOpen] = useState(
+    () => { try { return localStorage.getItem("mtgweb:goalsOpen") === "1"; } catch { return false; } }
+  );
+  const [assessmentOpen, setAssessmentOpen] = useState(
+    () => { try { return localStorage.getItem("mtgweb:assessmentOpen") === "1"; } catch { return false; } }
+  );
+  function toggleGoalsOpen(next) {
+    setGoalsOpen(next);
+    try { localStorage.setItem("mtgweb:goalsOpen", next ? "1" : "0"); } catch { /* best-effort */ }
+  }
+  function toggleAssessmentOpen(next) {
+    setAssessmentOpen(next);
+    try { localStorage.setItem("mtgweb:assessmentOpen", next ? "1" : "0"); } catch { /* best-effort */ }
+  }
 
   useEffect(() => {
     if (startInWizard) {
@@ -970,6 +988,10 @@ export default function DeckView({
     goalSuggestion,
     onAcceptGoalSuggestion: acceptGoalSuggestion,
     onDismissGoalSuggestion: dismissGoalSuggestion,
+    goalsOpen,
+    onToggleGoals: toggleGoalsOpen,
+    assessmentOpen,
+    onToggleAssessment: toggleAssessmentOpen,
     optimize,
     optimizing,
     onRunOptimize: runOptimize,
@@ -1148,6 +1170,11 @@ export default function DeckView({
           crowned leading column inside the grid (CardGrid), not a side panel. */}
       <div className="deck-layout">
         <div className="deck-main">
+          {/* Deck Goals + Assessment — inline above the card list, collapsed
+              by default (Job 6: moved out of the rail, which had no collapse
+              control for either and set Assessment's prose at ~40 chars/line). */}
+          {!deckEmpty && <DeckGoalsAssessment {...sidebarProps} />}
+
           {/* Predictive card search — opened by the toolbar "Card search" button,
               the mobile + FAB, and the empty-deck action. */}
           {searchOpen && !locked && (
@@ -1236,8 +1263,18 @@ export default function DeckView({
 
       {/* Mobile: the Planeswalker hub's Optimize and Stats tabs expose slot
           elements — portal sections of the same sidebar into them (single
-          source of props, no dup wiring). */}
-      {pwInsightsEl && createPortal(<DeckSidebar {...sidebarProps} section="optimize" />, pwInsightsEl)}
+          source of props, no dup wiring). The hub sheet covers up to 85dvh of
+          the viewport while open, so the inline Goals/Assessment region above
+          the card list is not reliably visible from in there — the Optimize
+          tab gets its own copy, same collapse-state props, so nothing that
+          used to live in this tab disappears (Job 6). */}
+      {pwInsightsEl && createPortal(
+        <>
+          {!deckEmpty && <DeckGoalsAssessment {...sidebarProps} />}
+          <DeckSidebar {...sidebarProps} section="optimize" />
+        </>,
+        pwInsightsEl
+      )}
       {pwStatsEl && createPortal(<DeckSidebar {...sidebarProps} section="stats" />, pwStatsEl)}
 
       <ImportCardsModal

@@ -9,12 +9,19 @@ const BUDGET_PRESETS = [50, 100, 275, 500];
 // feature (cuts, fills, upgrades, chat) reads these goals. When no goals are
 // set yet, a one-time banner offers the deck's analyzed reality (detected
 // bracket, price + headroom) as a starting goal set — one tap to adopt.
+//
+// Open state is controlled when `open`/`onToggle` are passed (DeckView, so it
+// can persist the choice to localStorage — Job 6) and uncontrolled otherwise,
+// falling back to `defaultOpen` (UpgradeReview renders this always-open, no
+// persistence wanted there).
 export default function DeckGoals({
   goals, setGoals, deckCardNames = [],
   suggestion, onAcceptSuggestion, onDismissSuggestion,
-  defaultOpen = false,
+  defaultOpen = false, open: openProp, onToggle,
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [openState, setOpenState] = useState(defaultOpen);
+  const open = onToggle ? openProp : openState;
+  const setOpen = onToggle ? onToggle : setOpenState;
   const [protectQuery, setProtectQuery] = useState("");
   const [customBudget, setCustomBudget] = useState("");
 
@@ -43,7 +50,7 @@ export default function DeckGoals({
     <div className="deck-goals">
       <button
         className="dg-head"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(!open)}
         aria-expanded={open}
       >
         <span className="dg-title">Deck goals</span>
