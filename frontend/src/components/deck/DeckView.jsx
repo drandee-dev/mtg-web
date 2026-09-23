@@ -16,6 +16,8 @@ import { goalsToApi } from "../../lib/goals";
 import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry, isVisibleEntry } from "../../lib/optimizeLog";
 import { deckSignature, loadInsights, saveInsights, PANEL_KEYS } from "../../lib/insightsCache";
 import { clearBuildNotes, setBuildNotes } from "../../lib/buildNotes";
+import { ManaIcon } from "./ManaCost";
+import DeckStatsBar from "./DeckStatsBar";
 
 // Suggest / Cuts / Upgrades collapsed into one "Changes" tab — a cache written
 // before that still names the old tabs, so map it forward on hydrate.
@@ -1122,7 +1124,7 @@ export default function DeckView({
               <span className="cmdr-strip-label">Commander</span>
               <span className="cmdr-strip-dot">&middot;</span>
               {(cmdrData?.color_identity || []).map((c) => (
-                <span key={c} className={`cmdr-strip-pip pip-${c}`}>{c}</span>
+                <ManaIcon key={c} symbol={c} size={12} className="cmdr-strip-pip" />
               ))}
               {result?.bracket?.bracket != null && (
                 <span className="cmdr-strip-bracket">B{result.bracket.bracket}</span>
@@ -1309,6 +1311,8 @@ export default function DeckView({
           +
         </button>
       )}
+
+      {!deckEmpty && <DeckStatsBar result={result} commander={commander} format={format} />}
 
     </div>
   );

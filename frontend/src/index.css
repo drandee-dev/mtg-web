@@ -926,6 +926,25 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 .bn-icon { font-size: 1.1rem; line-height: 1; }
 .bn-label { font-size: var(--fs-2xs); font-weight: 600; letter-spacing: .02em; text-transform: uppercase; }
 
+/* ── Deck stats bar (Job 4) — full-width dock, same fixed-chrome grammar as
+   .global-toolbar (top) and .bottom-nav (mobile bottom); doesn't need to
+   out-rank .bottom-nav since the two never visually overlap. ── */
+.deck-stats-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-sticky);
+  height: 60px; display: flex; align-items: stretch; justify-content: center;
+  background: rgba(17,19,24,.94); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--border-strong);
+  box-shadow: 0 -8px 24px rgba(0,0,0,.35);
+}
+.dsb-stat {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: .1rem; padding: 0 1.1rem; border-left: 1px solid var(--border);
+}
+.dsb-stat:first-child { border-left: none; }
+.dsb-val { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.2; }
+.dsb-label { font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.dsb-colors-row { display: flex; gap: 3px; align-items: center; }
+
 /* ── Bottom sheet (mobile card detail) ── */
 .bs-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,.5);
@@ -2164,15 +2183,8 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
   .cmdr-strip-label { font-size: var(--fs-2xs); color: var(--muted); }
   .cmdr-strip-dot { font-size: var(--fs-2xs); color: var(--muted); }
   .cmdr-strip-pip {
-    width: 12px; height: 12px; border-radius: 50%;
-    font-size: 7px; font-weight: 700;
-    display: inline-flex; align-items: center; justify-content: center;
+    width: 12px; height: 12px;
   }
-  .cmdr-strip-pip.pip-W { background: #f9faf4; color: #14161c; }
-  .cmdr-strip-pip.pip-U { background: #0e68ab; color: #fff; }
-  .cmdr-strip-pip.pip-B { background: #1a1430; color: #c8baeb; border: 1px solid rgba(255,255,255,.2); }
-  .cmdr-strip-pip.pip-R { background: #d3202a; color: #fff; }
-  .cmdr-strip-pip.pip-G { background: #00733e; color: #fff; }
   .cmdr-strip-bracket {
     font-size: var(--fs-2xs); font-weight: 600; color: var(--warn);
     background: rgba(229,184,76,.1); border-radius: 3px; padding: 1px 4px;
@@ -2309,6 +2321,11 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 .ts-row-btn:hover { background: var(--accent-soft); color: var(--accent); }
 .ts-row-remove:hover { background: var(--bad-soft); color: var(--bad); }
 
+/* Real Scryfall mana symbol icons (self-hosted SVGs, /public/mana/*.svg) — used
+   for the 5 solid WUBRG colors app-wide, replacing the flat CSS-circle pips
+   below for those 5. Generic/hybrid/Phyrexian/snow pips stay CSS-only. */
+.mana-icon { display: inline-block; flex: none; vertical-align: middle; border-radius: 50%; }
+
 /* ── Mana pips (CSS circles, no font dependency) ── */
 .ts-mana { flex: none; display: inline-flex; gap: 2px; align-items: center; }
 .ts-pip {
@@ -2326,15 +2343,22 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 .ts-pip-c { background: #c8c2d4; color: #2b2533; }
 .ts-pip-x { background: #b9b3aa; color: #2b2823; font-style: italic; }
 
-/* Color-identity filter chips (Commanders browse) — bigger, clickable pips reusing
-   the ts-pip-* color set; hit target extended via ::after (adjacent-controls case,
-   see the coarse-pointer block below), not by growing the visible circle. */
+/* Color-identity filter chips (Commanders browse) — bigger, clickable buttons
+   wrapping a real mana icon; hit target extended via ::after (adjacent-controls
+   case, see the coarse-pointer block below), not by growing the visible circle.
+   The icon SVG bakes in its own circle color, so selection can't lean on a
+   background swap like the old CSS-pip version did — dimmed opacity plus an
+   accent ring instead (aria-pressed on the button covers non-visual state). */
 .color-filter-pip {
   position: relative; width: 28px; height: 28px; min-height: auto; padding: 0;
-  border: 2px solid transparent; cursor: pointer;
-  font-size: var(--fs-xs); font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; border: 2px solid transparent; background: transparent;
+  cursor: pointer; opacity: .55; transition: opacity .12s, border-color .12s;
 }
-.color-filter-pip.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.color-filter-pip:hover, .color-filter-pip:focus-visible { opacity: .85; }
+.color-filter-pip.selected {
+  opacity: 1; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft);
+}
 
 /* Commander detail hero */
 .commander-detail-hero { display: flex; gap: 1.2rem; flex-wrap: wrap; align-items: flex-start; }
@@ -2898,6 +2922,10 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 /* Responsive: mobile (<700px) — bottom nav, single column */
 @media (max-width: 699px) {
   .app { padding: 3.2rem .75rem 5.5rem; padding-top: calc(3.2rem + var(--safe-top)); }
+  /* Deck view carries an extra fixed bar (.deck-stats-bar) above the bottom
+     nav — give it more bottom clearance so the last row of cards doesn't sit
+     behind it. .app-deckview is the existing per-route scoping class (App.jsx). */
+  .app-deckview { padding-bottom: 8rem; }
   /* iOS Safari auto-zooms focused form controls whose text is under 16px —
      !important intentionally beats per-component font-size overrides. */
   input, textarea, select { font-size: 16px !important; }
@@ -2905,6 +2933,25 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
   .bottom-nav { display: flex; }
   .toast { bottom: 4.5rem; }
   .pwa-update-banner { bottom: 4.5rem; }
+  /* Deck stats bar goes compact: one row of middot-separated chips (the same
+     idiom as .cmdr-strip-meta), not the desktop tiled value/label layout.
+     bottom: 4.5rem matches every other fixed mobile element that sits above
+     .bottom-nav (toast, pwa-update-banner, .planeswalker-btn) — not a fresh
+     calculation. */
+  .deck-stats-bar {
+    height: auto; min-height: 2.75rem; justify-content: flex-start;
+    overflow-x: auto; padding: .5rem .75rem; gap: .35rem;
+    bottom: 4.5rem;
+  }
+  .dsb-stat {
+    flex-direction: row; padding: 0; border-left: none; gap: .3rem; flex: none;
+    white-space: nowrap;
+  }
+  .dsb-stat:not(:first-child)::before {
+    content: "\00b7"; color: var(--muted); margin-right: .3rem;
+  }
+  .dsb-label { display: none; }
+  .dsb-val { font-size: var(--fs-xs); }
   /* Floating buttons above the bottom nav — one clean right-edge column:
      Planeswalker hub, then the + FAB above it (deck view only). */
   .planeswalker-btn { bottom: 4.5rem; right: 1rem; }

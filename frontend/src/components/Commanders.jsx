@@ -6,7 +6,7 @@ import { api } from "../lib/api";
 import { fmtUsd } from "../lib/format";
 import { useCardImage } from "../lib/hooks";
 import { loadDirectory } from "../lib/commanderDirectory";
-import ManaCost from "./deck/ManaCost";
+import ManaCost, { ManaIcon } from "./deck/ManaCost";
 
 const COLORS = ["W", "U", "B", "R", "G"];
 const PAGE_SIZE = 60;
@@ -275,12 +275,12 @@ export default function Commanders({ slug, setSlug, onBuildWithStrategy, onBuild
           {COLORS.map((c) => (
             <button
               key={c}
-              className={`color-filter-pip ts-pip ts-pip-${c.toLowerCase()}${colors.has(c) ? " selected" : ""}`}
+              className={`color-filter-pip${colors.has(c) ? " selected" : ""}`}
               aria-pressed={colors.has(c)}
               aria-label={`Filter by ${c}`}
               onClick={() => toggleColor(c)}
             >
-              {c}
+              <ManaIcon symbol={c} size={24} />
             </button>
           ))}
           {colors.size > 0 && (

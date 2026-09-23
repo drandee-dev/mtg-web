@@ -6,6 +6,7 @@ import LoadingIndicator from "../LoadingIndicator";
 import DrawProbability from "./DrawProbability";
 import { ChangeCard } from "./OptimizeQueue";
 import { buildChanges, REC_CATEGORIES } from "../../lib/changeset";
+import { ManaIcon } from "./ManaCost";
 
 // Tabbed insights toolbox — replaces the old Accordion/Feed dual modes.
 // One sticky tab strip, one content pane directly beneath it: the active tool
@@ -249,7 +250,10 @@ function Colors({ mana }) {
       <div className="barlist">
         {colors.map((c) => (
           <div className="barrow" key={c}>
-            <span className="blabel"><span className={`pip pip-${c}`}>{c}</span>{COLOR_NAME[c]}</span>
+            <span className="blabel">
+              {ManaIcon.WUBRG_ICON.has(c) ? <ManaIcon symbol={c} size={18} /> : <span className={`pip pip-${c}`}>{c}</span>}
+              {COLOR_NAME[c]}
+            </span>
             <span className="btrack"><span className={`bfill f${c}`} style={{ width: `${pct[c]}%` }} /></span>
             <span className="bval">{pct[c]}%</span>
           </div>
