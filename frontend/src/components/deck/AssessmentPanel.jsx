@@ -55,9 +55,13 @@ function HealthRing({ score, parts }) {
 // Deck assessment: bracket meter (detected vs goal target), auto strategy
 // summary, and tappable gap chips. Tapping a chip runs a focused Optimize
 // pass for that category (wired through DeckView's runOptimize).
+//
+// Top-level collapse uses native <details>/<summary> — same element the
+// panel already uses internally for "Category targets" — controlled by
+// DeckView so the choice persists to localStorage (Job 6).
 export default function AssessmentPanel({
   result, strategy, strategyLoading, comp, goals, onGapChip, optimizing,
-  onOverBudget,
+  onOverBudget, open, onToggle,
 }) {
   const detected = result?.bracket?.bracket ?? null;
   const target = goals?.bracketTarget ?? null;
@@ -70,44 +74,74 @@ export default function AssessmentPanel({
   const health = computeHealth(result, comp);
   if (!health && !hasMeter && !thin.length && !strategy && !strategyLoading && !overBy) return null;
 
+  // The over-budget chip and gap chips are actionable, not reference material —
+  // they stay outside the <details> so they surface the moment they're relevant
+  // regardless of collapse state, the same reason DeckGoals' suggestion bar
+  // renders outside its own collapsible body. Everything genuinely just-for-
+  // reading (meter, strategy prose, category table) lives inside the collapse.
   return (
-    <div className="sidebar-section asmt">
-      <div className="asmt-head">
-        <div className="asmt-head-text">
-          <span className="asmt-title">Assessment</span>
-          {detected != null && (
-            <span className="asmt-sub">
-              bracket {detected}{target != null ? ` → target ${target}` : ""}
-            </span>
-          )}
-        </div>
-        {health && <HealthRing score={health.score} parts={health.parts} />}
-      </div>
+    <div className="asmt-wrap">
+      <details
+        className="asmt"
+        open={open}
+        onToggle={(e) => onToggle?.(e.target.open)}
+      >
+        <summary className="asmt-head">
+          <div className="asmt-head-text">
+            <span className="asmt-title">Assessment</span>
+            {detected != null && (
+              <span className="asmt-sub">
+                bracket {detected}{target != null ? ` → target ${target}` : ""}
+              </span>
+            )}
+          </div>
+          {health && <HealthRing score={health.score} parts={health.parts} />}
+        </summary>
 
-      {hasMeter && (
-        <div
-          className="asmt-meter"
-          role="img"
-          aria-label={`Power bracket: ${detected != null ? `currently ${detected}` : "not detected"}${target != null ? `, target ${target}` : ""} of 5`}
-        >
-          {[1, 2, 3, 4, 5].map((b) => (
-            <span
-              key={b}
-              className={`asmt-seg${detected != null && b <= detected ? " fill" : ""}${target === b ? " tgt" : ""}`}
-            >
-              {b}
-            </span>
-          ))}
-        </div>
-      )}
+        {hasMeter && (
+          <div
+            className="asmt-meter"
+            role="img"
+            aria-label={`Power bracket: ${detected != null ? `currently ${detected}` : "not detected"}${target != null ? `, target ${target}` : ""} of 5`}
+          >
+            {[1, 2, 3, 4, 5].map((b) => (
+              <span
+                key={b}
+                className={`asmt-seg${detected != null && b <= detected ? " fill" : ""}${target === b ? " tgt" : ""}`}
+              >
+                {b}
+              </span>
+            ))}
+          </div>
+        )}
 
-      {strategyLoading && <LoadingIndicator label="Reading strategy" active />}
-      {strategy?.strategy && (
-        <p
-          className="asmt-strategy"
-          dangerouslySetInnerHTML={{ __html: sanitizeHtml(strategy.strategy) }}
-        />
-      )}
+        {strategyLoading && <LoadingIndicator label="Reading strategy" active />}
+        {strategy?.strategy && (
+          <p
+            className="asmt-strategy"
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(strategy.strategy) }}
+          />
+        )}
+
+        {/* Full category table (absorbed the old Composition panel) */}
+        {comp?.categories?.length > 0 && (
+          <details className="asmt-comp">
+            <summary>Category targets</summary>
+            <div className="asmt-comp-grid">
+              {comp.categories.map((c) => (
+                <div className="asmt-comp-row" key={c.key}>
+                  <span>{c.label}</span>
+                  <span className="asmt-comp-val">
+                    <strong>{c.count}</strong>
+                    {c.target ? <span className="muted">/{c.target}</span> : null}
+                    {c.status === "thin" && <span className="asmt-comp-thin">thin</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+      </details>
 
       {overBy > 0 && (
         <button
@@ -142,25 +176,6 @@ export default function AssessmentPanel({
             </button>
           ))}
         </div>
-      )}
-
-      {/* Full category table (absorbed the old Composition panel) */}
-      {comp?.categories?.length > 0 && (
-        <details className="asmt-comp">
-          <summary>Category targets</summary>
-          <div className="asmt-comp-grid">
-            {comp.categories.map((c) => (
-              <div className="asmt-comp-row" key={c.key}>
-                <span>{c.label}</span>
-                <span className="asmt-comp-val">
-                  <strong>{c.count}</strong>
-                  {c.target ? <span className="muted">/{c.target}</span> : null}
-                  {c.status === "thin" && <span className="asmt-comp-thin">thin</span>}
-                </span>
-              </div>
-            ))}
-          </div>
-        </details>
       )}
     </div>
   );

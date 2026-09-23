@@ -1,16 +1,17 @@
 import LoadingIndicator from "../LoadingIndicator";
-import DeckGoals from "./DeckGoals";
 import OptimizeQueue from "./OptimizeQueue";
-import AssessmentPanel from "./AssessmentPanel";
 import InsightsPanel from "./InsightsPanel";
 
-// Sidebar layout, top to bottom: the goal-driven copilot spine (Goals →
-// Assessment → Optimize queue), then the tabbed Insights toolbox (Analytics /
-// Changes / Combos / Odds). The old Accordion|Feed dual modes and the
-// separate Composition panel are gone — composition lives in Assessment's gap
-// chips + category table, and every tool renders at the top of the toolbox
-// instead of expanding mid-stack. Suggest/Cuts/Upgrades merged into Changes,
-// which shares the Optimize queue's changeset cards and its session log.
+// Sidebar layout, top to bottom: the Optimize queue, then the tabbed Insights
+// toolbox (Analytics / Changes / Combos / Odds). Deck Goals and Assessment
+// moved out to render inline above the card list instead (Job 6) — this rail
+// now holds only what's genuinely rail-shaped: a queue you work through while
+// looking at the deck, and a toolbox. The old Accordion|Feed dual modes and
+// the separate Composition panel are gone — composition lives in Assessment's
+// gap chips + category table (now inline, not here), and every tool renders
+// at the top of the toolbox instead of expanding mid-stack. Suggest/Cuts/
+// Upgrades merged into Changes, which shares the Optimize queue's changeset
+// cards and its session log.
 export default function DeckSidebar({
   result, isAnalyzing,
   activePanel, onPanelClick, onRefreshPanel, busy, stalePanels,
@@ -22,13 +23,10 @@ export default function DeckSidebar({
   upgradeMode, setUpgradeMode,
   onApplyInsightChange, onSkipInsightChange,
   commander, format,
-  strategy, strategyLoading,
   serverWarmed,
-  goals, setGoals, deckCardNames,
-  goalSuggestion, onAcceptGoalSuggestion, onDismissGoalSuggestion,
   optimize, optimizing, onRunOptimize, optGapCount, optDecided,
   onApplyChange, onSkipChange, optLog, onUndoChange, onClearLog,
-  onGapChip, onOverBudget, onGoldfish, section,
+  onGoldfish, section,
 }) {
   // Hub tabs render this sidebar twice via portals: the Optimize tab shows the
   // goal-driven surface, the Stats tab the insights toolbox. Desktop renders both.
@@ -39,30 +37,6 @@ export default function DeckSidebar({
     <aside className="deck-sidebar" role="complementary" aria-label="Deck statistics">
       {showOpt && (
         <>
-          {/* Deck Goals — user-declared intent that every AI feature reads */}
-          {goals && setGoals && (
-            <DeckGoals
-              goals={goals}
-              setGoals={setGoals}
-              deckCardNames={deckCardNames || []}
-              suggestion={goalSuggestion}
-              onAcceptSuggestion={onAcceptGoalSuggestion}
-              onDismissSuggestion={onDismissGoalSuggestion}
-            />
-          )}
-
-          {/* Assessment — bracket meter vs target, strategy, gap chips + category table */}
-          <AssessmentPanel
-            result={result}
-            strategy={strategy}
-            strategyLoading={strategyLoading}
-            comp={comp}
-            goals={goals}
-            onGapChip={onGapChip}
-            optimizing={optimizing}
-            onOverBudget={onOverBudget}
-          />
-
           {/* Optimize queue — goal-aware changeset with Apply/Skip + session log */}
           {onRunOptimize && (
             <OptimizeQueue
