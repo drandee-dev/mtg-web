@@ -73,8 +73,6 @@ export default function DeckView({
   const [combos, setCombos] = useState(() => hp("combos"));
   const [comp, setComp] = useState(() => hp("comp"));
   const [budgetSwaps, setBudgetSwaps] = useState(() => hp("budgetSwaps"));
-  const [cuts, setCuts] = useState(() => hp("cuts"));
-  const [upgrades, setUpgrades] = useState(() => hp("upgrades"));
   // Job 3 card ratings (aiExplain) — persisted the same way as every other
   // paid AI panel so closing the guide, switching tabs, or reloading doesn't
   // discard explanations already paid for with an AI call.
@@ -143,8 +141,8 @@ export default function DeckView({
     setOptDecided({});
     const c = loadInsights(deckId);
     const d = (k) => c?.panels?.[k]?.data ?? null;
-    setResult(d("result")); setComp(d("comp")); setRecs(d("recs")); setCuts(d("cuts"));
-    setCombos(d("combos")); setBudgetSwaps(d("budgetSwaps")); setUpgrades(d("upgrades")); setStrategy(d("strategy"));
+    setResult(d("result")); setComp(d("comp")); setRecs(d("recs"));
+    setCombos(d("combos")); setBudgetSwaps(d("budgetSwaps")); setStrategy(d("strategy"));
     setRatings(d("ratings"));
     setActivePanel(migratePanel(c?.activePanel ?? null));
     if (c?.upgradeMode) setUpgradeMode(c.upgradeMode);
@@ -165,7 +163,7 @@ export default function DeckView({
   // during the render where deckId has changed but state hasn't rehydrated.
   useEffect(() => {
     if (hydratedFor.current !== deckId) return;
-    const data = { result, comp, recs, cuts, combos, budgetSwaps, upgrades, strategy, ratings };
+    const data = { result, comp, recs, combos, budgetSwaps, strategy, ratings };
     const panels = {};
     for (const k of PANEL_KEYS) {
       if (data[k] != null) panels[k] = { data: data[k], sig: panelSigs[k] || null };
@@ -175,7 +173,7 @@ export default function DeckView({
       pinned: [...pinned], dismissed: [...skipped], dismissedCuts: [...dismissedCuts],
       declinedUpgrades: [...declinedUpgrades], insightDecided,
     });
-  }, [deckId, result, comp, recs, cuts, combos, budgetSwaps, upgrades, strategy, ratings, activePanel, upgradeMode, panelSigs, pinned, skipped, dismissedCuts, declinedUpgrades, insightDecided]);
+  }, [deckId, result, comp, recs, combos, budgetSwaps, strategy, ratings, activePanel, upgradeMode, panelSigs, pinned, skipped, dismissedCuts, declinedUpgrades, insightDecided]);
 
   // Stay in sync with log writes from other surfaces (chat card-chip adds).
   useEffect(() => {

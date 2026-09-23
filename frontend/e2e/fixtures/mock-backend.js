@@ -250,13 +250,6 @@ export async function mockBackend(page) {
         }],
       });
     }
-    if (path.endsWith("/api/deck/ai/cuts")) {
-      return json({
-        error: false,
-        model: "mock",
-        cuts: [{ name: "Cultivate", reason: "Weakest ramp once the signets are in." }],
-      });
-    }
     if (path.endsWith("/api/deck/ai/explain")) {
       const body = route.request().postDataJSON() || {};
       const names = body.card_names || [];
@@ -270,13 +263,6 @@ export async function mockBackend(page) {
       return json({
         total_savings: 19.01,
         swaps: [{ card: "Smothering Tithe", price: 20.0, alternative: { name: "Arcane Signet", price: 0.99 } }],
-      });
-    }
-    if (path.endsWith("/api/deck/ai/upgrades")) {
-      return json({
-        error: false,
-        model: "mock",
-        upgrades: [{ replaces: "Cultivate", replacement: "Rhystic Study", reason: "Straight power increase.", price_usd: 25.0 }],
       });
     }
     // Generic fallback for deck analysis / AI endpoints not exercised here.
