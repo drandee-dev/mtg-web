@@ -17,9 +17,9 @@ export default function DeckSidebar({
   recs, recCat, setRecCat, skipped, onClearSkipped, onAddCard,
   pinned, onTogglePin,
   combos, comp, budgetSwaps,
-  cuts, dismissedCuts, onClearDismissedCuts,
+  dismissedCuts, onClearDismissedCuts,
   declinedUpgrades, onClearDeclinedUpgrades, insightDecided, onLoadDeepChanges,
-  upgrades, upgradeMode, setUpgradeMode,
+  upgradeMode, setUpgradeMode,
   onApplyInsightChange, onSkipInsightChange,
   commander, format,
   strategy, strategyLoading,
@@ -102,7 +102,6 @@ export default function DeckSidebar({
           pinned={pinned}
           onTogglePin={onTogglePin}
           onAddCard={onAddCard}
-          cuts={cuts}
           dismissedCuts={dismissedCuts}
           onClearDismissedCuts={onClearDismissedCuts}
           declinedUpgrades={declinedUpgrades}
@@ -111,8 +110,8 @@ export default function DeckSidebar({
           onClearDeclinedUpgrades={onClearDeclinedUpgrades}
           combos={combos}
           onGoldfish={onGoldfish}
+          optimize={optimize}
           budgetSwaps={budgetSwaps}
-          upgrades={upgrades}
           upgradeMode={upgradeMode}
           setUpgradeMode={setUpgradeMode}
           onApplyChange={onApplyInsightChange}

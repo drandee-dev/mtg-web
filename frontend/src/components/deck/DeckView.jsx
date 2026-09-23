@@ -207,7 +207,6 @@ export default function DeckView({
     });
     setSkipped((prev) => { if (!prev.has(name)) return prev; const n = new Set(prev); n.delete(name); return n; });
   }
-  function dismissCut(name) { setDismissedCuts((prev) => new Set(prev).add(name)); }
   function declineUpgrade(name) { setDeclinedUpgrades((prev) => new Set(prev).add(name)); }
   function clearSkipped() { setSkipped(new Set()); }
   function clearDismissedCuts() { setDismissedCuts(new Set()); }
@@ -687,6 +686,7 @@ export default function DeckView({
   async function runOptimize(focus) {
     if (!decklist.trim()) return notify?.("Add some cards first.");
     setOptimizing(true);
+    const sig = currentSig; // capture: the deck may be edited mid-flight
     try {
       const full = assembleDecklist(decklist, isCommanderFmt ? commander : "");
       // Session memory: applied/undone/skipped changes ride along so the AI
@@ -699,6 +699,11 @@ export default function DeckView({
       r.changes = (r.changes || []).map((c, i) => ({ ...c, id: `${i}:${c.cut || ""}>${c.add || ""}` }));
       setOptimize(r);
       setOptDecided({});
+      // The Changes tab's deep pass reuses this result (loadChanges) and needs
+      // to know whether it's stale for the deck on screen, same as recs/cuts —
+      // not persisted (see optDecided's comment above): it resets with the
+      // rest of `panelSigs` on every deck switch.
+      markFresh("optimize", sig);
     } catch (e) {
       notify?.(`Optimize failed: ${e.message}`);
     } finally {
@@ -779,12 +784,12 @@ export default function DeckView({
     const check = (k, tab, data) => {
       if (data != null && panelSigs[k] && panelSigs[k] !== currentSig) stalePanels.add(tab);
     };
-    // The Changes tab is stale if ANY of the three sources feeding it is.
+    // The Changes tab is stale if any source feeding it is: recs, the AI
+    // changeset (optimize), and — in budget mode — budgetSwaps.
     check("recs", "Changes", recs);
-    check("cuts", "Changes", cuts);
+    check("optimize", "Changes", optimize);
     check("combos", "Combos", combos);
     if (upgradeMode === "budget") check("budgetSwaps", "Changes", budgetSwaps);
-    else check("upgrades", "Changes", upgrades);
   }
 
   // The three sources behind the Changes tab.
@@ -802,7 +807,6 @@ export default function DeckView({
   async function loadChanges({ force = false, mode, deep = false } = {}) {
     if (!decklist.trim()) return notify?.("Add some cards first.");
     const wantMode = mode ?? upgradeMode;
-    const haveUpgrade = wantMode === "budget" ? budgetSwaps : upgrades;
     // Refresh means "give me a fresh changeset", so past apply/skip decisions
     // stop hiding proposals. Anything already in the deck comes back marked
     // in_deck by the server, so applied adds still don't reappear.
@@ -811,12 +815,12 @@ export default function DeckView({
     setBusy("Changes");
     const sig = currentSig; // capture: the deck may be edited mid-flight
     const full = assembleDecklist(decklist, isCommanderFmt ? commander : "");
-    // Cached cuts/upgrades can be non-null but stale: deckId-keyed state
-    // persists across the deck being emptied and refilled with an unrelated
-    // list (the Job 3 guide reopens exactly there), so "already have it"
-    // must mean "have it for THIS decklist", not merely "not null". `force`
-    // already re-buys deliberately; a stale cache under `deep` needs the
-    // same treatment or it silently serves swap suggestions for cards that
+    // Cached optimize/budgetSwaps can be non-null but stale: deckId-keyed
+    // state persists across the deck being emptied and refilled with an
+    // unrelated list (the Job 3 guide reopens exactly there), so "already
+    // have it" must mean "have it for THIS decklist", not merely "not null".
+    // `force` already re-buys deliberately; a stale cache under `deep` needs
+    // the same treatment or it silently serves suggestions for cards that
     // are no longer in the deck.
     const stale = (k) => panelSigs[k] != null && panelSigs[k] !== sig;
     const jobs = [];
@@ -825,18 +829,15 @@ export default function DeckView({
     }
     // Metered: bought only when asked for (`deep`), re-bought only when the
     // user refreshes something they already have, or when what's cached no
-    // longer matches the deck on screen.
-    if ((deep && (!cuts || stale("cuts"))) || (force && cuts)) {
-      jobs.push(api.aiCuts(full, format, null, apiGoals).then((r) => { setCuts(r); markFresh("cuts", sig); }));
+    // longer matches the deck on screen. This is the same optimize result the
+    // sidebar Optimize widget produces (runOptimize) — sourcing the Changes
+    // tab's cuts/swaps from it instead of separate ai/cuts + ai/upgrades
+    // calls is the whole point of this pass.
+    if ((deep && (!optimize || stale("optimize"))) || (force && optimize)) {
+      jobs.push(runOptimize());
     }
-    const upgradeKey = wantMode === "budget" ? "budgetSwaps" : "upgrades";
-    if ((deep && (!haveUpgrade || stale(upgradeKey))) || (force && haveUpgrade)) {
-      if (wantMode === "budget") {
-        jobs.push(api.budgetSwaps(full, format).then((r) => { setBudgetSwaps(r); markFresh("budgetSwaps", sig); }));
-      } else {
-        jobs.push(api.aiUpgrades(full, format, commander, null, "power", apiGoals)
-          .then((r) => { setUpgrades(r); markFresh("upgrades", sig); }));
-      }
+    if (wantMode === "budget" && ((deep && (!budgetSwaps || stale("budgetSwaps"))) || (force && budgetSwaps))) {
+      jobs.push(api.budgetSwaps(full, format).then((r) => { setBudgetSwaps(r); markFresh("budgetSwaps", sig); }));
     }
     if (!jobs.length) { setBusy(""); return; }
     const settled = await Promise.allSettled(jobs);
@@ -852,9 +853,10 @@ export default function DeckView({
   function changeUpgradeMode(mode) {
     setUpgradeMode(mode);
     if (activePanel !== "Changes") return;
-    // Having either upgrade source already means the deeper pass was asked
-    // for, so flipping the toggle is allowed to fetch the other one.
-    loadChanges({ mode, deep: Boolean(budgetSwaps || upgrades) });
+    // Having either deep source already means the deeper pass was asked
+    // for, so flipping the toggle is allowed to fetch the other one
+    // (budgetSwaps, the only thing still mode-gated).
+    loadChanges({ mode, deep: Boolean(budgetSwaps || optimize) });
   }
 
   // Apply/skip for a Changes proposal. Apply routes through the Optimize
@@ -871,8 +873,9 @@ export default function DeckView({
     // A card you just swapped OUT must not come straight back as a suggested
     // add — that's what `skipped` means, and it's what the old swapCard did.
     // Deliberately not `declinedUpgrades`: you accepted this upgrade, you
-    // didn't decline it.
-    if (ch.source === "upgrade" && ch.cut && ch.add) skip(ch.cut);
+    // didn't decline it. Covers budget swaps and optimize-sourced swaps
+    // alike — both cut a card out in the same "swap" shape.
+    if ((ch.source === "upgrade" || ch.source === "optimize") && ch.cut && ch.add) skip(ch.cut);
   }
 
   // Job 3 guided flow — ratings and the hand-off into the existing Changes
@@ -902,13 +905,14 @@ export default function DeckView({
   // again" never revives another's declines.
   function skipInsightChange(ch) {
     if (insightDecided[ch.id]) return; // already applied — can't also skip it
-    // Deliberately no `insightDecided` write: a skip is already remembered by
-    // that source's own verdict set, which has a "Show again" control. Marking
-    // it decided too would hide the proposal behind a second latch that "Show
-    // again" doesn't lift.
-    if (ch.source === "rec") skip(ch.add);
-    else if (ch.source === "cut") dismissCut(ch.cut);
-    else declineUpgrade(ch.cut);
+    if (ch.source === "rec") { skip(ch.add); return; }
+    // Budget swaps: algorithmic, own verdict set with its own "Show again"
+    // control — no `insightDecided` write, same as recs above.
+    if (ch.source === "upgrade") { declineUpgrade(ch.cut); return; }
+    // Optimize-sourced proposals have no source-owned verdict set (optDecided
+    // is wiped on every runOptimize call — see its declaration comment), so
+    // insightDecided is the only thing that remembers a skip here.
+    setInsightDecided((d) => ({ ...d, [ch.id]: "skipped" }));
   }
 
   // One props object for every DeckSidebar render (desktop layout + the
@@ -921,8 +925,8 @@ export default function DeckView({
     onPanelClick: (id) => {
       if (activePanel === id) { setActivePanel(null); return; }
       if (id === "DrawOdds") { setActivePanel("DrawOdds"); return; }
-      // Tab switches reuse loaded data (cuts and upgrades are paid AI calls —
-      // don't refetch just for browsing); the pane's Refresh action reloads.
+      // Tab switches reuse loaded data (optimize and budgetSwaps are paid AI
+      // calls — don't refetch just for browsing); the pane's Refresh reloads.
       if (id === "Changes") { loadChanges(); return; }
       if (id === "Combos") {
         if (combos) { setActivePanel("Combos"); return; }
@@ -951,8 +955,6 @@ export default function DeckView({
     combos,
     comp,
     budgetSwaps,
-    cuts,
-    upgrades,
     upgradeMode,
     setUpgradeMode: changeUpgradeMode,
     onApplyInsightChange: applyInsightChange,

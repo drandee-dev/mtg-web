@@ -47,10 +47,10 @@ export default function InsightsPanel({
   result, comp, activePanel, onPanelClick, onRefreshPanel, busy, stalePanels,
   recs, recCat, setRecCat, skipped, onClearSkipped, onAddCard,
   pinned, onTogglePin,
-  cuts, dismissedCuts, onClearDismissedCuts,
+  dismissedCuts, onClearDismissedCuts,
   declinedUpgrades, onClearDeclinedUpgrades, insightDecided, onLoadDeepChanges,
   combos, onGoldfish,
-  budgetSwaps, upgrades, upgradeMode, setUpgradeMode,
+  optimize, budgetSwaps, upgradeMode, setUpgradeMode,
   onApplyChange, onSkipChange,
   commander, format,
 }) {
@@ -76,10 +76,10 @@ export default function InsightsPanel({
 
   const comboCount = combos ? (combos.combos?.length || 0) + (combos.near_misses?.length || 0) : null;
   const changes = buildChanges({
-    recs, recCat, cuts, budgetSwaps, upgrades, upgradeMode,
-    skipped, dismissedCuts, declinedUpgrades, pinned, decided: insightDecided,
+    recs, recCat, optimize, budgetSwaps, upgradeMode,
+    skipped, declinedUpgrades, pinned, decided: insightDecided,
   });
-  const loadedChanges = Boolean(recs || cuts || budgetSwaps || upgrades);
+  const loadedChanges = Boolean(recs || optimize || budgetSwaps);
 
   const tabs = [
     { id: "Analytics", label: "Analytics" },
@@ -131,7 +131,7 @@ export default function InsightsPanel({
                 skipped={skipped} onClearSkipped={onClearSkipped}
                 dismissedCuts={dismissedCuts} onClearDismissedCuts={onClearDismissedCuts}
                 declinedUpgrades={declinedUpgrades} onClearDeclinedUpgrades={onClearDeclinedUpgrades}
-                cuts={cuts} budgetSwaps={budgetSwaps} upgrades={upgrades}
+                optimize={optimize} budgetSwaps={budgetSwaps}
                 onLoadDeepChanges={onLoadDeepChanges}
                 onApplyChange={onApplyChange} onSkipChange={onSkipChange} />
             )}
@@ -409,16 +409,17 @@ function ChangesPane({
   changes, loaded, recs, recCat, setRecCat, upgradeMode, setUpgradeMode,
   onTogglePin, skipped, onClearSkipped, dismissedCuts, onClearDismissedCuts,
   declinedUpgrades, onClearDeclinedUpgrades,
-  cuts, budgetSwaps, upgrades, onLoadDeepChanges,
+  optimize, budgetSwaps, onLoadDeepChanges,
   onApplyChange, onSkipChange,
 }) {
   if (!loaded) return <p className="muted small insp-empty">No change proposals loaded yet.</p>;
   const hasRecs = recs?.categories && Object.keys(recs.categories).length > 0;
-  // Opening this tab only buys the free EDHREC suggestions. Cuts and power
-  // upgrades cost model calls, so they stay behind one labelled button.
-  const haveUpgrades = Boolean(budgetSwaps || upgrades);
-  const upgradeForMode = upgradeMode === "budget" ? budgetSwaps : upgrades;
-  const deepPending = !cuts || !upgradeForMode;
+  // Opening this tab only buys the free EDHREC suggestions. The AI changeset
+  // (optimize) and budget swaps cost model calls, so they stay behind one
+  // labelled button. Optimize isn't mode-gated (it covers cuts/adds/swaps
+  // regardless of budget vs. power); only budgetSwaps still is.
+  const haveUpgrades = Boolean(budgetSwaps || optimize);
+  const deepPending = !optimize || (upgradeMode === "budget" && !budgetSwaps);
   return (
     <>
       {deepPending && onLoadDeepChanges && (
