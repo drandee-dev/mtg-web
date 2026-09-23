@@ -33,7 +33,7 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
   const canHover = useCanHover();
   const [filterHelpOpen, setFilterHelpOpen] = useState(false);
   const [viewMode, setViewMode] = useState(
-    () => localStorage.getItem("mtgweb:viewMode") || "grid"
+    () => localStorage.getItem("mtgweb:viewMode") || "stack"
   );
   const [stackMode, setStackMode] = useState(
     () => localStorage.getItem("mtgweb:stackMode") || "image"

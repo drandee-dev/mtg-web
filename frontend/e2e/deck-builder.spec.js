@@ -13,7 +13,7 @@ test.describe("Deck Builder", () => {
 
   test("card groups render for the loaded deck", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    // Default grid view groups by type — at least one group header should appear.
+    // Default stack view groups by type — at least one group header should appear.
     await expect(page.locator(".card-group, .stack-view").first()).toBeVisible({ timeout: 10000 });
   });
 
