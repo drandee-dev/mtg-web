@@ -45,6 +45,7 @@
   --accent: #c98a3a;
   --accent-soft: rgba(201,138,58,.12);
   --accent-2: #7cacf8;
+  --accent-2-soft: rgba(124,172,248,.12);
   --good: #3dce8a;
   --good-soft: rgba(61,206,138,.12);
   --warn: #e5b84c;
@@ -87,6 +88,7 @@
   --hover: rgba(0,0,0,.04);
   --hover-strong: rgba(0,0,0,.07);
   --accent-soft: rgba(201,138,58,.14);
+  --accent-2-soft: rgba(124,172,248,.14);
   --good-soft: rgba(61,206,138,.14);
   --warn-soft: rgba(229,184,76,.14);
   --bad-soft: rgba(239,83,80,.14);
@@ -109,6 +111,7 @@
     --hover: rgba(0,0,0,.04);
     --hover-strong: rgba(0,0,0,.07);
     --accent-soft: rgba(201,138,58,.14);
+    --accent-2-soft: rgba(124,172,248,.14);
     --good-soft: rgba(61,206,138,.14);
     --warn-soft: rgba(229,184,76,.14);
     --bad-soft: rgba(239,83,80,.14);
@@ -3042,29 +3045,87 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
   font-weight: 600; font-size: var(--fs-lg); margin: 1.4rem 0 .3rem; text-wrap: balance;
 }
 .gen-lede { margin: 0 0 1rem; color: var(--text-secondary); font-size: var(--fs-sm); line-height: 1.5; }
+/* Doors. Mobile-first single column; two primary doors sit side by side from
+   700px up while the three compact routes stay full-width rows beneath them.
+   Every door declares its own --door/--door-soft/--door-line triple, so the
+   shared rules below never name a colour — that is what stops a tone from
+   silently rendering unaccented, which is exactly what "plain" used to do. */
 .gen-doors { display: grid; gap: .6rem; }
+/* No fallback triple here on purpose: a tone with no rule of its own leaves
+   --door unset, which strips the border outright rather than quietly
+   rendering an unaccented door nobody notices. */
 .gen-door {
-  display: flex; align-items: flex-start; gap: 1rem; width: 100%; text-align: left;
-  padding: 1rem 1.1rem; background: var(--panel); border: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: .8rem; width: 100%; text-align: left;
+  padding: 1rem 1.1rem; background: var(--panel); border: 1px solid var(--door-line);
   border-radius: var(--radius-lg); cursor: pointer; color: var(--text);
   transition: border-color .12s, background .12s;
 }
-.gen-door-accent { border-color: var(--accent); background: var(--accent-soft); }
-.gen-door-good { border-color: rgba(61,206,138,.45); background: var(--good-soft); }
+.gen-door-accent { --door: var(--accent); --door-soft: var(--accent-soft); --door-line: rgba(201,138,58,.45); }
+.gen-door-sky { --door: var(--accent-2); --door-soft: var(--accent-2-soft); --door-line: rgba(124,172,248,.45); }
+.gen-door-warn { --door: var(--warn); --door-soft: var(--warn-soft); --door-line: rgba(229,184,76,.4); }
+.gen-door-good { --door: var(--good); --door-soft: var(--good-soft); --door-line: rgba(61,206,138,.45); }
+/* The unhurried, off-the-shelf route — a real slate accent, not the absence
+   of one. */
+.gen-door-plain { --door: var(--text-secondary); --door-soft: var(--hover-strong); --door-line: var(--border-strong); }
+.gen-door:hover { background: var(--door-soft); border-color: var(--door); }
 .gen-door:disabled { cursor: default; opacity: .72; }
+.gen-door:disabled:hover { background: var(--panel); border-color: var(--door-line); }
+
+/* Primary doors: tall card, icon tile on its own row, benefit list underneath. */
+.gen-door-lg {
+  flex-direction: column; align-items: stretch; gap: .65rem; padding: 1.1rem 1.15rem 1.25rem;
+  background: linear-gradient(180deg, var(--door-soft), transparent 62%), var(--panel);
+}
+.gen-door-lg:hover { background: linear-gradient(180deg, var(--door-soft), transparent 40%), var(--panel); }
+.gen-door-lg .gen-door-t { font-size: var(--fs-lg); }
+.gen-door-head { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+
+/* Compact routes: one short line, smaller tile, badge pinned right. Their
+   accent lives on the tile and badge only — a coloured border here competes
+   with the two primary doors instead of sitting under them. */
+.gen-door-sm {
+  align-items: center; gap: .7rem; padding: .7rem .9rem; min-height: 44px;
+  border-color: var(--border); background: var(--panel);
+}
+.gen-door-sm .gen-door-t { font-size: var(--fs-base); }
+.gen-door-sm .gen-door-d { font-size: var(--fs-xs); }
+
+.gen-door-tile {
+  flex: none; display: grid; place-items: center;
+  width: 1.85rem; height: 1.85rem; border-radius: 7px;
+  background: var(--door-soft); border: 1px solid var(--door-line); color: var(--door);
+}
+.gen-door-lg .gen-door-tile { width: 2.4rem; height: 2.4rem; border-radius: var(--radius); }
+
 .gen-door-txt { display: flex; flex-direction: column; gap: .3rem; min-width: 0; flex: 1 1 auto; }
 .gen-door-t {
   font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
   font-weight: 600; font-size: var(--fs-md);
 }
 .gen-door-d { font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.45; }
+.gen-door-wins { display: flex; flex-direction: column; gap: .28rem; margin-top: .1rem; }
+.gen-door-win {
+  display: flex; align-items: flex-start; gap: .45rem;
+  font-size: var(--fs-xs); color: var(--text-secondary); line-height: 1.4;
+}
+.gen-door-win::before { content: "✓"; flex: none; color: var(--door); font-weight: 700; }
+.gen-doors-sep {
+  margin: .5rem 0 -.1rem; font-size: var(--fs-2xs); letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted);
+}
 .gen-badge {
   flex: none; padding: .2rem .55rem; border-radius: 999px; background: var(--panel-2);
   color: var(--text-secondary); font-size: var(--fs-2xs); font-weight: 600;
   letter-spacing: .09em; text-transform: uppercase; white-space: nowrap;
 }
 .gen-badge-accent { background: var(--accent-soft); color: var(--accent); }
+.gen-badge-sky { background: var(--accent-2-soft); color: var(--accent-2); }
+.gen-badge-warn { background: var(--warn-soft); color: var(--warn); }
 .gen-badge-good { background: var(--good-soft); color: var(--good); }
+@media (min-width: 700px) {
+  .gen-doors { grid-template-columns: 1fr 1fr; }
+  .gen-door-sm, .gen-doors-sep { grid-column: 1 / -1; }
+}
 .gen-describe { width: 100%; min-height: 6rem; resize: vertical; margin-bottom: .6rem; }
 .gen-building { display: flex; flex-direction: column; gap: .6rem; }
 .gen-candidates { display: grid; gap: .3rem; margin-top: .6rem; }

@@ -4,55 +4,80 @@ import { searchCommanders as scryfallSearchCommanders } from "../lib/scryfall";
 import { parseNarration } from "../lib/buildNotes";
 import { parseCollectionCsv, buildOwnedIndex, ownedQuantity } from "../lib/collection";
 import { fmtUsd } from "../lib/format";
+import { BoxIcon, CrownIcon, LayersIcon, ListIcon, SparkleIcon } from "./Icons";
 import CardPreview from "./CardPreview";
 import LoadingIndicator from "./LoadingIndicator";
 import Wizard from "./Wizard";
 
-// The entry screen into deck building. Four labelled routes on one page
+// The entry screen into deck building. Five labelled routes on one page
 // instead of a form that assumes a commander is already chosen. Two of them
 // ("Describe what you like", "I know my commander") run the one-shot
-// generator below; "Guide me step by step" hands off to the existing
-// category-fill Wizard; the collection route is reserved and not wired up.
+// generator below and are the two primary doors; "Guide me step by step"
+// hands off to the existing category-fill Wizard; precon and collection are
+// the remaining compact routes.
+//
+// Each branch carries a `tone`, which is only ever a CSS suffix
+// (.gen-door-<tone>, .gen-badge-<tone>). Every tone needs a real rule in
+// index.css — "plain" had none for a while, so those doors rendered with no
+// accent at all.
 
 const BRANCHES = {
   describe: {
     label: "Describe what you like",
     desc: "In your own words. “I love vampires”, “goad my opponents”, “steal everything”. The copilot picks a commander and builds the whole deck around it.",
+    wins: [
+      "Plain words, no card names needed",
+      "Suggests commanders that fit the idea",
+      "Builds the full 100 around the one you pick",
+    ],
     badge: "Uses AI",
     tone: "accent",
+    icon: <SparkleIcon size={20} />,
     steps: ["Choose a path", "Describe your deck", "Pick the commander", "Review the deck"],
   },
   guided: {
     label: "Guide me step by step",
-    desc: "One category at a time, with you choosing every card. Runs on EDHREC data and format staples, no model calls.",
+    desc: "One category at a time, with you choosing every card.",
     badge: "No AI",
-    tone: "plain",
+    tone: "warn",
+    icon: <ListIcon size={16} />,
     steps: ["Choose a path", "Pick a commander", "Fill each category"],
   },
   commander: {
     label: "I know my commander",
-    desc: "Search a legend and get the 99 around it. Partners and backgrounds pair automatically.",
+    desc: "Search a legend and get the 99 around it. The fastest route in when you already know who is sitting in the command zone.",
+    wins: [
+      "Search any legend, get the other 99",
+      "Partners and backgrounds pair automatically",
+      "Every pick comes back with a reason",
+    ],
     badge: "No AI",
-    tone: "plain",
+    tone: "sky",
+    icon: <CrownIcon size={20} />,
     steps: ["Choose a path", "Pick a commander", "Review the deck"],
   },
   precon: {
     label: "Start from a precon",
-    desc: "Name a preconstructed Commander deck and get its real decklist, ready to tune. Straight from the published list, no model calls.",
+    desc: "Name a preconstructed deck and get its real decklist, ready to tune.",
     badge: "No AI",
     tone: "plain",
+    icon: <BoxIcon size={16} />,
     steps: ["Choose a path", "Name the precon", "Review the deck"],
   },
   collection: {
     label: "Build from my collection",
-    desc: "Reads your collection.csv, builds the best deck from cards you already own, and prices only the gaps.",
+    desc: "Best deck from cards you already own, with only the gaps priced.",
     badge: "New",
     tone: "good",
+    icon: <LayersIcon size={16} />,
     steps: ["Choose a path", "Load your collection", "Pick a commander", "Review the deck"],
   },
 };
 
-const DOOR_ORDER = ["describe", "guided", "commander", "precon", "collection"];
+// The two headline routes get the large treatment; the rest are compact rows.
+const PRIMARY_DOORS = ["describe", "commander"];
+const SECONDARY_DOORS = ["guided", "precon", "collection"];
+const DOOR_ORDER = [...PRIMARY_DOORS, ...SECONDARY_DOORS];
 
 // Skeleton categories that supply the non-land half of the deck, in the order
 // they get drawn from.
@@ -532,15 +557,40 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
         <p className="gen-lede">{DOOR_ORDER.length} routes into the same deck. Pick the one that matches how much you already know.</p>
 
         <div className="gen-doors">
-          {DOOR_ORDER.map((id) => {
+          {PRIMARY_DOORS.map((id) => {
             const b = BRANCHES[id];
             return (
               <button
                 key={id}
                 type="button"
-                className={`gen-door gen-door-${b.tone}`}
+                className={`gen-door gen-door-lg gen-door-${b.tone}`}
                 onClick={() => pickBranch(id)}
               >
+                <span className="gen-door-head">
+                  <span className="gen-door-tile">{b.icon}</span>
+                  <span className={`gen-badge gen-badge-${b.tone}`}>{b.badge}</span>
+                </span>
+                <span className="gen-door-txt">
+                  <span className="gen-door-t">{b.label}</span>
+                  <span className="gen-door-d">{b.desc}</span>
+                </span>
+                <span className="gen-door-wins">
+                  {b.wins.map((w) => <span key={w} className="gen-door-win">{w}</span>)}
+                </span>
+              </button>
+            );
+          })}
+          <span className="gen-doors-sep">Other ways in</span>
+          {SECONDARY_DOORS.map((id) => {
+            const b = BRANCHES[id];
+            return (
+              <button
+                key={id}
+                type="button"
+                className={`gen-door gen-door-sm gen-door-${b.tone}`}
+                onClick={() => pickBranch(id)}
+              >
+                <span className="gen-door-tile">{b.icon}</span>
                 <span className="gen-door-txt">
                   <span className="gen-door-t">{b.label}</span>
                   <span className="gen-door-d">{b.desc}</span>

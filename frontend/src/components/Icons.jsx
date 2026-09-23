@@ -78,6 +78,37 @@ export function ListIcon(props) {
   );
 }
 
+// Crown — the commander route. A legend you already have in mind.
+export function CrownIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M2.8 5.2l2.4 2.1L8 3.2l2.8 4.1 2.4-2.1-.9 6H3.7l-.9-6Z" />
+      <path d="M4.2 13.4h7.6" />
+    </Icon>
+  );
+}
+
+// Sealed box — a preconstructed deck, straight off the shelf.
+export function BoxIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M2.6 5.4 8 2.7l5.4 2.7v5.2L8 13.3l-5.4-2.7V5.4Z" />
+      <path d="M2.6 5.4 8 8.1l5.4-2.7M8 8.1v5.2" />
+    </Icon>
+  );
+}
+
+// Stacked layers — a collection you already own.
+export function LayersIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M8 2.4 2.4 5.2 8 8l5.6-2.8L8 2.4Z" />
+      <path d="M2.4 8.4 8 11.2l5.6-2.8" />
+      <path d="M2.4 11.2 8 14l5.6-2.8" />
+    </Icon>
+  );
+}
+
 // Magnifier — geometry identical to the "cards" tab icon in BottomNav/GlobalToolbar
 // so the app has exactly one search shape.
 export function SearchIcon(props) {
