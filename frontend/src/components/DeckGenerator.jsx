@@ -529,7 +529,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
         </div>
 
         <h2 className="gen-h2">How do you want to build?</h2>
-        <p className="gen-lede">Four routes into the same deck. Pick the one that matches how much you already know.</p>
+        <p className="gen-lede">{DOOR_ORDER.length} routes into the same deck. Pick the one that matches how much you already know.</p>
 
         <div className="gen-doors">
           {DOOR_ORDER.map((id) => {

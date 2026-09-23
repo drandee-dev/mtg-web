@@ -12,6 +12,21 @@ function _headers() {
   return h;
 }
 
+// JSON.stringify throws a plain TypeError on a circular/non-serializable body
+// (e.g. a DOM/Window reference passed by mistake). Done once, up front, so a
+// bad body fails clean and immediately instead of leaking that raw TypeError
+// into the retry loop below, which only knows to retry on `e.name ===
+// "TypeError"` (a real network failure) and would otherwise burn through all
+// 4 attempts re-throwing the same unserializable body before finally
+// surfacing the native "circular structure" error uncaught, ~24s later.
+function _serialize(body) {
+  try {
+    return JSON.stringify(body);
+  } catch (e) {
+    throw new Error(`Request body could not be serialized: ${e.message}`, { cause: e });
+  }
+}
+
 async function get(path, params) {
   const url = new URL(BASE + path);
   Object.entries(params || {}).forEach(([k, v]) => {
@@ -33,12 +48,13 @@ async function get(path, params) {
 }
 
 async function post(path, body) {
+  const payload = _serialize(body);
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const res = await fetch(BASE + path, {
         method: "POST",
         headers: _headers(),
-        body: JSON.stringify(body),
+        body: payload,
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
       return res.json();
@@ -53,10 +69,11 @@ async function post(path, body) {
 }
 
 export async function postStream(path, body, onChunk) {
+  const payload = _serialize(body);
   const res = await fetch(BASE + path, {
     method: "POST",
     headers: _headers(),
-    body: JSON.stringify(body),
+    body: payload,
   });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
   const reader = res.body.getReader();

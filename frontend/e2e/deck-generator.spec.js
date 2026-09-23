@@ -83,6 +83,34 @@ test.describe("Deck generator entry screen", () => {
     await expect(await rawDecklist(page)).not.toContain("Atraxa");
   });
 
+  // Regression: clicking Back while the one-shot build is still in flight
+  // (skeleton request pending) used to leave the in-flight generate() call
+  // running against stale state. api.js's post()/postStream() now guard
+  // JSON.stringify(body), so nothing lets a bad body crash the page
+  // uncaught — this asserts the click itself is clean end to end.
+  test("clicking Back mid-build does not crash the page", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+
+    await page.route("**/api/deck/wizard/skeleton*", async (route) => {
+      await new Promise((r) => setTimeout(r, 500));
+      await route.fallback();
+    });
+
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+    await page.locator("#gen-cmd").fill("atraxa");
+    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
+
+    await expect(page.locator(".gen-building")).toBeVisible();
+    await page.locator(".gen-head button", { hasText: "Back" }).click();
+    await expect(page.locator(".gen-doors")).toBeVisible();
+
+    // Let the in-flight build resolve in the background.
+    await page.waitForTimeout(1000);
+    expect(errors).toEqual([]);
+  });
+
   test("describing a deck names a commander and builds from it", async ({ page }) => {
     await openGenerator(page);
     await page.locator(".gen-door", { hasText: "Describe what you like" }).click();
