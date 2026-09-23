@@ -21,8 +21,9 @@ test.describe("URL import + Considering + rename", () => {
     await page.locator(".icm-foot button", { hasText: "Import" }).click();
 
     await expect(page.locator(".deck-title")).toContainText("Mock Import");
-    // Sideboard card is in Considering, NOT the maindeck
-    const considering = page.locator(".considering-group");
+    // Sideboard card is in Considering, NOT the maindeck (grid/list render it
+    // as a group; stack view renders it as a pinned column)
+    const considering = page.locator(".considering-group, .stack-column-considering");
     await expect(considering).toBeVisible();
     await expect(considering).toContainText("Considering");
     await expect(considering.locator('[aria-label*="Lightning Bolt"]').first()).toBeVisible();
@@ -51,7 +52,7 @@ test.describe("URL import + Considering + rename", () => {
     await page.locator(".icm-foot button", { hasText: "Import" }).click();
     await page.locator(".icm-confirm button", { hasText: "Replace deck" }).click();
     await expect(page.locator(".deck-title")).toContainText("Mock Import");
-    await expect(page.locator(".considering-group")).toBeVisible();
+    await expect(page.locator(".considering-group, .stack-column-considering")).toBeVisible();
   });
 
   test("inline rename updates the deck title", async ({ page }) => {

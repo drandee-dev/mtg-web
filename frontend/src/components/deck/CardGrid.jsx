@@ -562,8 +562,11 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
       )}
 
       {/* Considering zero-state — the column only exists once it has cards, so
-          give the feature an entry point: AI seeds the first few candidates. */}
-      {viewMode !== "stack" && consideringCards.length === 0 && totalCards > 0 && onSuggestConsiderations && (
+          give the feature an entry point: AI seeds the first few candidates.
+          Not view-mode-gated: stack view has no analogous empty-column
+          affordance (StackView only renders a Considering column when it has
+          cards), so this CTA is the only entry point there too. */}
+      {consideringCards.length === 0 && totalCards > 0 && onSuggestConsiderations && (
         <div className="considering-zero">
           <span className="considering-star" aria-hidden="true">☆</span>
           <span className="considering-zero-text">

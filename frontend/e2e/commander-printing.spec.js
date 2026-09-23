@@ -22,8 +22,8 @@ test.describe("Commander printing switcher", () => {
 
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
 
-    // Open the commander card's detail modal (grid view commander group)
-    await page.locator('.card-group [aria-label*="Atraxa"]').first().click();
+    // Open the commander card's detail modal (works in grid or stack view)
+    await page.locator('.card-grid-container [aria-label*="Atraxa"]').first().click();
     const modal = page.locator(".cdm-panel");
     await expect(modal).toBeVisible();
     await expect(modal.locator(".cdm-cmdr-tag")).toContainText("Commander");
@@ -39,7 +39,7 @@ test.describe("Commander printing switcher", () => {
     // Close, reopen: the switcher reflects the pinned printing
     await page.keyboard.press("Escape");
     await expect(modal).toHaveCount(0);
-    await page.locator('.card-group [aria-label*="Atraxa"]').first().click();
+    await page.locator('.card-grid-container [aria-label*="Atraxa"]').first().click();
     await expect(page.locator(".cdm-print-toggle")).toContainText("SLD #222");
 
     // Deck title / commander name stays clean (no "(SLD) 222" leaking through)

@@ -96,7 +96,7 @@ test.describe("Mass art change", () => {
     await waitForAppReady(page);
     await dismissColdStart(page);
     await page.locator(".deck-card .deck-card-art").first().click();
-    await expect(page.locator(".considering-group")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(".considering-group, .stack-column-considering")).toBeVisible({ timeout: 10000 });
 
     await deckMenuAction(page, "Mass change art");
     const modal = page.locator(".mam-panel");
@@ -111,7 +111,7 @@ test.describe("Mass art change", () => {
     await modal.locator('button:has-text("Apply to 2 cards")').click();
     await expect(page.locator(".toast")).toContainText("2 cards", { timeout: 4000 });
     // Considering column persists after the art change
-    await expect(page.locator(".considering-group")).toBeVisible();
+    await expect(page.locator(".considering-group, .stack-column-considering")).toBeVisible();
   });
 
   test("reset clears every pinned printing", async ({ page }) => {
