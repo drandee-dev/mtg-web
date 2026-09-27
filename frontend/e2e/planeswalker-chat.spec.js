@@ -113,6 +113,19 @@ test.describe("Planeswalker chat", () => {
     expect(calls).toHaveLength(1); // one validate call per message
   });
 
+  test("reloaded history chips are not actionable (verdicts aren't persisted)", async ({ page }) => {
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openChat(page);
+    await page.locator(".pw-chip", { hasText: "Fill gaps" }).click();
+    await expect(page.locator('.pw-cardchip-btn[aria-label="Add Lightning Bolt to deck"]')).toBeVisible();
+
+    await page.reload();
+    await openChat(page);
+    const reply = page.locator(".pw-msg.pw-assistant").last();
+    await expect(reply.locator(".pw-cardname", { hasText: "Lightning Bolt" })).toBeVisible();
+    await expect(reply.locator(".pw-cardchip-btn")).toHaveCount(0);
+  });
+
   test("a failed validate call leaves chips without add buttons (fail closed)", async ({ page }) => {
     await page.route("**/api/deck/validate-cards", (route) =>
       route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "Card validation failed." }) }));

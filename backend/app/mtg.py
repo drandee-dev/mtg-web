@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import re
+from collections import Counter
 from typing import Any
 
 from app import config
@@ -1659,7 +1660,14 @@ def deck_identity(deck: dict, idx: Any, fmt: str) -> tuple[set[str] | None, str 
         return set(first.get("color_identity") or []), "first_line"
     recs = [r for r in (idx.get(e["name"]) for e in cards) if r]
     if recs:
-        return {c for r in recs for c in r.get("color_identity") or []}, "cards"
+        # Not a plain union: decks that already hold a leaked off-color card are
+        # exactly the ones the old bug produced, and a union would let each leak
+        # widen what's accepted next. A color counts only if it shows up on
+        # max(2, ~10%) of the deck's distinct cards. Lands count (a Forest is real
+        # evidence of green). Wrong-narrow is acceptable here; wrong-wide is not.
+        counts = Counter(c for r in recs for c in set(r.get("color_identity") or []))
+        floor = max(2, round(len(recs) / 10))
+        return {c for c, n in counts.items() if n >= floor}, "cards"
     return None, None
 
 
@@ -1946,11 +1954,9 @@ def budget_swaps(
     deck = parse_deck_text(text, format=fmt)
     hd = HydratedDeck.from_parsed(deck, _bulk_index())
     idx = _bulk_index()
-    ci_lists = [
-        ((idx.get(c["name"]) or {}).get("color_identity") or [])
-        for c in deck.get("commanders", [])
-    ]
-    ci = "".join(color for ci_list in ci_lists for color in ci_list)
+    identity, _ = deck_identity(deck, idx, fmt)
+    # Same rule as fills: empty identity = colorless only ("C"), None = unknown.
+    ci = (_wubrg(identity) or "C") if identity is not None else None
     in_deck = {
         e["name"] for zone in ("commanders", "cards") for e in deck.get(zone, [])
     }
@@ -1985,7 +1991,7 @@ def budget_swaps(
                         config.BULK_PATH,
                         oracle=search_cfg.get("oracle"),
                         card_type=search_cfg.get("type"),
-                        color_identity=ci or None,
+                        color_identity=ci,
                         format=fmt,
                         sort="price-asc",
                         limit=10,
@@ -2008,7 +2014,7 @@ def budget_swaps(
                         cands = _search_cards(
                             config.BULK_PATH,
                             card_type=t,
-                            color_identity=ci or None,
+                            color_identity=ci,
                             format=fmt,
                             sort="price-asc",
                             limit=10,

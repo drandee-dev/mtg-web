@@ -69,9 +69,19 @@ print("ok: mono-G Ezuri statuses")
 # --- identity without a commander ------------------------------------------ #
 out, _ = statuses(["Sol Ring"], "1 Krenko, Mob Boss\n1 Goblin Guide\n1 Mountain")
 assert (out["identity"], out["identity_source"]) == (["R"], "first_line"), out
-out, s = statuses(["Lightning Bolt"], "1 Llanowar Elves\n1 Krenko, Mob Boss")
+GRUUL_NO_CMDR = (
+    "1 Llanowar Elves\n1 Lightning Bolt\n1 Elvish Mystic\n1 Shock\n"
+    "1 Forest\n1 Mountain\n1 Rampant Growth\n1 Goblin Guide"
+)
+out, s = statuses(["Lightning Bolt", "Swords to Plowshares"], GRUUL_NO_CMDR)
 assert (out["identity"], out["identity_source"]) == (["R", "G"], "cards"), out
-assert s["Lightning Bolt"][0] == "ok", s
+assert s["Lightning Bolt"][0] == "in_deck", s
+assert s["Swords to Plowshares"][0] == "off_color", s
+# A leaked off-color card (what the old bug put into decks) must not widen
+# the inferred identity: one red card among green ones stays green-only.
+out, s = statuses(["Lightning Bolt"], "1 Llanowar Elves\n1 Forest\n1 Blasphemous Act")
+assert (out["identity"], out["identity_source"]) == (["G"], "cards"), out
+assert s["Lightning Bolt"][0] == "off_color", s
 out, _ = statuses(["Sol Ring"], "")
 assert (out["identity"], out["identity_source"]) == (None, None), out
 print("ok: first_line / cards / none identity sources")
@@ -174,10 +184,14 @@ mtg.deck_composition = lambda *a, **k: {
 try:
     mtg.ai_composition_fills(KOZILEK)
     mtg.ai_composition_fills(EZURI)
+    fills_seen, _seen[:] = list(_seen), []
+    # budget_swaps is the sibling path: same rule, colorless = "C".
+    mtg.budget_swaps(KOZILEK, threshold=0.01)
 finally:
     mtg._search_cards = _real_search
-assert _seen == ["C", "G"], _seen
-print("ok: fills passes C for a colorless commander")
+assert fills_seen == ["C", "G"], fills_seen
+assert _seen and set(_seen) == {"C"}, _seen
+print("ok: fills and budget_swaps pass C for a colorless commander")
 
 # --- endpoint validation --------------------------------------------------- #
 from fastapi.testclient import TestClient  # noqa: E402

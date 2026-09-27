@@ -59,7 +59,10 @@ function saveHistory(key, messages) {
   try {
     const persistable = messages
       .filter((m) => m.role === "user" || m.role === "assistant" || m.role === "divider")
-      .slice(-HISTORY_CAP);
+      .slice(-HISTORY_CAP)
+      // Chip verdicts go stale when the deck or commander changes, so they are
+      // never persisted: reloaded history chips render without add buttons.
+      .map((m) => ({ ...m, cardStatus: undefined }));
     if (persistable.length) localStorage.setItem(key, JSON.stringify(persistable));
     else localStorage.removeItem(key);
   } catch { /* storage full/blocked — history is best-effort */ }
