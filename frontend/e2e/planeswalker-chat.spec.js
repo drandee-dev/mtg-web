@@ -55,6 +55,26 @@ test.describe("Planeswalker chat", () => {
     }
   });
 
+  test("an empty 'done' stream shows an error with Retry, not Thinking… forever", async ({ page }) => {
+    // Prod 2026-09-27: the model spent max_tokens thinking and the stream
+    // ended done with no text. Registered after the shared mock, so it wins.
+    await page.route("**/api/planeswalker/chat/stream", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: `data: ${JSON.stringify({ status: "done", text: "", output_tokens: 2000 })}\n\n`,
+      }),
+    );
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openChat(page);
+    await page.locator(".pw-chip", { hasText: "Fill gaps" }).click();
+
+    const reply = page.locator(".pw-msg.pw-assistant").last();
+    await expect(reply).toContainText("empty reply");
+    await expect(reply.locator(".pw-retry")).toBeVisible();
+    await expect(reply).not.toContainText("Thinking");
+  });
+
   test("expand and text-size toggles persist across reload", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await openChat(page);

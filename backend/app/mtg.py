@@ -862,6 +862,9 @@ _AI_MODEL_FALLBACK = "claude-haiku-4-5"
 _THINKS_BY_DEFAULT = {"claude-sonnet-5"}
 
 
+EMPTY_REPLY_MESSAGE = "The assistant returned an empty reply. Try again."
+
+
 def _model_kwargs(model: str) -> dict[str, Any]:
     if model in _THINKS_BY_DEFAULT:
         return {"thinking": {"type": "disabled"}}
@@ -1014,6 +1017,7 @@ def _ai_call_stream(
                 max_tokens=max_tokens,
                 system=system,
                 messages=messages,
+                **_model_kwargs(model),
             ) as stream:
                 full_text = ""
                 for text in stream.text_stream:
@@ -1024,6 +1028,12 @@ def _ai_call_stream(
                 usage = resp.usage
                 if on_ai_usage and callable(on_ai_usage):
                     on_ai_usage(model, usage)
+
+                # A reply with no text (all of max_tokens spent elsewhere) would
+                # read as "done" and the chat UI would sit on its placeholder.
+                if not full_text.strip():
+                    yield f"data: {_json.dumps({'status': 'error', 'message': EMPTY_REPLY_MESSAGE})}\n\n"
+                    return
 
                 yield f"data: {_json.dumps({'status': 'done', 'text': full_text, 'model': model, 'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens})}\n\n"
                 return
@@ -1553,7 +1563,7 @@ def ai_strategy(
         }
 
     try:
-        data = _parse_ai_json(resp["result"])
+        data = _parse_ai_json(resp["result"], expect=dict)
         return {
             "error": False,
             "strategy": data.get("strategy", ""),
@@ -1665,7 +1675,7 @@ def ai_optimize(
         }
 
     try:
-        data = _parse_ai_json(resp["result"])
+        data = _parse_ai_json(resp["result"], expect=(dict, list))
     except (ValueError, KeyError):
         return {
             "error": True,
@@ -1762,9 +1772,27 @@ def ai_optimize(
     }
 
 
-def _parse_ai_json(raw: str) -> Any:
+def _parse_ai_json(raw: str, expect: type | tuple[type, ...] | None = None) -> Any:
     """Parse JSON from an AI response. Handles code fences, preamble text,
-    and other formatting Sonnet sometimes adds around the JSON."""
+    and other formatting Sonnet sometimes adds around the JSON.
+
+    `expect` (list, dict, or a tuple of them) enforces the top-level shape the
+    caller indexes into, because the model does not always honour the format:
+    asked for a list it sometimes wraps it ({"picks": [...]}), so a dict where a
+    list was expected yields its first list-valued field. Any other mismatch
+    raises ValueError, which every caller already treats as a parse failure.
+    """
+    data = _extract_ai_json(raw, prefer_object=expect is dict)
+    if expect is None or isinstance(data, expect):
+        return data
+    if expect is list and isinstance(data, dict):
+        for value in data.values():
+            if isinstance(value, list):
+                return value
+    raise ValueError(f"AI JSON has unexpected shape: {type(data).__name__}")
+
+
+def _extract_ai_json(raw: str, prefer_object: bool = False) -> Any:
     import json as _json
 
     raw = raw.strip()
@@ -1776,8 +1804,12 @@ def _parse_ai_json(raw: str) -> Any:
         return _json.loads(raw)
     except _json.JSONDecodeError:
         pass
-    # Extract JSON array or object from surrounding text
-    for pattern in (r"(\[[\s\S]*\])", r"(\{[\s\S]*\})"):
+    # Extract JSON array or object from surrounding text. Object first when an
+    # object is expected, or a lone inner array would win the search.
+    patterns = [r"(\[[\s\S]*\])", r"(\{[\s\S]*\})"]
+    if prefer_object:
+        patterns.reverse()
+    for pattern in patterns:
         m = re.search(pattern, raw)
         if m:
             try:
@@ -2018,9 +2050,11 @@ def ai_composition_fills(
             continue
 
         try:
-            picks = _parse_ai_json(resp["result"])
+            picks = _parse_ai_json(resp["result"], expect=list)
             cand_names = {c["name"] for c in candidates}
-            picks = [p for p in picks if p.get("name") in cand_names][:4]
+            picks = [
+                p for p in picks if isinstance(p, dict) and p.get("name") in cand_names
+            ][:4]
             if not picks:
                 picks = pool[:4]
         except (ValueError, KeyError):
@@ -2075,7 +2109,7 @@ def ai_explain_recommendations(
         return {"error": True, "message": resp["result"], "explanations": []}
 
     try:
-        explanations = _parse_ai_json(resp["result"])
+        explanations = _parse_ai_json(resp["result"], expect=list)
     except (ValueError, KeyError):
         explanations = [{"name": "Parse error", "explanation": resp["result"][:200]}]
 
@@ -2134,7 +2168,7 @@ def ai_combo_guidance(
         }
 
     try:
-        data = _parse_ai_json(resp["result"])
+        data = _parse_ai_json(resp["result"], expect=dict)
     except (ValueError, KeyError):
         data = {
             "assessments": [

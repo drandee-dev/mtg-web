@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, assembleDecklist, getCardImage } from "../lib/api";
+import { api, assembleDecklist, getCardImage, EMPTY_REPLY } from "../lib/api";
 import { commanderDisplay } from "../lib/deckParser";
 import { useMediaQuery } from "../lib/hooks";
 import { goalsToApi } from "../lib/goals";
@@ -273,6 +273,8 @@ export default function Planeswalker({
         }
       });
       if (streamError) finish(`Error: ${streamError}`, true);
+      // An empty "done" would render as the Thinking… placeholder forever.
+      else if (!acc.trim()) finish(`Error: ${EMPTY_REPLY}`, true);
       else finish(acc, false, modelUsed);
     } catch {
       // Streaming endpoint unreachable — fall back to the non-streaming API.
