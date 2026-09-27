@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, assembleDecklist, getCardImage } from "../lib/api";
+import { api, assembleDecklist, getCardImage, EMPTY_REPLY } from "../lib/api";
 import { commanderDisplay } from "../lib/deckParser";
 import { useMediaQuery } from "../lib/hooks";
 import { goalsToApi } from "../lib/goals";
@@ -273,12 +273,16 @@ export default function Planeswalker({
         }
       });
       if (streamError) finish(`Error: ${streamError}`, true);
+      // An empty "done" would render as the Thinking… placeholder forever.
+      else if (!acc.trim()) finish(`Error: ${EMPTY_REPLY}`, true);
       else finish(acc, false, modelUsed);
     } catch {
       // Streaming endpoint unreachable — fall back to the non-streaming API.
       try {
         const r = await api.planeswalkerChat(apiMsgs, full, format, commander, bracket, apiGoals, recentChanges);
-        finish(r.error ? `Error: ${r.response}` : r.response, Boolean(r.error), r.model || null);
+        if (r.error) finish(`Error: ${r.response}`, true, r.model || null);
+        else if (!(r.response || "").trim()) finish(`Error: ${EMPTY_REPLY}`, true);
+        else finish(r.response, false, r.model || null);
       } catch (e2) {
         finish(`Connection error: ${e2.message}`, true);
       }

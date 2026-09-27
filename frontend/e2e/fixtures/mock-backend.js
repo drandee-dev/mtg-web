@@ -99,10 +99,13 @@ export async function mockBackend(page) {
       });
     }
     if (path.endsWith("/api/rules/ask/stream")) {
-      // Server-sent events: the client reads `data: {json}` lines.
+      // Server-sent events: the client reads `data: {json}` lines. Same event
+      // shapes as main.py's rules_ask_stream (_ai_call_stream + citations).
+      const answer = "Trample lets a creature assign excess combat damage to the player.";
       const body =
-        `data: ${JSON.stringify({ text: "Trample lets a creature assign excess combat damage to the player." })}\n\n` +
-        `data: ${JSON.stringify({ citations: [{ rule: "702.19" }] })}\n\n`;
+        `data: ${JSON.stringify({ status: "streaming", text: answer })}\n\n` +
+        `data: ${JSON.stringify({ status: "done", text: answer })}\n\n` +
+        `data: ${JSON.stringify({ status: "citations", citations: [{ number: "702.19", text: "Trample is a static ability." }], cards: [] })}\n\n`;
       return route.fulfill({ status: 200, contentType: "text/event-stream", body });
     }
     if (path.endsWith("/api/rules/search")) {

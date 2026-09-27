@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { postStream } from "../lib/api";
+import { postStream, EMPTY_REPLY } from "../lib/api";
 import { BotText } from "./BotText";
 
 const CHIPS = [
@@ -71,6 +71,7 @@ export default function Rules({ aiAvailable, notify, prefill, onPrefillConsumed 
     let fullText = "";
     let citations = [];
     let cards = [];
+    let errored = false;
 
     try {
       await postStream(
@@ -87,15 +88,21 @@ export default function Rules({ aiAvailable, notify, prefill, onPrefillConsumed 
             citations = chunk.citations || [];
             cards = chunk.cards || [];
           } else if (chunk.status === "error") {
+            errored = true;
             notify(chunk.message);
           }
         }
       );
 
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", text: fullText, citations, cards },
-      ]);
+      // No text means no answer: say so instead of appending a blank bubble.
+      if (!fullText.trim()) {
+        if (!errored) notify(EMPTY_REPLY);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", text: fullText, citations, cards },
+        ]);
+      }
     } catch (e) {
       notify(`Rules query failed: ${e.message}`);
     } finally {

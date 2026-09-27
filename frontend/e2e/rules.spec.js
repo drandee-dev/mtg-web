@@ -23,9 +23,31 @@ test.describe("Rules", () => {
     await searchInput.fill("trample");
     await searchInput.press("Enter");
 
-    // Wait for results to appear
-    const results = page.locator("main").locator("text=/trample/i");
-    await expect(results.first()).toBeVisible({ timeout: 15000 });
+    // The AI answer bubble, not the question echoed back in the user bubble.
+    await expect(page.locator(".rules-msg-ai-text")).toContainText(
+      "assign excess combat damage", { timeout: 15000 },
+    );
+    await expect(page.locator(".rules-citation")).toContainText("702.19");
+  });
+
+  test("empty answer shows a toast, not a blank bubble", async ({ page }) => {
+    // Registered after the shared mock, so it wins for this test.
+    await page.route("**/api/rules/ask/stream", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body:
+          `data: ${JSON.stringify({ status: "done", text: "" })}\n\n` +
+          `data: ${JSON.stringify({ status: "citations", citations: [], cards: [] })}\n\n`,
+      }),
+    );
+    const searchInput = page.locator('input[type="text"], input[type="search"], input[placeholder*="rule" i], input[placeholder*="search" i], textarea').first();
+    await searchInput.fill("trample");
+    await searchInput.press("Enter");
+
+    await expect(page.locator(".toast")).toContainText("empty reply");
+    await expect(page.locator(".rules-msg-user-bubble")).toContainText("trample");
+    await expect(page.locator(".rules-msg-ai")).toHaveCount(0);
   });
 
   test("visual: rules tab", async ({ page }) => {

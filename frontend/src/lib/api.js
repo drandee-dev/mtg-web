@@ -68,6 +68,9 @@ async function post(path, body) {
   }
 }
 
+// Same wording the backend sends when a stream ends with no text.
+export const EMPTY_REPLY = "The assistant returned an empty reply. Try again.";
+
 export async function postStream(path, body, onChunk) {
   const payload = _serialize(body);
   const res = await fetch(BASE + path, {
