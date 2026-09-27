@@ -54,3 +54,6 @@ design/marketing/
 default-cards.json
 default-cards.sidecar.json
 ai_usage.json
+
+# graphify code graph (areas/tooling/graphify.md in the vault), local only
+graphify-out/
