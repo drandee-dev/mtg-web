@@ -356,6 +356,7 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 /* Commander picker row — sits below the toolbar (and below the mobile deck nav,
    where the toolbar is hidden) so both breakpoints can set a commander. */
 .cmdr-input-row { position: relative; z-index: 9; margin-bottom: .55rem; }
+.cmdr-suggest { margin: .4rem 0 0; }
 .deck-toolbar-top {
   display: flex; align-items: center; justify-content: space-between; gap: .75rem;
   flex-wrap: wrap; margin-bottom: .3rem;

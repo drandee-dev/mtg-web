@@ -559,7 +559,10 @@ def analyze_deck(text: str, *, fmt: str = "commander") -> dict[str, Any]:
     deterministic audits: stats + curve, mana base, legality, and bracket estimate.
     """
     deck = parse_deck_text(text, format=fmt)
-    hd = HydratedDeck.from_parsed(deck, _bulk_index())
+    idx = _bulk_index()
+    hd = HydratedDeck.from_parsed(deck, idx)
+    # Offered to the user as a one-click "make this your commander", never applied.
+    candidate = first_line_commander(deck, idx, fmt)
 
     stats = deck_stats(hd)
     mana = mana_audit(hd)
@@ -602,6 +605,9 @@ def analyze_deck(text: str, *, fmt: str = "commander") -> dict[str, Any]:
         "format": deck.get("format", fmt),
         "total_cards": deck.get("total_cards", 0),
         "commanders": [c["name"] for c in deck.get("commanders", [])],
+        # As written in the list (a face name may differ from the record's
+        # "A // B"), so the frontend can move that exact line.
+        "commander_candidate": deck["cards"][0]["name"] if candidate else None,
         "has_records": hd.has_records,
         "unresolved": unresolved,
         "stats": stats,
@@ -1646,6 +1652,16 @@ def _wubrg(colors: set[str]) -> str:
     return "".join(c for c in "WUBRG" if c in colors)
 
 
+def first_line_commander(deck: dict, idx: Any, fmt: str) -> dict | None:
+    """The record of a commander-eligible first card line when no commander is
+    set: how a pasted list usually arrives. None otherwise."""
+    if fmt not in _IDENTITY_FORMATS or deck.get("commanders"):
+        return None
+    cards = deck.get("cards", [])
+    first = idx.get(cards[0]["name"]) if cards else None
+    return first if first and is_commander(first, fmt)["eligible"] else None
+
+
 def deck_identity(deck: dict, idx: Any, fmt: str) -> tuple[set[str] | None, str | None]:
     """The deck's color identity and where it came from.
 
@@ -1662,10 +1678,10 @@ def deck_identity(deck: dict, idx: Any, fmt: str) -> tuple[set[str] | None, str 
     cmd_recs = [r for r in cmd_recs if r]
     if cmd_recs:
         return {c for r in cmd_recs for c in r.get("color_identity") or []}, "commander"
-    cards = deck.get("cards", [])
-    first = idx.get(cards[0]["name"]) if cards else None
-    if first and is_commander(first, fmt)["eligible"]:
+    first = first_line_commander(deck, idx, fmt)
+    if first:
         return set(first.get("color_identity") or []), "first_line"
+    cards = deck.get("cards", [])
     recs = [r for r in (idx.get(e["name"]) for e in cards) if r]
     if recs:
         # Not a plain union: decks that already hold a leaked off-color card are
