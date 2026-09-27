@@ -86,6 +86,7 @@ out, _ = statuses(["Sol Ring"], "")
 assert (out["identity"], out["identity_source"]) == (None, None), out
 print("ok: first_line / cards / none identity sources")
 
+
 # --- analyze offers the first line as commander, never applies it ---------- #
 def candidate(text, fmt="commander"):
     return mtg.analyze_deck(text, fmt=fmt)["commander_candidate"]
@@ -96,7 +97,9 @@ assert a["commander_candidate"] == "Krenko, Mob Boss" and a["commanders"] == [],
 # Front-face name as written, not the record's "A // B".
 assert candidate("1 Esika, God of the Tree\n1 Forest") == "Esika, God of the Tree"
 # Commander already set; the first card of the 99 is eligible but not offered.
-assert candidate("Commander\n1 Ezuri, Renegade Leader\nDeck\n1 Krenko, Mob Boss") is None
+assert (
+    candidate("Commander\n1 Ezuri, Renegade Leader\nDeck\n1 Krenko, Mob Boss") is None
+)
 assert candidate(GRUUL_NO_CMDR) is None  # first line isn't commander-eligible
 assert candidate("1 Krenko, Mob Boss\n1 Mountain", fmt="modern") is None
 print("ok: analyze commander_candidate")

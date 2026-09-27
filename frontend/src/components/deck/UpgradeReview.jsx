@@ -27,21 +27,21 @@ const RATE_LIMIT = 15;
  * the deck was emptied and refilled since); treated as absent here so the
  * guide never shows ratings for cards that aren't in the deck any more. */
 export default function UpgradeReview({
-  open, onClose, goals, setGoals, deckCardNames, result,
+  open, onClose, goals, setGoals, deckCardNames, result, commanderOffer,
   ratings, ratingsStale, onLoadRatings, onGoToChanges,
 }) {
   if (!open) return null;
   return (
     <ModalInner
       goals={goals} setGoals={setGoals} deckCardNames={deckCardNames}
-      result={result} onClose={onClose}
+      result={result} commanderOffer={commanderOffer} onClose={onClose}
       ratings={ratingsStale ? null : ratings}
       onLoadRatings={onLoadRatings} onGoToChanges={onGoToChanges}
     />
   );
 }
 
-function ModalInner({ goals, setGoals, deckCardNames, result, onClose, ratings, onLoadRatings, onGoToChanges }) {
+function ModalInner({ goals, setGoals, deckCardNames, result, commanderOffer, onClose, ratings, onLoadRatings, onGoToChanges }) {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState(null);
@@ -87,6 +87,9 @@ function ModalInner({ goals, setGoals, deckCardNames, result, onClose, ratings, 
         <div className="icm-body upr-body">
           {step === 0 && (
             <>
+              {/* A pasted list usually has no Commander header; the ratings and
+                  swaps below read the commander, so offer it first. */}
+              {commanderOffer}
               <p className="upr-lede">
                 One sentence on what this deck should do makes the ratings and
                 swaps that follow specific to this deck, not a generic list.
