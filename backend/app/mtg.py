@@ -646,6 +646,14 @@ def deck_recommendations(text: str, *, fmt: str = "commander") -> dict[str, Any]
             "note": f"EDHREC unavailable: {exc}",
         }
 
+    if not any(categories.values()):
+        which = "commander pairing" if len(commanders) > 1 else "commander"
+        return {
+            "commanders": commanders,
+            "categories": categories,
+            "note": f"EDHREC has no recommendations for this {which}.",
+        }
+
     hd = HydratedDeck.from_parsed(deck, _bulk_index())
     for cards in categories.values():
         for cv in cards:

@@ -96,6 +96,28 @@ test.describe("Insights persistence", () => {
     await expect(deep).toHaveCount(0);
   });
 
+  // A partner pairing EDHREC has no page for comes back with every category
+  // key present but empty, plus a note. The note must reach the user and the
+  // pane must show its empty state, not a blank category dropdown.
+  test("an all-empty recommend result explains itself", async ({ page }) => {
+    const note = "EDHREC has no recommendations for this commander pairing.";
+    await page.route("**/api/deck/recommend", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        commanders: ["Atraxa, Praetors' Voice"],
+        categories: { high_synergy: [], top_cards: [], creatures: [], lands: [] },
+        note,
+      }),
+    }));
+    await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
+    await openChanges(page);
+
+    await expect(page.locator(".toast")).toContainText(note);
+    await expect(page.locator(".insp-body .insp-empty")).toBeVisible();
+    await expect(page.locator('.insp-body select[aria-label="Suggestion category"]')).toHaveCount(0);
+  });
+
   test("pins and skips persist across screens and survive a refresh", async ({ page }) => {
     await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
 
