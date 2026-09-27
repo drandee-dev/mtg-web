@@ -75,6 +75,57 @@ test.describe("Planeswalker chat", () => {
     await expect(reply).not.toContainText("Thinking");
   });
 
+  test("chips follow the server verdict: ok adds, in-deck neutral, off-color muted, unknown plain", async ({ page }) => {
+    const reply = "Try [[Sol Ring]], [[Lightning Bolt]], [[Malakir Rebirth]] and [[Fake Card]].";
+    await page.route("**/api/planeswalker/chat/stream", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: `data: ${JSON.stringify({ status: "done", text: reply })}\n\n`,
+      }));
+    const verdicts = {
+      "Sol Ring": { status: "in_deck", reason: "Already in the deck" },
+      "Lightning Bolt": { status: "off_color", reason: "Outside the deck's color identity (WUBG)" },
+      "Malakir Rebirth": { status: "ok", reason: "" },
+      "Fake Card": { status: "unknown", reason: "No card by that name" },
+    };
+    const calls = [];
+    await page.route("**/api/deck/validate-cards", (route) => {
+      const { names } = route.request().postDataJSON();
+      calls.push(names);
+      const results = names.map((n) => ({ input: n, name: verdicts[n].status === "unknown" ? null : n, ...verdicts[n] }));
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ identity: ["W", "U", "B", "G"], identity_source: "commander", results }) });
+    });
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openChat(page);
+    await page.locator(".pw-chip", { hasText: "Fill gaps" }).click();
+
+    await expect(page.locator('.pw-cardchip-btn[aria-label="Add Malakir Rebirth to deck"]')).toBeVisible();
+    const inDeck = page.locator(".pw-cardchip-indeck", { hasText: "Sol Ring" });
+    await expect(inDeck).toContainText("in deck");
+    await expect(inDeck.locator("button")).toHaveCount(0);
+    const offColor = page.locator(".pw-cardchip-muted", { hasText: "Lightning Bolt" });
+    await expect(offColor).toHaveAttribute("title", /color identity/);
+    await expect(offColor.locator("button")).toHaveCount(0);
+    const reply$ = page.locator(".pw-msg.pw-assistant").last();
+    await expect(reply$).toContainText("Fake Card");
+    await expect(reply$.locator(".pw-cardchip-name", { hasText: "Fake Card" })).toHaveCount(0);
+    expect(calls).toHaveLength(1); // one validate call per message
+  });
+
+  test("a failed validate call leaves chips without add buttons (fail closed)", async ({ page }) => {
+    await page.route("**/api/deck/validate-cards", (route) =>
+      route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "Card validation failed." }) }));
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openChat(page);
+    const failed = page.waitForResponse((r) => r.url().includes("/api/deck/validate-cards"));
+    await page.locator(".pw-chip", { hasText: "Fill gaps" }).click();
+    await failed;
+    const reply = page.locator(".pw-msg.pw-assistant").last();
+    await expect(reply.locator(".pw-cardname", { hasText: "Lightning Bolt" })).toBeVisible();
+    await expect(reply.locator(".pw-cardchip-btn")).toHaveCount(0);
+  });
+
   test("expand and text-size toggles persist across reload", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await openChat(page);

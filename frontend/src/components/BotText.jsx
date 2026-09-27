@@ -10,14 +10,39 @@ import CardPreview from "./CardPreview";
 // [[Card Name]] → tappable chip with add/consider actions (actions optional).
 // The name itself is a CardPreview: hover floats the card image (desktop),
 // tap opens the full-size modal (all devices).
-function CardChip({ name, onAdd, onConsider, notify }) {
-  if (!onAdd && !onConsider) {
+// With actions, `check` is the server verdict for this chip (see
+// api.validateCards). Only "ok" gets add buttons; no verdict yet, or a failed
+// check, means no buttons (fail closed).
+function CardChip({ name, check, onAdd, onConsider, notify }) {
+  const status = check?.status;
+  if ((onAdd || onConsider) && status === "in_deck") {
+    return (
+      <span className="pw-cardchip pw-cardchip-indeck">
+        <CardPreview name={name}>
+          <span className="pw-cardchip-name">{name}</span>
+        </CardPreview>
+        <span className="pw-cardchip-tag">in deck</span>
+      </span>
+    );
+  }
+  if ((onAdd || onConsider) && (status === "off_color" || status === "illegal")) {
+    return (
+      <span className="pw-cardchip pw-cardchip-muted" title={check.reason}>
+        <CardPreview name={name}>
+          <span className="pw-cardchip-name">{name}</span>
+        </CardPreview>
+      </span>
+    );
+  }
+  if ((!onAdd && !onConsider) || status !== "ok") {
     return (
       <span className="pw-cardname">
         <CardPreview name={name}>{name}</CardPreview>
       </span>
     );
   }
+  // Add the canonical name ("Fire" → "Fire // Ice"), not the model's spelling.
+  const card = check.name || name;
   return (
     <span className="pw-cardchip">
       <CardPreview name={name}>
@@ -28,7 +53,7 @@ function CardChip({ name, onAdd, onConsider, notify }) {
           className="pw-cardchip-btn"
           aria-label={`Add ${name} to deck`}
           title="Add to deck"
-          onClick={() => { onAdd(name); notify?.(`Added ${name}`); }}
+          onClick={() => { onAdd(card); notify?.(`Added ${card}`); }}
         >+</button>
       )}
       {onConsider && (
@@ -36,7 +61,7 @@ function CardChip({ name, onAdd, onConsider, notify }) {
           className="pw-cardchip-btn"
           aria-label={`Add ${name} to Considering`}
           title="Add to Considering"
-          onClick={() => { onConsider(name); notify?.(`${name} → Considering`); }}
+          onClick={() => { onConsider(card); notify?.(`${card} → Considering`); }}
         >☆</button>
       )}
     </span>
@@ -44,9 +69,10 @@ function CardChip({ name, onAdd, onConsider, notify }) {
 }
 
 // Inline markdown: [[Card]], **bold**, `code`. Returns an array of nodes.
-// Names in `invalid` (failed server card-lookup) render as plain text — no
-// chip, no add button, no preview — so hallucinated cards aren't actionable.
-function renderInline(text, actions, keyBase, invalid) {
+// `cardStatus` maps chip name → server verdict. "unknown" names render as
+// plain text — no chip, no add button, no preview — so hallucinated cards
+// aren't actionable.
+function renderInline(text, actions, keyBase, cardStatus) {
   const out = [];
   const re = /\[\[([^\]]+)\]\]|\*\*([^*]+)\*\*|`([^`]+)`/g;
   let last = 0;
@@ -56,10 +82,11 @@ function renderInline(text, actions, keyBase, invalid) {
     if (m.index > last) out.push(text.slice(last, m.index));
     if (m[1] != null) {
       const name = m[1].trim();
-      if (invalid?.includes(name)) out.push(name);
-      else out.push(<CardChip key={`${keyBase}-c${i}`} name={name} {...actions} />);
+      const check = cardStatus?.[name];
+      if (check?.status === "unknown") out.push(name);
+      else out.push(<CardChip key={`${keyBase}-c${i}`} name={name} check={check} {...actions} />);
     } else if (m[2] != null) {
-      out.push(<strong key={`${keyBase}-b${i}`}>{renderInline(m[2], actions, `${keyBase}-b${i}`, invalid)}</strong>);
+      out.push(<strong key={`${keyBase}-b${i}`}>{renderInline(m[2], actions, `${keyBase}-b${i}`, cardStatus)}</strong>);
     } else {
       out.push(<code key={`${keyBase}-k${i}`}>{m[3]}</code>);
     }
@@ -74,7 +101,7 @@ function renderInline(text, actions, keyBase, invalid) {
 // lists, and paragraphs. `className` lets a caller keep its own scope (defaults
 // to the Planeswalker `pw-text` styling). Consecutive quote/list lines group
 // into one block; everything else is a paragraph.
-export function BotText({ text, actions, className = "pw-text", invalidCards }) {
+export function BotText({ text, actions, className = "pw-text", cardStatus }) {
   const blocks = [];
   let list = null;  // { type: "list", ordered, items }
   let quote = null; // { type: "quote", lines }
@@ -130,7 +157,7 @@ export function BotText({ text, actions, className = "pw-text", invalidCards }) 
         if (b.type === "heading") {
           return (
             <div key={i} className={`pw-heading pw-h${b.level}`}>
-              {renderInline(b.text, actions, `h${i}`, invalidCards)}
+              {renderInline(b.text, actions, `h${i}`, cardStatus)}
             </div>
           );
         }
@@ -138,7 +165,7 @@ export function BotText({ text, actions, className = "pw-text", invalidCards }) 
           return (
             <blockquote key={i} className="pw-quote">
               {b.lines.map((ln, j) =>
-                ln.trim() ? <p key={j}>{renderInline(ln, actions, `q${i}-${j}`, invalidCards)}</p> : null
+                ln.trim() ? <p key={j}>{renderInline(ln, actions, `q${i}-${j}`, cardStatus)}</p> : null
               )}
             </blockquote>
           );
@@ -147,12 +174,12 @@ export function BotText({ text, actions, className = "pw-text", invalidCards }) 
           const Tag = b.ordered ? "ol" : "ul";
           return (
             <Tag key={i}>
-              {b.items.map((item, j) => <li key={j}>{renderInline(item, actions, `l${i}-${j}`, invalidCards)}</li>)}
+              {b.items.map((item, j) => <li key={j}>{renderInline(item, actions, `l${i}-${j}`, cardStatus)}</li>)}
             </Tag>
           );
         }
         if (!b.text.trim()) return null;
-        return <p key={i}>{renderInline(b.text, actions, `l${i}`, invalidCards)}</p>;
+        return <p key={i}>{renderInline(b.text, actions, `l${i}`, cardStatus)}</p>;
       })}
     </div>
   );

@@ -123,6 +123,21 @@ export async function mockBackend(page) {
       // uses it to name one commander from free text.
       return json({ response: "Atraxa, Praetors' Voice" });
     }
+    if (path.endsWith("/api/deck/validate-cards")) {
+      // Simplified gate: unknown if not a mock card, in_deck if a decklist
+      // line names it, else ok. Specs needing off_color/illegal override this.
+      const body = route.request().postDataJSON() || {};
+      const inDeck = new Set((body.decklist || "").split("\n")
+        .map((l) => l.trim().replace(/^\d+\s+/, "").toLowerCase()).filter(Boolean));
+      return json({
+        identity: null,
+        identity_source: "commander",
+        results: (body.names || []).map((n) => {
+          const status = !MOCK_CARDS[n] ? "unknown" : inDeck.has(n.toLowerCase()) ? "in_deck" : "ok";
+          return { input: n, name: status === "unknown" ? null : n, status, reason: "" };
+        }),
+      });
+    }
     if (path.endsWith("/api/deck/composition")) {
       return json({
         format: "commander", is_commander: true,
