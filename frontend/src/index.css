@@ -1306,6 +1306,13 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
   color: var(--text-secondary); font-size: .85em; cursor: pointer;
 }
 .pw-cardchip-btn:hover { background: var(--hover-strong); color: var(--accent); }
+/* Server verdicts: already in the deck (neutral, not an error) and
+   off-color / not legal (muted, reason in the title tooltip). */
+.pw-cardchip-indeck { background: var(--panel-2); padding-right: .35rem; }
+.pw-cardchip-indeck .pw-cardchip-name { color: var(--text-secondary); }
+.pw-cardchip-tag { color: var(--text-secondary); font-size: .8em; margin-left: .2rem; }
+.pw-cardchip-muted { background: transparent; border-style: dashed; padding-right: .35rem; cursor: help; }
+.pw-cardchip-muted .pw-cardchip-name { color: var(--text-secondary); }
 /* Markdown blocks in bot replies */
 .pw-text p { margin: 0 0 .45rem; }
 .pw-text p:last-child { margin-bottom: 0; }

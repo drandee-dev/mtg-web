@@ -141,6 +141,10 @@ export const api = {
     post("/api/deck/ai/strategy", { decklist, format, ...(commander ? { commander } : {}), ...(bracket != null ? { bracket } : {}) }),
   optimize: (decklist, format, goals, focus, recentChanges) =>
     post("/api/deck/optimize", { decklist, format, ...(goals ? { goals } : {}), ...(focus ? { focus } : {}), ...(recentChanges?.length ? { recent_changes: recentChanges } : {}) }),
+  // Server gate for AI-named cards: [{ input, name, status, reason }], status ∈
+  // ok | in_deck | unknown | illegal | off_color. Max 40 names per call.
+  validateCards: (decklist, format, names) =>
+    post("/api/deck/validate-cards", { decklist, format, names }),
   importUrl: (url) => post("/api/deck/import-url", { url }),
   importPrecon: (name) => get("/api/deck/import-precon", { name }),
   planeswalkerChat: (messages, decklist, format, commander, bracket, goals, recentChanges) =>

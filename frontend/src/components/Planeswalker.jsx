@@ -59,7 +59,10 @@ function saveHistory(key, messages) {
   try {
     const persistable = messages
       .filter((m) => m.role === "user" || m.role === "assistant" || m.role === "divider")
-      .slice(-HISTORY_CAP);
+      .slice(-HISTORY_CAP)
+      // Chip verdicts go stale when the deck or commander changes, so they are
+      // never persisted: reloaded history chips render without add buttons.
+      .map((m) => ({ ...m, cardStatus: undefined }));
     if (persistable.length) localStorage.setItem(key, JSON.stringify(persistable));
     else localStorage.removeItem(key);
   } catch { /* storage full/blocked — history is best-effort */ }
@@ -237,21 +240,20 @@ export default function Planeswalker({
         if (deckLines.length >= 10) {
           msgs = [...msgs, { role: "system", content: "_deck_detected_", deckLines: deckLines.join("\n") }];
         }
-        // Verify [[card]] chips against the card database (batch-cached lookups
-        // that also prewarm hover previews); unknown names render as plain text
-        // so hallucinated cards never get an Add button.
+        // One server check per reply: exact name, legal, on-color, not already
+        // in. Only "ok" chips get add buttons; if the check fails, none do
+        // (fail closed). Unknown names render as plain text.
         const chipNames = [...new Set(
           [...(finalText || "").matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1].trim()),
-        )];
+        )].filter((n) => n && n.length <= 100).slice(0, 40);
         if (chipNames.length) {
-          Promise.all(chipNames.map((n) => getCardImage(n).then((d) => [n, Boolean(d?.found)])))
-            .then((pairs) => {
-              const invalid = pairs.filter(([, ok]) => !ok).map(([n]) => n);
-              if (invalid.length) {
-                setMessages((cur) => cur.map((m) => (m === aMsg ? { ...m, invalidCards: invalid } : m)));
-              }
-            })
-            .catch(() => { /* validation is best-effort — chips stay tappable */ });
+          chipNames.forEach((n) => getCardImage(n).catch(() => {})); // prewarm hover previews
+          api.validateCards(full, format, chipNames)
+            .then((r) => Object.fromEntries((r?.results || []).map((x) => [x.input, x])))
+            .catch(() => ({}))
+            .then((cardStatus) => {
+              setMessages((cur) => cur.map((m) => (m === aMsg ? { ...m, cardStatus } : m)));
+            });
         }
       }
       setMessages(msgs);
@@ -298,6 +300,27 @@ export default function Planeswalker({
     while (trimmed.length && trimmed[trimmed.length - 1].role !== "user") trimmed.pop();
     if (trimmed.length && trimmed[trimmed.length - 1].role === "user") trimmed.pop();
     send(text, null, trimmed);
+  }
+
+  // "Add to Considering" on a detected decklist: validate first (40 names per
+  // call), add only "ok" cards under their canonical names.
+  async function addAllToConsidering(deckLines) {
+    const names = [...new Set((deckLines || "").split("\n")
+      .map((l) => l.trim().match(/^\d+\s+(.+)$/)?.[1].trim())
+      .filter((n) => n && n.length <= 100))];
+    if (!names.length) return;
+    const full = assembleDecklist(decklist || "", commander || "");
+    try {
+      const chunks = [];
+      for (let i = 0; i < names.length; i += 40) chunks.push(names.slice(i, i + 40));
+      const res = await Promise.all(chunks.map((c) => api.validateCards(full, format, c)));
+      const ok = res.flatMap((r) => r.results).filter((x) => x.status === "ok").map((x) => x.name);
+      ok.forEach(addToConsidering);
+      const skipped = names.length - ok.length;
+      notify(`Added ${ok.length} to Considering${skipped ? ` (${skipped} skipped: in deck, off-color, not legal or unknown)` : ""}`);
+    } catch {
+      notify("Couldn't check those cards — nothing added.");
+    }
   }
 
   function clearChat() {
@@ -426,7 +449,7 @@ export default function Planeswalker({
                     </div>
                     {m.role === "assistant"
                       ? (m.content
-                          ? <BotText text={m.content} actions={chipActions} invalidCards={m.invalidCards} />
+                          ? <BotText text={m.content} actions={chipActions} cardStatus={m.cardStatus} />
                           : <div className="pw-text"><span className="loading-dot" /> Thinking…</div>)
                       : <div className="pw-text">{m.content}</div>}
                     {m.role === "assistant" && m.error && m.retryText && !busy && (
@@ -447,16 +470,9 @@ export default function Planeswalker({
                       }
                     }}>Load into deck</button>
                     {addToConsidering && (
-                      <button className="ghost small" onClick={() => {
-                        if (deckDetected.deckLines) {
-                          let n = 0;
-                          deckDetected.deckLines.split("\n").forEach((l) => {
-                            const match = l.trim().match(/^\d+\s+(.+)$/);
-                            if (match) { addToConsidering(match[1].trim()); n++; }
-                          });
-                          notify(`Added ${n} cards to consider`);
-                        }
-                      }}>Add to Considering</button>
+                      <button className="ghost small" onClick={() => addAllToConsidering(deckDetected.deckLines)}>
+                        Add to Considering
+                      </button>
                     )}
                   </div>
                 )}

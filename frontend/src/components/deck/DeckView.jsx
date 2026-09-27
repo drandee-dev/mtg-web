@@ -25,6 +25,19 @@ import DeckStatsBar from "./DeckStatsBar";
 const OLD_CHANGE_PANELS = new Set(["Recommendations", "Cuts", "Upgrades"]);
 const migratePanel = (p) => (OLD_CHANGE_PANELS.has(p) ? "Changes" : p);
 
+// Considering-pile text helpers. appendConsidering is written for functional
+// setMaybeboard updates (prev => next), so several adds can't lose each other.
+const consideringNames = (text) =>
+  (text || "").split("\n").map((l) => l.trim().replace(/^\d+\s+/, "").toLowerCase()).filter(Boolean);
+function appendConsidering(prev, names) {
+  const have = new Set(consideringNames(prev));
+  const add = [];
+  for (const n of names) {
+    if (!have.has(n.toLowerCase())) { have.add(n.toLowerCase()); add.push(`1 ${n}`); }
+  }
+  return add.length ? `${(prev || "").replace(/\s*$/, "")}\n${add.join("\n")}`.trim() : (prev || "");
+}
+
 export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
   maybeboard, setMaybeboard,
@@ -407,9 +420,7 @@ export default function DeckView({
   // Moving a card to Considering also pulls it out of the deck (silent remove so
   // there's a single, subtle toast rather than two).
   function addToConsidering(name) {
-    const prev = maybeboard || "";
-    const has = prev.split("\n").some((l) => l.trim().replace(/^\d+\s+/, "").toLowerCase() === name.toLowerCase());
-    if (!has) setMaybeboard?.(`${prev.replace(/\s*$/, "")}\n1 ${name}`.trim());
+    setMaybeboard?.((prev) => appendConsidering(prev, [name]));
     removeCard(name, { silent: true });
     notify?.(`Moved ${name} to Considering`);
   }
@@ -454,25 +465,39 @@ export default function DeckView({
     });
   }
 
-  // Ask the Planeswalker for ~8 cards to weigh, parse "Card Name — reason" lines,
-  // and drop them into the considering pile.
+  // Ask the Planeswalker for 12 cards, validate them server-side (exact name,
+  // legal, on-color, not already in), keep the first 8 that pass, and add them
+  // in ONE state update. Never touches the deck itself.
   async function suggestConsiderations() {
     setSuggesting(true);
     try {
       const full = assembleDecklist(decklist || "", commander || "");
-      const prompt = "Suggest 8 specific cards I should CONSIDER adding to this deck. " +
+      const prompt = "Suggest 12 specific cards I should CONSIDER adding to this deck. " +
         "Reply with one card per line in the exact format: `1 Card Name — short reason`. " +
         "Only real Magic cards legal in this deck's colors. No preamble.";
       const r = await api.planeswalkerChat([{ role: "user", content: prompt }], full, format, commander);
       const text = r?.response || "";
-      const names = text.split("\n")
-        .map((l) => l.trim().match(/^\d+\s+(.+?)\s*(?:[—-]\s*.+)?$/))
-        .filter(Boolean)
-        .map((m) => m[1].trim())
-        .filter((n) => n && n.length < 60);
+      // The dash must be space-separated, or "Snow-Covered Forest" parses as "Snow".
+      const names = [...new Set(text.split("\n")
+        .map((l) => l.trim().match(/^\d+\s+(.+?)(?:\s+[—–-]\s+.*)?$/)?.[1].trim())
+        .filter((n) => n && n.length <= 100))].slice(0, 40);
       if (!names.length) { notify?.("No suggestions parsed — try again."); return; }
-      names.forEach(addToConsidering);
-      notify?.(`Added ${names.length} cards to consider`);
+      const v = await api.validateCards(full, format, names);
+      const ok = [];
+      const skipped = {};
+      for (const x of v?.results || []) {
+        if (x.status !== "ok") skipped[x.status] = (skipped[x.status] || 0) + 1;
+        else if (ok.length < 8 && !ok.some((n) => n.toLowerCase() === x.name.toLowerCase())) ok.push(x.name);
+      }
+      const pile = new Set(consideringNames(maybeboard));
+      const fresh = ok.filter((n) => !pile.has(n.toLowerCase())).length;
+      if (ok.length) setMaybeboard?.((prev) => appendConsidering(prev, ok));
+      const labels = { off_color: "off-color", illegal: "not legal", unknown: "unknown", in_deck: "in deck" };
+      const m = Object.values(skipped).reduce((a, b) => a + b, 0);
+      let msg = `Added ${fresh} to Considering`;
+      if (m) msg += ` (${m} skipped: ${Object.entries(skipped).map(([k, n]) => `${n} ${labels[k] || k}`).join(", ")})`;
+      if (isCommanderFmt && v?.identity_source !== "commander") msg += ". Set your commander for accurate suggestions.";
+      notify?.(msg);
     } catch (e) {
       notify?.(`Suggestion failed: ${e.message}`);
     } finally {

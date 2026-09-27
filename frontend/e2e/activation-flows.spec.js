@@ -132,6 +132,52 @@ test.describe("Activation flows", () => {
     await expect(zero.locator("button")).toContainText("Suggest cards");
   });
 
+  test("Suggest cards adds only validated names, in one go, and never touches the deck", async ({ page }) => {
+    // Prod 2026-09-27: unvalidated chat lines went straight into Considering,
+    // a stale-state forEach kept 1 of 8, and a suggested deck card was pulled
+    // out of the deck. The model returns 12 lines here; the gate passes 9.
+    const OK = ["Card One", "Card Two", "Card Three", "Card Four", "Card Five", "Card Six", "Card Seven"];
+    const lines = [
+      "1 Sol Ring — already a deck card",
+      ...OK.map((n) => `1 ${n} — fits`),
+      "1 Card Eight — fits",
+      "1 Blasphemous Act — off-color",
+      "1 Mana Crypt — banned",
+      "1 Beast Whisperer's better friend — garbage",
+    ];
+    await page.route("**/api/planeswalker/chat", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ response: lines.join("\n") }) }));
+    const verdict = { "Blasphemous Act": "off_color", "Mana Crypt": "illegal", "Beast Whisperer's better friend": "unknown" };
+    await page.route("**/api/deck/validate-cards", (route) => {
+      const { names } = route.request().postDataJSON();
+      // Sol Ring comes back "ok" on purpose (a 60-card deck under 4 copies
+      // does): the client must still never remove it from the deck.
+      const results = names.map((n) => ({ input: n, name: verdict[n] === "unknown" ? null : n, status: verdict[n] || "ok", reason: "" }));
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ identity: ["W", "U", "B", "G"], identity_source: "commander", results }) });
+    });
+
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    const count = page.locator('.deck-toolbar .badge:has-text("/ 100")');
+    await expect(count).toBeVisible();
+    const before = await count.textContent();
+    const solRingInDeck = page.locator('.card-grid-container [aria-label*="Sol Ring"]');
+    await expect(solRingInDeck.first()).toBeAttached();
+    await page.locator(".considering-zero button", { hasText: "Suggest cards" }).click();
+
+    const toast = page.locator(".toast");
+    await expect(toast).toContainText("Added 8 to Considering");
+    await expect(toast).toContainText("3 skipped");
+    await expect(toast).not.toContainText("Set your commander");
+    const considering = page.locator(".considering-group, .stack-column-considering");
+    for (const n of ["Sol Ring", ...OK]) {
+      await expect(considering.locator(`[aria-label*="${n}"]`).first()).toBeAttached();
+    }
+    // First 8 ok only: the 9th never lands.
+    await expect(considering.locator('[aria-label*="Card Eight"]')).toHaveCount(0);
+    // The deck itself is untouched.
+    await expect(count).toHaveText(before);
+  });
+
   test("card modal Rules action lands on the Rules tab prefilled", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await page.locator('.card-grid-container [aria-label*="Sol Ring"]').first().click();
