@@ -1,7 +1,7 @@
 """Self-check for EDHREC partner-page redirects. Run: python test_edhrec_redirect.py
 
 Hermetic: stubs the HTTP get, so it needs no network. EDHREC keeps one canonical
-page per partner pair (alphabetical); the other order answers 200 with only
+page per pairing, in an order EDHREC picks; the other order answers 200 with only
 {"redirect": ...} and no cardlists, which used to parse as all-empty.
 """
 import sys

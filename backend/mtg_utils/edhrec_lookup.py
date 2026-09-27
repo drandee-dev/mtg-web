@@ -79,8 +79,9 @@ def edhrec_lookup(commanders: list[str]) -> dict:
 
     data = _get_json(session, url)
 
-    # A partner pair has one canonical page (EDHREC orders it alphabetically). The
-    # other order answers 200 with only {"redirect": "/commanders/<canonical>"} and
+    # A pairing has one canonical page, and its order is EDHREC's choice: not
+    # alphabetical (Backgrounds and Doctors come commander-first), so never sort
+    # here. The other order answers 200 with only {"redirect": "/commanders/<canonical>"} and
     # no cardlists, which parsed as all-empty. Follow it exactly once; a redirect
     # back to this page, or a second redirect, just parses as empty.
     redirect = data.get("redirect") if data else None

@@ -419,7 +419,7 @@ function ChangesPane({
   if (!loaded) return <p className="muted small insp-empty">No change proposals loaded yet.</p>;
   // Every category key can come back present but empty (no EDHREC page for
   // this pairing), so count cards, not keys, or the dropdown renders blank.
-  const hasRecs = Object.values(recs?.categories || {}).some((c) => c?.length);
+  const hasRecs = REC_CATEGORIES.some(([k]) => recs?.categories?.[k]?.length);
   // Opening this tab only buys the free EDHREC suggestions. The AI changeset
   // (optimize) and budget swaps cost model calls, so they stay behind one
   // labelled button. Optimize isn't mode-gated (it covers cuts/adds/swaps
