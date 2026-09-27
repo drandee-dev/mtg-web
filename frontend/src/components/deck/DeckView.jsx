@@ -1160,6 +1160,16 @@ export default function DeckView({
       {isCommanderFmt && !commander && (
         <div className="cmdr-input-row">
           <CommanderInput commander={commander} setCommander={setCommander} />
+          {/* A pasted list's first line is usually its commander. Offer it,
+              never move it silently. Only from a result for the current list. */}
+          {!locked && result?.commander_candidate && panelSigs.result === currentSig && (
+            <p className="cmdr-suggest muted small">
+              No commander set, so colors and recommendations aren't checked.{" "}
+              <button className="primary small" onClick={() => makeCommander(result.commander_candidate)}>
+                Make {result.commander_candidate} your commander
+              </button>
+            </p>
+          )}
         </div>
       )}
 
