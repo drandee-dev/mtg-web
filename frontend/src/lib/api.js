@@ -267,3 +267,13 @@ export const FORMATS = [
   ["modern", "Modern"],
   ["legacy", "Legacy"],
 ];
+
+// Official WotC Commander brackets. Value is what the backend's _target_bracket
+// accepts (1-5); "auto" (null) is rendered separately by each select.
+export const BRACKETS = [
+  [1, "Exhibition"],
+  [2, "Core"],
+  [3, "Upgraded"],
+  [4, "Optimized"],
+  [5, "cEDH"],
+];

@@ -1374,7 +1374,7 @@ export default function DeckView({
         </button>
       )}
 
-      {!deckEmpty && <DeckStatsBar result={result} commander={commander} format={format} />}
+      {!deckEmpty && <DeckStatsBar result={result} format={format} />}
 
     </div>
   );

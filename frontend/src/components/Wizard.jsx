@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, FORMATS } from "../lib/api";
+import { api, BRACKETS, FORMATS } from "../lib/api";
 import CardPreview from "./CardPreview";
 import CommanderInput from "./CommanderInput";
 
@@ -155,10 +155,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
           </select>
           <select value={bracket ?? ""} onChange={(e) => setBracket(e.target.value ? Number(e.target.value) : null)} style={{ width: "auto" }}>
             <option value="">Bracket: auto</option>
-            <option value="1">Bracket 1 — Precon</option>
-            <option value="2">Bracket 2 — Focused</option>
-            <option value="3">Bracket 3 — Optimized</option>
-            <option value="4">Bracket 4 — cEDH</option>
+            {BRACKETS.map(([v, label]) => <option key={v} value={v}>Bracket {v} — {label}</option>)}
           </select>
         </div>
 

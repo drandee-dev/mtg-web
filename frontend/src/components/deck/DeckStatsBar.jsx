@@ -7,13 +7,12 @@ import { ManaIcon } from "./ManaCost";
 
 const WUBRG = ["W", "U", "B", "R", "G"];
 
-export default function DeckStatsBar({ result, commander, format }) {
+export default function DeckStatsBar({ result, format }) {
   if (!result) return null;
 
   const isCmdr = format === "commander" || format === "paupercommander";
-  const count = result.total_cards != null
-    ? result.total_cards + (commander ? commander.split(" && ").filter(Boolean).length : 0)
-    : null;
+  // Backend total_cards already includes the commander(s) — don't add them again.
+  const count = result.total_cards ?? null;
   const bracket = result?.bracket?.bracket;
   const price = result?.breakdown?.price_usd;
   const avgCmc = result?.stats?.avg_cmc;

@@ -56,6 +56,8 @@ _REASON_TO_CR_RULES: dict[str, tuple[str, ...]] = {
     "sideboard_too_large": ("100.4a",),
     # 100.2a (60-card minimum) and 903.5a (100-card Commander minimum).
     "below_minimum": ("100.2a", "903.5a"),
+    # 903.5a: a Commander deck is exactly 100 cards, so over is illegal too.
+    "above_maximum": ("903.5a",),
     # Vintage restricted list (effectively a custom copy limit).
     "restricted": ("100.2a",),
     # Generic banned/not-legal in a format.
@@ -382,6 +384,31 @@ def check_deck_minimum(deck_json: dict, config: dict) -> list[dict]:
     return []
 
 
+def check_deck_maximum(deck_json: dict, config: dict) -> list[dict]:
+    """Return a violation if a commander-format deck exceeds its exact size.
+
+    Commander formats are an exact count (903.5a: exactly 100 including the
+    commander), so ``deck_size`` is also the ceiling. Constructed formats have
+    no maximum and are skipped.
+    """
+    if not config.get("has_commander"):
+        return []
+    max_size = config["deck_size"]
+    total_cards = int(deck_json.get("total_cards", 0)) or sum(
+        int(e.get("quantity", 1))
+        for e in (deck_json.get("cards") or []) + (deck_json.get("commanders") or [])
+    )
+    if total_cards > max_size:
+        return [
+            {
+                "total_cards": total_cards,
+                "maximum": max_size,
+                "reason": "above_maximum",
+            }
+        ]
+    return []
+
+
 def legality_audit(hd: HydratedDeck) -> dict:
     """Run all legality checks and return a structured result."""
     deck_json = hd.deck
@@ -422,6 +449,7 @@ def legality_audit(hd: HydratedDeck) -> dict:
     copy_violations = check_copy_limits(deck_json, hydrated_by_name, config)
     sb_violations = check_sideboard_size(deck_json, config)
     deck_min_violations = check_deck_minimum(deck_json, config)
+    deck_max_violations = check_deck_maximum(deck_json, config)
 
     counts = {
         "format_legality": len(format_violations),
@@ -430,6 +458,7 @@ def legality_audit(hd: HydratedDeck) -> dict:
         "copy_limits": len(copy_violations),
         "sideboard_size": len(sb_violations),
         "deck_minimum": len(deck_min_violations),
+        "deck_maximum": len(deck_max_violations),
     }
     total_violations = sum(counts.values())
     overall_status = "PASS" if total_violations == 0 else "FAIL"
@@ -451,6 +480,7 @@ def legality_audit(hd: HydratedDeck) -> dict:
             "copy_limits": copy_violations,
             "sideboard_size": sb_violations,
             "deck_minimum": deck_min_violations,
+            "deck_maximum": deck_max_violations,
         },
     }
 
@@ -490,6 +520,8 @@ def _format_violation_line(
             names.append(f"{v['sideboard_count']}/{v['limit']}")
         elif reason == "deck_minimum":
             names.append(f"{v['total_cards']}/{v['minimum']}")
+        elif reason == "deck_maximum":
+            names.append(f"{v['total_cards']}/{v['maximum']}")
         elif v.get("reason") == "exceeds_named_card_cap":
             names.append(f"{v['name']} ({v['quantity']}/{v['limit']})")
         elif v.get("reason") == "restricted":
@@ -508,6 +540,7 @@ _REPORT_CHECKS = (
     "copy_limits",
     "sideboard_size",
     "deck_minimum",
+    "deck_maximum",
 )
 
 
@@ -526,7 +559,7 @@ def render_text_report(result: dict) -> str:
     for check in _REPORT_CHECKS:
         v = violations.get(check) or []
         # Skip checks that aren't relevant (e.g., sideboard for commander)
-        if not v and check in ("sideboard_size", "deck_minimum"):
+        if not v and check in ("sideboard_size", "deck_minimum", "deck_maximum"):
             continue
         lines.append(_format_violation_line(check, v))
     # Surface a CR-citations lookup failure in stdout, not just the JSON
