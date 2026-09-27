@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import functools
 import json
+import logging
 import os
 import re
 from typing import Any
@@ -863,6 +864,10 @@ _THINKS_BY_DEFAULT = {"claude-sonnet-5"}
 
 
 EMPTY_REPLY_MESSAGE = "The assistant returned an empty reply. Try again."
+# What a client sees when an AI call raises; the exception itself is logged,
+# never returned (it can carry request ids, key fragments or internals).
+AI_FAILED_MESSAGE = "AI request failed. Try again."
+log = logging.getLogger("mtg-web")
 
 
 def _model_kwargs(model: str) -> dict[str, Any]:
@@ -961,8 +966,9 @@ def _ai_call(
                 "error": True,
                 "result": "Invalid API key. Check your key in Settings.",
             }
-        except Exception as exc:
-            return {"error": True, "result": f"AI request failed: {exc}"}
+        except Exception:
+            log.exception("AI call failed (%s)", model)
+            return {"error": True, "result": AI_FAILED_MESSAGE}
 
     return {
         "error": True,
@@ -1042,8 +1048,9 @@ def _ai_call_stream(
         except anthropic.AuthenticationError:
             yield f"data: {_json.dumps({'status': 'error', 'message': 'Invalid API key.'})}\n\n"
             return
-        except Exception as exc:
-            yield f"data: {_json.dumps({'status': 'error', 'message': str(exc)})}\n\n"
+        except Exception:
+            log.exception("AI stream failed (%s)", model)
+            yield f"data: {_json.dumps({'status': 'error', 'message': AI_FAILED_MESSAGE})}\n\n"
             return
 
     yield f"data: {_json.dumps({'status': 'error', 'message': 'No AI model available.'})}\n\n"
@@ -1782,7 +1789,7 @@ def _parse_ai_json(raw: str, expect: type | tuple[type, ...] | None = None) -> A
     list was expected yields its first list-valued field. Any other mismatch
     raises ValueError, which every caller already treats as a parse failure.
     """
-    data = _extract_ai_json(raw, prefer_object=expect is dict)
+    data = _extract_ai_json(raw)
     if expect is None or isinstance(data, expect):
         return data
     if expect is list and isinstance(data, dict):
@@ -1792,7 +1799,7 @@ def _parse_ai_json(raw: str, expect: type | tuple[type, ...] | None = None) -> A
     raise ValueError(f"AI JSON has unexpected shape: {type(data).__name__}")
 
 
-def _extract_ai_json(raw: str, prefer_object: bool = False) -> Any:
+def _extract_ai_json(raw: str) -> Any:
     import json as _json
 
     raw = raw.strip()
@@ -1804,18 +1811,19 @@ def _extract_ai_json(raw: str, prefer_object: bool = False) -> Any:
         return _json.loads(raw)
     except _json.JSONDecodeError:
         pass
-    # Extract JSON array or object from surrounding text. Object first when an
-    # object is expected, or a lone inner array would win the search.
-    patterns = [r"(\[[\s\S]*\])", r"(\{[\s\S]*\})"]
-    if prefer_object:
-        patterns.reverse()
-    for pattern in patterns:
+    # Extract JSON from surrounding text. Of the array and object candidates
+    # that parse, the one starting first encloses the other: array-first order
+    # used to return the inner list of a preambled {"assessment", "changes": [..]}.
+    found = []
+    for pattern in (r"(\[[\s\S]*\])", r"(\{[\s\S]*\})"):
         m = re.search(pattern, raw)
         if m:
             try:
-                return _json.loads(m.group(1))
+                found.append((m.start(), _json.loads(m.group(1))))
             except _json.JSONDecodeError:
                 continue
+    if found:
+        return min(found, key=lambda f: f[0])[1]
     raise ValueError(f"No valid JSON found in response: {raw[:200]}")
 
 
@@ -2491,8 +2499,9 @@ def wizard_chat(
             "response": _first_text(response),
             "model": model,
         }
-    except Exception as exc:
-        return {"error": True, "message": f"AI request failed: {exc}"}
+    except Exception:
+        log.exception("wizard chat AI call failed (%s)", model)
+        return {"error": True, "message": AI_FAILED_MESSAGE}
 
 
 # --------------------------------------------------------------------------- #

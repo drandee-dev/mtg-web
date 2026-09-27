@@ -15,6 +15,7 @@ Covers two production failures (2026-09-27):
 """
 
 import json
+import logging
 import sys
 from types import SimpleNamespace
 
@@ -62,6 +63,17 @@ try:
     raise AssertionError("expect=(dict, list) accepted a string")
 except ValueError:
     pass
+# ai_optimize with preamble: the outer object (with its assessment) wins over
+# the inner changes list, and a preambled bare list still comes back a list.
+assert p(
+    'Plan: {"assessment": "a", "changes": [{"cut": "x"}]}', expect=(dict, list)
+) == {
+    "assessment": "a",
+    "changes": [{"cut": "x"}],
+}
+assert p('Here: [{"cut": "x"}]', expect=(dict, list)) == [{"cut": "x"}]
+
+_real_ai_call = mtg._ai_call  # the fills section below replaces it
 
 # --- ai_composition_fills survives the shapes that crashed it ------------- #
 mtg._deck_context_cached = lambda *a, **k: {
@@ -113,15 +125,21 @@ class _FakeStream:
 
 _calls: list[dict] = []
 _chunks: list[str] = []
+_raise: list[Exception] = []  # when set, every API call raises it
 
 
 class _FakeClient:
     def __init__(self, **_):
-        self.messages = SimpleNamespace(stream=self._stream)
+        self.messages = SimpleNamespace(stream=self._stream, create=self._create)
 
     def _stream(self, **kwargs):
         _calls.append(kwargs)
+        if _raise:
+            raise _raise[0]
         return _FakeStream(list(_chunks))
+
+    def _create(self, **kwargs):
+        raise _raise[0]
 
 
 anthropic.Anthropic = _FakeClient
@@ -152,4 +170,33 @@ _chunks[:] = ["Hello", " there"]
 events = _events()
 assert events[-1]["status"] == "done" and events[-1]["text"] == "Hello there", events
 
-print("OK: _parse_ai_json shapes, fills shapes, stream thinking + empty reply")
+
+# --- A raised exception is logged, never sent to the client --------------- #
+class _Capture(logging.Handler):
+    def emit(self, record):
+        _logged.append(record)
+
+
+_logged: list[logging.LogRecord] = []
+_log = logging.getLogger("mtg-web")
+_log.addHandler(_Capture())
+_log.propagate = False  # keep the expected tracebacks out of the test output
+SECRET = "sk-ant-LEAKED-internal-detail"
+_raise[:] = [RuntimeError(SECRET)]
+
+events = _events()
+assert events[-1] == {"status": "error", "message": mtg.AI_FAILED_MESSAGE}, events
+assert SECRET not in json.dumps(events), events
+out = _real_ai_call("sys", "hi", api_key="test")
+assert out == {"error": True, "result": mtg.AI_FAILED_MESSAGE}, out
+assert SECRET not in json.dumps(out), out
+out = mtg.wizard_chat([{"role": "user", "content": "hi"}], "X", "", api_key="test")
+assert out == {"error": True, "message": mtg.AI_FAILED_MESSAGE}, out
+# Every failure reached the server log with the exception attached.
+assert len(_logged) == 3 and all(
+    r.exc_info and SECRET in str(r.exc_info[1]) for r in _logged
+), _logged
+
+print(
+    "OK: _parse_ai_json shapes, fills shapes, stream thinking + empty reply, no leaks"
+)
