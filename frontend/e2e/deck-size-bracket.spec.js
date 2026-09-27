@@ -84,3 +84,26 @@ test("an illegal deck scores lower than the same deck when legal", async ({ page
   // Poll: a persisted result may paint first; the re-analyzed one must score lower.
   await expect.poll(async () => Number(await ring.textContent()), { timeout: 15000 }).toBeLessThan(legal);
 });
+
+test("mobile commander strip reads 100/100 for a 1+99 deck", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "the strip only shows under 700px");
+  await stubAnalyze(page);
+  await loadSharedDeck(page, NINETY_NINE, TEST_COMMANDER);
+  await expect(page.locator(".cmdr-strip-mobile .cmdr-strip-count")).toHaveText("100/100", { timeout: 15000 });
+});
+
+test("a deck_maximum violation is listed under Legality issues", async ({ page, isMobile }) => {
+  test.skip(isMobile, "desktop insights sidebar");
+  // Real legality_audit shape: a dict of groups, each a list of entries.
+  await stubAnalyze(page, () => ({
+    overall_status: "FAIL",
+    violations: {
+      format_legality: [],
+      deck_maximum: [{ total_cards: 101, maximum: 100, reason: "above_maximum" }],
+    },
+  }));
+  await loadSharedDeck(page, NINETY_NINE.replace("95 Forest", "96 Forest"), TEST_COMMANDER);
+  await expect(page.locator(".insp-subhead", { hasText: "Legality issues" })).toBeVisible({ timeout: 15000 });
+  await expect(page.locator(".insp-list li", { hasText: "101/100" })).toHaveText(
+    "Deck size: 101/100 cards (over maximum)");
+});

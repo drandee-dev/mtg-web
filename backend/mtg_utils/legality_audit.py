@@ -56,8 +56,9 @@ _REASON_TO_CR_RULES: dict[str, tuple[str, ...]] = {
     "sideboard_too_large": ("100.4a",),
     # 100.2a (60-card minimum) and 903.5a (100-card Commander minimum).
     "below_minimum": ("100.2a", "903.5a"),
-    # 903.5a: a Commander deck is exactly 100 cards, so over is illegal too.
-    "above_maximum": ("903.5a",),
+    # Commander formats are an exact size, so over is illegal too:
+    # 903.5a (Commander, 100) and 903.12d (Brawl, 60).
+    "above_maximum": ("903.5a", "903.12d"),
     # Vintage restricted list (effectively a custom copy limit).
     "restricted": ("100.2a",),
     # Generic banned/not-legal in a format.
