@@ -163,7 +163,7 @@ export async function mockBackend(page) {
         format: "commander", total_cards: 11,
         stats: { avg_cmc: 2.5 },
         mana: { overall_status: "OK", pip_demand_pct: {} },
-        legality: { overall_status: "PASS", violations: [] },
+        legality: { overall_status: "PASS", violations: {} }, // real shape: dict of lists
         bracket: { bracket: 2, name: "Core", game_changers: [], mass_land_denial: [] },
         breakdown: { price_usd: 68.93, prices_as_of: "2026-07-01" },
       });

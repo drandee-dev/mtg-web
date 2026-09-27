@@ -1185,7 +1185,7 @@ export default function DeckView({
           <div className="cmdr-strip-stats">
             <span className="cmdr-strip-count">
               {result?.total_cards != null
-                ? `${result.total_cards + (commander ? commander.split(" && ").filter(Boolean).length : 0)}/100`
+                ? `${result.total_cards}/100` // backend count already includes the commander(s)
                 : "—/100"}
             </span>
             {result?.breakdown?.price_usd != null && (
@@ -1378,7 +1378,7 @@ export default function DeckView({
         </button>
       )}
 
-      {!deckEmpty && <DeckStatsBar result={result} commander={commander} format={format} />}
+      {!deckEmpty && <DeckStatsBar result={result} format={format} />}
 
     </div>
   );

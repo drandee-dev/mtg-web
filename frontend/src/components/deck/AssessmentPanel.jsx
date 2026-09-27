@@ -19,7 +19,7 @@ function computeHealth(result, comp) {
   const target = isCmdr ? 100 : 60;
   const parts = [
     { label: "Complete", w: 0.25, v: Math.min(1, (result.total_cards || 0) / target) },
-    { label: "Legal", w: 0.20, v: result.legality?.violations?.length ? 0.4 : 1 },
+    { label: "Legal", w: 0.20, v: result.legality?.overall_status === "FAIL" ? 0.4 : 1 },
     { label: "Mana", w: 0.20, v: statusScore(result.mana?.viability?.status) },
     { label: "Fixing", w: 0.15, v: statusScore(result.mana?.color_balance_status) },
   ];

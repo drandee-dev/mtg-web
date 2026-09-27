@@ -168,10 +168,33 @@ function RefreshBar({ onRefresh, stale }) {
 
 /* ── Analytics (resting tab — local data only) ─────────────────────────────── */
 
+// One readable line per entry of legality_audit's `violations` (a dict of
+// group -> list; entry shapes per backend/mtg_utils/legality_audit.py).
+function violationText(group, v) {
+  switch (group) {
+    case "format_legality": return `${v.name}: ${String(v.legality).replace("_", " ")} in this format`;
+    case "commander_zone":
+      return v.reason === "commander_not_in_hydrated"
+        ? `Commander not found: ${(v.unresolved_names || []).join(", ")}`
+        : "No commander selected";
+    case "color_identity":
+      return v.reason === "colorless_deck_must_pick_one_basic_type"
+        ? `${v.name}: a colorless commander allows only one basic land type`
+        : `${v.name}: outside the commander's color identity`;
+    case "copy_limits": return `${v.name}: ${v.quantity} copies (limit ${v.limit})`;
+    case "sideboard_size": return `Sideboard: ${v.sideboard_count}/${v.limit} cards`;
+    case "deck_minimum": return `Deck size: ${v.total_cards}/${v.minimum} cards (below minimum)`;
+    case "deck_maximum": return `Deck size: ${v.total_cards}/${v.maximum} cards (over maximum)`;
+    default: return JSON.stringify(v);
+  }
+}
+
 function AnalyticsPane({ result, comp, format }) {
   const s = result?.stats || {};
   const mana = result?.mana || {};
   const legality = result?.legality || {};
+  const legalityIssues = Object.entries(legality.violations || {}).flatMap(([group, list]) =>
+    (Array.isArray(list) ? list : []).map((v) => violationText(group, v)));
   const bracket = result?.bracket || {};
   const bd = result?.breakdown || {};
   const price = bd.price_usd;
@@ -194,8 +217,8 @@ function AnalyticsPane({ result, comp, format }) {
         <Stat k="Bracket" v={bracket.bracket ?? "—"} />
       </div>
       <div className="insp-badges">
-        <span className={`badge ${statusBadge(legality.overall_status || (legality.violations?.length ? "FAIL" : "PASS"))}`}>
-          Legality: {legality.overall_status || (legality.violations?.length ? "issues" : "ok")}
+        <span className={`badge ${statusBadge(legality.overall_status || (legalityIssues.length ? "FAIL" : "PASS"))}`}>
+          Legality: {legality.overall_status || (legalityIssues.length ? "issues" : "ok")}
         </span>
         <span className={`badge ${statusBadge(mana.overall_status)}`}>
           Mana: {mana.overall_status || "—"}
@@ -215,12 +238,12 @@ function AnalyticsPane({ result, comp, format }) {
       <DeckDna comp={comp} />
       <Signals stats={s} />
 
-      {legality.violations?.length > 0 && (
+      {legalityIssues.length > 0 && (
         <>
           <h4 className="insp-subhead">Legality issues</h4>
           <ul className="small insp-list">
-            {legality.violations.map((v, i) => (
-              <li key={i}>{v.message || v.detail || JSON.stringify(v)}</li>
+            {legalityIssues.map((text, i) => (
+              <li key={i}>{text}</li>
             ))}
           </ul>
         </>
