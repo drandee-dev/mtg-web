@@ -868,7 +868,11 @@ export default function DeckView({
     const stale = (k) => panelSigs[k] != null && panelSigs[k] !== sig;
     const jobs = [];
     if (force || !recs) {
-      jobs.push(api.recommend(full, format).then((r) => { setRecs(r); markFresh("recs", sig); }));
+      jobs.push(api.recommend(full, format).then((r) => {
+        setRecs(r);
+        markFresh("recs", sig);
+        if (r.note) notify?.(r.note);
+      }));
     }
     // Metered: bought only when asked for (`deep`), re-bought only when the
     // user refreshes something they already have, or when what's cached no
