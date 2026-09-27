@@ -9,6 +9,7 @@ import requests
 from mtg_utils.names import normalize_card_name
 
 EDHREC_JSON_URL = "https://json.edhrec.com/pages/commanders/{slug}.json"
+EDHREC_PAGE_URL = "https://json.edhrec.com/pages{path}.json"
 USER_AGENT = "commander-utils/0.1.0"
 
 CARDLIST_TAGS = {
@@ -60,6 +61,15 @@ def _extract_cardviews(cardviews: list[dict]) -> list[dict]:
     ]
 
 
+def _get_json(session: requests.Session, url: str) -> dict | None:
+    """The page's JSON, or None for a 404 (no page). Other errors raise."""
+    resp = session.get(url)
+    if resp.status_code == 404:
+        return None
+    resp.raise_for_status()
+    return resp.json()
+
+
 def edhrec_lookup(commanders: list[str]) -> dict:
     slug = slugify(*commanders)
     url = EDHREC_JSON_URL.format(slug=slug)
@@ -67,17 +77,27 @@ def edhrec_lookup(commanders: list[str]) -> dict:
     session = requests.Session()
     session.headers["User-Agent"] = USER_AGENT
 
-    resp = session.get(url)
+    data = _get_json(session, url)
 
-    if resp.status_code == 404:
-        return {v: [] for v in CARDLIST_TAGS.values()}
-
-    resp.raise_for_status()
-    data = resp.json()
-
-    cardlists = data.get("container", {}).get("json_dict", {}).get("cardlists", [])
+    # A partner pair has one canonical page (EDHREC orders it alphabetically). The
+    # other order answers 200 with only {"redirect": "/commanders/<canonical>"} and
+    # no cardlists, which parsed as all-empty. Follow it exactly once; a redirect
+    # back to this page, or a second redirect, just parses as empty.
+    redirect = data.get("redirect") if data else None
+    if (
+        isinstance(redirect, str)
+        and redirect.startswith("/commanders/")
+        and "container" not in data
+    ):
+        target = EDHREC_PAGE_URL.format(path=redirect)
+        if target != url:
+            data = _get_json(session, target)
 
     result: dict[str, list[dict]] = {v: [] for v in CARDLIST_TAGS.values()}
+    if not data:
+        return result
+
+    cardlists = data.get("container", {}).get("json_dict", {}).get("cardlists", [])
     for cardlist in cardlists:
         tag = cardlist.get("tag", "")
         if tag in CARDLIST_TAGS:
