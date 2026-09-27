@@ -21,7 +21,13 @@ config.bootstrap_mtg_utils()
 # Imports below resolve through the bootstrapped sys.path entry.
 from mtg_utils._name_index import build_name_index, keep_cheaper  # noqa: E402
 from mtg_utils.bulk_loader import bulk_mtime, load_bulk_cards  # noqa: E402
-from mtg_utils.card_classify import extract_price, partner_ability, valid_partner_search  # noqa: E402
+from mtg_utils.card_classify import (  # noqa: E402
+    extract_price,
+    get_oracle_text,
+    is_commander,
+    partner_ability,
+    valid_partner_search,
+)
 from mtg_utils.card_search import search_cards as _search_cards  # noqa: E402
 from mtg_utils.combo_search import combo_search  # noqa: E402
 from mtg_utils.commander_directory import build_commander_directory, load_chips  # noqa: E402
@@ -1331,6 +1337,16 @@ def _deck_context(
 
     if commanders:
         lines.append(f"Commander(s): {', '.join(commanders)}")
+    identity, identity_source = deck_identity(deck, idx, fmt)
+    if identity is not None:
+        colors = _wubrg(identity) or "colorless: only colorless cards"
+        inferred = (
+            "" if identity_source == "commander" else " (inferred, no commander set)"
+        )
+        lines.append(
+            f"Color identity: {colors}{inferred}. Every card you suggest must have "
+            "a color identity within it."
+        )
     if cmd_oracle_lines:
         lines.append("\n## Commander card text")
         lines.extend(cmd_oracle_lines)
@@ -1460,6 +1476,7 @@ def _deck_context(
         "combo_text": combo_text,
         "composition_text": comp_text,
         "commanders": commanders,
+        "identity": identity,
         "bracket": bracket_info,
         "target_bracket": target_bracket,
     }
@@ -1609,12 +1626,109 @@ IMPORTANT: Your entire response must be ONLY valid JSON. No preamble, no markdow
 Suggest 4-8 changes ordered from highest impact to lowest."""
 
 
-def _canonical_card_name(name: str) -> str | None:
-    """Resolve a card name to its real display name, or None if it's not a real
-    card. NameIndex lookups already fold case/diacritics; the stored record
-    keeps the canonical name."""
-    rec = _bulk_index().get(name)
-    return (rec or {}).get("name") or None
+# --------------------------------------------------------------------------- #
+# The one gate every AI-named card passes before it can land in a deck
+# --------------------------------------------------------------------------- #
+# Formats where color identity restricts what a deck may contain.
+_IDENTITY_FORMATS = ("commander", "paupercommander")
+
+
+def _wubrg(colors: set[str]) -> str:
+    return "".join(c for c in "WUBRG" if c in colors)
+
+
+def deck_identity(deck: dict, idx: Any, fmt: str) -> tuple[set[str] | None, str | None]:
+    """The deck's color identity and where it came from.
+
+    Commander(s) first (partners union). A colorless commander yields the EMPTY
+    set, a real identity meaning colorless-only, never "unknown". With no
+    commander, a commander-eligible first card line stands in for one (pasted
+    lists rarely carry a Commander header); failing that, the union of the
+    deck's own cards. None only when nothing resolves or the format has no
+    identity rule.
+    """
+    if fmt not in _IDENTITY_FORMATS:
+        return None, None
+    cmd_recs = [idx.get(e["name"]) for e in deck.get("commanders", [])]
+    cmd_recs = [r for r in cmd_recs if r]
+    if cmd_recs:
+        return {c for r in cmd_recs for c in r.get("color_identity") or []}, "commander"
+    cards = deck.get("cards", [])
+    first = idx.get(cards[0]["name"]) if cards else None
+    if first and is_commander(first, fmt)["eligible"]:
+        return set(first.get("color_identity") or []), "first_line"
+    recs = [r for r in (idx.get(e["name"]) for e in cards) if r]
+    if recs:
+        return {c for r in recs for c in r.get("color_identity") or []}, "cards"
+    return None, None
+
+
+_ANY_NUMBER = "a deck can have any number of cards named"
+
+
+def validate_adds(names: list[str], decklist: str, fmt: str = "commander") -> dict:
+    """Check card names an AI proposed adding to *decklist*.
+
+    Exact lookup only (full or face name, case/diacritic-folded by the index),
+    never fuzzy. Each result's status is one of ok | in_deck | unknown | illegal
+    | off_color, with the canonical record name for anything that resolved.
+    """
+    idx = _bulk_index()
+    deck = parse_deck_text(decklist or "", format=fmt)
+    identity, source = deck_identity(deck, idx, fmt)
+    cfg = FORMAT_CONFIGS.get(fmt, {})
+    legality_key = cfg.get("legality_key", fmt)
+    max_copies = cfg.get("max_copies", 4)
+
+    # Copies already in the deck, keyed by canonical name (commanders count).
+    counts: dict[str, int] = {}
+    for zone in ("commanders", "cards"):
+        for e in deck.get(zone, []):
+            key = ((idx.get(e["name"]) or {}).get("name") or e["name"]).lower()
+            counts[key] = counts.get(key, 0) + int(e.get("quantity") or 1)
+
+    results = []
+    for raw in names:
+        rec = idx.get(raw.strip()) if raw and raw.strip() else None
+        if not rec:
+            results.append(
+                {
+                    "input": raw,
+                    "name": None,
+                    "status": "unknown",
+                    "reason": "No card by that name",
+                }
+            )
+            continue
+        name = rec["name"]
+        card_ci = set(rec.get("color_identity") or [])
+        legality = (rec.get("legalities") or {}).get(legality_key)
+        exempt = "Basic" in (rec.get("type_line") or "") or (
+            _ANY_NUMBER in get_oracle_text(rec).lower()
+        )
+        if not exempt and counts.get(name.lower(), 0) >= max_copies:
+            status, reason = "in_deck", "Already in the deck"
+        elif legality not in ("legal", "restricted"):
+            status = "illegal"
+            reason = f"{'Banned' if legality == 'banned' else 'Not legal'} in {fmt}"
+        elif (
+            fmt in _IDENTITY_FORMATS
+            and identity is not None
+            and not card_ci <= identity
+        ):
+            status = "off_color"
+            reason = (
+                f"Outside the deck's color identity ({_wubrg(identity) or 'colorless'})"
+            )
+        else:
+            status, reason = "ok", ""
+        results.append({"input": raw, "name": name, "status": status, "reason": reason})
+
+    return {
+        "identity": list(_wubrg(identity)) if identity is not None else None,
+        "identity_source": source,
+        "results": results,
+    }
 
 
 # Gap chips pass one of these composition keys to focus a changeset. The key is
@@ -1702,15 +1816,17 @@ def ai_optimize(
     }
     commander_lower = {e["name"].lower() for e in deck.get("commanders", [])}
     protected = _protected_set(goals)
-    ci_lists = [
-        ((idx.get(c) or {}).get("color_identity") or []) for c in ctx["commanders"]
-    ]
-    ci = {color for ci_list in ci_lists for color in ci_list}
+    proposals = [ch for ch in (data.get("changes") or [])[:12] if isinstance(ch, dict)]
+    # Every add goes through the shared gate: exact name, legal (bans), inside the
+    # deck's identity (inferred when no commander is set), not already in.
+    add_names = [str(ch.get("add") or "").strip()[:100] for ch in proposals]
+    verdicts = {
+        r["input"]: r
+        for r in validate_adds([n for n in add_names if n], text, fmt)["results"]
+    }
 
     changes: list[dict] = []
-    for ch in (data.get("changes") or [])[:12]:
-        if not isinstance(ch, dict):
-            continue
+    for ch in proposals:
         action = str(ch.get("action") or "").strip().lower()
         cut = str(ch.get("cut") or "").strip()[:100]
         add = str(ch.get("add") or "").strip()[:100]
@@ -1740,15 +1856,11 @@ def ai_optimize(
 
         add_rec = None
         if add:
-            canon = _canonical_card_name(add)
-            if not canon or canon.lower() in deck_by_lower:
+            verdict = verdicts.get(add)
+            if not verdict or verdict["status"] != "ok":
                 continue
-            add = canon
+            add = verdict["name"]
             add_rec = idx.get(add)
-            if ci and fmt in ("commander", "paupercommander"):
-                add_ci = set((add_rec or {}).get("color_identity") or [])
-                if not add_ci <= ci:
-                    continue
 
         add_price = extract_price(add_rec) if add_rec else None
         cut_price = extract_price(cut_rec) if cut_rec else None
@@ -1988,10 +2100,9 @@ def ai_composition_fills(
     deck = ctx["deck"]
     hd = ctx["hd"]
     commanders = ctx["commanders"]
-    ci_lists = [
-        ((_bulk_index().get(c) or {}).get("color_identity") or []) for c in commanders
-    ]
-    ci = "".join(color for ci_list in ci_lists for color in ci_list)
+    identity = ctx.get("identity")
+    # An empty identity is colorless-only ("C"), not "no filter"; None = unknown.
+    ci = (_wubrg(identity) or "C") if identity is not None else None
 
     fills = []
     for cat in thin:
@@ -2005,7 +2116,7 @@ def ai_composition_fills(
                 config.BULK_PATH,
                 oracle=search_cfg.get("oracle"),
                 card_type=search_cfg.get("type"),
-                color_identity=ci or None,
+                color_identity=ci,
                 format=deck.get("format", "commander"),
                 sort="edhrec-desc",
                 limit=20,

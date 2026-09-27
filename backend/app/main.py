@@ -21,7 +21,7 @@ from typing import Annotated
 from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from app import config, mtg, precons, usage
 
@@ -502,6 +502,40 @@ def deck_budget_swaps(payload: Annotated[dict, Body()]) -> dict:
     if not 0.01 <= threshold <= 100.0:
         raise HTTPException(400, "threshold must be between 0.01 and 100.")
     return mtg.budget_swaps(decklist, fmt=fmt, threshold=threshold)
+
+
+_CardName = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True, min_length=1, max_length=_MAX_CARD_NAME_LEN
+    ),
+]
+
+
+class ValidateCardsPayload(BaseModel):
+    """Card names an AI proposed, checked against the deck before any add."""
+
+    decklist: str = Field(default="", max_length=_MAX_DECKLIST_LEN)
+    format: str = Field(default="commander", max_length=30)
+    names: list[_CardName] = Field(min_length=1, max_length=40)
+
+    @field_validator("format")
+    @classmethod
+    def format_must_be_known(cls, v: str) -> str:
+        if v not in mtg.FORMAT_CONFIGS:
+            raise ValueError("unknown format")
+        return v
+
+
+@app.post("/api/deck/validate-cards")
+def deck_validate_cards(payload: ValidateCardsPayload) -> dict:
+    """The server-side gate for AI-named cards: exact match, legal, on-color,
+    not already in the deck. No model call, so no AI access check."""
+    try:
+        return mtg.validate_adds(payload.names, payload.decklist, payload.format)
+    except Exception as e:  # noqa: BLE001
+        log.exception("validate_cards failed")
+        raise HTTPException(500, "Card validation failed.") from e
 
 
 @app.post("/api/deck/ai/fills")
