@@ -41,6 +41,7 @@ _KEEP_FIELDS = {
     "game_changer",
     "printed_name",
     "flavor_name",
+    "edhrec_rank",
 }
 
 
