@@ -812,15 +812,24 @@ def commander_synergies(name: str, limit: int = 10) -> list[dict]:
 # Deterministic "what's my deck made of / missing" view. Each category counts deck cards
 # matching a theme preset (or a deck_stats field), with a Commander rule-of-thumb target.
 # Targets only flag thin categories in commander-style formats.
+# (key, label, target, full presets, light presets). A light-tier card counts fully
+# toward its category but is reported as `light` and ranked below full-tier fills;
+# a card matching both tiers is full.
 _COMPOSITION = [
-    ("lands", "Lands", 36, None),  # from deck_stats.land_count
-    ("ramp", "Ramp", 10, None),  # from deck_stats.ramp_count
-    ("card-draw", "Card draw", 10, ("card-draw", "cantrip")),
-    ("removal", "Spot removal", 8, ("removal",)),
-    ("board-wipe", "Board wipes", 3, ("board-wipe",)),
-    ("counterspell", "Counterspells", 0, ("counterspell",)),
-    ("tutors", "Tutors", 0, ("tutors",)),
-    ("tokens", "Token makers", 0, ("tokens",)),
+    ("lands", "Lands", 36, None, ()),  # from deck_stats.land_count
+    ("ramp", "Ramp", 10, None, ()),  # from deck_stats.ramp_count
+    ("card-draw", "Card draw", 10, ("card-draw", "cantrip"), ()),
+    ("removal", "Spot removal", 8, ("removal",), ()),
+    (
+        "board-wipe",
+        "Board wipes",
+        3,
+        ("board-wipe", "mass-bounce"),
+        ("board-wipe-light",),
+    ),
+    ("counterspell", "Counterspells", 0, ("counterspell",), ()),
+    ("tutors", "Tutors", 0, ("tutors",), ()),
+    ("tokens", "Token makers", 0, ("tokens",), ()),
 ]
 
 
@@ -835,14 +844,22 @@ def deck_composition(text: str, *, fmt: str = "commander") -> dict[str, Any]:
 
     is_commander_fmt = FORMAT_CONFIGS.get(fmt, {}).get("has_commander", False)
     categories: list[dict] = []
-    for key, label, target, presets in _COMPOSITION:
+    for key, label, target, presets, light_presets in _COMPOSITION:
+        light = 0
         if key == "lands":
             count = stats.get("land_count", 0)
         elif key == "ramp":
             count = stats.get("ramp_count", 0)
         else:
-            matchers = [get_preset(p) for p in presets]
-            count = sum(1 for c in records if any(m.matches(c) for m in matchers))
+            full = [get_preset(p) for p in presets]
+            lite = [get_preset(p) for p in light_presets]
+            count = 0
+            for c in records:
+                if any(m.matches(c) for m in full):
+                    count += 1
+                elif any(m.matches(c) for m in lite):
+                    count += 1
+                    light += 1
         status = "ok"
         if is_commander_fmt and target:
             status = "thin" if count < round(target * 0.6) else "ok"
@@ -850,7 +867,8 @@ def deck_composition(text: str, *, fmt: str = "commander") -> dict[str, Any]:
             {
                 "key": key,
                 "label": label,
-                "count": count,
+                "count": count,  # full + light
+                "light": light,
                 "target": target if (is_commander_fmt and target) else None,
                 "status": status,
             }
@@ -2011,12 +2029,10 @@ def budget_swaps(
                 search_cfg = {"oracle": None, "type": "land"}
             if search_cfg:
                 try:
-                    cands = _search_cards(
-                        config.BULK_PATH,
-                        oracle=search_cfg.get("oracle"),
-                        card_type=search_cfg.get("type"),
+                    cands = _fill_candidates(
+                        search_cfg,
                         color_identity=ci,
-                        format=fmt,
+                        fmt=fmt,
                         sort="price-asc",
                         limit=10,
                     )
@@ -2075,28 +2091,61 @@ def budget_swaps(
 # --------------------------------------------------------------------------- #
 # AI Composition Fills (deterministic search + AI narration)
 # --------------------------------------------------------------------------- #
-# Maps composition category keys to oracle-text search patterns that reliably
-# find cards in that role. These are used for deterministic Scryfall search,
-# NOT AI generation — so the results are always real cards in the right role.
+# Maps composition category keys to the search that finds cards in that role.
+# These are used for deterministic Scryfall search, NOT AI generation — so the
+# results are always real cards in the right role. Card draw and board wipes
+# search the exact presets deck_composition counts, so a fill always moves the
+# count; the rest still use oracle regexes.
+_COMPOSITION_PRESETS = {
+    key: {"presets": full, "light": light, "type": None}
+    for key, _, _, full, light in _COMPOSITION
+    if full
+}
 _FILL_SEARCH = {
-    "board-wipe": {
-        "oracle": r"destroy all|exile all|all creatures get -|damage to each creature",
-        "type": None,
-    },
+    "board-wipe": _COMPOSITION_PRESETS["board-wipe"],
     "removal": {
         "oracle": r"destroy target|exile target|deals \d+ damage to",
         "type": None,
     },
-    "card-draw": {
-        "oracle": r"draw a card|draw cards|draw two|draws a card",
-        "type": None,
-    },
+    "card-draw": _COMPOSITION_PRESETS["card-draw"],
     "ramp": {
         "oracle": r"add \{|search your library for a.*land|mana of any",
         "type": None,
     },
     "lands": {"oracle": None, "type": "land"},
 }
+
+
+def _fill_candidates(
+    cfg: dict, *, color_identity: str | None, fmt: str, sort: str, limit: int
+) -> list[dict]:
+    """Search for cards in one role (a _FILL_SEARCH-shaped cfg).
+
+    A cfg with "presets" matches ANY of its full and light presets in one pool
+    scan. Full-tier cards come first, then light-tier ones, each in the caller's
+    sort order; the limit applies after that.
+    """
+    kw = {
+        "card_type": cfg.get("type"),
+        "color_identity": color_identity,
+        "format": fmt,
+        "sort": sort,
+    }
+    presets = cfg.get("presets")
+    if not presets:
+        return _search_cards(
+            config.BULK_PATH, oracle=cfg.get("oracle"), limit=limit, **kw
+        )
+    light = cfg.get("light") or ()
+    found = _search_cards(
+        config.BULK_PATH, any_preset_names=(*presets, *light), limit=None, **kw
+    )
+    full = [get_preset(p) for p in presets]
+    is_full = [any(m.matches(c) for m in full) for c in found]
+    ranked = [c for c, f in zip(found, is_full) if f]
+    ranked += [c for c, f in zip(found, is_full) if not f]
+    return ranked[:limit]
+
 
 _FILLS_SYSTEM = """You are an expert MTG deck builder. From the VERIFIED card list below (all real cards, confirmed in the correct role), pick the 3-4 best fits for this specific deck and commander.
 
@@ -2142,12 +2191,10 @@ def ai_composition_fills(
         # 1. Deterministic search for cards in this role
         search_cfg = _FILL_SEARCH.get(key, {})
         try:
-            candidates = _search_cards(
-                config.BULK_PATH,
-                oracle=search_cfg.get("oracle"),
-                card_type=search_cfg.get("type"),
+            candidates = _fill_candidates(
+                search_cfg,
                 color_identity=ci,
-                format=deck.get("format", "commander"),
+                fmt=deck.get("format", "commander"),
                 sort="edhrec-desc",
                 limit=20,
             )
@@ -2339,7 +2386,9 @@ def ai_combo_guidance(
 # --------------------------------------------------------------------------- #
 _ROLE_CHECKS = [
     ("removal", "Removal"),
-    ("board-wipe", "Board wipe"),
+    ("board-wipe", "Board wipe"),  # first: budget swaps take the first label match
+    ("mass-bounce", "Board wipe"),  # both tiers, same as deck_composition's count
+    ("board-wipe-light", "Board wipe"),
     ("card-draw", "Draw"),
     ("cantrip", "Draw"),
     ("counterspell", "Counter"),

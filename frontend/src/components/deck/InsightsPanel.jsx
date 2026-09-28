@@ -380,7 +380,7 @@ function DeckDna({ comp }) {
                 <span className={`bfill ${thin ? "bfill-warn" : "bfill-good"}`} style={{ width: `${pct}%` }} />
               </span>
               <span className={`bval${thin ? " role-thin" : ""}`}>
-                {c.count}{c.target ? `/${c.target}` : ""}{thin ? " ·thin" : ""}
+                {c.count}{c.target ? `/${c.target}` : ""}{c.light > 0 ? ` (${c.light} light)` : ""}{thin ? " ·thin" : ""}
               </span>
             </div>
           );

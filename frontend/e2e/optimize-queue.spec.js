@@ -126,6 +126,10 @@ test.describe("Assessment", () => {
     const chip = page.locator(".asmt-chip", { hasText: "Card draw" });
     await expect(chip).toBeVisible({ timeout: 10000 });
     await expect(chip).toContainText("4/10");
+    await expect(chip).not.toContainText("light");
+    // A category with light-tier cards says so next to its count.
+    await expect(page.locator(".asmt-chip", { hasText: "Board wipes" })).toContainText(
+      "1/3 (1 light)");
 
     const focused = page.waitForRequest((r) =>
       r.url().includes("/api/deck/optimize") && r.postDataJSON()?.focus === "card-draw");

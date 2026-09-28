@@ -130,6 +130,8 @@ def _matches_filters(
 # searches stop re-scanning the whole database each time. mtime keys invalidate on a
 # download-bulk refresh, matching load_bulk_cards's own in-memory cache.
 _POOL_CACHE: dict[tuple[str, float, str, bool, bool], list[dict]] = {}
+# search_cards(any_preset_names=...) verdicts: (path, mtime, preset names) -> name -> hit.
+_ANY_PRESET_HITS: dict[tuple[str, float, tuple[str, ...]], dict[str, bool]] = {}
 
 
 def _playable_pool(
@@ -216,7 +218,7 @@ def search_cards(
     price_min: float | None = None,
     price_max: float | None = None,
     sort: str = "price-desc",
-    limit: int = 25,
+    limit: int | None = 25,
     offset: int = 0,
     format: str | None = None,  # noqa: A002
     arena_only: bool = False,
@@ -224,8 +226,13 @@ def search_cards(
     exact_colors: bool = False,
     is_commander_filter: bool = False,
     preset_names: tuple[str, ...] = (),
+    any_preset_names: tuple[str, ...] = (),
 ) -> list[dict]:
-    """Search bulk data for cards matching all specified filters."""
+    """Search bulk data for cards matching all specified filters.
+
+    ``preset_names`` must ALL match; ``any_preset_names`` needs at least one.
+    ``limit=None`` returns every match.
+    """
     if format is not None:
         legality_key = FORMAT_CONFIGS[format]["legality_key"]
     else:
@@ -253,17 +260,19 @@ def search_cards(
     type_lower = card_type.lower() if card_type else None
     name_lower = name.lower() if name else None
 
-    presets: tuple[Preset, ...] = ()
-    if preset_names:
+    def resolve(names: tuple[str, ...]) -> tuple[Preset, ...]:
         resolved: list[Preset] = []
-        for preset_name in preset_names:
+        for preset_name in names:
             try:
                 resolved.append(get_preset(preset_name))
             except KeyError:
                 known = ", ".join(sorted(PRESETS.keys()))
                 msg = f"unknown preset {preset_name!r}. Known presets: {known}"
                 raise click.BadParameter(msg, param_hint="--preset") from None
-        presets = tuple(resolved)
+        return tuple(resolved)
+
+    presets = resolve(preset_names)
+    any_presets = resolve(any_preset_names)
 
     cards = load_bulk_cards(bulk_path)
     # Scan only the format-invariant playable subset (cached) rather than all ~114k bulk
@@ -299,6 +308,23 @@ def search_cards(
             presets=presets,
         )
     ]
+    if any_presets:
+        # Per-name verdict cache: printings share oracle text, and warm calls
+        # (fills, budget swaps) repeat the same preset set. mtime-keyed like
+        # _POOL_CACHE so a bulk refresh invalidates it.
+        # ponytail: unbounded per (bulk, preset set); ~30k names each, bound it
+        # if callers ever pass many distinct preset sets.
+        hits = _ANY_PRESET_HITS.setdefault(
+            (str(bulk_path), bulk_mtime(bulk_path), any_preset_names), {}
+        )
+
+        def any_hit(card: dict) -> bool:
+            name = card.get("name", "")
+            if name not in hits:
+                hits[name] = any(p.matches(card) for p in any_presets)
+            return hits[name]
+
+        matched = [card for card in matched if any_hit(card)]
 
     # Deduplicate by name, keeping the cheapest printing (shared acquisition-cost rule:
     # a priced printing beats a price-less one, cheapest among priced).
@@ -312,7 +338,7 @@ def search_cards(
     sort_key, sort_reverse = _parse_sort(sort)
     deduped.sort(key=sort_key, reverse=sort_reverse)
 
-    return deduped[offset : offset + limit]
+    return deduped[offset:] if limit is None else deduped[offset : offset + limit]
 
 
 def format_results(cards: list[dict]) -> str:
