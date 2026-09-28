@@ -171,6 +171,7 @@ _SORT_DEFAULTS = {
     "price": True,  # descending
     "cmc": False,  # ascending
     "name": False,  # ascending
+    "edhrec": True,  # descending popularity = most played first
 }
 
 
@@ -188,6 +189,18 @@ def _parse_sort(sort: str) -> tuple[Callable[[dict], Any], bool]:
         return lambda c: c.get("cmc", 0), reverse
     if field == "name":
         return lambda c: c.get("name", ""), reverse
+    if field == "edhrec":
+        # Popularity, not raw rank: -desc (the default) = most played first = lowest
+        # edhrec_rank. Unranked cards go last in both directions, so the direction is
+        # applied inside the key and the sort itself never reverses.
+        sign = 1 if reverse else -1
+        return (
+            lambda c: (
+                c.get("edhrec_rank") is None,
+                sign * (c.get("edhrec_rank") or 0),
+            ),
+            False,
+        )
     return lambda c: _extract_price(c) or 0.0, reverse
 
 
@@ -386,7 +399,11 @@ def format_results(cards: list[dict]) -> str:
     "--sort",
     default="price-desc",
     show_default=True,
-    help="Sort field: price, cmc, name. Suffix: -desc, -asc.",
+    help=(
+        "Sort field: price, cmc, name, edhrec. Suffix: -desc, -asc. "
+        "edhrec is popularity: edhrec / edhrec-desc = most played first; "
+        "unranked cards always last."
+    ),
 )
 @click.option("--limit", default=25, show_default=True)
 @click.option(
