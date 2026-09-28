@@ -134,6 +134,7 @@ export default function AssessmentPanel({
                   <span className="asmt-comp-val">
                     <strong>{c.count}</strong>
                     {c.target ? <span className="muted">/{c.target}</span> : null}
+                    {c.light > 0 && <span className="muted"> ({c.light} light)</span>}
                     {c.status === "thin" && <span className="asmt-comp-thin">thin</span>}
                   </span>
                 </div>
@@ -167,7 +168,7 @@ export default function AssessmentPanel({
             >
               <span className="asmt-chip-label">{c.label}</span>
               <span className="asmt-chip-count">
-                {c.count}{c.target ? `/${c.target}` : ""}
+                {c.count}{c.target ? `/${c.target}` : ""}{c.light > 0 ? ` (${c.light} light)` : ""}
               </span>
               <svg className="asmt-chip-zap" aria-hidden="true" viewBox="0 0 24 24" width="10" height="10"
                 fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

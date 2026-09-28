@@ -63,7 +63,13 @@ class Preset:
       these (case-sensitive, matching Scryfall values like
       ``"adventure"``, ``"prototype"``, ``"split"``, ``"saga"``).
 
-    All four may be set; they combine with OR. ``should_match`` and
+    - ``line_patterns``: like ``patterns``, but a hit only counts when
+      ``line_guard`` full-matches the text from the start of its line up to
+      the hit (e.g. "not inside a 'Whenever…' ability"). Checking the line
+      in Python keeps the patterns unanchored, which is several times faster
+      than putting the line rule into every regex.
+
+    All may be set; they combine with OR. ``should_match`` and
     ``should_not_match`` are card-name fixtures used by the test suite.
     """
 
@@ -75,15 +81,19 @@ class Preset:
     layouts: tuple[str, ...] = ()
     should_match: tuple[str, ...] = ()
     should_not_match: tuple[str, ...] = ()
+    line_patterns: tuple[re.Pattern[str], ...] = ()
+    line_guard: re.Pattern[str] | None = None
 
     def matches(self, card: dict) -> bool:
         if self.keywords:
             card_kws = {k.lower() for k in (card.get("keywords") or [])}
             if card_kws & {k.lower() for k in self.keywords}:
                 return True
-        if self.patterns:
+        if self.patterns or self.line_patterns:
             oracle = get_oracle_text(card)
             if any(p.search(oracle) for p in self.patterns):
+                return True
+            if self._line_hit(oracle):
                 return True
         if self.type_patterns:
             type_line = card.get("type_line") or ""
@@ -91,10 +101,63 @@ class Preset:
                 return True
         return bool(self.layouts) and card.get("layout") in self.layouts
 
+    def _line_hit(self, oracle: str) -> bool:
+        guard = self.line_guard
+        for p in self.line_patterns:
+            for m in p.finditer(oracle):
+                start = oracle.rfind("\n", 0, m.start()) + 1
+                if guard is None or guard.fullmatch(oracle, start, m.start()):
+                    return True
+        return False
+
 
 def _rx(*patterns: str) -> tuple[re.Pattern[str], ...]:
     """Compile a tuple of patterns with IGNORECASE."""
     return tuple(re.compile(p, re.IGNORECASE) for p in patterns)
+
+
+def _rx_any(*patterns: str) -> tuple[re.Pattern[str], ...]:
+    """One IGNORECASE alternation of all patterns: one scan per card instead of
+    one per pattern (about half the time for the long wipe lists)."""
+    return (re.compile("|".join(f"(?:{p})" for p in patterns), re.IGNORECASE),)
+
+
+# ─── Board-wipe building blocks (board-wipe / board-wipe-light) ───────────
+# Oracle text is one ability per line. These guards are full-matched against
+# the text from the start of a hit's line up to the hit (Preset.line_guard).
+# A full wipe may sit on a spell line, an activated ability or a one-shot
+# trigger, but not a repeatable one ("Whenever…", "At the beginning…", also
+# after an ability word such as "Constellation — Whenever…") or a
+# leaves-the-battlefield drawback.
+_ABILITY_WORD = r"(?:[^\n—]*? — )?"
+_WIPE_FULL_GUARD = re.compile(
+    r"(?!" + _ABILITY_WORD + r"(?:whenever|at)\b)"
+    r"(?!" + _ABILITY_WORD + r"when\b[^,\n]*\bleaves\b)"
+    r"(?:(?!\bwhenever\b)[^\n])*",
+    re.IGNORECASE,
+)
+# A light sweeper must be a one-shot: a spell line or an enters trigger, no
+# activated cost, and not a rider on something else ("If {B} was spent, …").
+_WIPE_LIGHT_GUARD = re.compile(
+    r"(?!" + _ABILITY_WORD + r"(?:whenever|at)\b)"
+    r"(?!" + _ABILITY_WORD + r"when\b(?![^,\n]*\benters\b))(?=[^:\n]*\Z)"
+    r"(?:[^\n]*?[.•—] )?(?!if\b)(?:(?!\bwhenever\b)[^.\n])*",
+    re.IGNORECASE,
+)
+# "each [other|nonX|nontoken|tapped] creature": no combat ("attacking") and no
+# tribal ("each Goblin creature") targets.
+_EACH_CREATURE = (
+    r"each (?:opponent and (?:\d+ damage to )?each )?"
+    r"(?:other |non-?\w+ |tapped |untapped )?creatures?\b(?! you control)"
+)
+_MASS_SUBJECT = (
+    r"(?:\b(?:all (?:other )?|other |non-?\w+ )creatures get"
+    r"|\bcreatures (?:your opponents control|you don't control|"
+    r"target player controls|that aren't of the chosen type) get"
+    r"|\beach (?:other )?creature (?:other than [^.]*? )?gets)"
+)
+_BIG_MINUS = r"-(?:X|\d+)/-(?:X|[2-9]|\d{2,})"  # kills 2-toughness, or scales
+_NO_COMBAT = r"(?![^.]*\b(?:attacking|blocking|blocked|attack|combat)\b)"
 
 
 # ─── Evergreen keyword abilities ──────────────────────────────────────────
@@ -1027,51 +1090,71 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
         ),
         should_not_match=("Llanowar Elves", "Command Tower"),
     ),
-    # Board wipe — creature mass removal: things that kill, exile or tuck
-    # all/many creatures. Artifact, enchantment and land wipes are NOT board
-    # wipes. Mass bounce is its own preset (`mass-bounce`): the aristocrats
-    # "mass death" avenue reads this one, and bounce kills nothing.
+    # Board wipe (full tier) — one-shot creature mass removal that kills
+    # 2-toughness creatures or scales with X. Artifact, enchantment and land
+    # wipes are NOT board wipes. Small sweepers are `board-wipe-light`; mass
+    # bounce is `mass-bounce` (the aristocrats "mass death" avenue reads this
+    # one, and bounce kills nothing). Neither tier: combat-only (attacking /
+    # blocking), static -N/-N, repeatable triggers, drawbacks.
     Preset(
         name="board-wipe",
         description=(
-            "Creature mass removal: destroy/exile all or each creature "
-            "(incl. conditional and one-sided sweepers), damage to each "
-            "creature, all creatures get -N/-N, -1/-1 counters on each "
-            "creature, each player sacrifices all creatures, tuck all "
-            "creatures. Artifact/enchantment/land wipes and mass bounce "
-            "are not included."
+            "Full board wipe: one-shot creature mass removal that kills "
+            "2-toughness creatures or scales with X. Destroy/exile all or each "
+            "creature or nonland permanent, 2+/X damage to each creature, "
+            "-2/-2 or -X/-X until end of turn, X or 2+ -1/-1 counters on each "
+            "creature, Overload removal, each player sacrifices all creatures "
+            "or permanents, tuck all creatures. Not combat-only, static, "
+            "repeatable ('whenever'/'at the beginning') or leaves-play effects; "
+            "not artifact/enchantment/land wipes, small sweepers "
+            "(board-wipe-light) or mass bounce (mass-bounce)."
         ),
-        patterns=_rx(
+        line_patterns=_rx_any(
             # Damnation, Crux of Fate ("all non-Dragon creatures"), Akroma's
-            # Vengeance, Settle the Wreckage. Stays in one sentence; skips
-            # "Equipment attached to that creature", graveyard cards and
-            # your own creatures (Lae'zel's Acrobatics blinks).
-            r"\b(?:destroy|exile) all (?:(?!attached|\bcards?\b)[^.])*?\bcreatures\b"
-            r"(?! you control)",
-            r"\b(?:destroy|exile) all nonland\b",  # Planar Cleansing
+            # Vengeance. One sentence; skips "Equipment attached to that
+            # creature", graveyard cards, your own creatures (Lae'zel's
+            # Acrobatics) and combat (Settle the Wreckage, Coils of the Medusa).
+            r"\b(?:destroy|exile) all "
+            + _NO_COMBAT
+            + r"(?:(?!attached|\bcards?\b)[^.])*?\bcreatures\b(?! you control)",
+            # Planar Cleansing, Oblivion Stone, Engineered Explosives,
+            # Scourglass, Ugin's -X. Not Steel Hellkite (combat damage only).
+            r"\b(?:destroy|exile) (?:all|each) " + _NO_COMBAT + r"(?:other )?"
+            r"(?:(?:nonland|nontoken),? )*permanents?\b"
+            r"(?! (?:you control|chosen|named|with the most))",
             # Culling Sun, Pernicious Deed, Powder Keg, Mutinous Massacre.
-            r"\bdestroy each (?:other )?(?:artifact,? (?:and )?)?creature\b"
-            r"(?! (?:that|chosen|blocking|you control))",
+            r"\bdestroy each (?:other )?(?:artifact,? (?:and )?)?"
+            r"creature\b(?! (?:that|chosen|blocking|you control|with the most))",
             # Extinction Event, Calamity of the Titans (not Ghostway's blink).
             r"\bexile each (?:other )?creature\b"
             r"(?! (?:card|token|you control|that crewed))",
-            # Blasphemous Act, Pestilence, Anger of the Gods, Chain Reaction,
-            # one-sided Goblin Chainwhirler; not "each of two target creatures".
-            r"\bdamage to each (?:opponent and (?:\d+ damage to )?each )?"
-            r"(?!of\b)(?:[\w-]+ )?creatures?\b(?! you control)",
-            # Toxic Deluge, Massacre Wurm, Eyeblight Massacre; toughness
-            # must actually drop (Ivory Charm's -2/-0 is not a wipe).
-            r"\b(?:all (?:other )?|other |non-?\w+ )creatures get "
-            r"-(?:X|\d+)/-(?:X|[1-9]\d*)",
-            r"\bcreatures (?:your opponents control|you don't control|"
-            r"target player controls|that aren't of the chosen type) get "
-            r"-(?:X|\d+)/-(?:X|[1-9]\d*)",
-            # Black Sun's Zenith, Soul Snuffers, Liliana's Influence.
-            r"-1/-1 counters? on each (?!of\b)(?:[\w-]+ )?creature\b(?! you control)",
-            # The Eternal Wanderer, Tragic Arrogance.
-            r"\beach player [^.]*?\bsacrifices all (?:(?!you control)[^.])*?\bcreatures\b",
+            # Blasphemous Act, Anger of the Gods, Hurricane-style X, "that
+            # much" (Balefire-style one-shots) and "damage … equal to".
+            r"\b(?:X|[2-9]|\d{2,}|X plus \d+|twice X|that much) "
+            r"damage to " + _EACH_CREATURE,
+            r"\bdeals? damage to " + _EACH_CREATURE,
+            # Toxic Deluge, Massacre Wurm, The Meathook Massacre, Crippling
+            # Fear; Mutilate/Planar Despair scale ("-1/-1 … for each").
+            # Needs "until end of turn": static anthems (Elesh Norn,
+            # Ascendant Evincar) are not wipes; Ivory Charm's -2/-0 isn't either.
+            _MASS_SUBJECT + r" " + _BIG_MINUS + r" until end of turn",
+            _MASS_SUBJECT + r" -1/-1 until end of turn for each\b",
+            # Black Sun's Zenith, Darkness Descends.
+            r"\b(?:X|two|three|four|five|[2-9]) -1/-1 counters "
+            r"on " + _EACH_CREATURE,
+            # The Eternal Wanderer, Living Death, Tragic Arrogance, All Is Dust.
+            r"\beach player [^.]*?\bsacrifices all "
+            r"(?:(?!you control)[^.])*?\b(?:creatures|permanents)\b",
             # Terminus, Hallowed Burial.
             r"\bput all (?:other )?creatures on the bottom\b",
+        ),
+        line_guard=_WIPE_FULL_GUARD,
+        patterns=_rx_any(
+            # Overload removal: Damn, Winds of Abandon, Mizzium Mortars (the
+            # "each" lives in Overload's reminder text).
+            r"\b(?:destroy|exile) target creature\b[\s\S]*?\boverload\b",
+            r"\bdeals? (?:X|[2-9]|\d{2,}) damage to target creature\b"
+            r"[\s\S]*?\boverload\b",
         ),
         should_match=(
             "Wrath of God",
@@ -1083,6 +1166,20 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             "Culling Sun",
             "Massacre Wurm",
             "Terminus",
+            "The Meathook Massacre",
+            "Damn",
+            "Mizzium Mortars",
+            "Winds of Abandon",
+            "Oblivion Stone",
+            "Ugin, the Spirit Dragon",
+            "Engineered Explosives",
+            "All Is Dust",
+            "Scourglass",
+            "Tragic Arrogance",
+            "Living Death",
+            "Living End",
+            "The Eternal Wanderer",
+            "Bringer of the Last Gift",
         ),
         should_not_match=(
             "Lightning Bolt",
@@ -1093,8 +1190,65 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             "Armageddon",
             "Unsummon",
             "Evacuation",  # mass bounce: see `mass-bounce`
+            "Cyclonic Rift",
             "Ghostway",  # self-blink
             "Ivory Charm",  # -2/-0
+            "Elesh Norn, Grand Cenobite",  # static
+            "Cower in Fear",  # light tier
+            "Electrickery",  # light tier (Overload 1 damage)
+            "Settle the Wreckage",  # combat-only
+            "Rain of Blades",  # combat-only
+        ),
+    ),
+    # Board wipe (light tier) — one-shot small sweepers: -1/-1 until end of
+    # turn to all/opponents' creatures, 1 damage to each creature, one -1/-1
+    # counter on each creature. Counts toward the board-wipe category but ranks
+    # below full wipes. Spell lines and enters triggers only: death/leave
+    # triggers, activated abilities and conditional riders are not sweepers.
+    Preset(
+        name="board-wipe-light",
+        description=(
+            "Light board wipe: one-shot small sweepers (-1/-1 until end of "
+            "turn to all or opponents' creatures, 1 damage to each creature, a "
+            "-1/-1 counter on each creature, Overload 1 damage). Spells and "
+            "enters triggers only; not combat-only, static, repeatable, "
+            "activated, death/leave triggers or conditional riders."
+        ),
+        line_patterns=_rx_any(
+            # Cower in Fear, Festergloom, Nausea, Shrivel, Massacre Girl.
+            _MASS_SUBJECT + r" -1/-1 until end of turn(?! for each)",
+            # Zealous Persecution ("Until end of turn, … get -1/-1").
+            r"\buntil end of turn, [^.]*?" + _MASS_SUBJECT + r" -1/-1\b",
+            # Seismic Wave, Radiating Lightning, Chandra's Fury, Goblin
+            # Chainwhirler.
+            r"\b(?:1|one) damage to " + _EACH_CREATURE,
+            # Soul Snuffers, Liliana's Influence, Contagion Engine.
+            r"\ba -1/-1 counter on " + _EACH_CREATURE,
+        ),
+        line_guard=_WIPE_LIGHT_GUARD,
+        patterns=_rx(
+            # Electrickery.
+            r"\bdeals? 1 damage to target creature\b[\s\S]*?\boverload\b",
+        ),
+        should_match=(
+            "Cower in Fear",
+            "Festergloom",
+            "Nausea",
+            "Shrivel",
+            "Seismic Wave",
+            "Radiating Lightning",
+            "Chandra's Fury",
+            "Electrickery",
+        ),
+        should_not_match=(
+            "Lightning Bolt",
+            "Toxic Deluge",  # full tier
+            "Rolling Spoil",  # conditional rider on a land kill
+            "Plague Dogs",  # death trigger
+            "Festercreep",  # activated
+            "Kaervek, the Spiteful",  # static
+            "Scorch the Fields",  # tribal rider
+            "Rain of Blades",  # combat-only
         ),
     ),
     # Mass bounce — returns all/each creature or nonland permanent to hand.
