@@ -29,6 +29,7 @@ from mtg_utils.card_classify import (  # noqa: E402
     partner_ability,
     valid_partner_search,
 )
+from mtg_utils.card_search import _parse_sort  # noqa: E402
 from mtg_utils.card_search import search_cards as _search_cards  # noqa: E402
 from mtg_utils.combo_search import combo_search  # noqa: E402
 from mtg_utils.commander_directory import build_commander_directory, load_chips  # noqa: E402
@@ -817,7 +818,7 @@ _COMPOSITION = [
     ("ramp", "Ramp", 10, None),  # from deck_stats.ramp_count
     ("card-draw", "Card draw", 10, ("card-draw", "cantrip")),
     ("removal", "Spot removal", 8, ("removal",)),
-    ("board-wipe", "Board wipes", 3, ("board-wipe",)),
+    ("board-wipe", "Board wipes", 3, ("board-wipe", "mass-bounce")),
     ("counterspell", "Counterspells", 0, ("counterspell",)),
     ("tutors", "Tutors", 0, ("tutors",)),
     ("tokens", "Token makers", 0, ("tokens",)),
@@ -2011,12 +2012,10 @@ def budget_swaps(
                 search_cfg = {"oracle": None, "type": "land"}
             if search_cfg:
                 try:
-                    cands = _search_cards(
-                        config.BULK_PATH,
-                        oracle=search_cfg.get("oracle"),
-                        card_type=search_cfg.get("type"),
+                    cands = _fill_candidates(
+                        search_cfg,
                         color_identity=ci,
-                        format=fmt,
+                        fmt=fmt,
                         sort="price-asc",
                         limit=10,
                     )
@@ -2075,28 +2074,54 @@ def budget_swaps(
 # --------------------------------------------------------------------------- #
 # AI Composition Fills (deterministic search + AI narration)
 # --------------------------------------------------------------------------- #
-# Maps composition category keys to oracle-text search patterns that reliably
-# find cards in that role. These are used for deterministic Scryfall search,
-# NOT AI generation — so the results are always real cards in the right role.
+# Maps composition category keys to the search that finds cards in that role.
+# These are used for deterministic Scryfall search, NOT AI generation — so the
+# results are always real cards in the right role. Card draw and board wipes
+# search the exact presets deck_composition counts, so a fill always moves the
+# count; the rest still use oracle regexes.
+_COMPOSITION_PRESETS = {key: presets for key, _, _, presets in _COMPOSITION if presets}
 _FILL_SEARCH = {
-    "board-wipe": {
-        "oracle": r"destroy all|exile all|all creatures get -|damage to each creature",
-        "type": None,
-    },
+    "board-wipe": {"presets": _COMPOSITION_PRESETS["board-wipe"], "type": None},
     "removal": {
         "oracle": r"destroy target|exile target|deals \d+ damage to",
         "type": None,
     },
-    "card-draw": {
-        "oracle": r"draw a card|draw cards|draw two|draws a card",
-        "type": None,
-    },
+    "card-draw": {"presets": _COMPOSITION_PRESETS["card-draw"], "type": None},
     "ramp": {
         "oracle": r"add \{|search your library for a.*land|mana of any",
         "type": None,
     },
     "lands": {"oracle": None, "type": "land"},
 }
+
+
+def _fill_candidates(
+    cfg: dict, *, color_identity: str | None, fmt: str, sort: str, limit: int
+) -> list[dict]:
+    """Search for cards in one role (a _FILL_SEARCH-shaped cfg).
+
+    A cfg with "presets" matches ANY of them. search_cards ANDs its
+    preset_names, so this runs one search per preset, merges by name,
+    re-sorts in the caller's order and then applies the limit (each per-preset
+    top-`limit` holds every card that can reach the merged top-`limit`).
+    """
+    kw = {
+        "card_type": cfg.get("type"),
+        "color_identity": color_identity,
+        "format": fmt,
+        "sort": sort,
+        "limit": limit,
+    }
+    presets = cfg.get("presets")
+    if not presets:
+        return _search_cards(config.BULK_PATH, oracle=cfg.get("oracle"), **kw)
+    merged: dict[str, dict] = {}
+    for p in presets:
+        for c in _search_cards(config.BULK_PATH, preset_names=(p,), **kw):
+            merged.setdefault(c["name"], c)
+    key, reverse = _parse_sort(sort)
+    return sorted(merged.values(), key=key, reverse=reverse)[:limit]
+
 
 _FILLS_SYSTEM = """You are an expert MTG deck builder. From the VERIFIED card list below (all real cards, confirmed in the correct role), pick the 3-4 best fits for this specific deck and commander.
 
@@ -2142,12 +2167,10 @@ def ai_composition_fills(
         # 1. Deterministic search for cards in this role
         search_cfg = _FILL_SEARCH.get(key, {})
         try:
-            candidates = _search_cards(
-                config.BULK_PATH,
-                oracle=search_cfg.get("oracle"),
-                card_type=search_cfg.get("type"),
+            candidates = _fill_candidates(
+                search_cfg,
                 color_identity=ci,
-                format=deck.get("format", "commander"),
+                fmt=deck.get("format", "commander"),
                 sort="edhrec-desc",
                 limit=20,
             )
@@ -2339,7 +2362,8 @@ def ai_combo_guidance(
 # --------------------------------------------------------------------------- #
 _ROLE_CHECKS = [
     ("removal", "Removal"),
-    ("board-wipe", "Board wipe"),
+    ("board-wipe", "Board wipe"),  # first: budget swaps take the first label match
+    ("mass-bounce", "Board wipe"),  # same as deck_composition's board-wipe count
     ("card-draw", "Draw"),
     ("cantrip", "Draw"),
     ("counterspell", "Counter"),

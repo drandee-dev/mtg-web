@@ -1027,17 +1027,109 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
         ),
         should_not_match=("Llanowar Elves", "Command Tower"),
     ),
-    # Board wipe — subset of removal that hits all/many creatures.
+    # Board wipe — creature mass removal: things that kill, exile or tuck
+    # all/many creatures. Artifact, enchantment and land wipes are NOT board
+    # wipes. Mass bounce is its own preset (`mass-bounce`): the aristocrats
+    # "mass death" avenue reads this one, and bounce kills nothing.
     Preset(
         name="board-wipe",
-        description="Destroys or damages all creatures (board-wide removal).",
-        patterns=_rx(
-            r"\bdestroy all (?:creatures|nonland)",
-            r"\bexile all (?:creatures|nonland)",
-            r"\bdeals? " + _COUNT + r" damage to each creature",
+        description=(
+            "Creature mass removal: destroy/exile all or each creature "
+            "(incl. conditional and one-sided sweepers), damage to each "
+            "creature, all creatures get -N/-N, -1/-1 counters on each "
+            "creature, each player sacrifices all creatures, tuck all "
+            "creatures. Artifact/enchantment/land wipes and mass bounce "
+            "are not included."
         ),
-        should_match=("Wrath of God", "Farewell"),
-        should_not_match=("Lightning Bolt", "Swords to Plowshares"),
+        patterns=_rx(
+            # Damnation, Crux of Fate ("all non-Dragon creatures"), Akroma's
+            # Vengeance, Settle the Wreckage. Stays in one sentence; skips
+            # "Equipment attached to that creature", graveyard cards and
+            # your own creatures (Lae'zel's Acrobatics blinks).
+            r"\b(?:destroy|exile) all (?:(?!attached|\bcards?\b)[^.])*?\bcreatures\b"
+            r"(?! you control)",
+            r"\b(?:destroy|exile) all nonland\b",  # Planar Cleansing
+            # Culling Sun, Pernicious Deed, Powder Keg, Mutinous Massacre.
+            r"\bdestroy each (?:other )?(?:artifact,? (?:and )?)?creature\b"
+            r"(?! (?:that|chosen|blocking|you control))",
+            # Extinction Event, Calamity of the Titans (not Ghostway's blink).
+            r"\bexile each (?:other )?creature\b"
+            r"(?! (?:card|token|you control|that crewed))",
+            # Blasphemous Act, Pestilence, Anger of the Gods, Chain Reaction,
+            # one-sided Goblin Chainwhirler; not "each of two target creatures".
+            r"\bdamage to each (?:opponent and (?:\d+ damage to )?each )?"
+            r"(?!of\b)(?:[\w-]+ )?creatures?\b(?! you control)",
+            # Toxic Deluge, Massacre Wurm, Eyeblight Massacre; toughness
+            # must actually drop (Ivory Charm's -2/-0 is not a wipe).
+            r"\b(?:all (?:other )?|other |non-?\w+ )creatures get "
+            r"-(?:X|\d+)/-(?:X|[1-9]\d*)",
+            r"\bcreatures (?:your opponents control|you don't control|"
+            r"target player controls|that aren't of the chosen type) get "
+            r"-(?:X|\d+)/-(?:X|[1-9]\d*)",
+            # Black Sun's Zenith, Soul Snuffers, Liliana's Influence.
+            r"-1/-1 counters? on each (?!of\b)(?:[\w-]+ )?creature\b(?! you control)",
+            # The Eternal Wanderer, Tragic Arrogance.
+            r"\beach player [^.]*?\bsacrifices all (?:(?!you control)[^.])*?\bcreatures\b",
+            # Terminus, Hallowed Burial.
+            r"\bput all (?:other )?creatures on the bottom\b",
+        ),
+        should_match=(
+            "Wrath of God",
+            "Farewell",
+            "Toxic Deluge",
+            "Black Sun's Zenith",
+            "Crux of Fate",
+            "Blasphemous Act",
+            "Culling Sun",
+            "Massacre Wurm",
+            "Terminus",
+        ),
+        should_not_match=(
+            "Lightning Bolt",
+            "Swords to Plowshares",
+            "Creeping Corrosion",
+            "Seeds of Innocence",
+            "Tranquility",
+            "Armageddon",
+            "Unsummon",
+            "Evacuation",  # mass bounce: see `mass-bounce`
+            "Ghostway",  # self-blink
+            "Ivory Charm",  # -2/-0
+        ),
+    ),
+    # Mass bounce — returns all/each creature or nonland permanent to hand.
+    # Counts as a board wipe for deck composition, but is kept out of
+    # `board-wipe` because nothing dies. Single-target bounce is `bounce`.
+    Preset(
+        name="mass-bounce",
+        description=(
+            "Mass bounce: returns all/each creature or (nonland) permanent to "
+            "its owner's hand, including Overload bounce (Cyclonic Rift). "
+            "Not single-target bounce (see `bounce`)."
+        ),
+        patterns=_rx(
+            # Evacuation, Aetherize, Devastation Tide, Scourge of Fleets.
+            # Not Filter Out (noncreature), graveyard/exile "cards", Auras,
+            # or Denizen of the Deep bouncing your own creatures.
+            r"\breturn (?:all|each) (?!cards?\b|auras?\b)(?:(?!noncreature)[^.])*?"
+            r"\b(?:creatures?|permanents?)\b(?! you control)[^.]*?"
+            r"\bto (?:its|their) owners?'?s? hands?\b",
+            # Engulf the Shore.
+            r"\breturn to (?:its|their) owners?'?s? hands? all\b[^.]*?\bcreatures\b",
+            # Cyclonic Rift: the "each" lives in Overload's reminder text
+            # (change "target" to "each"), so match target bounce + Overload.
+            r"\breturn target [^.]*?(?:creature|permanent)[^.]*?"
+            r"\bto its owner's hand\.[\s\S]*?\boverload\b",
+        ),
+        should_match=("Evacuation", "Cyclonic Rift", "Engulf the Shore", "Upheaval"),
+        should_not_match=(
+            "Unsummon",
+            "Boomerang",
+            "Capsize",
+            "Filter Out",
+            "Denizen of the Deep",
+            "Wrath of God",
+        ),
     ),
     # ── Type-specific removal ──
     #
