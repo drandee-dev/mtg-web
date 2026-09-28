@@ -824,8 +824,8 @@ _COMPOSITION = [
         "board-wipe",
         "Board wipes",
         3,
-        ("board-wipe",),
-        ("board-wipe-light", "mass-bounce"),
+        ("board-wipe", "mass-bounce"),
+        ("board-wipe-light",),
     ),
     ("counterspell", "Counterspells", 0, ("counterspell",), ()),
     ("tutors", "Tutors", 0, ("tutors",), ()),
@@ -2387,7 +2387,7 @@ def ai_combo_guidance(
 _ROLE_CHECKS = [
     ("removal", "Removal"),
     ("board-wipe", "Board wipe"),  # first: budget swaps take the first label match
-    ("mass-bounce", "Board wipe"),  # light tier: same as deck_composition's count
+    ("mass-bounce", "Board wipe"),  # both tiers, same as deck_composition's count
     ("board-wipe-light", "Board wipe"),
     ("card-draw", "Draw"),
     ("cantrip", "Draw"),

@@ -106,8 +106,20 @@ class Preset:
         for p in self.line_patterns:
             for m in p.finditer(oracle):
                 start = oracle.rfind("\n", 0, m.start()) + 1
-                if guard is None or guard.fullmatch(oracle, start, m.start()):
+                if guard is None:
                     return True
+                if not guard.fullmatch(oracle, start, m.start()):
+                    continue
+                # A "•" mode line belongs to the header above it ("Whenever
+                # Mishra enters or attacks, choose three —"): guard that too.
+                head = start
+                while head and oracle.startswith("•", head):
+                    head = oracle.rfind("\n", 0, head - 1) + 1
+                if head != start and not guard.fullmatch(
+                    oracle, head, oracle.find("\n", head)
+                ):
+                    continue
+                return True
         return False
 
 
@@ -133,7 +145,8 @@ _ABILITY_WORD = r"(?:[^\n—]*? — )?"
 _WIPE_FULL_GUARD = re.compile(
     r"(?!" + _ABILITY_WORD + r"(?:whenever|at)\b)"
     r"(?!" + _ABILITY_WORD + r"when\b[^,\n]*\bleaves\b)"
-    r"(?:(?!\bwhenever\b)[^\n])*",
+    # Coin-flip drawbacks ("If you lose the flip, it deals 4 damage…").
+    r"(?:(?!\bwhenever\b|\blose the flip\b)[^\n])*",
     re.IGNORECASE,
 )
 # A light sweeper must be a one-shot: a spell line or an enters trigger, no
@@ -1121,7 +1134,7 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             # Scourglass, Ugin's -X. Not Steel Hellkite (combat damage only).
             r"\b(?:destroy|exile) (?:all|each) " + _NO_COMBAT + r"(?:other )?"
             r"(?:(?:nonland|nontoken),? )*permanents?\b"
-            r"(?! (?:you control|chosen|named|with the most))",
+            r"(?! (?:you control|chosen|named|with the most|with an? [\w-]+ counter))",
             # Culling Sun, Pernicious Deed, Powder Keg, Mutinous Massacre.
             r"\bdestroy each (?:other )?(?:artifact,? (?:and )?)?"
             r"creature\b(?! (?:that|chosen|blocking|you control|with the most))",
@@ -1129,10 +1142,11 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             r"\bexile each (?:other )?creature\b"
             r"(?! (?:card|token|you control|that crewed))",
             # Blasphemous Act, Anger of the Gods, Hurricane-style X, "that
-            # much" (Balefire-style one-shots) and "damage … equal to".
-            r"\b(?:X|[2-9]|\d{2,}|X plus \d+|twice X|that much) "
+            # much" (Balefire-style one-shots) and "damage … equal to". Not
+            # combat-only (Cathedral Membrane: "each creature it blocked").
+            _NO_COMBAT + r"\b(?:X|[2-9]|\d{2,}|X plus \d+|twice X|that much) "
             r"damage to " + _EACH_CREATURE,
-            r"\bdeals? damage to " + _EACH_CREATURE,
+            _NO_COMBAT + r"\bdeals? damage to " + _EACH_CREATURE,
             # Toxic Deluge, Massacre Wurm, The Meathook Massacre, Crippling
             # Fear; Mutilate/Planar Despair scale ("-1/-1 … for each").
             # Needs "until end of turn": static anthems (Elesh Norn,
@@ -1180,6 +1194,9 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             "Living End",
             "The Eternal Wanderer",
             "Bringer of the Last Gift",
+            "Havoc Demon",  # death-trigger wipes stay full
+            "Child of Alara",
+            "Ryusei, the Falling Star",
         ),
         should_not_match=(
             "Lightning Bolt",
@@ -1198,6 +1215,9 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             "Electrickery",  # light tier (Overload 1 damage)
             "Settle the Wreckage",  # combat-only
             "Rain of Blades",  # combat-only
+            "Cathedral Membrane",  # combat-only
+            "Eye of Doom",  # doom counters, one permanent per player
+            "Volatile Rig",  # coin-flip drawback
         ),
     ),
     # Board wipe (light tier) — one-shot small sweepers: -1/-1 until end of
@@ -1210,9 +1230,11 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
         description=(
             "Light board wipe: one-shot small sweepers (-1/-1 until end of "
             "turn to all or opponents' creatures, 1 damage to each creature, a "
-            "-1/-1 counter on each creature, Overload 1 damage). Spells and "
-            "enters triggers only; not combat-only, static, repeatable, "
-            "activated, death/leave triggers or conditional riders."
+            "-1/-1 counter on each creature, Overload 1 damage), plus "
+            "activated 1-damage-to-each pingers (Pestilence). Otherwise spells "
+            "and enters triggers only; not combat-only, static, repeatable "
+            "triggers, other activated effects, death/leave triggers or "
+            "conditional riders."
         ),
         line_patterns=_rx_any(
             # Cower in Fear, Festergloom, Nausea, Shrivel, Massacre Girl.
@@ -1221,7 +1243,7 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             r"\buntil end of turn, [^.]*?" + _MASS_SUBJECT + r" -1/-1\b",
             # Seismic Wave, Radiating Lightning, Chandra's Fury, Goblin
             # Chainwhirler.
-            r"\b(?:1|one) damage to " + _EACH_CREATURE,
+            _NO_COMBAT + r"\b(?:1|one) damage to " + _EACH_CREATURE,
             # Soul Snuffers, Liliana's Influence, Contagion Engine.
             r"\ba -1/-1 counter on " + _EACH_CREATURE,
         ),
@@ -1229,6 +1251,10 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
         patterns=_rx(
             # Electrickery.
             r"\bdeals? 1 damage to target creature\b[\s\S]*?\boverload\b",
+            # Repeatable activated pingers: Pestilence, Pyrohemia, Thrashing
+            # Wumpus ("{B}: … deals 1 damage to each creature"). Activated
+            # -1/-1 (Festercreep) and repeatable triggers stay out.
+            r":\s[^.\n:]*?\bdeals? (?:1|one) damage to " + _EACH_CREATURE,
         ),
         should_match=(
             "Cower in Fear",
@@ -1239,6 +1265,8 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             "Radiating Lightning",
             "Chandra's Fury",
             "Electrickery",
+            "Pestilence",  # activated pinger
+            "Thrashing Wumpus",
         ),
         should_not_match=(
             "Lightning Bolt",
@@ -1249,6 +1277,7 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             "Kaervek, the Spiteful",  # static
             "Scorch the Fields",  # tribal rider
             "Rain of Blades",  # combat-only
+            "Mishra, Lost to Phyrexia",  # mode of a "Whenever … attacks" trigger
         ),
     ),
     # Mass bounce — returns all/each creature or nonland permanent to hand.
@@ -1262,10 +1291,12 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             "Not single-target bounce (see `bounce`)."
         ),
         patterns=_rx(
-            # Evacuation, Aetherize, Devastation Tide, Scourge of Fleets.
-            # Not Filter Out (noncreature), graveyard/exile "cards", Auras,
-            # or Denizen of the Deep bouncing your own creatures.
-            r"\breturn (?:all|each) (?!cards?\b|auras?\b)(?:(?!noncreature)[^.])*?"
+            # Evacuation, Devastation Tide, Scourge of Fleets. Not Filter Out
+            # (noncreature), graveyard/exile "cards", Auras, Denizen of the
+            # Deep bouncing your own creatures, or combat-only bounce
+            # (Aetherize, Trial // Error).
+            r"\breturn (?:all|each) " + _NO_COMBAT + r"(?!cards?\b|auras?\b)"
+            r"(?:(?!noncreature)[^.])*?"
             r"\b(?:creatures?|permanents?)\b(?! you control)[^.]*?"
             r"\bto (?:its|their) owners?'?s? hands?\b",
             # Engulf the Shore.
@@ -1283,6 +1314,8 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             "Filter Out",
             "Denizen of the Deep",
             "Wrath of God",
+            "Aetherize",  # combat-only
+            "Trial // Error",  # combat-only
         ),
     ),
     # ── Type-specific removal ──

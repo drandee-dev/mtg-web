@@ -9,9 +9,9 @@ Prod failure (audit #11): deck_composition counted board wipes with the
 generator could add Creeping Corrosion and friends (artifact wipes) and the deck
 still read "Board wipes 0/3". Card draw had the same split.
 
-Board wipes have two tiers: full (`board-wipe`) and light (`board-wipe-light`
-small sweepers plus `mass-bounce`). Light cards count fully but are reported as
-`light` and rank below full ones in fills.
+Board wipes have two tiers: full (`board-wipe` plus `mass-bounce`) and light
+(`board-wipe-light` small sweepers and activated pingers). Light cards count
+fully but are reported as `light` and rank below full ones in fills.
 """
 
 import sys
@@ -27,7 +27,7 @@ from mtg_utils.theme_presets import get_preset  # noqa: E402
 
 idx = mtg._bulk_index()
 COMP = {key: (full, light) for key, _, _, full, light in mtg._COMPOSITION if full}
-assert COMP["board-wipe"] == (("board-wipe",), ("board-wipe-light", "mass-bounce"))
+assert COMP["board-wipe"] == (("board-wipe", "mass-bounce"), ("board-wipe-light",))
 assert COMP["card-draw"] == (("card-draw", "cantrip"), ())
 FULL_WIPE, LIGHT_WIPE, BOUNCE = (
     get_preset(n) for n in ("board-wipe", "board-wipe-light", "mass-bounce")
@@ -62,6 +62,9 @@ NEITHER = (
     "Ethereal Absolution", "M.O.D.O.K.", "The Flesh Is Weak",
     "Archfiend of Ifnir", "Doomwake Giant", "Bolg, Erebor's Reckoning",
     "Noxious Ghoul", "Festercreep", "Plague Dogs", "Death's-Head Buzzard",
+    # Holiday's review of 3abe387, and combat-only bounce.
+    "Cathedral Membrane", "Eye of Doom", "Volatile Rig", "Mishra, Lost to Phyrexia",
+    "Aetherize", "Trial // Error",
 )  # fmt: skip
 FULL = (
     "Toxic Deluge", "Black Sun's Zenith", "Crux of Fate", "The Meathook Massacre",
@@ -69,10 +72,17 @@ FULL = (
     "Ugin, the Spirit Dragon", "Engineered Explosives", "All Is Dust", "Scourglass",
     "Terminus", "Living Death", "Living End", "The Eternal Wanderer",
     "Bringer of the Last Gift", "Tragic Arrogance",
+    # Death-trigger wipes stay full.
+    "Havoc Demon", "Child of Alara", "False Prophet", "Nevinyrral, Urborg Tyrant",
+    "Piru, the Volatile", "Ryusei, the Falling Star", "Elvish Dreadlord",
+    "Magma Phoenix", "Bearer of the Heavens",
 )  # fmt: skip
 LIGHT_SWEEPERS = (
     "Cower in Fear", "Festergloom", "Nausea", "Shrivel",
     "Seismic Wave", "Radiating Lightning", "Chandra's Fury",
+    # Repeatable activated pingers.
+    "Pestilence", "Pyrohemia", "Pestilence Demon", "Thrashing Wumpus",
+    "Withering Wisps",
 )  # fmt: skip
 for n in NEITHER:
     hit = [p.name for p in (FULL_WIPE, LIGHT_WIPE, BOUNCE) if p.matches(card(n))]
@@ -83,8 +93,10 @@ for n in LIGHT_SWEEPERS:
     assert LIGHT_WIPE.matches(card(n)), f"{n} should be a light board wipe"
     assert not FULL_WIPE.matches(card(n)), f"{n} should not be a full board wipe"
 for n in ("Evacuation", "Cyclonic Rift"):
-    assert BOUNCE.matches(card(n)), n
-    assert not FULL_WIPE.matches(card(n)), n  # bounce kills nothing
+    assert BOUNCE.matches(card(n)), n  # full tier via mass-bounce
+    # ...but not the `board-wipe` preset itself: the aristocrats "mass death"
+    # avenue reads that one, and bounce kills nothing.
+    assert not FULL_WIPE.matches(card(n)), n
 for n in ("Unsummon", "Boomerang", "Capsize"):
     assert not BOUNCE.matches(card(n)), n
 
@@ -94,7 +106,7 @@ comp = mtg.deck_composition(
     fmt="commander",
 )
 cats = {c["key"]: c for c in comp["categories"]}
-assert (cats["board-wipe"]["count"], cats["board-wipe"]["light"]) == (3, 2), cats
+assert (cats["board-wipe"]["count"], cats["board-wipe"]["light"]) == (3, 1), cats
 assert all(isinstance(c["light"], int) for c in cats.values()), cats
 assert all(c["light"] == 0 for k, c in cats.items() if k != "board-wipe"), cats
 
@@ -146,6 +158,10 @@ for sort, limit in (("edhrec-desc", 20), ("price-asc", 10)):
             )
             assert cat["count"] == len(names), (key, ci, sort, cat["count"], names)
             assert cat["light"] == is_full.count(False), (key, ci, sort, cat, names)
+
+# Mass bounce is full tier, so blue's fills reach it.
+u_wipes = [c["name"] for c in fills("board-wipe", "U")]
+assert {"Cyclonic Rift", "Evacuation"} <= set(u_wipes), u_wipes
 
 # --- the OR helper and search_cards' OR mode -------------------------------- #
 draw, cantrip = get_preset("card-draw"), get_preset("cantrip")
