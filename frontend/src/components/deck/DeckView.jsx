@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { api, assembleDecklist, disassembleDecklist, getCardImage, FORMATS } from "../../lib/api";
+import { api, assembleDecklist, disassembleDecklist, getCardImage, FORMATS, warnIfBadAdd } from "../../lib/api";
 import CommanderInput from "../CommanderInput";
 import DeckGenerator from "../DeckGenerator";
 import CardGrid from "./CardGrid";
@@ -338,6 +338,8 @@ export default function DeckView({
 
   function addCard(name, { silent = false } = {}) {
     appendLine(`1 ${name}`);
+    const undo = () => removeCard(name, { silent: true });
+    if (!silent) warnIfBadAdd({ before: decklist, commander: isCommanderFmt ? commander : "", format, name, notify, undo });
     // A pinned suggestion that lands in the deck has served its purpose.
     setPinned((prev) => { if (!prev.has(name)) return prev; const n = new Set(prev); n.delete(name); return n; });
     if (silent) return;
@@ -345,7 +347,7 @@ export default function DeckView({
     if (payoff) {
       notify?.(`⚡ Combo unlocked! ${name} → ${payoff}`, { label: "View", onClick: () => setActivePanel("Combos") });
     } else {
-      notify?.(`Added ${name}`, { label: "Undo", onClick: () => removeCard(name, { silent: true }) });
+      notify?.(`Added ${name}`, { label: "Undo", onClick: undo });
     }
   }
 
@@ -443,6 +445,8 @@ export default function DeckView({
     removeFromConsidering(name);
     setDecklist((prev) => `${prev.replace(/\s*$/, "")}\n1 ${name}`);
     notify?.(`Added ${name} to the deck`);
+    // Undo puts it back where it came from.
+    warnIfBadAdd({ before: decklist, commander: isCommanderFmt ? commander : "", format, name, notify, undo: () => addToConsidering(name) });
   }
 
   function renameDeck() {
