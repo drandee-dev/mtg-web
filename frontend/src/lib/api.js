@@ -223,6 +223,20 @@ export function assembleDecklist(rawText, commander) {
   return `Commander\n${cmdLines}\nDeck\n${text}`;
 }
 
+// A card a person added by hand goes through the same server gate as AI picks,
+// but only to warn: an off-color or banned add gets a toast with Undo, never a
+// block. `before` is the decklist without the new copy, so the gate doesn't
+// just answer "already in the deck". A failed check stays silent.
+const _WARN = new Set(["off_color", "illegal"]);
+export function warnIfBadAdd({ before, commander, format, name, notify, undo }) {
+  api.validateCards(assembleDecklist(before, commander), format, [name])
+    .then((r) => {
+      const x = r?.results?.[0];
+      if (_WARN.has(x?.status)) notify?.(`${x.name}: ${x.reason}`, { label: "Undo", onClick: undo });
+    })
+    .catch(() => {});
+}
+
 // Reverse of assembleDecklist: split a saved decklist that may carry
 // "Commander\n1 Name\nDeck\n<rest>" headers (and an optional trailing
 // "Maybeboard\n<rest>" section) back into { commander, deckText, maybeboard }.

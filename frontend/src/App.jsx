@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { supabase, supabaseEnabled } from "./lib/supabase";
-import { api, assembleDecklist, assembleForStorage, disassembleDecklist, setAccessToken } from "./lib/api";
+import { api, assembleDecklist, assembleForStorage, disassembleDecklist, setAccessToken, warnIfBadAdd } from "./lib/api";
 import { commanderDisplay } from "./lib/deckParser";
 import { makeStore } from "./lib/store";
 import { downloadFile } from "./lib/hooks";
@@ -536,6 +536,20 @@ export default function App() {
     setDeckText((prev) => `${prev.replace(/\s*$/, "")}\n1 ${name}`);
   }, []);
 
+  // Search tab adds are free choice, so they get the off-color/banned warning.
+  // (Planeswalker adds already passed the gate before they got a button.)
+  const addCardFromSearch = useCallback((name) => {
+    addCardToDecklist(name);
+    const cmdr = format === "commander" || format === "paupercommander" ? commander : "";
+    const undo = () => setDeckText((prev) => {
+      const lines = prev.split("\n");
+      const i = lines.lastIndexOf(`1 ${name}`);
+      if (i >= 0) lines.splice(i, 1);
+      return lines.join("\n");
+    });
+    warnIfBadAdd({ before: deckText, commander: cmdr, format, name, notify, undo });
+  }, [addCardToDecklist, deckText, commander, format, notify]);
+
   // Card modal "Rules" action → switch to the Rules tab with the card queued
   // up. `ts` makes repeat asks about the same card re-trigger Rules' effect.
   const [rulesPrefill, setRulesPrefill] = useState(null);
@@ -664,7 +678,7 @@ export default function App() {
             onPrefillConsumed={() => setRulesPrefill(null)}
           />
         )}
-        {tab === "cards" && <CardSearch addCard={addCardToDecklist} notify={notify} />}
+        {tab === "cards" && <CardSearch addCard={addCardFromSearch} notify={notify} />}
       </main>
 
       {settingsOpen && (

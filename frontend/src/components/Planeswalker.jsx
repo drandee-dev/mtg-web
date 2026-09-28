@@ -302,9 +302,10 @@ export default function Planeswalker({
     send(text, null, trimmed);
   }
 
-  // "Add to Considering" on a detected decklist: validate first (40 names per
-  // call), add only "ok" cards under their canonical names.
-  async function addAllToConsidering(deckLines) {
+  // A detected decklist is AI output: both "Load into deck" and "Add to
+  // Considering" validate first (40 names per call) and add only "ok" cards,
+  // under their canonical names.
+  async function addAllValidated(deckLines, add, where) {
     const names = [...new Set((deckLines || "").split("\n")
       .map((l) => l.trim().match(/^\d+\s+(.+)$/)?.[1].trim())
       .filter((n) => n && n.length <= 100))];
@@ -315,9 +316,9 @@ export default function Planeswalker({
       for (let i = 0; i < names.length; i += 40) chunks.push(names.slice(i, i + 40));
       const res = await Promise.all(chunks.map((c) => api.validateCards(full, format, c)));
       const ok = res.flatMap((r) => r.results).filter((x) => x.status === "ok").map((x) => x.name);
-      ok.forEach(addToConsidering);
+      ok.forEach(add);
       const skipped = names.length - ok.length;
-      notify(`Added ${ok.length} to Considering${skipped ? ` (${skipped} skipped: in deck, off-color, not legal or unknown)` : ""}`);
+      notify(`Added ${ok.length} to ${where}${skipped ? ` (${skipped} skipped: in deck, off-color, not legal or unknown)` : ""}`);
     } catch {
       notify("Couldn't check those cards — nothing added.");
     }
@@ -460,17 +461,11 @@ export default function Planeswalker({
                 ))}
                 {deckDetected && (
                   <div className="pw-msg pw-assistant" style={{ display: "flex", gap: ".3rem", flexWrap: "wrap" }}>
-                    <button className="primary small" onClick={() => {
-                      if (deckDetected.deckLines && addCard) {
-                        deckDetected.deckLines.split("\n").forEach((l) => {
-                          const match = l.trim().match(/^\d+\s+(.+)$/);
-                          if (match) addCard(match[1].trim());
-                        });
-                        notify("Deck loaded from Planeswalker!");
-                      }
-                    }}>Load into deck</button>
+                    {addCard && (
+                      <button className="primary small" onClick={() => addAllValidated(deckDetected.deckLines, addCard, "the deck")}>Load into deck</button>
+                    )}
                     {addToConsidering && (
-                      <button className="ghost small" onClick={() => addAllToConsidering(deckDetected.deckLines)}>
+                      <button className="ghost small" onClick={() => addAllValidated(deckDetected.deckLines, addToConsidering, "Considering")}>
                         Add to Considering
                       </button>
                     )}
