@@ -44,13 +44,17 @@ test("deck quick-add of an off-color card warns, and Undo removes it", async ({ 
 
 test("an on-color add gets no warning", async ({ page, isMobile }) => {
   test.skip(isMobile, "the quick-add field is in the desktop toolbar");
-  const seen = await stubGate(page);
+  await stubGate(page);
   await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
   const quickAdd = page.locator('input[placeholder="Card name…"]');
   await quickAdd.fill("Opt");
+  const verdict = page.waitForResponse("**/api/deck/validate-cards");
   await quickAdd.press("Enter");
-  await expect.poll(() => seen.length).toBeGreaterThan(0);
+  await verdict;
+  // Two frames: long enough for a wrongly issued warning to have rendered.
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   await expect(page.locator(".toast", { hasText: "Opt:" })).toHaveCount(0);
+  await expect(page.locator(".toast")).toContainText("Added Opt");
 });
 
 test("Search tab add of an off-color card warns, and Undo removes it", async ({ page }) => {

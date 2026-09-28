@@ -154,4 +154,37 @@ test.describe("Planeswalker chat", () => {
     await expect(page.locator(".planeswalker-panel")).toHaveClass(/pw-expanded/);
     await expect(page.locator(".planeswalker-panel")).toHaveClass(/pw-textlg/);
   });
+
+  test("Load into deck adds only cards the gate passes", async ({ page }) => {
+    // A reply with 10+ "1 Name" lines is a detected decklist: AI output, so
+    // an off-color line in it must not reach the deck.
+    const names = ["Lightning Bolt", "Opt", "Ponder", "Brainstorm", "Preordain",
+      "Llanowar Elves", "Birds of Paradise", "Path to Exile", "Duress", "Thoughtseize"];
+    const reply = names.map((n) => `1 ${n}`).join("\n");
+    await page.route("**/api/planeswalker/chat/stream", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: `data: ${JSON.stringify({ status: "done", text: reply })}\n\n`,
+      }));
+    await page.route("**/api/deck/validate-cards", (route) => {
+      const results = route.request().postDataJSON().names.map((n) => (n === "Lightning Bolt"
+        ? { input: n, name: n, status: "off_color", reason: "Outside the deck's color identity (WUBG)" }
+        : { input: n, name: n, status: "ok", reason: "" }));
+      return route.fulfill({ json: { identity: ["W", "U", "B", "G"], identity_source: "commander", results } });
+    });
+    const analyzed = [];
+    await page.route("**/api/deck/analyze", (route) => {
+      analyzed.push(route.request().postDataJSON().decklist);
+      return route.fallback();
+    });
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openChat(page);
+    await page.locator(".pw-chip", { hasText: "Fill gaps" }).click();
+
+    await page.getByRole("button", { name: "Load into deck" }).click();
+    await expect(page.locator(".toast")).toContainText("Added 9 to the deck (1 skipped");
+    await expect.poll(() => analyzed.at(-1) || "", { timeout: 15000 }).toContain("1 Thoughtseize");
+    expect(analyzed.at(-1)).not.toContain("Lightning Bolt");
+  });
 });
