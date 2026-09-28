@@ -67,7 +67,9 @@ class Preset:
       ``line_guard`` full-matches the text from the start of its line up to
       the hit (e.g. "not inside a 'Whenever…' ability"). Checking the line
       in Python keeps the patterns unanchored, which is several times faster
-      than putting the line rule into every regex.
+      than putting the line rule into every regex. ``sentence_veto`` rejects a
+      hit whose sentence contains it; ``header_veto`` rejects a hit on a "•"
+      mode line whose header line it matches.
 
     All may be set; they combine with OR. ``should_match`` and
     ``should_not_match`` are card-name fixtures used by the test suite.
@@ -83,6 +85,8 @@ class Preset:
     should_not_match: tuple[str, ...] = ()
     line_patterns: tuple[re.Pattern[str], ...] = ()
     line_guard: re.Pattern[str] | None = None
+    sentence_veto: re.Pattern[str] | None = None  # searched in the hit's sentence
+    header_veto: re.Pattern[str] | None = None  # matched at a "•" line's header
 
     def matches(self, card: dict) -> bool:
         if self.keywords:
@@ -105,20 +109,31 @@ class Preset:
         guard = self.line_guard
         for p in self.line_patterns:
             for m in p.finditer(oracle):
-                start = oracle.rfind("\n", 0, m.start()) + 1
-                if guard is None:
-                    return True
-                if not guard.fullmatch(oracle, start, m.start()):
+                s = m.start()
+                start = oracle.rfind("\n", 0, s) + 1
+                if guard is not None and not guard.fullmatch(oracle, start, s):
                     continue
+                if self.sentence_veto is not None:
+                    a = max(oracle.rfind(".", 0, s) + 1, start)
+                    ends = [
+                        i
+                        for i in (oracle.find(".", m.end()), oracle.find("\n", m.end()))
+                        if i >= 0
+                    ]
+                    if self.sentence_veto.search(
+                        oracle, a, min(ends, default=len(oracle))
+                    ):
+                        continue
                 # A "•" mode line belongs to the header above it ("Whenever
-                # Mishra enters or attacks, choose three —"): guard that too.
-                head = start
-                while head and oracle.startswith("•", head):
-                    head = oracle.rfind("\n", 0, head - 1) + 1
-                if head != start and not guard.fullmatch(
-                    oracle, head, oracle.find("\n", head)
-                ):
-                    continue
+                # Mishra enters or attacks, choose three —").
+                if self.header_veto is not None and oracle.startswith("•", start):
+                    head = start
+                    while head and oracle.startswith("•", head):
+                        head = oracle.rfind("\n", 0, head - 1) + 1
+                    if head != start and self.header_veto.match(
+                        oracle, head, oracle.find("\n", head)
+                    ):
+                        continue
                 return True
         return False
 
@@ -170,7 +185,19 @@ _MASS_SUBJECT = (
     r"|\beach (?:other )?creature (?:other than [^.]*? )?gets)"
 )
 _BIG_MINUS = r"-(?:X|\d+)/-(?:X|[2-9]|\d{2,})"  # kills 2-toughness, or scales
-_NO_COMBAT = r"(?![^.]*\b(?:attacking|blocking|blocked|attack|combat)\b)"
+# Combat-only / damage-conditional sentences are not wipes (Settle the Wreckage,
+# Cathedral Membrane, Aetherize, Restore the Peace). Checked in Python on the
+# hit's sentence (Preset.sentence_veto): as a leading regex lookahead it ran at
+# every character and made the scan quadratic.
+_NO_COMBAT = re.compile(
+    r"\b(?:attack(?:s|ed|ing)?|block(?:ed|ing)|combat|dealt damage)\b", re.IGNORECASE
+)
+# A "•" mode line under a repeatable trigger header (Mishra's "Whenever … attacks,
+# choose three —"). Light also rejects an activated header ("{2}, {T}: Choose one —").
+_HEADER_REPEATABLE = re.compile(_ABILITY_WORD + r"(?:whenever|at)\b", re.IGNORECASE)
+_HEADER_REPEATABLE_OR_ACTIVATED = re.compile(
+    _ABILITY_WORD + r"(?:whenever|at)\b|(?=[^\n]*:)", re.IGNORECASE
+)
 
 
 # ─── Evergreen keyword abilities ──────────────────────────────────────────
@@ -1128,11 +1155,10 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             # creature", graveyard cards, your own creatures (Lae'zel's
             # Acrobatics) and combat (Settle the Wreckage, Coils of the Medusa).
             r"\b(?:destroy|exile) all "
-            + _NO_COMBAT
-            + r"(?:(?!attached|\bcards?\b)[^.])*?\bcreatures\b(?! you control)",
+            r"(?:(?!attached|\bcards?\b)[^.])*?\bcreatures\b(?! you control)",
             # Planar Cleansing, Oblivion Stone, Engineered Explosives,
             # Scourglass, Ugin's -X. Not Steel Hellkite (combat damage only).
-            r"\b(?:destroy|exile) (?:all|each) " + _NO_COMBAT + r"(?:other )?"
+            r"\b(?:destroy|exile) (?:all|each) (?:other )?"
             r"(?:(?:nonland|nontoken),? )*permanents?\b"
             r"(?! (?:you control|chosen|named|with the most|with an? [\w-]+ counter))",
             # Culling Sun, Pernicious Deed, Powder Keg, Mutinous Massacre.
@@ -1144,9 +1170,9 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             # Blasphemous Act, Anger of the Gods, Hurricane-style X, "that
             # much" (Balefire-style one-shots) and "damage … equal to". Not
             # combat-only (Cathedral Membrane: "each creature it blocked").
-            _NO_COMBAT + r"\b(?:X|[2-9]|\d{2,}|X plus \d+|twice X|that much) "
+            r"\b(?:X|[2-9]|\d{2,}|X plus \d+|twice X|that much) "
             r"damage to " + _EACH_CREATURE,
-            _NO_COMBAT + r"\bdeals? damage to " + _EACH_CREATURE,
+            r"\bdeals? damage to " + _EACH_CREATURE,
             # Toxic Deluge, Massacre Wurm, The Meathook Massacre, Crippling
             # Fear; Mutilate/Planar Despair scale ("-1/-1 … for each").
             # Needs "until end of turn": static anthems (Elesh Norn,
@@ -1163,6 +1189,8 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             r"\bput all (?:other )?creatures on the bottom\b",
         ),
         line_guard=_WIPE_FULL_GUARD,
+        sentence_veto=_NO_COMBAT,
+        header_veto=_HEADER_REPEATABLE,
         patterns=_rx_any(
             # Overload removal: Damn, Winds of Abandon, Mizzium Mortars (the
             # "each" lives in Overload's reminder text).
@@ -1243,11 +1271,13 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             r"\buntil end of turn, [^.]*?" + _MASS_SUBJECT + r" -1/-1\b",
             # Seismic Wave, Radiating Lightning, Chandra's Fury, Goblin
             # Chainwhirler.
-            _NO_COMBAT + r"\b(?:1|one) damage to " + _EACH_CREATURE,
+            r"\b(?:1|one) damage to " + _EACH_CREATURE,
             # Soul Snuffers, Liliana's Influence, Contagion Engine.
             r"\ba -1/-1 counter on " + _EACH_CREATURE,
         ),
         line_guard=_WIPE_LIGHT_GUARD,
+        sentence_veto=_NO_COMBAT,
+        header_veto=_HEADER_REPEATABLE_OR_ACTIVATED,
         patterns=_rx(
             # Electrickery.
             r"\bdeals? 1 damage to target creature\b[\s\S]*?\boverload\b",
@@ -1290,17 +1320,23 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             "its owner's hand, including Overload bounce (Cyclonic Rift). "
             "Not single-target bounce (see `bounce`)."
         ),
-        patterns=_rx(
+        line_patterns=_rx_any(
             # Evacuation, Devastation Tide, Scourge of Fleets. Not Filter Out
             # (noncreature), graveyard/exile "cards", Auras, Denizen of the
-            # Deep bouncing your own creatures, or combat-only bounce
-            # (Aetherize, Trial // Error).
-            r"\breturn (?:all|each) " + _NO_COMBAT + r"(?!cards?\b|auras?\b)"
+            # Deep bouncing your own creatures; the vetoes drop combat-only
+            # bounce (Aetherize, Trial // Error, Restore the Peace) and
+            # repeatable triggers (Dromar, the Banisher).
+            r"\breturn (?:all|each) (?!cards?\b|auras?\b)"
             r"(?:(?!noncreature)[^.])*?"
             r"\b(?:creatures?|permanents?)\b(?! you control)[^.]*?"
             r"\bto (?:its|their) owners?'?s? hands?\b",
             # Engulf the Shore.
             r"\breturn to (?:its|their) owners?'?s? hands? all\b[^.]*?\bcreatures\b",
+        ),
+        line_guard=_WIPE_FULL_GUARD,
+        sentence_veto=_NO_COMBAT,
+        header_veto=_HEADER_REPEATABLE,
+        patterns=_rx(
             # Cyclonic Rift: the "each" lives in Overload's reminder text
             # (change "target" to "each"), so match target bounce + Overload.
             r"\breturn target [^.]*?(?:creature|permanent)[^.]*?"
@@ -1316,6 +1352,8 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             "Wrath of God",
             "Aetherize",  # combat-only
             "Trial // Error",  # combat-only
+            "Restore the Peace",  # only creatures that dealt damage
+            "Dromar, the Banisher",  # repeatable combat-damage trigger
         ),
     ),
     # ── Type-specific removal ──

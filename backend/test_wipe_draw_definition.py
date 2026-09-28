@@ -15,6 +15,7 @@ fully but are reported as `light` and rank below full ones in fills.
 """
 
 import sys
+import time
 
 sys.path.insert(0, ".")
 from app import config  # noqa: E402
@@ -65,6 +66,8 @@ NEITHER = (
     # Holiday's review of 3abe387, and combat-only bounce.
     "Cathedral Membrane", "Eye of Doom", "Volatile Rig", "Mishra, Lost to Phyrexia",
     "Aetherize", "Trial // Error",
+    # Review of 5960dc9: damage-conditional and repeatable-trigger bounce.
+    "Restore the Peace", "Dromar, the Banisher",
 )  # fmt: skip
 FULL = (
     "Toxic Deluge", "Black Sun's Zenith", "Crux of Fate", "The Meathook Massacre",
@@ -83,6 +86,8 @@ LIGHT_SWEEPERS = (
     # Repeatable activated pingers.
     "Pestilence", "Pyrohemia", "Pestilence Demon", "Thrashing Wumpus",
     "Withering Wisps",
+    # Modal spells whose header is a plain sentence ("Choose three. …").
+    "Fiery Confluence", "Riveteers Confluence",
 )  # fmt: skip
 for n in NEITHER:
     hit = [p.name for p in (FULL_WIPE, LIGHT_WIPE, BOUNCE) if p.matches(card(n))]
@@ -109,6 +114,22 @@ cats = {c["key"]: c for c in comp["categories"]}
 assert (cats["board-wipe"]["count"], cats["board-wipe"]["light"]) == (3, 1), cats
 assert all(isinstance(c["light"], int) for c in cats.values()), cats
 assert all(c["light"] == 0 for k, c in cats.items() if k != "board-wipe"), cats
+
+
+# --- regression guard: no quadratic pattern --------------------------------- #
+# One pass of the three wipe presets over the commander-legal pool took ~1.0s at
+# the time of writing (and 16s+ when a leading regex lookahead made it
+# quadratic). The ceiling is ~5x that: loose enough for a slow machine, tight
+# enough to fail loudly on a pathological pattern.
+legal = [
+    c for c in idx.values() if (c.get("legalities") or {}).get("commander") == "legal"
+]
+t0 = time.perf_counter()
+for c in legal:
+    for p in (FULL_WIPE, LIGHT_WIPE, BOUNCE):
+        p.matches(c)
+scan_s = time.perf_counter() - t0
+assert scan_s < 5.0, f"wipe preset scan took {scan_s:.1f}s over {len(legal)} cards"
 
 
 # --- the invariant: every fill candidate raises the count ------------------ #
