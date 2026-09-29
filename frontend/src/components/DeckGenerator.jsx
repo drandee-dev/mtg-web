@@ -3,6 +3,7 @@ import { api, BRACKETS, FORMATS, getCardImage } from "../lib/api";
 import { searchCommanders as scryfallSearchCommanders } from "../lib/scryfall";
 import { parseNarration } from "../lib/buildNotes";
 import { parseCollectionCsv, buildOwnedIndex, ownedQuantity } from "../lib/collection";
+import { mergeFills } from "../lib/fillMerge";
 import { fmtUsd } from "../lib/format";
 import { BoxIcon, CrownIcon, LayersIcon, ListIcon, SparkleIcon } from "./Icons";
 import CardPreview from "./CardPreview";
@@ -112,7 +113,8 @@ function assembleSkeleton(skeleton, commanderNames) {
       const name = c.name;
       if (!name || seen.has(name.toLowerCase())) continue;
       seen.add(name.toLowerCase());
-      spells.push({ name, qty: 1, category: label, reason: synergyReason(c) });
+      // roles stay on the entry: mergeFills won't cut a card a thin category needs.
+      spells.push({ name, qty: 1, category: label, reason: synergyReason(c), roles: c.roles || [] });
     }
   }
 
@@ -168,6 +170,25 @@ function partitionOwned(list, ownedIndex) {
   const other = [];
   for (const item of list) (ownedQuantity(item.name, ownedIndex) > 0 ? owned : other).push(item);
   return [owned, other];
+}
+
+/** Flatten an ai/fills response into mergeFills' proposed list. Every
+ *  category it returns is a thin one, suggestions or not. */
+function fillProposals(fills) {
+  const list = fills?.fills || [];
+  return {
+    proposed: list.flatMap((f) => (f.suggestions || []).map((s) => ({ ...s, category: f.category || "Fills" }))),
+    thinLabels: list.map((f) => f.category),
+  };
+}
+
+/** Carry fill reasons into the build notes, and say which spell a fill cut. */
+function noteFills(notes, { added, cut }) {
+  for (const c of cut) delete notes[c.name];
+  for (const a of added) {
+    const why = [a.reason, a.displaced && `Cut ${a.displaced} to make room.`].filter(Boolean).join(" ");
+    if (why) notes[a.name] = why;
+  }
 }
 
 /** Total copies in a raw "N Card Name" decklist. */
@@ -365,35 +386,20 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
         if (n.status === "fulfilled") Object.assign(notes, n.value);
       }
 
-      // Close whatever composition gaps the deck still reports, trading basic
-      // lands for the filled cards so the count stays at 100.
+      // Close whatever composition gaps the deck still reports. mergeFills
+      // keeps the count at 100 and the lands at the 36 floor.
       setProgress({ label: "Closing category gaps", pct: 80 });
-      const nextBasics = new Map(basics);
-      const added = [];
+      let merged = { cards, basics, added: [], cut: [] };
       try {
         const fills = await api.aiFills(full, format, bracket);
-        const have = new Set([...cards.map((c) => c.name.toLowerCase()), ...cmdNames.map((n) => n.toLowerCase())]);
-        const proposed = (fills?.fills || []).flatMap((f) =>
-          (f.suggestions || []).map((s) => ({ ...s, category: f.category || "Fills" })),
-        );
-        for (const s of proposed) {
-          const name = s.name;
-          if (!name || have.has(name.toLowerCase())) continue;
-          // Only trade away a basic we can spare — otherwise the count drifts.
-          const donor = [...nextBasics.entries()].find(([, q]) => q > 0);
-          if (!donor) break;
-          nextBasics.set(donor[0], donor[1] - 1);
-          if (nextBasics.get(donor[0]) === 0) nextBasics.delete(donor[0]);
-          have.add(name.toLowerCase());
-          added.push({ name, qty: 1, category: s.category, reason: s.reason || null });
-          if (s.reason) notes[name] = s.reason;
-        }
+        merged = mergeFills({ cards, basics, commanders: cmdNames, ...fillProposals(fills) });
       } catch { /* fills are optional — the skeleton deck stands on its own */ }
+      noteFills(notes, merged);
 
-      const finalCards = [...cards, ...added];
-      full = header + toLines(finalCards, nextBasics);
+      const finalCards = [...merged.cards, ...merged.added];
+      full = header + toLines(finalCards, merged.basics);
       setProgress({ label: "Done", pct: 100 });
-      setBuilt({ commander: commanderName, cards: finalCards, basics: nextBasics, notes, decklist: full });
+      setBuilt({ commander: commanderName, cards: finalCards, basics: merged.basics, notes, decklist: full });
       setStepIdx(steps.length - 1);
     } catch (e) {
       notify?.(`Build failed: ${e.message}`);
@@ -471,30 +477,19 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
       }
 
       setProgress({ label: "Closing category gaps", pct: 65 });
-      const nextBasics = new Map(basics);
-      const added = [];
+      let merged = { cards, basics, added: [], cut: [] };
       try {
         const fills = await api.aiFills(full, format, bracket);
-        const have = new Set([...cards.map((c) => c.name.toLowerCase()), ...cmdNames.map((n) => n.toLowerCase())]);
-        const proposed = (fills?.fills || []).flatMap((f) =>
-          (f.suggestions || []).map((s) => ({ ...s, category: f.category || "Fills" })),
-        );
-        const [ownedProposed, otherProposed] = partitionOwned(proposed, ownedIndex);
-        for (const s of [...ownedProposed, ...otherProposed]) {
-          const name = s.name;
-          if (!name || have.has(name.toLowerCase())) continue;
-          const donor = [...nextBasics.entries()].find(([, q]) => q > 0);
-          if (!donor) break;
-          nextBasics.set(donor[0], donor[1] - 1);
-          if (nextBasics.get(donor[0]) === 0) nextBasics.delete(donor[0]);
-          have.add(name.toLowerCase());
-          added.push({ name, qty: 1, category: s.category, reason: s.reason || null });
-          if (s.reason) notes[name] = s.reason;
-        }
+        const { proposed, thinLabels } = fillProposals(fills);
+        merged = mergeFills({
+          cards, basics, commanders: cmdNames, thinLabels,
+          proposed: partitionOwned(proposed, ownedIndex).flat(),
+        });
       } catch { /* fills are optional — the skeleton deck stands on its own */ }
+      noteFills(notes, merged);
 
-      const finalCards = [...cards, ...added];
-      full = header + toLines(finalCards, nextBasics);
+      const finalCards = [...merged.cards, ...merged.added];
+      full = header + toLines(finalCards, merged.basics);
 
       // Owned vs buy: flag every non-basic pick, then price only the gap.
       setProgress({ label: "Pricing what you'd need to buy", pct: 88 });
@@ -513,7 +508,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
 
       setProgress({ label: "Done", pct: 100 });
       setBuilt({
-        commander: commanderName, cards: finalCards, basics: nextBasics, notes, decklist: full,
+        commander: commanderName, cards: finalCards, basics: merged.basics, notes, decklist: full,
         buyList, buyTotal, ownedCount: finalCards.length - buyList.length,
       });
       setStepIdx(steps.length - 1);
