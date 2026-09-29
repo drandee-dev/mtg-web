@@ -1616,10 +1616,17 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             # Chaos Warp, Run Out of Town ("its owner puts it on top or bottom").
             r"\btarget " + _SPOT_SPAN + _SPOT_NOUN + r"(?:'s owner|)[^.]*? "
             r"(?:shuffles?|puts) (?:it|them) (?:into|on)\b[^.]*?\blibrar",
+            # Edicts (decision 36): Diabolic Edict, Vraska's Fall, Fleshbag
+            # Marauder. No lands in the noun list: that's land destruction.
+            r"\b(?:target (?:player|opponent)|each (?:other )?(?:player|opponent)"
+            r"|that player|defending player) sacrifices (?:a|an|one|two|three|X|\d+) "
+            r"(?:[\w-]+ )?(?:creature|planeswalker|artifact|enchantment"
+            r"|nonland permanent)s?\b",
         ),
         sentence_veto=_SPOT_VETO,
         unless=_ANY_WIPE,
         should_match=(
+            "Diabolic Edict",  # edict branch
             "Swords to Plowshares",
             "Lightning Bolt",
             "Prey Upon",
