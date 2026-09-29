@@ -63,6 +63,9 @@ MUST_FULL = (
     "Venser, the Sojourner",
     # Decision 22: repeatable "any target" damage engines.
     "Terror of the Peaks", "Warstorm Surge", "Kaervek the Merciless",
+    # Decision 36: edicts. The generator cut these for Tergrid before.
+    "Diabolic Edict", "Vraska's Fall", "Pharika's Libation", "Fleshbag Marauder",
+    "Plaguecrafter", "Sheoldred's Edict", "Grave Pact",
 )  # fmt: skip
 # Decision 23: -1/-1 counters on a target creature are light.
 LIGHT_ONLY = ("Unsummon", "Boomerang", "Necropede", "Dread Tiller", "Skinrender")
@@ -88,6 +91,12 @@ NEITHER += (
     "Blighted Agent", "Core Prowler", "Necroskitter",  # Infect/Wither alone
     "Rescue", "Alley Evasion",  # returning your own permanent
     "Pacifism", "Llanowar Elves", "Giant Growth",
+    # Land edicts are land destruction; punishers the opponent opts into
+    # ("unless that player sacrifices") are not edicts (Holiday, 5acd934).
+    "Tectonic Break", "Torment of Hailfire", "Indulgent Tormentor",
+    "Demanding Dragon",
+    # An edict mode on a card with a wipe mode is a wipe only (the unless veto).
+    "Gix's Command",
 )  # fmt: skip
 for n in MUST_FULL:
     assert FULL.matches(card(n)), f"{n} should be full spot removal"
