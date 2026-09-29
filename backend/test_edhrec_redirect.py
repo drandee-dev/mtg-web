@@ -95,6 +95,19 @@ def test_all_empty_gives_note():
     print("ok: all-empty recommendations carry a note")
 
 
+def test_failure_note_leaks_nothing():
+    secret = "403 Client Error for url: https://json.edhrec.com/pages/x.json?k=abc"
+
+    def boom(names):
+        raise RuntimeError(secret)
+
+    mtg.edhrec_lookup = boom
+    r = mtg.deck_recommendations("Commander\n1 Tymna the Weaver")
+    assert r["categories"] == {} and r.get("note"), r
+    assert "edhrec.com" not in r["note"] and "403" not in r["note"], r
+    print("ok: an EDHREC failure returns an opaque note")
+
+
 if __name__ == "__main__":
     _real_get, _real_lookup, _real_index = (
         requests.Session.get, mtg.edhrec_lookup, mtg._bulk_index
@@ -104,6 +117,7 @@ if __name__ == "__main__":
         test_self_redirect_does_not_loop()
         test_second_redirect_not_followed()
         test_all_empty_gives_note()
+        test_failure_note_leaks_nothing()
         print("\nall passed")
     finally:
         requests.Session.get, mtg.edhrec_lookup, mtg._bulk_index = (
