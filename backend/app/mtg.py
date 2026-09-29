@@ -23,10 +23,13 @@ config.bootstrap_mtg_utils()
 from mtg_utils._name_index import build_name_index, keep_cheaper  # noqa: E402
 from mtg_utils.bulk_loader import bulk_mtime, load_bulk_cards  # noqa: E402
 from mtg_utils.card_classify import (  # noqa: E402
+    RAMP_PREFILTER,
     extract_price,
     get_oracle_text,
     is_commander,
+    is_ramp,
     partner_ability,
+    ramp_tier,
     valid_partner_search,
 )
 from mtg_utils.card_search import search_cards as _search_cards  # noqa: E402
@@ -819,7 +822,7 @@ def commander_synergies(name: str, limit: int = 10) -> list[dict]:
 # a card matching both tiers is full.
 _COMPOSITION = [
     ("lands", "Lands", 36, None, ()),  # from deck_stats.land_count
-    ("ramp", "Ramp", 10, None, ()),  # from deck_stats.ramp_count
+    ("ramp", "Ramp", 10, None, ()),  # deck_stats.ramp_count / ramp_light_count
     ("card-draw", "Card draw", 10, ("card-draw", "cantrip"), ()),
     ("removal", "Spot removal", 8, ("spot-removal",), ("spot-removal-light",)),
     (
@@ -852,6 +855,7 @@ def deck_composition(text: str, *, fmt: str = "commander") -> dict[str, Any]:
             count = stats.get("land_count", 0)
         elif key == "ramp":
             count = stats.get("ramp_count", 0)
+            light = stats.get("ramp_light_count", 0)
         else:
             full = [get_preset(p) for p in presets]
             lite = [get_preset(p) for p in light_presets]
@@ -2022,13 +2026,16 @@ def budget_swaps(
                     search_cfg = _FILL_SEARCH.get(key)
                     break
             if not search_cfg:
+                # Ramp swaps search the fills' ramp config (the count's definition);
+                # lands classify as Land only (never Ramp): like for like.
+                search_cfg = _FILL_SEARCH.get(
+                    {"Ramp": "ramp", "Land": "lands"}.get(role)
+                )
+            if not search_cfg:
                 for pattern, label in _ORACLE_ROLES:
                     if label == role:
                         search_cfg = {"oracle": pattern, "type": None}
                         break
-            # Lands classify as Land only (never Ramp) — replace like for like.
-            if not search_cfg and role == "Land":
-                search_cfg = {"oracle": None, "type": "land"}
             if search_cfg:
                 try:
                     cands = _fill_candidates(
@@ -2109,10 +2116,9 @@ _FILL_SEARCH = {
     # budget_swaps looks up the first _ROLE_CHECKS key for a role label.
     "spot-removal": _COMPOSITION_PRESETS["removal"],
     "card-draw": _COMPOSITION_PRESETS["card-draw"],
-    "ramp": {
-        "oracle": r"add \{|search your library for a.*land|mana of any",
-        "type": None,
-    },
+    # Ramp: a cheap oracle prefilter, then card_classify.ramp_tier (the ramp count's
+    # own definition) keeps only ramp, never a land, full tier first.
+    "ramp": {"oracle": RAMP_PREFILTER, "tier": ramp_tier, "type": None},
     "lands": {"oracle": None, "type": "land"},
 }
 
@@ -2123,8 +2129,10 @@ def _fill_candidates(
     """Search for cards in one role (a _FILL_SEARCH-shaped cfg).
 
     A cfg with "presets" matches ANY of its full and light presets in one pool
-    scan. Full-tier cards come first, then light-tier ones, each in the caller's
-    sort order; the limit applies after that.
+    scan. A cfg with "tier" (a card -> "full" | "light" | None function) scans its
+    "oracle" prefilter and keeps the cards the function tiers. Either way, full-tier
+    cards come first, then light-tier ones, each in the caller's sort order; the
+    limit applies after that.
     """
     kw = {
         "card_type": cfg.get("type"),
@@ -2133,18 +2141,28 @@ def _fill_candidates(
         "sort": sort,
     }
     presets = cfg.get("presets")
-    if not presets:
+    tier = cfg.get("tier")
+    if tier:
+        found = _search_cards(
+            config.BULK_PATH, oracle=cfg.get("oracle"), limit=None, **kw
+        )
+    elif presets:
+        light = cfg.get("light") or ()
+        found = _search_cards(
+            config.BULK_PATH, any_preset_names=(*presets, *light), limit=None, **kw
+        )
+        full = [get_preset(p) for p in presets]
+
+        def tier(c: dict) -> str:
+            return "full" if any(m.matches(c) for m in full) else "light"
+
+    else:
         return _search_cards(
             config.BULK_PATH, oracle=cfg.get("oracle"), limit=limit, **kw
         )
-    light = cfg.get("light") or ()
-    found = _search_cards(
-        config.BULK_PATH, any_preset_names=(*presets, *light), limit=None, **kw
-    )
-    full = [get_preset(p) for p in presets]
-    is_full = [any(m.matches(c) for m in full) for c in found]
-    ranked = [c for c, f in zip(found, is_full) if f]
-    ranked += [c for c, f in zip(found, is_full) if not f]
+    tiers = [tier(c) for c in found]
+    ranked = [c for c, t in zip(found, tiers) if t == "full"]
+    ranked += [c for c, t in zip(found, tiers) if t == "light"]
     return ranked[:limit]
 
 
@@ -2411,9 +2429,7 @@ _ORACLE_ROLES = [
     ),
     (r"\breturn.*from.*graveyard\b|\breanimate\b", "Recursion"),
     (r"\bsacrifice\b", "Sacrifice"),
-    (r"\b(?:add|adds)\s+(?:\{|one mana|two mana|three mana|\w+ mana)", "Ramp"),
-    (r"\bsearch your library for a.*land\b", "Ramp"),
-    (r"\bput.*land.*onto the battlefield\b", "Ramp"),
+    (is_ramp, "Ramp"),  # the ramp count's own definition, not a regex
     (r"\bgain.*life\b|\blifelink\b", "Lifegain"),
     (r"\bmutate\b", "Mutate"),
     (r"\bdredge\b|\bmill\b", "Graveyard fill"),
@@ -2460,7 +2476,13 @@ def _classify_roles(card: dict | None) -> list[str]:
         nonland_face_text.lower() if nonland_face_text else _full_oracle(card).lower()
     )
     for pattern, label in _ORACLE_ROLES:
-        if label not in roles and re.search(pattern, oracle, re.IGNORECASE):
+        if label in roles:
+            continue
+        if callable(pattern):
+            hit = pattern(card)
+        else:
+            hit = re.search(pattern, oracle, re.IGNORECASE)
+        if hit:
             roles.append(label)
 
     # 3. Type-line based roles (lands already returned above)

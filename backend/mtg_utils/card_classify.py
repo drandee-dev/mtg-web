@@ -125,41 +125,134 @@ def is_creature(card: dict) -> bool:
 # — so a counterspell that hands an opponent Treasures carries "(… Add one mana …)" even
 # though it produces no mana for you.
 _REMINDER_RE = re.compile(r"\([^)]*\)")
-_ADD_MANA_RE = re.compile(r"add\s+(?:\{|one mana|mana of|an amount of mana)")
-# Phrases that hand a created token to someone other than you (An Offer You Can't
-# Refuse: "Its controller creates two Treasure tokens").
-_OPPONENT_DIRECTED = (
-    "its controller",
-    "target opponent",
-    "each opponent",
-    "target player",
+# Mana YOU get: "Add {G}", "Add one/two/X mana", "Add an amount of {G}" (Karametra's
+# Acolyte), "add mana of that color"; an Aura on your land ("Whenever enchanted land is
+# tapped for mana, its controller adds…", Utopia Sprawl); and "target player adds"
+# (Spectral Searchlight), since you can pick yourself. "That player adds" after "a
+# player taps" (Mana Flare), "each player adds" and "its controller may add" on every
+# Island (Snowfall) are symmetric: not ramp. Your own
+# mana doublers count as mana too: "add an additional {G}" (Leyline of Abundance),
+# "produces twice as much" (Mana Reflection, Nyxbloom Ancient), Doubling Cube.
+_ADD_MANA_RE = re.compile(
+    r"(?<!controller may )\badd\s+(?:an additional\s+)?(?:\{|(?:one|two|three|four"
+    r"|five|six|seven|eight|nine|ten|x|that much|an amount of)\s+(?:\{|mana\b)|mana of)"
+    r"|whenever enchanted [^.]*its controller adds"
+    r"|(?:target player|a player of your choice|choose a player\. that player) adds"
+    r"|produces (?:twice|three times) as much|double the amount of each type of unspent"
 )
+_LAND_WORD = (
+    r"\b(?:lands?|plains|islands?|swamps?|mountains?|forests?|caves?|deserts?|gates?)\b"
+)
+# A land from your library onto the battlefield: Rampant Growth, Cultivate, Three
+# Visits ("a Forest card"), Farseek, Elemental Teachings (two sentences later). "search
+# their library" (Path to Exile) isn't yours, and a fetch to hand (Lay of the Land,
+# Expedition Map) adds no mana: neither tier.
+_LAND_TO_BATTLEFIELD_RE = re.compile(
+    rf"search your library for [^.]*?{_LAND_WORD}[^.]*(?:\.[^.]*){{0,2}}?"
+    r"onto the battlefield"
+)
+# A token YOU create that makes mana, or fetches a land (a Lander is a Wayfarer's
+# Bauble). "Creates" and "they create" are someone else's (An Offer You Can't Refuse:
+# "Its controller creates two Treasure tokens"; Pain Distributor), and a line with "if
+# you would create" is a replacement effect (Academy Manufactor), not a maker. The
+# token's own "Add" is reminder text, so it's matched by name, or by an Add inside the
+# line's reminder.
+_YOU_CREATE_RE = re.compile(r"^(?!.*\bwould create\b).*(?<!they )\bcreate\b")
+_MANA_TOKEN_RE = re.compile(r"\b(?:treasure|gold|powerstone|vibranium)\b")
+_LAND_TOKEN_RE = re.compile(r"\blander\b")
+# Extra land drops (decision 31): Exploration, Azusa, Growth Spiral, Burgeoning.
+# "Each player may play an additional land" (Rites of Flourishing) is symmetric.
+_EXTRA_LAND_RE = re.compile(
+    r"(?<!each player may play )(?:an|two|three|x|\bup to \w+) additional lands?\b"
+    r"|land cards? from your hand onto the battlefield"
+)
+# One-shot triggers: "When … enters, add {B}{B}{B}" (after an optional ability word,
+# unless it also fires "at the beginning of" each upkeep) and Saga chapters.
+_ONE_SHOT_RE = re.compile(
+    r"^(?:(?:[^—:]*—\s*)?when\b(?![^,]*at the beginning)|[ivx]+(?:, [ivx]+)* —)"
+)
+# A line that continues the one above it: a modal bullet or a die-roll result row.
+_CONTINUATION_RE = re.compile(r"^(?:•|\d+(?:—\d+)? \|)")
+# An activated ability's cost: the text before its colon, unless a quote comes first
+# (then the colon belongs to an ability granted to something else).
+_COST_RE = re.compile(r'^([^:"]*):')
+
+
+def _ramp_face_tier(name: str, type_line: str, text: str) -> str | None:
+    spell = "Instant" in type_line or "Sorcery" in type_line
+    tier = None
+    head = ""
+    for raw in text.lower().split("\n"):
+        line = _REMINDER_RE.sub("", raw).strip()
+        if not _CONTINUATION_RE.match(line):
+            head = line
+        if _LAND_TO_BATTLEFIELD_RE.search(line):
+            return "full"
+        you_create = _YOU_CREATE_RE.search(line)
+        if you_create and (
+            _LAND_TOKEN_RE.search(line) or (_LAND_TO_BATTLEFIELD_RE.search(raw))
+        ):
+            return "full"
+        if _ADD_MANA_RE.search(line) or (
+            you_create and (_MANA_TOKEN_RE.search(line) or _ADD_MANA_RE.search(raw))
+        ):
+            if not (spell or _ONE_SHOT_RE.match(head) or _self_cost(name, head)):
+                return "full"
+            tier = "light"
+        elif _EXTRA_LAND_RE.search(line):
+            tier = "light"
+    return tier
+
+
+def _self_cost(name: str, line: str) -> bool:
+    """True if the line's activation cost sacrifices, exiles or discards the card
+    itself (Lotus Petal, Simian Spirit Guide): mana it makes only once."""
+    cost = _COST_RE.match(line)
+    if not cost:
+        return False
+    names = {name.lower(), name.split(",")[0].lower(), "this"}
+    return any(
+        f"{verb} {n}" in cost.group(1)
+        for verb in ("sacrifice", "exile", "discard")
+        for n in names
+    )
+
+
+def ramp_tier(card: dict) -> str | None:
+    """Ramp tier of a card: "full", "light" or None (decisions 30-32).
+
+    Full: repeatable mana (rocks, dorks, land Auras, repeatable Treasure makers) or a
+    land from your library onto the battlefield. Light: extra land drops and one-shot
+    mana (rituals, self-sacrificing rocks, a single batch of Treasure). Lands, MDFCs
+    with a land face included, are never ramp. A face that is a land (the back of a
+    transforming card) doesn't count either.
+    """
+    if is_land(card):
+        return None
+    faces = [
+        f for f in card.get("card_faces") or [] if "Land" not in f.get("type_line", "")
+    ] or [card]
+    tiers = {
+        _ramp_face_tier(
+            f.get("name", ""), f.get("type_line", ""), f.get("oracle_text") or ""
+        )
+        for f in faces
+    }
+    return "full" if "full" in tiers else "light" if "light" in tiers else None
 
 
 def is_ramp(card: dict) -> bool:
-    """Check if a non-land card produces mana or fetches lands."""
-    if is_land(card):
-        return False
+    """Check if a non-land card is ramp of either tier (see ``ramp_tier``)."""
+    return ramp_tier(card) is not None
 
-    oracle = get_oracle_text(card)
-    oracle_lower = oracle.lower()
 
-    # Non-land cards that add mana in any form:
-    #   "Add {C}{C}" / "Add {G}" — mana symbols
-    #   "Add one mana of any color" — flexible mana (e.g. Birds of Paradise)
-    #   "add mana of that color" — conditional mana (e.g. Bloom Tender)
-    #   "Add X mana" — scaled mana (e.g. Nykthos)
-    # The card ITSELF adds mana when the match survives stripping reminder text.
-    if _ADD_MANA_RE.search(_REMINDER_RE.sub("", oracle_lower)):
-        return True
-    # Otherwise the only "add mana" is a token's reminder (Treasure/Gold/…). That's ramp
-    # when YOU keep the token (Dockside, Smothering Tithe), NOT when it's handed to an
-    # opponent (An Offer You Can't Refuse counters a spell, Treasuring its controller).
-    if _ADD_MANA_RE.search(oracle_lower):
-        return not any(p in oracle_lower for p in _OPPONENT_DIRECTED)
-
-    # Cards that search library for lands
-    return "search your library for" in oracle_lower and "land" in oracle_lower
+# Cheap oracle-text prefilter for searching ramp: every card ``ramp_tier`` accepts
+# matches it (a superset, asserted over the whole pool by test_ramp_definition.py), so
+# a search can scan with this regex and run ``ramp_tier`` on the survivors only.
+RAMP_PREFILTER = (
+    r"\badd|search your library|treasure|gold|powerstone|vibranium|lander"
+    r"|from your hand onto the battlefield|as much|double the amount"
+)
 
 
 # Pattern to find explicit mana symbols in "Add {X}" patterns

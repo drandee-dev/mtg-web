@@ -16,7 +16,7 @@ from mtg_utils.card_classify import (
     get_oracle_text,
     is_creature,
     is_land,
-    is_ramp,
+    ramp_tier,
 )
 from mtg_utils.hydrated_deck import HydratedDeck
 
@@ -200,7 +200,8 @@ def deck_stats(hd: HydratedDeck) -> dict:
     total_cards = 0
     land_count = 0
     creature_count = 0
-    ramp_count = 0
+    ramp_count = 0  # full + light
+    ramp_light_count = 0
     game_changer_count = 0
     fast_mana_count = 0
     power_sum = 0.0
@@ -235,8 +236,11 @@ def deck_stats(hd: HydratedDeck) -> dict:
                 toughness_sum += t * qty
                 pt_creatures += qty
 
-        if is_ramp(card):
+        tier = ramp_tier(card)
+        if tier:
             ramp_count += qty
+            if tier == "light":
+                ramp_light_count += qty
 
         if card.get("game_changer"):
             game_changer_count += qty
@@ -269,6 +273,7 @@ def deck_stats(hd: HydratedDeck) -> dict:
         "land_count": land_count,
         "creature_count": creature_count,
         "ramp_count": ramp_count,
+        "ramp_light_count": ramp_light_count,
         "game_changer_count": game_changer_count,
         "fast_mana_count": fast_mana_count,
         "avg_power": round(power_sum / pt_creatures, 2) if pt_creatures else None,
