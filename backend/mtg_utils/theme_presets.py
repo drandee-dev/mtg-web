@@ -190,7 +190,9 @@ _MASS_SUBJECT = (
     r"(?:\b(?:all (?:other )?|other |non-?\w+ )creatures get"
     r"|\bcreatures (?:your opponents control|you don't control|"
     r"target player controls|that aren't of the chosen type) get"
-    r"|\beach (?:other )?creature (?:other than [^.]*? )?gets)"
+    # "each non-Vampire creature" (Olivia's Wrath), "each other nonartifact
+    # creature" (Winter, Cursed Rider).
+    r"|\beach (?:other )?(?:non-?[\w-]+ )?creature (?:other than [^.]*? )?gets)"
 )
 _BIG_MINUS = r"-(?:X|\d+)/-(?:X|[2-9]|\d{2,})"  # kills 2-toughness, or scales
 # Combat-only / damage-conditional sentences are not wipes (Settle the Wreckage,
@@ -218,8 +220,23 @@ _SPOT_NOUN = (
     r"(?!(?:(?:,? (?:and/or|or|and)|,) [\w-]+(?: [\w-]+)?)* "
     r"(?:you (?:control|own)\b|cards?\b|spells?\b))"
 )
+# Between "target" and the noun, but not past a "card": "exile target card
+# from a graveyard … permanents" is graveyard hate (Moratorium Stone).
+_SPOT_SPAN = r"(?:(?!\bcards?\b)[^.])*?"
 # "target X", "another target X", "up to one target X", "two target Xs".
-_SPOT_TARGET = r"(?:another |up to \w+ (?:other )?|\w+ )?target [^.]*?" + _SPOT_NOUN
+_SPOT_TARGET = (
+    r"(?:another |up to \w+ (?:other )?|\w+ )?target " + _SPOT_SPAN + _SPOT_NOUN
+)
+# Temporary flicker: the next sentence returns the exiled card to its owner
+# (Flickerwisp, Otherworldly Journey, Astral Slide's "If you do, return …").
+# Not "When this leaves the battlefield, return" (Oblivion Ring) and not a
+# conditional return (Parting Gust's "If the gift wasn't promised, return").
+# A trailing lookahead, so it only runs where an exile hit.
+_NOT_TEMP_FLICKER = (
+    r"(?![^.]*\.\s+(?:(?:At the beginning of [^,.]*|If you do), )?return "
+    r"(?:that card|it|them|the exiled cards?|those cards) to the battlefield"
+    r"[^.]*?\bunder (?:its|their) owners?'?s?'? control)"
+)
 # Damage names its target within a few words, so "deals 2 damage to target
 # opponent and 1 damage to each creature" is not creature removal, and face
 # burn with a planeswalker option ("target player or planeswalker") isn't either.
@@ -1215,7 +1232,7 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             # Fear; Mutilate/Planar Despair scale ("-1/-1 … for each").
             # Needs "until end of turn": static anthems (Elesh Norn,
             # Ascendant Evincar) are not wipes; Ivory Charm's -2/-0 isn't either.
-            _MASS_SUBJECT + r" " + _BIG_MINUS + r" until end of turn",
+            _MASS_SUBJECT + r" (?:twice )?" + _BIG_MINUS + r" until end of turn",
             _MASS_SUBJECT + r" -1/-1 until end of turn for each\b",
             # Black Sun's Zenith, Darkness Descends.
             r"\b(?:X|two|three|four|five|[2-9]) -1/-1 counters "
@@ -1263,6 +1280,10 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             "Havoc Demon",  # death-trigger wipes stay full
             "Child of Alara",
             "Ryusei, the Falling Star",
+            "Olivia's Wrath",  # "each non-Vampire creature"
+            "Nuclear Fallout",  # "twice -X/-X"
+            "Scavenger Regent // Exude Toxin",
+            "Winter, Cursed Rider",
         ),
         should_not_match=(
             "Lightning Bolt",
@@ -1562,8 +1583,9 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
     # of your own creature, graveyard hate, Infect/Wither on keyword alone,
     # mass -X/-X), plus "another target" (Oblivion Ring), X burn (Fireball),
     # bites (Rabid Bite) and tuck (Condemn, Chaos Warp). Light tier: targeted
-    # bounce of someone else's permanent. Neither: counterspells, land
-    # destruction, Pacifism-style auras, and anything any wipe tier matches.
+    # bounce of someone else's permanent, -1/-1 counters on a target creature.
+    # Neither: counterspells, land destruction, Pacifism-style auras, temporary
+    # flicker, and anything any wipe tier matches.
     # The shared `removal` and type presets stay as they are: cube-balance and
     # theme audits read them.
     Preset(
@@ -1576,7 +1598,7 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
         ),
         keywords=("Fight",),
         line_patterns=_rx_any(
-            r"\b(?:destroy|exile) " + _SPOT_TARGET,
+            r"\b(?:destroy|exile) " + _SPOT_TARGET + _NOT_TEMP_FLICKER,
             r"\bdeals? (?:(?:\d+|X)(?: plus \d+)? )?damage (?:equal to [^.]*? )?"
             r"to " + _SPOT_DAMAGE_TARGET,
             # Not Dwarven Catapult's "among all creatures target opponent controls".
@@ -1592,7 +1614,7 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             r"\b(?:on (?:the )?(?:top|bottom) of|into) (?:its|their) "
             r"owner(?:'s|s'|s)? librar",
             # Chaos Warp, Run Out of Town ("its owner puts it on top or bottom").
-            r"\btarget [^.]*?" + _SPOT_NOUN + r"(?:'s owner|)[^.]*? "
+            r"\btarget " + _SPOT_SPAN + _SPOT_NOUN + r"(?:'s owner|)[^.]*? "
             r"(?:shuffles?|puts) (?:it|them) (?:into|on)\b[^.]*?\blibrar",
         ),
         sentence_veto=_SPOT_VETO,
@@ -1619,23 +1641,31 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             "Unsummon",  # light tier
             "Cloudshift",  # your own creature
             "The Scarab God",  # graveyard card
+            "Moratorium Stone",  # graveyard card, then "permanents"
             "Blighted Agent",  # Infect keyword alone
             "Pacifism",
+            "Flickerwisp",  # returns at the next end step
+            "Eldrazi Displacer",  # "then return it" (sentence veto)
+            "Honorable Passage",  # damage prevention (sentence veto)
         ),
     ),
     Preset(
         name="spot-removal-light",
         description=(
             "Light spot removal: returns a target creature or permanent you "
-            "don't control to its owner's hand (Unsummon). Not mass bounce."
+            "don't control to its owner's hand (Unsummon), or puts -1/-1 "
+            "counters on one (Necropede). Not mass bounce."
         ),
         line_patterns=_rx(
             r"\breturn " + _SPOT_TARGET + r"[^.]*?"
             r"\bto (?:its|their) owner(?:'s|s'|s)? hands?\b",
+            r"\bputs? (?:a|an|one|two|three|four|five|six|X|\d+|that many) "
+            r"-1/-1 counters? on (?:another |up to \w+ (?:other )?)?target "
+            r"(?:[\w,'-]+ ){0,4}?" + _SPOT_NOUN,
         ),
         sentence_veto=_SPOT_VETO,
         unless=_ANY_WIPE,
-        should_match=("Unsummon", "Boomerang"),
+        should_match=("Unsummon", "Boomerang", "Necropede"),
         should_not_match=(
             "Swords to Plowshares",
             "Cyclonic Rift",  # mass bounce
@@ -2334,6 +2364,8 @@ def _build_registry() -> MappingProxyType[str, Preset]:
             msg = f"duplicate preset name: {p.name!r}"
             raise ValueError(msg)
         names_seen[p.name] = p
+    if unknown := {n for p in all_presets for n in p.unless} - names_seen.keys():
+        raise ValueError(f"unknown preset in unless: {sorted(unknown)}")
     return MappingProxyType(names_seen)
 
 

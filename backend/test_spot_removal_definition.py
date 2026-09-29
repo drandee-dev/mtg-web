@@ -57,9 +57,29 @@ MUST_FULL = (
     "Reclamation Sage",
     # The other additions named in the brief.
     "Disintegrate", "Crater's Claws", "Soul's Fire", "Spin into Myth",
+    # Decision 20: exile until the exiling permanent leaves stays full, and so
+    # do a permanent-exile mode (Parting Gust) and an emblem (Venser).
+    "Journey to Nowhere", "Fiend Hunter", "Detention Sphere", "Parting Gust",
+    "Venser, the Sojourner",
+    # Decision 22: repeatable "any target" damage engines.
+    "Terror of the Peaks", "Warstorm Surge", "Kaervek the Merciless",
 )  # fmt: skip
-LIGHT_ONLY = ("Unsummon", "Boomerang")
+# Decision 23: -1/-1 counters on a target creature are light.
+LIGHT_ONLY = ("Unsummon", "Boomerang", "Necropede", "Dread Tiller", "Skinrender")
 NEITHER = (
+    # Decision 20: temporary flicker (returns at the next end step).
+    "Flickerwisp", "Otherworldly Journey", "Astral Slide", "Roon of the Hidden Realm",
+    "Twining Twins // Swift Spiral", "Mystifying Maze", "Skybind", "Voyager Staff",
+    "Hide on the Ceiling", "Disorder in the Court", "Phelia, Exuberant Shepherd",
+    # Blink straight back, and damage prevention (the sentence veto).
+    "Eldrazi Displacer", "Flicker", "Honorable Passage", "Charm Peddler",
+    # Graveyard hate whose sentence names a permanent after the card (Holiday).
+    "Armored Scrapgorger", "Immersturm Predator", "Eater of the Dead",
+    "Patchwork Crawler", "Morbid Bloom", "Moratorium Stone", "Arcane Proxy",
+    # -1/-1 counters on your own creature; +1/+1 counters.
+    "Plague Belcher", "Channeler Initiate", "Travel Preparations",
+)  # fmt: skip
+NEITHER += (
     "Wasteland", "Strip Mine", "Dust Bowl", "Sinkhole",  # land destruction
     "Counterspell", "Essence Scatter",  # counterspells
     "Toxic Deluge", "Wrath of God", "Cyclonic Rift", "Evacuation",  # wipes

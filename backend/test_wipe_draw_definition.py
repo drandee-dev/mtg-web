@@ -79,6 +79,9 @@ FULL = (
     "Havoc Demon", "Child of Alara", "False Prophet", "Nevinyrral, Urborg Tyrant",
     "Piru, the Volatile", "Ryusei, the Falling Star", "Elvish Dreadlord",
     "Magma Phoenix", "Bearer of the Heavens",
+    # Decision 21 (job 2b): "each non-X creature", "twice -X/-X".
+    "Olivia's Wrath", "Nuclear Fallout", "Scavenger Regent // Exude Toxin",
+    "Winter, Cursed Rider",
 )  # fmt: skip
 LIGHT_SWEEPERS = (
     "Cower in Fear", "Festergloom", "Nausea", "Shrivel",
