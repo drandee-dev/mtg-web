@@ -145,19 +145,49 @@ _LAND_WORD = (
 )
 # A land from your library onto the battlefield: Rampant Growth, Cultivate, Three
 # Visits ("a Forest card"), Farseek, Elemental Teachings (two sentences later). "search
-# their library" (Path to Exile) isn't yours, and a fetch to hand (Lay of the Land,
-# Expedition Map) adds no mana: neither tier.
+# their library" (Path to Exile) isn't yours.
 _LAND_TO_BATTLEFIELD_RE = re.compile(
     rf"search your library for [^.]*?{_LAND_WORD}[^.]*(?:\.[^.]*){{0,2}}?"
     r"onto the battlefield"
+)
+# Sacrificing a land to fetch ONE land is a swap, not ramp (Crop Rotation, Knight of
+# the Reliquary); fetching two for one (Harrow) still is. Only a sacrifice paid for
+# the fetch counts: in its cost, or as the spell's additional cost (not Alpine Guide's
+# "when it leaves, sacrifice a Mountain").
+_LAND_SWAP_RE = re.compile(
+    rf'^[^:"]*sacrifice an? (?:untapped )?{_LAND_WORD}[^:"]*:'
+    rf"|as an additional cost[^.]*sacrifice an? {_LAND_WORD}",
+    re.MULTILINE,
+)
+# A land fetched to your hand is light ramp (decision 34: Land Tax, Expedition Map,
+# Borderland Ranger). The search must be FOR a land card ("a basic land card", "a
+# Forest card"), so Beseech the Queen's "number of lands you control" doesn't count.
+_LAND_TO_HAND_RE = re.compile(
+    r"search your library for [^.]*?\b(?:land|plains|island|swamp|mountain|forest|cave"
+    r"|desert|gate)s? cards?\b[^.]*(?:\.[^.]*){0,2}?into your hand"
+)
+# Landcycling is not ramp (decision 37): the keyword's fetch is reminder text, and the
+# cards that spell it out fetch as a cycle trigger (Krosan Tusker) or by discarding
+# themselves (Herd Migration, channel).
+_CYCLE_FETCH_RE = re.compile(r'^(?:when you cycle|[^:"]*\bdiscard this card\b[^:"]*:)')
+# A {T} untap of a land (or any permanent) is a repeatable mana source (decision 38:
+# Arbor Elf, Voyaging Satyr, Kiora's Follower). One-shot untaps (Frantic Search) and
+# untaps without {T} (Earthcraft) don't count.
+_UNTAP_LAND_RE = re.compile(
+    r"\buntap (?:another )?target (?:basic |snow )?"
+    r"(?:land|forest|plains|island|swamp|mountain|permanent)\b"
 )
 # A token YOU create that makes mana, or fetches a land (a Lander is a Wayfarer's
 # Bauble). "Creates" and "they create" are someone else's (An Offer You Can't Refuse:
 # "Its controller creates two Treasure tokens"; Pain Distributor), and a line with "if
 # you would create" is a replacement effect (Academy Manufactor), not a maker. The
-# token's own "Add" is reminder text, so it's matched by name, or by an Add inside the
-# line's reminder.
-_YOU_CREATE_RE = re.compile(r"^(?!.*\bwould create\b).*(?<!they )\bcreate\b")
+# token's own "Add" is reminder text, so it's matched by a name AFTER "create" (not
+# Stimulus Package's "Sacrifice a Treasure: Create a Citizen"), or by an Add inside the
+# line's reminder, except firebending's combat-only mana.
+_YOU_CREATE_RE = re.compile(r"^(?!.*\bwould create\b).*?(?<!they )\bcreate\b")
+# A maker that sacrifices itself as it creates (Contested Game Ball) makes one batch.
+_SACRIFICE_SELF_RE = re.compile(r"\bsacrifice (?:it|this \w+)\b")
+_QUOTED_RE = re.compile(r'"[^"]*"')
 _MANA_TOKEN_RE = re.compile(r"\b(?:treasure|gold|powerstone|vibranium)\b")
 _LAND_TOKEN_RE = re.compile(r"\blander\b")
 # Extra land drops (decision 31): Exploration, Azusa, Growth Spiral, Burgeoning.
@@ -180,26 +210,39 @@ _COST_RE = re.compile(r'^([^:"]*):')
 
 def _ramp_face_tier(name: str, type_line: str, text: str) -> str | None:
     spell = "Instant" in type_line or "Sorcery" in type_line
+    text = text.lower()
+    swap = _LAND_SWAP_RE.search(_REMINDER_RE.sub("", text))
     tier = None
     head = ""
-    for raw in text.lower().split("\n"):
+    for raw in text.split("\n"):
         line = _REMINDER_RE.sub("", raw).strip()
         if not _CONTINUATION_RE.match(line):
             head = line
-        if _LAND_TO_BATTLEFIELD_RE.search(line):
+        fetch = _LAND_TO_BATTLEFIELD_RE.search(line)
+        if fetch and not (swap and re.match(r"search your library for an? ", fetch[0])):
             return "full"
         you_create = _YOU_CREATE_RE.search(line)
+        after = line[you_create.end() :] if you_create else ""
         if you_create and (
-            _LAND_TOKEN_RE.search(line) or (_LAND_TO_BATTLEFIELD_RE.search(raw))
+            _LAND_TOKEN_RE.search(after) or _LAND_TO_BATTLEFIELD_RE.search(raw)
         ):
             return "full"
-        if _ADD_MANA_RE.search(line) or (
-            you_create and (_MANA_TOKEN_RE.search(line) or _ADD_MANA_RE.search(raw))
-        ):
-            if not (spell or _ONE_SHOT_RE.match(head) or _self_cost(name, head)):
+        cost = _COST_RE.match(line)
+        untap = cost and "{t}" in cost[1] and _UNTAP_LAND_RE.search(line, cost.end())
+        token = you_create and (
+            _MANA_TOKEN_RE.search(after)
+            or ("firebending" not in line and _ADD_MANA_RE.search(raw))
+        )
+        if _ADD_MANA_RE.search(line) or untap or token:
+            one_shot = spell or _ONE_SHOT_RE.match(head) or _self_cost(name, head)
+            if token and _SACRIFICE_SELF_RE.search(_QUOTED_RE.sub("", line)):
+                one_shot = True
+            if not one_shot:
                 return "full"
             tier = "light"
-        elif _EXTRA_LAND_RE.search(line):
+        elif _EXTRA_LAND_RE.search(line) or (
+            _LAND_TO_HAND_RE.search(line) and not _CYCLE_FETCH_RE.match(head)
+        ):
             tier = "light"
     return tier
 
@@ -219,11 +262,13 @@ def _self_cost(name: str, line: str) -> bool:
 
 
 def ramp_tier(card: dict) -> str | None:
-    """Ramp tier of a card: "full", "light" or None (decisions 30-32).
+    """Ramp tier of a card: "full", "light" or None (decisions 30-32, 34-38).
 
-    Full: repeatable mana (rocks, dorks, land Auras, repeatable Treasure makers) or a
-    land from your library onto the battlefield. Light: extra land drops and one-shot
-    mana (rituals, self-sacrificing rocks, a single batch of Treasure). Lands, MDFCs
+    Full: repeatable mana (rocks, dorks, land-untapping dorks, land Auras, your own
+    mana doublers, repeatable Treasure makers) or a land from your library onto the
+    battlefield. Light: extra land drops, a land fetched to your hand (not
+    landcycling) and one-shot mana (rituals, self-sacrificing rocks, a single batch of
+    Treasure). Lands, MDFCs
     with a land face included, are never ramp. A face that is a land (the back of a
     transforming card) doesn't count either.
     """
@@ -251,7 +296,7 @@ def is_ramp(card: dict) -> bool:
 # a search can scan with this regex and run ``ramp_tier`` on the survivors only.
 RAMP_PREFILTER = (
     r"\badd|search your library|treasure|gold|powerstone|vibranium|lander"
-    r"|from your hand onto the battlefield|as much|double the amount"
+    r"|from your hand onto the battlefield|as much|double the amount|untap"
 )
 
 

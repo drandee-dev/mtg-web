@@ -9,8 +9,9 @@ card_classify.is_ramp, fills searched an oracle regex that matched 1,145 lands
 So ramp fills offered lands that never raised the count, is_ramp missed Gilded Lotus
 and Three Visits, and the role tag missed Cultivate.
 
-Two tiers (decisions 30-32): full (repeatable mana, a land from the library onto the
-battlefield, repeatable Treasure) and light (extra land drops, one-shot mana). Light
+Two tiers (decisions 30-32, 34-38): full (repeatable mana, land-untapping dorks, a
+land from the library onto the battlefield, repeatable Treasure) and light (extra land
+drops, a land fetched to hand, one-shot mana). Landcycling is neither. Light
 cards count fully but are reported as `light` and rank below full ones in fills and
 budget swaps. Lands, MDFCs with a land face included, are never ramp.
 """
@@ -27,6 +28,7 @@ config.bootstrap_mtg_utils()
 from app import mtg  # noqa: E402
 from mtg_utils.card_classify import (  # noqa: E402
     RAMP_PREFILTER,
+    classify_cube_category,
     get_oracle_text,
     is_land,
     ramp_tier,
@@ -52,6 +54,9 @@ FULL = (
     "Farseek", "Wood Elves", "Burnished Hart", "Elemental Teachings",
     # Repeatable Treasure.
     "Smothering Tithe", "Goldspan Dragon",
+    # Decision 38: {T} untaps a land. Decision 35: your own mana doublers.
+    "Arbor Elf", "Voyaging Satyr", "Kiora's Follower", "Ley Druid",
+    "Zendikar Resurgent", "Mana Reflection", "Harrow",
 )  # fmt: skip
 LIGHT = (
     # Decision 31: extra land drops.
@@ -60,17 +65,28 @@ LIGHT = (
     # Decision 32: one-shot mana, and one batch of Treasure.
     "Dark Ritual", "Lotus Petal", "Jeweled Lotus", "Simian Spirit Guide",
     "Dockside Extortionist", "Big Score",
+    "Contested Game Ball",  # one Treasure, then it sacrifices itself
+    "Stimulus Package",  # its ETB batch; "Sacrifice a Treasure: create" isn't a maker
+    # Decision 34: a land fetched to hand.
+    "Land Tax", "Expedition Map", "Yavimaya Elder", "Sylvan Scrying",
+    "Gift of Estates", "Weathered Wayfarer", "Borderland Ranger",
+    "Traverse the Ulvenwald", "Lay of the Land", "Evolution Charm", "Renegade Map",
+    "Wanderer's Twig",
 )  # fmt: skip
 NEITHER = (
     "Command Tower", "Evolving Wilds", "Forest",
     "Bala Ged Recovery // Bala Ged Sanctuary",  # MDFC with a land face
     "An Offer You Can't Refuse",  # Treasures go to the spell's controller
     "Goblin Electromancer",  # cost reducer
-    "Ley Druid",  # untap target land
-    "Mana Flare",  # symmetric
-    "Lay of the Land",  # land to hand
-    "Krosan Tusker",  # landcycling (reminder text)
+    "Frantic Search", "Earthcraft",  # one-shot untap; untap without {T}
+    "Mana Flare", "High Tide",  # symmetric (decision 35)
+    # Decision 37: landcycling, spelled out or not.
+    "Krosan Tusker", "Topiary Panther", "Herd Migration",
     "Academy Manufactor",  # a replacement effect, not a Treasure maker
+    "Crop Rotation", "Knight of the Reliquary",  # a land swapped for one land
+    "Beseech the Queen",  # "lands you control" isn't a land search
+    # Firebending mana lasts only until end of combat, on tokens too.
+    "Fire Nation Attacks", "Fire Nation Occupation", "Cruel Administrator",
 )  # fmt: skip
 for n in FULL:
     assert ramp_tier(card(n)) == "full", (n, ramp_tier(card(n)))
@@ -78,6 +94,9 @@ for n in LIGHT:
     assert ramp_tier(card(n)) == "light", (n, ramp_tier(card(n)))
 for n in NEITHER:
     assert ramp_tier(card(n)) is None, (n, ramp_tier(card(n)))
+# Colorless land-to-hand fetchers are back in the cube's colorless fixing slot.
+for n in ("Expedition Map", "Wanderer's Twig", "Renegade Map"):
+    assert classify_cube_category(card(n)) == "F", (n, classify_cube_category(card(n)))
 
 # --- 2. deck_composition reports count (full + light) and light ------------- #
 comp = mtg.deck_composition(
@@ -130,13 +149,6 @@ for sort, limit in (("edhrec-desc", 20), ("price-asc", 10)):
         lands = [c["name"] for c in cands if is_land(c)]
         assert not lands, f"ramp {ci} {sort}: lands offered: {lands}"
 
-        # Tier order: no light card before a full one; each tier in sort order.
-        is_full = [ramp_tier(c) == "full" for c in cands]
-        assert is_full == sorted(is_full, reverse=True), (ci, sort, names)
-        for tier in (True, False):
-            part = [c for c, f in zip(cands, is_full) if f is tier]
-            assert part == sorted(part, key=sort_key, reverse=reverse), names
-
         # Through the real count: a deck of exactly these cards counts each one.
         text = "\n".join(f"1 {n}" for n in names)
         cat = next(
@@ -145,13 +157,28 @@ for sort, limit in (("edhrec-desc", 20), ("price-asc", 10)):
             if c["key"] == "ramp"
         )
         assert cat["count"] == len(names), (ci, sort, cat, names)
-        assert cat["light"] == is_full.count(False), (ci, sort, cat, names)
+        light = [ramp_tier(c) == "light" for c in cands].count(True)
+        assert cat["light"] == light, (ci, sort, cat, names)
+
+# Tier order, over whole pools where both tiers appear (the top 20 are all full):
+# no light card before a full one, and each tier in the caller's sort order.
+for sort in ("edhrec-desc", "price-asc"):
+    sort_key, reverse = _parse_sort(sort)
+    for ci in ("G", "B", "C"):
+        cands = fills(ci, sort, None)
+        is_full = [ramp_tier(c) == "full" for c in cands]
+        assert True in is_full and False in is_full, (ci, sort, len(cands))
+        assert is_full == sorted(is_full, reverse=True), (ci, sort)
+        for tier in (True, False):
+            part = [c for c, f in zip(cands, is_full) if f is tier]
+            assert part == sorted(part, key=sort_key, reverse=reverse), (ci, sort)
 
 # --- 5. role tag and budget swaps use the same definition ------------------- #
 for n in ("Cultivate", "Kodama's Reach", "Gilded Lotus", "Three Visits"):
     assert "Ramp" in mtg._classify_roles(card(n)), (n, mtg._classify_roles(card(n)))
 assert mtg._classify_roles(card("Command Tower")) == ["Land"]
-assert "Ramp" not in mtg._classify_roles(card("Lay of the Land"))
+assert "Ramp" in mtg._classify_roles(card("Lay of the Land"))  # decision 34
+assert "Ramp" not in mtg._classify_roles(card("Krosan Tusker"))  # decision 37
 
 seen = []
 real_fill = mtg._fill_candidates
