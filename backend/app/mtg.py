@@ -2586,6 +2586,8 @@ def wizard_build_skeleton(
     # Game changers by target bracket. The generator builds the deck only from
     # these lists, so capping here caps the deck. Keep the most-played ones.
     allowance = _game_changer_allowance(bracket)
+    if allowance and cmd_rec.get("game_changer"):
+        allowance -= 1  # a game-changer commander spends one of bracket 3's three
     if allowance is not None:
         plays: dict[str, int] = {}
         for cards in skeleton.values():

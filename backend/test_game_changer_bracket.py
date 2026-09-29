@@ -127,6 +127,15 @@ for b in (None, 1, 2, 3, 4, 5):
     else:
         assert gcs == sorted([*GC_PLAYS, LAND_GC[0]]), (b, gcs)
 
+# A game-changer commander spends one of bracket 3's three (decision 24).
+GC_COMMANDER = "Tergrid, God of Fright"
+assert is_gc(GC_COMMANDER)
+r = mtg.wizard_build_skeleton(GC_COMMANDER, bracket=3)
+kept = names(r["skeleton"], is_gc)
+assert kept == sorted(["Rhystic Study", "Gaea's Cradle"]), kept
+r = mtg.wizard_build_skeleton(GC_COMMANDER, bracket=4)
+assert names(r["skeleton"], is_gc) == sorted([*GC_PLAYS, LAND_GC[0]])
+
 # --- fills ------------------------------------------------------------------- #
 # A near-empty blue deck is thin on draw, removal and wipes, and the most-played
 # blue candidates include game changers (Rhystic Study, Cyclonic Rift, ...).
