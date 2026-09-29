@@ -2204,7 +2204,13 @@ def ai_composition_fills(
         in_deck = {
             e["name"] for zone in ("commanders", "cards") for e in deck.get(zone, [])
         }
-        candidates = [c for c in candidates if c.get("name") not in in_deck][:12]
+        # Fills never add game changers below bracket 4; the skeleton spends them.
+        no_gc = _game_changer_allowance(bracket) is not None
+        candidates = [
+            c
+            for c in candidates
+            if c.get("name") not in in_deck and not (no_gc and c.get("game_changer"))
+        ][:12]
 
         # Build the full pool with names for skip/replace
         pool = [
@@ -2464,6 +2470,15 @@ def _classify_roles(card: dict | None) -> list[str]:
     return roles[:3]
 
 
+def _game_changer_allowance(bracket: int | None) -> int | None:
+    """Game changers a generated deck may hold at this target bracket; None = no
+    limit. Auto and brackets 1-2 allow none, 3 allows three (all spent by the
+    skeleton, never by fills), 4-5 are unlimited."""
+    if bracket is not None and bracket >= 4:
+        return None
+    return 3 if bracket == 3 else 0
+
+
 def _enrich_card(card_dict: dict, idx: Any) -> dict:
     """Add role tags to a card entry by looking up its Scryfall record."""
     name = card_dict.get("name", "")
@@ -2567,6 +2582,23 @@ def wizard_build_skeleton(
                 )
             )
     skeleton["staples"] = staples
+
+    # Game changers by target bracket. The generator builds the deck only from
+    # these lists, so capping here caps the deck. Keep the most-played ones.
+    allowance = _game_changer_allowance(bracket)
+    if allowance is not None:
+        plays: dict[str, int] = {}
+        for cards in skeleton.values():
+            for c in cards:
+                if (idx.get(c["name"]) or {}).get("game_changer"):
+                    plays[c["name"]] = max(
+                        plays.get(c["name"], -1), c.get("num_decks") or -1
+                    )
+        keep = set(sorted(plays, key=lambda n: -plays[n])[:allowance])
+        skeleton = {
+            k: [c for c in cards if c["name"] not in plays or c["name"] in keep]
+            for k, cards in skeleton.items()
+        }
 
     return {
         "error": False,
