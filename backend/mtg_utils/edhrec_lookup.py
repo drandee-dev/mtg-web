@@ -48,6 +48,15 @@ def slugify(*names: str) -> str:
     return "-".join(parts)
 
 
+def _played_here(cv: dict) -> bool:
+    """False for a pick this commander's decks avoid: negative synergy AND in
+    under 30% of its decks (mtg-web decision 7). Inclusion is num_decks /
+    potential_decks; the payload's own `inclusion` field is always 0."""
+    potential = cv.get("potential_decks") or 0
+    inclusion = (cv.get("num_decks") or 0) / potential if potential else 0.0
+    return not ((cv.get("synergy") or 0.0) < 0 and inclusion < 0.30)
+
+
 def _extract_cardviews(cardviews: list[dict]) -> list[dict]:
     return [
         {
@@ -58,6 +67,7 @@ def _extract_cardviews(cardviews: list[dict]) -> list[dict]:
             "potential_decks": cv.get("potential_decks", 0),
         }
         for cv in cardviews
+        if _played_here(cv)
     ]
 
 
