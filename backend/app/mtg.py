@@ -2265,6 +2265,16 @@ def ai_composition_fills(
 
         fills.append({"category": label, "suggestions": picks, "pool": pool})
 
+    # Each fill displaces a basic or a starting card, so suggest no more than
+    # the gap (at least one); the pool stays whole for skip/replace. Every
+    # entry carries is_land so the client's land floor counts MDFCs.
+    gap = {c["label"]: max(1, c["target"] - c["count"]) for c in thin}
+    idx = _bulk_index()
+    for f in fills:
+        f["suggestions"] = f["suggestions"][: gap[f["category"]]]
+        for e in (*f["suggestions"], *f["pool"]):
+            e["is_land"] = _land_flag(idx.get(e["name"]))
+
     return {"error": False, "fills": fills, "model": _AI_MODEL}
 
 
@@ -2481,11 +2491,20 @@ def _game_changer_allowance(bracket: int | None) -> int | None:
     return 3 if bracket == 3 else 0
 
 
+def _land_flag(rec: dict | None) -> bool:
+    """is_land for the generator's land floor. Modal DFCs with a land face
+    count (the analyzer's rule), so a spell-front MDFC is still a land."""
+    from mtg_utils.card_classify import is_land
+
+    return bool(rec) and is_land(rec)
+
+
 def _enrich_card(card_dict: dict, idx: Any) -> dict:
-    """Add role tags to a card entry by looking up its Scryfall record."""
+    """Add role tags and the land flag to a card entry from its Scryfall record."""
     name = card_dict.get("name", "")
     rec = idx.get(name)
     card_dict["roles"] = _classify_roles(rec)
+    card_dict["is_land"] = _land_flag(rec)
     return card_dict
 
 
