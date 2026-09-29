@@ -419,8 +419,6 @@ def deck_analyze(
     decklist, fmt = _validate_decklist(payload)
     try:
         return mtg.analyze_deck(decklist, fmt=fmt)
-    except KeyError as e:
-        raise HTTPException(400, f"Unknown format: {e}") from e
     except Exception as e:  # noqa: BLE001
         log.exception("deck_analyze failed")
         raise HTTPException(500, "Analysis failed.") from e
@@ -436,8 +434,6 @@ def deck_export(
     decklist, fmt = _validate_decklist(payload)
     try:
         return {"format": fmt, "text": mtg.export_deck_text(decklist, fmt=fmt)}
-    except KeyError as e:
-        raise HTTPException(400, f"Unknown format: {e}") from e
     except Exception as e:  # noqa: BLE001
         log.exception("deck_export failed")
         raise HTTPException(500, "Export failed.") from e
@@ -461,8 +457,6 @@ def deck_recommend(payload: Annotated[dict, Body()]) -> dict:
     decklist, fmt = _validate_decklist(payload)
     try:
         return mtg.deck_recommendations(decklist, fmt=fmt)
-    except KeyError as e:
-        raise HTTPException(400, f"Unknown format: {e}") from e
     except Exception as e:  # noqa: BLE001
         log.exception("deck_recommend failed")
         raise HTTPException(500, "Recommendation failed.") from e
@@ -473,8 +467,6 @@ def deck_combos(payload: Annotated[dict, Body()]) -> dict:
     decklist, fmt = _validate_decklist(payload)
     try:
         return mtg.deck_combos(decklist, fmt=fmt)
-    except KeyError as e:
-        raise HTTPException(400, f"Unknown format: {e}") from e
     except Exception as e:  # noqa: BLE001
         log.exception("deck_combos failed")
         raise HTTPException(500, "Combo search failed.") from e
@@ -485,8 +477,6 @@ def deck_composition(payload: Annotated[dict, Body()]) -> dict:
     decklist, fmt = _validate_decklist(payload)
     try:
         return mtg.deck_composition(decklist, fmt=fmt)
-    except KeyError as e:
-        raise HTTPException(400, f"Unknown format: {e}") from e
     except Exception as e:  # noqa: BLE001
         log.exception("deck_composition failed")
         raise HTTPException(500, "Composition analysis failed.") from e

@@ -645,11 +645,13 @@ def deck_recommendations(text: str, *, fmt: str = "commander") -> dict[str, Any]
         }
     try:
         categories = edhrec_lookup(commanders)
-    except Exception as exc:  # noqa: BLE001 - external service; degrade, don't 500
+    except Exception:  # noqa: BLE001 - external service; degrade, don't 500
+        # The exception can carry URLs and internals: log it, never return it.
+        log.exception("EDHREC lookup failed for %s", commanders)
         return {
             "commanders": commanders,
             "categories": {},
-            "note": f"EDHREC unavailable: {exc}",
+            "note": "EDHREC is unavailable right now. Try again later.",
         }
 
     if not any(categories.values()):
