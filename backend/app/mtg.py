@@ -819,7 +819,7 @@ _COMPOSITION = [
     ("lands", "Lands", 36, None, ()),  # from deck_stats.land_count
     ("ramp", "Ramp", 10, None, ()),  # from deck_stats.ramp_count
     ("card-draw", "Card draw", 10, ("card-draw", "cantrip"), ()),
-    ("removal", "Spot removal", 8, ("removal",), ()),
+    ("removal", "Spot removal", 8, ("spot-removal",), ("spot-removal-light",)),
     (
         "board-wipe",
         "Board wipes",
@@ -2093,9 +2093,9 @@ def budget_swaps(
 # --------------------------------------------------------------------------- #
 # Maps composition category keys to the search that finds cards in that role.
 # These are used for deterministic Scryfall search, NOT AI generation — so the
-# results are always real cards in the right role. Card draw and board wipes
-# search the exact presets deck_composition counts, so a fill always moves the
-# count; the rest still use oracle regexes.
+# results are always real cards in the right role. Card draw, removal and board
+# wipes search the exact presets deck_composition counts, so a fill always moves
+# the count; the rest still use oracle regexes.
 _COMPOSITION_PRESETS = {
     key: {"presets": full, "light": light, "type": None}
     for key, _, _, full, light in _COMPOSITION
@@ -2103,10 +2103,9 @@ _COMPOSITION_PRESETS = {
 }
 _FILL_SEARCH = {
     "board-wipe": _COMPOSITION_PRESETS["board-wipe"],
-    "removal": {
-        "oracle": r"destroy target|exile target|deals \d+ damage to",
-        "type": None,
-    },
+    "removal": _COMPOSITION_PRESETS["removal"],
+    # budget_swaps looks up the first _ROLE_CHECKS key for a role label.
+    "spot-removal": _COMPOSITION_PRESETS["removal"],
     "card-draw": _COMPOSITION_PRESETS["card-draw"],
     "ramp": {
         "oracle": r"add \{|search your library for a.*land|mana of any",
@@ -2385,7 +2384,8 @@ def ai_combo_guidance(
 # AI Deck Wizard — guided step-by-step builder
 # --------------------------------------------------------------------------- #
 _ROLE_CHECKS = [
-    ("removal", "Removal"),
+    ("spot-removal", "Removal"),  # both tiers, same as deck_composition's count
+    ("spot-removal-light", "Removal"),
     ("board-wipe", "Board wipe"),  # first: budget swaps take the first label match
     ("mass-bounce", "Board wipe"),  # both tiers, same as deck_composition's count
     ("board-wipe-light", "Board wipe"),
