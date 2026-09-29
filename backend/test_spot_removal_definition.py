@@ -91,9 +91,12 @@ NEITHER += (
     "Blighted Agent", "Core Prowler", "Necroskitter",  # Infect/Wither alone
     "Rescue", "Alley Evasion",  # returning your own permanent
     "Pacifism", "Llanowar Elves", "Giant Growth",
-    # Sacrifice as your own cost, and land edicts (land destruction).
-    "Village Rites", "Ashnod's Altar", "Tectonic Break",
-    "Living Death", "Tragic Arrogance",  # sacrifice-all is a wipe (decision 15)
+    # Land edicts are land destruction; punishers the opponent opts into
+    # ("unless that player sacrifices") are not edicts (Holiday, 5acd934).
+    "Tectonic Break", "Torment of Hailfire", "Indulgent Tormentor",
+    "Demanding Dragon",
+    # An edict mode on a card with a wipe mode is a wipe only (the unless veto).
+    "Gix's Command",
 )  # fmt: skip
 for n in MUST_FULL:
     assert FULL.matches(card(n)), f"{n} should be full spot removal"
