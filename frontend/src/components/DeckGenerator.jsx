@@ -3,7 +3,7 @@ import { api, BRACKETS, FORMATS, getCardImage } from "../lib/api";
 import { searchCommanders as scryfallSearchCommanders } from "../lib/scryfall";
 import { parseNarration } from "../lib/buildNotes";
 import { parseCollectionCsv, buildOwnedIndex, ownedQuantity } from "../lib/collection";
-import { mergeFills } from "../lib/fillMerge";
+import { SPELL_CATS, assembleSkeleton, mergeFills } from "../lib/fillMerge";
 import { fmtUsd } from "../lib/format";
 import { BoxIcon, CrownIcon, LayersIcon, ListIcon, SparkleIcon } from "./Icons";
 import CardPreview from "./CardPreview";
@@ -79,73 +79,6 @@ const BRANCHES = {
 const PRIMARY_DOORS = ["describe", "commander"];
 const SECONDARY_DOORS = ["guided", "precon", "collection"];
 const DOOR_ORDER = [...PRIMARY_DOORS, ...SECONDARY_DOORS];
-
-// Skeleton categories that supply the non-land half of the deck, in the order
-// they get drawn from.
-const SPELL_CATS = [
-  ["staples", "Format staples"],
-  ["high_synergy", "High synergy"],
-  ["top_cards", "Top cards"],
-  ["creatures", "Creatures"],
-  ["instants", "Instants"],
-  ["sorceries", "Sorceries"],
-  ["artifacts", "Artifacts"],
-  ["enchantments", "Enchantments"],
-];
-
-const BASIC_FOR = { W: "Plains", U: "Island", B: "Swamp", R: "Mountain", G: "Forest" };
-const BASIC_NAMES = new Set(["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"]);
-const LAND_TARGET = 36;
-
-function synergyReason(c) {
-  if (c.reason) return `EDHREC: ${c.reason}`;
-  if (c.synergy != null) return `${Math.round(c.synergy * 100)}% synergy in decks with this commander.`;
-  return null;
-}
-
-/** Turn a wizard/skeleton response into a legal 100-card list.
- *  Returns { cards: [{name, qty, category, reason}], basics: Map(name→qty) }. */
-function assembleSkeleton(skeleton, commanderNames) {
-  const seen = new Set(commanderNames.map((n) => n.toLowerCase()));
-  const spells = [];
-  for (const [key, label] of SPELL_CATS) {
-    for (const c of skeleton?.[key] || []) {
-      const name = c.name;
-      if (!name || seen.has(name.toLowerCase())) continue;
-      seen.add(name.toLowerCase());
-      // roles stay on the entry: mergeFills won't cut a card a thin category needs.
-      spells.push({ name, qty: 1, category: label, reason: synergyReason(c), roles: c.roles || [] });
-    }
-  }
-
-  const utilLands = [];
-  for (const c of [...(skeleton?.suggested_lands || []), ...(skeleton?.lands || [])]) {
-    const name = c.name;
-    if (!name || BASIC_NAMES.has(name) || seen.has(name.toLowerCase())) continue;
-    seen.add(name.toLowerCase());
-    utilLands.push({ name, qty: 1, category: "Lands", reason: synergyReason(c) });
-    if (utilLands.length >= 8) break;
-  }
-
-  const slots = 100 - commanderNames.length;
-  const chosenSpells = spells.slice(0, slots - LAND_TARGET);
-  // A thin skeleton leaves spell slots empty; they become basics for now and
-  // ai/fills replaces them with real cards in the next step.
-  const landSlots = slots - chosenSpells.length - utilLands.length;
-
-  const basicNames = (skeleton?._colors || []).map((c) => BASIC_FOR[c]).filter(Boolean);
-  const basics = new Map();
-  if (landSlots > 0) {
-    if (!basicNames.length) basics.set("Wastes", landSlots);
-    else {
-      for (let i = 0; i < landSlots; i++) {
-        const n = basicNames[i % basicNames.length];
-        basics.set(n, (basics.get(n) || 0) + 1);
-      }
-    }
-  }
-  return { cards: [...chosenSpells, ...utilLands], basics };
-}
 
 /** Stably reorder every skeleton category (and land lists) owned-first, so
  *  assembleSkeleton's greedy slice — which just takes the first N candidates
