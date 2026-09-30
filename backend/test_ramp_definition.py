@@ -60,6 +60,7 @@ FULL = (
     "Sculptor of Winter", "Kiora's Follower", "Ioreth of the Healing House",
     "Unbender Tine", "Vizier of Tumbling Sands", "Tidewater Minion", "Kelpie Guide",
     "Forensic Researcher", "North Pole Patrol", "Rime Tender",
+    "Clever Conjurer",  # "Mage Hand — {T}: Untap …": the ability word isn't cost
     # Decision 35: your own mana doublers.
     "Zendikar Resurgent", "Mana Reflection", "Harrow",
 )  # fmt: skip
