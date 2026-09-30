@@ -183,9 +183,14 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
     const names = commanderNamesClean(initialCommander);
     (async () => {
       if (names.length === 1) {
+        // Progress covers the picker, so a slow lookup can't race a manual pick.
+        setProgress({ label: "Looking up the commander", pct: 5 });
         try {
           const hit = ((await api.commanders(names[0])).results || []).find((c) => c.name === names[0]);
-          if (hit?.partner_kind) return setPartnerFor({ name: hit.name, kind: hit.partner_kind });
+          if (hit?.partner_kind) {
+            setProgress(null);
+            return setPartnerFor({ name: hit.name, kind: hit.partner_kind });
+          }
         } catch { /* fall through to a solo build */ }
       }
       generate(names);
