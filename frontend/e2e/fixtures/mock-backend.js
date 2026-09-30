@@ -142,7 +142,7 @@ export async function mockBackend(page) {
       return json({
         format: "commander", is_commander: true,
         categories: [
-          { key: "lands", label: "Lands", count: 34, light: 0, target: 36, status: "ok" },
+          { key: "lands", label: "Lands", count: 36, light: 0, target: 36, status: "ok" },
           { key: "ramp", label: "Ramp", count: 9, light: 0, target: 10, status: "ok" },
           { key: "card-draw", label: "Card draw", count: 4, light: 0, target: 10, status: "thin" },
           { key: "removal", label: "Spot removal", count: 7, light: 0, target: 8, status: "ok" },
