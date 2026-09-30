@@ -16,7 +16,13 @@ from mtg_utils._deck_forge.budgets import role_of
 from mtg_utils._deck_forge.ranking import rank_candidates
 from mtg_utils._deck_forge.signal_specs import spec_for
 from mtg_utils._tuner.classify import CardClass, is_fringe
-from mtg_utils.card_classify import extract_price, get_oracle_text, is_land, is_ramp
+from mtg_utils.card_classify import (
+    RAMP_PREFILTER,
+    extract_price,
+    get_oracle_text,
+    is_land,
+    is_ramp,
+)
 
 # Worst-possible play-rate sentinel (an unranked card sorts last on the quality axis).
 _UNPLAYED = 10**9
@@ -51,9 +57,10 @@ _ROLE_SEARCH: dict[str, dict] = {
     # card_search raise and 500'd /api/tune for any ramp-short deck. The "_filter" is a
     # tuner-side precision pass (applied in _ranked_pool) the coarse regex can't do — it
     # drops opponent-mana and conditionally-gated rocks the regex would let through.
+    # (Now the shared prefilter: a superset of is_ramp, so Gilded Lotus and Three
+    # Visits reach the _filter.)
     "ramp": {
-        "oracle": r"add (?:\{|one mana|mana of|an amount of mana)|"
-        r"search your library for [^.]*\bland",
+        "oracle": RAMP_PREFILTER,
         "_filter": _reliable_ramp,
     },
     "card_draw": {"preset_names": ("card-draw",)},

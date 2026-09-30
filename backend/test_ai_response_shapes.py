@@ -86,7 +86,17 @@ mtg.deck_composition = lambda *a, **k: {
         {"key": "ramp", "label": "Ramp", "status": "thin", "count": 2, "target": 10}
     ]
 }
-mtg._search_cards = lambda *a, **k: [{"name": "Sol Ring"}, {"name": "Arcane Signet"}]
+# Ramp fills keep only what card_classify.ramp_tier accepts, so the stubs carry
+# their real type and oracle text.
+mtg._search_cards = lambda *a, **k: [
+    {"name": "Sol Ring", "type_line": "Artifact", "oracle_text": "{T}: Add {C}{C}."},
+    {
+        "name": "Arcane Signet",
+        "type_line": "Artifact",
+        "oracle_text": "{T}: Add one mana of any color in your commander's color "
+        "identity.",
+    },
+]
 
 
 def _fills_with(result: str) -> list:
