@@ -795,11 +795,21 @@ def import_precon(
     }
 
 
+def _commander_field(raw: object) -> str:
+    """One commander name or a partner pair "A && B", each name capped."""
+    parts = [p.strip() for p in raw.split(" && ")] if isinstance(raw, str) else []
+    if (
+        not 1 <= len(parts) <= 2
+        or len(set(parts)) != len(parts)
+        or any(not p or len(p) > _MAX_CARD_NAME_LEN for p in parts)
+    ):
+        raise HTTPException(400, "Provide a valid commander name.")
+    return " && ".join(parts)
+
+
 @app.post("/api/deck/wizard/skeleton")
 def wizard_skeleton(payload: Annotated[dict, Body()]) -> dict:
-    commander = (payload.get("commander") or "").strip()
-    if not commander or len(commander) > _MAX_CARD_NAME_LEN:
-        raise HTTPException(400, "Provide a valid commander name.")
+    commander = _commander_field(payload.get("commander"))
     fmt = payload.get("format") or "commander"
     return mtg.wizard_build_skeleton(
         commander, fmt=fmt, bracket=_target_bracket(payload)
@@ -809,12 +819,10 @@ def wizard_skeleton(payload: Annotated[dict, Body()]) -> dict:
 @app.post("/api/deck/wizard/narrate")
 def wizard_narrate(request: Request, payload: Annotated[dict, Body()]) -> dict:
     _check_ai_access(request)
-    commander = (payload.get("commander") or "").strip()
+    commander = _commander_field(payload.get("commander"))
     card_names = payload.get("card_names") or []
-    if not commander or not card_names:
+    if not card_names:
         raise HTTPException(400, "Provide 'commander' and 'card_names'.")
-    if len(commander) > _MAX_CARD_NAME_LEN:
-        raise HTTPException(400, "Commander name too long.")
     if len(card_names) > _MAX_CARD_NAMES:
         raise HTTPException(400, f"Too many card names (max {_MAX_CARD_NAMES}).")
     for cn in card_names:

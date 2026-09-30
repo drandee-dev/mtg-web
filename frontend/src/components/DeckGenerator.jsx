@@ -3,6 +3,7 @@ import { api, BRACKETS, FORMATS, getCardImage } from "../lib/api";
 import { searchCommanders as scryfallSearchCommanders } from "../lib/scryfall";
 import { parseNarration } from "../lib/buildNotes";
 import { parseCollectionCsv, buildOwnedIndex, ownedQuantity } from "../lib/collection";
+import { commanderDisplay, commanderNamesClean } from "../lib/deckParser";
 import { SPELL_CATS, assembleSkeleton, mergeFills } from "../lib/fillMerge";
 import { fmtUsd } from "../lib/format";
 import { BoxIcon, CrownIcon, LayersIcon, ListIcon, SparkleIcon } from "./Icons";
@@ -147,6 +148,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
 
   const [describeText, setDescribeText] = useState("");
   const [candidates, setCandidates] = useState(null); // null | [] | [{name,...}]
+  const [partnerFor, setPartnerFor] = useState(null); // {name, kind} while choosing a partner
   const [searching, setSearching] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
   const searchDebounce = useRef(null);
@@ -176,7 +178,23 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
     if (!initialCommander || seededRef.current) return;
     seededRef.current = true;
     pickBranch("commander");
-    generate(initialCommander);
+    // A partner-capable seed gets the partner step, as a picked candidate does
+    // (and a Background can't build alone). The lookup failing just builds.
+    const names = commanderNamesClean(initialCommander);
+    (async () => {
+      if (names.length === 1) {
+        // Progress covers the picker, so a slow lookup can't race a manual pick.
+        setProgress({ label: "Looking up the commander", pct: 5 });
+        try {
+          const hit = ((await api.commanders(names[0])).results || []).find((c) => c.name === names[0]);
+          if (hit?.partner_kind) {
+            setProgress(null);
+            return setPartnerFor({ name: hit.name, kind: hit.partner_kind });
+          }
+        } catch { /* fall through to a solo build */ }
+      }
+      generate(names);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCommander]);
 
@@ -184,6 +202,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
     setBranch(id);
     setStepIdx(1);
     setCandidates(null);
+    setPartnerFor(null);
     setBuilt(null);
     setPrecon(null);
     setCollectionText("");
@@ -193,6 +212,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
 
   function back() {
     setPrecon(null);
+    setPartnerFor(null);
     if (stepIdx <= 1) { setBranch(null); setStepIdx(0); return; }
     setStepIdx((i) => i - 1);
   }
@@ -285,8 +305,9 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
   }
 
   // --- One-shot generate ---------------------------------------------------
-  async function generate(commanderName) {
-    const cmdNames = [commanderName];
+  // cmdNames: [commander] or a partner pair; the API takes the "A && B" string.
+  async function generate(cmdNames) {
+    const commanderName = cmdNames.join(" && ");
     setProgress({ label: "Building the skeleton", pct: 15 });
     try {
       const sk = await api.wizardSkeleton(commanderName, format, bracket);
@@ -345,6 +366,32 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
     onFinish(built.decklist, built.commander, built.notes);
   }
 
+  // Candidate list, or the partner step once a partner-capable commander is
+  // picked. `build` is generate or generateFromCollection; it takes names.
+  function commanderChoices(build) {
+    if (partnerFor) {
+      return (
+        <PartnerStep first={partnerFor} onCancel={() => setPartnerFor(null)}
+          onBuild={(names) => { setPartnerFor(null); build(names); }} />
+      );
+    }
+    if (!candidates?.length) return null;
+    return (
+      <div className="gen-candidates" role="listbox" aria-label="Commander choices">
+        {candidates.slice(0, 8).map((c) => (
+          <button key={c.name} role="option" aria-selected="false" className="gen-candidate"
+            onClick={() => (c.partner_kind
+              ? setPartnerFor({ name: c.name, kind: c.partner_kind })
+              : build([c.name]))}>
+            <span className="gen-candidate-name">{c.name}</span>
+            <span className="muted small">{c.type_line}</span>
+            <span className="gen-candidate-go">{c.partner_kind ? "Add a partner? →" : "Build the 99 →"}</span>
+          </button>
+        ))}
+      </div>
+    );
+  }
+
   // --- Collection -----------------------------------------------------------
   function loadCollection(text) {
     const { rows, skipped } = parseCollectionCsv(text);
@@ -376,8 +423,8 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
   // reach for an unowned card once the owned pool can't fill the slot.
   // Every non-basic pick is then flagged owned or not, and the unowned ones
   // get priced via the same per-name lookup CardPreview/CardBottomSheet use.
-  async function generateFromCollection(commanderName) {
-    const cmdNames = [commanderName];
+  async function generateFromCollection(cmdNames) {
+    const commanderName = cmdNames.join(" && ");
     setProgress({ label: "Building the skeleton", pct: 15 });
     try {
       const sk = await api.wizardSkeleton(commanderName, format, bracket);
@@ -652,23 +699,12 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
             <input
               id="gen-cmd"
               value={cmdQuery}
-              onChange={(e) => { setCmdQuery(e.target.value); searchCommanders(e.target.value); }}
+              onChange={(e) => { setCmdQuery(e.target.value); setPartnerFor(null); searchCommanders(e.target.value); }}
               placeholder="Start typing… e.g. atraxa"
               autoComplete="off"
             />
             {searching && <p className="muted small">Searching…</p>}
-            {candidates?.length > 0 && (
-              <div className="gen-candidates" role="listbox" aria-label="Commander choices">
-                {candidates.slice(0, 8).map((c) => (
-                  <button key={c.name} role="option" aria-selected="false" className="gen-candidate"
-                    onClick={() => generateFromCollection(c.name)}>
-                    <span className="gen-candidate-name">{c.name}</span>
-                    <span className="muted small">{c.type_line}</span>
-                    <span className="gen-candidate-go">Build the 99 →</span>
-                  </button>
-                ))}
-              </div>
-            )}
+            {commanderChoices(generateFromCollection)}
             {candidates?.length === 0 && !searching && (
               <p className="muted small">No commander matched. Try a different name.</p>
             )}
@@ -681,7 +717,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
   /* ── Review ───────────────────────────────────────────────────────────── */
   if (built) {
     const total = built.cards.reduce((n, c) => n + c.qty, 0)
-      + [...built.basics.values()].reduce((n, q) => n + q, 0) + 1;
+      + [...built.basics.values()].reduce((n, q) => n + q, 0) + commanderNamesClean(built.commander).length;
     const groups = new Map();
     for (const c of built.cards) {
       if (!groups.has(c.category)) groups.set(c.category, []);
@@ -692,7 +728,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
       <div className="gen">
         <GenHeader steps={steps} stepIdx={steps.length - 1} pct={100} onBack={back} />
         <div className="panel">
-          <h2 className="gen-h2" style={{ marginTop: 0 }}>{built.commander}</h2>
+          <h2 className="gen-h2" style={{ marginTop: 0 }}>{commanderDisplay(built.commander)}</h2>
           <p className="gen-lede gen-summary">
             {total} cards. {withReason} of {built.cards.length} non-basic picks carry a reason.
           </p>
@@ -806,7 +842,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
               <input
                 id="gen-cmd"
                 value={cmdQuery}
-                onChange={(e) => { setCmdQuery(e.target.value); searchCommanders(e.target.value); }}
+                onChange={(e) => { setCmdQuery(e.target.value); setPartnerFor(null); searchCommanders(e.target.value); }}
                 placeholder="Start typing… e.g. nethroi"
                 autoComplete="off"
               />
@@ -814,22 +850,72 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
             </>
           )}
 
-          {candidates?.length > 0 && (
-            <div className="gen-candidates" role="listbox" aria-label="Commander choices">
-              {candidates.slice(0, 8).map((c) => (
-                <button key={c.name} role="option" aria-selected="false" className="gen-candidate"
-                  onClick={() => generate(c.name)}>
-                  <span className="gen-candidate-name">{c.name}</span>
-                  <span className="muted small">{c.type_line}</span>
-                  <span className="gen-candidate-go">Build the 99 →</span>
-                </button>
-              ))}
-            </div>
-          )}
+          {commanderChoices(generate)}
           {candidates?.length === 0 && !searching && (
             <p className="muted small">No commander matched. Try a different name.</p>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+// Second commander for a partner-capable pick. The backend search returns only
+// legal partners for `first` (every CR 702.124 kind), same as CommanderInput.
+// A Background can't lead alone, so it gets no solo button, and its pair lists
+// the creature first (the deck's face in MyDecks and the avatar).
+function PartnerStep({ first, onBuild, onCancel }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState(null);
+  const [error, setError] = useState("");
+  const seq = useRef(0);
+  const q = query.trim();
+  const shown = q.length < 2 ? null : results; // a short query hides stale results
+
+  useEffect(() => {
+    const mine = ++seq.current;
+    if (q.length < 2) return;
+    const t = setTimeout(async () => {
+      try {
+        const r = await api.commanders(q, first.name);
+        if (mine !== seq.current) return;
+        setResults(r.results || []);
+        setError("");
+      } catch (e) {
+        if (mine !== seq.current) return;
+        setResults([]);
+        setError(e.message === "Failed to fetch" ? "Server waking up — try again in a moment." : "Couldn't load partners.");
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [q, first.name]);
+
+  return (
+    <div className="gen-partner">
+      <p className="gen-lede"><strong>{first.name}</strong> can share the command zone.</p>
+      <div className="row" style={{ gap: ".4rem" }}>
+        {first.kind !== "background" && (
+          <button className="primary" onClick={() => onBuild([first.name])}>Build solo →</button>
+        )}
+        <button className="ghost" onClick={onCancel}>Pick another</button>
+      </div>
+      <label htmlFor="gen-partner">Partner</label>
+      <input id="gen-partner" value={query} onChange={(e) => setQuery(e.target.value)}
+        placeholder={`Search partners for ${first.name}…`} autoComplete="off" />
+      {shown?.length > 0 && (
+        <div className="gen-candidates" role="listbox" aria-label="Partner choices">
+          {shown.slice(0, 8).map((p) => (
+            <button key={p.name} role="option" aria-selected="false" className="gen-candidate"
+              onClick={() => onBuild(first.kind === "background" ? [p.name, first.name] : [first.name, p.name])}>
+              <span className="gen-candidate-name">{p.name}</span>
+              <span className="muted small">{p.type_line}</span>
+              <span className="gen-candidate-go">Build the 98 →</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {shown?.length === 0 && (
+        <p className="muted small">{error || "No legal partner matched that name."}</p>
       )}
     </div>
   );

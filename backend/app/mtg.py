@@ -699,9 +699,12 @@ def commander_search(
             return []
         extra = dict(pfilter)
 
+    # "Partner with [name]" fixes the partner by name, so that filter replaces
+    # the typed query rather than colliding with it.
+    name = extra.pop("name", query)
     results = _search_cards(
         config.BULK_PATH,
-        name=query,
+        name=name,
         is_commander_filter=True,
         format="commander",
         sort="name-asc",
@@ -710,6 +713,8 @@ def commander_search(
     )
     out = []
     for c in results:
+        if partner_of and c.get("name") == partner_of:
+            continue  # a card can't partner itself
         entry = {
             "name": c.get("name", ""),
             "type_line": c.get("type_line", ""),
@@ -2545,23 +2550,28 @@ def wizard_build_skeleton(
 ) -> dict[str, Any]:
     """Step 1: Given a commander, build a starter skeleton using EDHREC data
     and staple card search. Returns categorized card suggestions.
+
+    *commander* is one name or a partner pair "A && B" (the app's commander
+    string). A pair builds from the union identity and EDHREC's pair page.
     """
     idx = _bulk_index()
-    cmd_rec = idx.get(commander)
-    if not cmd_rec:
-        return {"error": True, "message": f"Commander not found: {commander}"}
+    names = [n.strip() for n in commander.split(" && ") if n.strip()]
+    recs = [idx.get(n) for n in names]
+    for n, r in zip(names, recs):
+        if not r:
+            return {"error": True, "message": f"Commander not found: {n}"}
+    if not recs:
+        return {"error": True, "message": "Commander not found."}
 
-    color_identity = cmd_rec.get("color_identity", [])
-    ci_str = "".join(color_identity) or "C"
-    cmd_oracle = _full_oracle(cmd_rec)
-    cmd_type = cmd_rec.get("type_line", "")
-    cmd_keywords = cmd_rec.get("keywords", [])
+    color_identity = [
+        c for c in "WUBRG" if any(c in (r.get("color_identity") or []) for r in recs)
+    ]
 
     skeleton: dict[str, list[dict]] = {}
 
     # 1. EDHREC recommendations (the primary source)
     try:
-        edhrec_cats = edhrec_lookup([commander])
+        edhrec_cats = edhrec_lookup(names)
         for cat_key in [
             "high_synergy",
             "top_cards",
@@ -2636,8 +2646,9 @@ def wizard_build_skeleton(
     # Game changers by target bracket. The generator builds the deck only from
     # these lists, so capping here caps the deck. Keep the most-played ones.
     allowance = _game_changer_allowance(bracket)
-    if allowance and cmd_rec.get("game_changer"):
-        allowance -= 1  # a game-changer commander spends one of bracket 3's three
+    if allowance:
+        # Each game-changer commander spends one of bracket 3's three.
+        allowance = max(0, allowance - sum(bool(r.get("game_changer")) for r in recs))
     if allowance is not None:
         plays: dict[str, int] = {}
         for cards in skeleton.values():
@@ -2655,12 +2666,12 @@ def wizard_build_skeleton(
     return {
         "error": False,
         "commander": {
-            "name": cmd_rec.get("name", commander),
-            "oracle_text": cmd_oracle,
-            "type_line": cmd_type,
+            "name": " + ".join(r.get("name", n) for n, r in zip(names, recs)),
+            "oracle_text": "\n\n".join(_full_oracle(r) for r in recs),
+            "type_line": " / ".join(r.get("type_line", "") for r in recs),
             "color_identity": color_identity,
-            "keywords": cmd_keywords,
-            "mana_cost": cmd_rec.get("mana_cost", ""),
+            "keywords": [k for r in recs for k in r.get("keywords", [])],
+            "mana_cost": "".join(r.get("mana_cost", "") for r in recs),
         },
         "skeleton": skeleton,
         "bracket": bracket,
@@ -2680,9 +2691,16 @@ def wizard_narrate(
 ) -> dict[str, Any]:
     """Have the AI explain why a batch of suggested cards fits this deck."""
     idx = _bulk_index()
-    cmd_rec = idx.get(commander_name)
-    cmd_oracle = _full_oracle(cmd_rec)
-    cmd_type = (cmd_rec or {}).get("type_line", "")
+    # Only names found in bulk reach the prompt, as the card's own name: the
+    # raw client string never does.
+    cmd_lines = []
+    for n in commander_name.split(" && "):
+        rec = idx.get(n.strip())
+        if rec:
+            cmd_lines.append(
+                f"Commander: {rec.get('name', '')} ({rec.get('type_line', '')})\n"
+                f"Oracle: {_full_oracle(rec)}"
+            )
 
     card_details = []
     for name in card_names[:10]:
@@ -2693,8 +2711,7 @@ def wizard_narrate(
             card_details.append(f"- {name}")
 
     user_msg = (
-        f"Commander: {commander_name} ({cmd_type})\n"
-        f"Oracle: {cmd_oracle}\n\n"
+        "\n".join(cmd_lines) + "\n\n"
         f"<user_input>Category being filled: {category}</user_input>\n\n"
         f"Suggested cards:\n" + "\n".join(card_details)
     )

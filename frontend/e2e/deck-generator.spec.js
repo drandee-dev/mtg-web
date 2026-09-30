@@ -112,6 +112,81 @@ test.describe("Deck generator entry screen", () => {
     await expect(await rawDecklist(page)).not.toContain("Atraxa");
   });
 
+  // F2: a partner-capable pick offers solo or a legal partner, and the pair
+  // reaches the skeleton as one "A && B" string and the command zone as two.
+  // Scryfall answers the first pick; the backend's partner_of search answers
+  // the partner. Returns a getter for the partner_of the page sent.
+  async function routePair(page, first, partner) {
+    const ok = (body) => ({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+    await page.route("https://api.scryfall.com/cards/search**", (route) =>
+      route.fulfill(ok({ object: "list", total_cards: 1, data: [first] })));
+    let partnerOf = null;
+    await page.route("**/api/commanders/search*", (route) => {
+      partnerOf = new URL(route.request().url()).searchParams.get("partner_of");
+      return route.fulfill(ok({ results: [partner] }));
+    });
+    return () => partnerOf;
+  }
+
+  test("a partner pick builds a 100-card deck for the pair", async ({ page }) => {
+    const thrasios = "Thrasios, Triton Hero";
+    const tymna = "Tymna the Weaver";
+    const partnerOf = await routePair(page, {
+      name: thrasios, type_line: "Legendary Creature — Merfolk Wizard",
+      color_identity: ["G", "U"], mana_cost: "{G}{U}",
+      oracle_text: "{4}: Scry 1, then reveal the top card of your library. If it's a land card, "
+        + "put it onto the battlefield tapped. Otherwise, draw a card.\n"
+        + "Partner (You can have two commanders if both have partner.)",
+    }, { name: tymna, type_line: "Legendary Creature — Human Cleric", color_identity: ["W", "B"] });
+
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+    await page.locator("#gen-cmd").fill("thras");
+    const pick = page.locator(".gen-candidate", { hasText: thrasios });
+    await expect(pick).toContainText("Add a partner?");
+    await pick.click();
+
+    await expect(page.locator("button", { hasText: "Build solo" })).toBeVisible();
+    const skeleton = page.waitForRequest((r) => r.url().includes("/api/deck/wizard/skeleton"));
+    await page.locator("#gen-partner").fill("tym");
+    await page.locator(".gen-candidate", { hasText: tymna }).click();
+
+    expect(partnerOf()).toBe(thrasios);
+    expect((await skeleton).postDataJSON().commander).toBe(`${thrasios} && ${tymna}`);
+    await expect(page.locator(".gen-summary")).toContainText("100 cards", { timeout: 20000 });
+    await expect(page.locator(".gen-h2")).toHaveText(`${thrasios} + ${tymna}`);
+
+    await page.locator("button", { hasText: "Open in deck view" }).click();
+    await expect(page.locator(".deck-layout")).toBeVisible();
+    const text = await rawDecklist(page);
+    expect(text).not.toContain(thrasios);
+    expect(text).not.toContain(tymna);
+  });
+
+  // A Background can't lead alone (CR 702.124k): no solo build, and the pair
+  // lists the creature first so it is the deck's face.
+  test("a Background pick has no solo build and pairs creature-first", async ({ page }) => {
+    const giants = "Raised by Giants";
+    const wilson = "Wilson, Refined Grizzly";
+    await routePair(page, {
+      name: giants, type_line: "Legendary Enchantment — Background",
+      color_identity: ["G"], mana_cost: "{5}{G}",
+      oracle_text: "Commander creatures you own have base power and toughness 10/10 and are Giants in addition to their other types.",
+    }, { name: wilson, type_line: "Legendary Creature — Bear Warrior", color_identity: ["G"] });
+
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+    await page.locator("#gen-cmd").fill("giants");
+    await page.locator(".gen-candidate", { hasText: giants }).click();
+
+    await expect(page.locator("#gen-partner")).toBeVisible();
+    await expect(page.locator("button", { hasText: "Build solo" })).toHaveCount(0);
+    const skeleton = page.waitForRequest((r) => r.url().includes("/api/deck/wizard/skeleton"));
+    await page.locator("#gen-partner").fill("wil");
+    await page.locator(".gen-candidate", { hasText: wilson }).click();
+    expect((await skeleton).postDataJSON().commander).toBe(`${wilson} && ${giants}`);
+  });
+
   // Regression: clicking Back while the one-shot build is still in flight
   // (skeleton request pending) used to leave the in-flight generate() call
   // running against stale state. api.js's post()/postStream() now guard
