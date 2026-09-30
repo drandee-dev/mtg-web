@@ -54,8 +54,13 @@ FULL = (
     "Farseek", "Wood Elves", "Burnished Hart", "Elemental Teachings",
     # Repeatable Treasure.
     "Smothering Tithe", "Goldspan Dragon",
-    # Decision 38: {T} untaps a land. Decision 35: your own mana doublers.
-    "Arbor Elf", "Voyaging Satyr", "Kiora's Follower", "Ley Druid",
+    # Decisions 38-39: a cost of exactly {T} untaps a land or (another) permanent.
+    "Arbor Elf", "Voyaging Satyr", "Ley Druid", "Juniper Order Druid",
+    "Krosan Restorer", "Stone-Seeder Hierophant", "Blossom Dryad", "Portent Tracker",
+    "Sculptor of Winter", "Kiora's Follower", "Ioreth of the Healing House",
+    "Unbender Tine", "Vizier of Tumbling Sands", "Tidewater Minion", "Kelpie Guide",
+    "Forensic Researcher", "North Pole Patrol", "Rime Tender",
+    # Decision 35: your own mana doublers.
     "Zendikar Resurgent", "Mana Reflection", "Harrow",
 )  # fmt: skip
 LIGHT = (
@@ -79,6 +84,9 @@ NEITHER = (
     "An Offer You Can't Refuse",  # Treasures go to the spell's controller
     "Goblin Electromancer",  # cost reducer
     "Frantic Search", "Earthcraft",  # one-shot untap; untap without {T}
+    # Decision 39: "tap or untap", or an untap whose cost is more than {T}.
+    "Fatestitcher", "Captain of the Mists", "Rimewind Taskmage", "Eternal Acrobat Toast",
+    "Hope Tender", "Formidable Speaker", "Rustvine Cultivator",
     "Mana Flare", "High Tide",  # symmetric (decision 35)
     # Decision 37: landcycling, spelled out or not.
     "Krosan Tusker", "Topiary Panther", "Herd Migration",

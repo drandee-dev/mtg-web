@@ -170,13 +170,17 @@ _LAND_TO_HAND_RE = re.compile(
 # cards that spell it out fetch as a cycle trigger (Krosan Tusker) or by discarding
 # themselves (Herd Migration, channel).
 _CYCLE_FETCH_RE = re.compile(r'^(?:when you cycle|[^:"]*\bdiscard this card\b[^:"]*:)')
-# A {T} untap of a land (or any permanent) is a repeatable mana source (decision 38:
-# Arbor Elf, Voyaging Satyr, Kiora's Follower). One-shot untaps (Frantic Search) and
-# untaps without {T} (Earthcraft) don't count.
+# A {T} untap of a land (or any permanent) is a repeatable mana source (decisions 38
+# and 39: Arbor Elf, Voyaging Satyr, Kiora's Follower, Rime Tender). Only when the
+# whole cost is {T} (not Hope Tender's "{1}, {T}") and it's a plain untap (not
+# Fatestitcher's "tap or untap"). One-shot untaps (Frantic Search) and untaps without
+# {T} (Earthcraft) don't count.
 _UNTAP_LAND_RE = re.compile(
-    r"\buntap (?:another )?target (?:basic |snow )?"
+    r"(?<!tap or )\buntap (?:another )?target (?:basic |snow )?"
     r"(?:land|forest|plains|island|swamp|mountain|permanent)\b"
 )
+# An ability word before the cost ("Mage Hand — {T}: …") isn't part of the cost.
+_ABILITY_WORD_RE = re.compile(r"^[^—{]*—\s*")
 # A token YOU create that makes mana, or fetches a land (a Lander is a Wayfarer's
 # Bauble). "Creates" and "they create" are someone else's (An Offer You Can't Refuse:
 # "Its controller creates two Treasure tokens"; Pain Distributor), and a line with "if
@@ -228,7 +232,11 @@ def _ramp_face_tier(name: str, type_line: str, text: str) -> str | None:
         ):
             return "full"
         cost = _COST_RE.match(line)
-        untap = cost and "{t}" in cost[1] and _UNTAP_LAND_RE.search(line, cost.end())
+        untap = (
+            cost
+            and _ABILITY_WORD_RE.sub("", cost[1]).strip() == "{t}"
+            and _UNTAP_LAND_RE.search(line, cost.end())
+        )
         token = you_create and (
             _MANA_TOKEN_RE.search(after)
             or ("firebending" not in line and _ADD_MANA_RE.search(raw))
