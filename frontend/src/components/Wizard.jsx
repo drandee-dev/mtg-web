@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api, BRACKETS, FORMATS } from "../lib/api";
 import CardPreview from "./CardPreview";
 import CommanderInput from "./CommanderInput";
+import { commanderNamesClean } from "../lib/deckParser";
 
 const CAT_ORDER = [
   ["staples", "Format staples"],
@@ -81,8 +82,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
     if (!commander) return notify("Pick a commander first.");
     setBusy("skeleton");
     try {
-      const primaryCmd = commander.split(" && ")[0];
-      const r = await api.wizardSkeleton(primaryCmd, format, bracket);
+      const r = await api.wizardSkeleton(commanderNamesClean(commander).join(" && "), format, bracket);
       if (r.error) return notify(r.message);
       setSkeleton(r);
       const auto = {};
@@ -178,7 +178,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
         <div className="panel">
           <h2>Review: {skeleton?.commander?.name}</h2>
           <p className="muted small">
-            {pickedCount + 1} cards (including commander).
+            {pickedCount + cmdCount} cards (including {cmdCount > 1 ? "commanders" : "commander"}).
             {remaining > 0 && ` Need ${remaining} more for 100. You can add more from the Build tab after finishing.`}
             {remaining <= 0 && " Deck is at 100 cards!"}
           </p>
@@ -222,7 +222,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
             <span className="muted small">Step {catIdx + 1}/{availableCats.length}</span>
             <h3 style={{ margin: 0 }}>{catLabel}</h3>
           </div>
-          <span className="badge">{pickedCount}/99 picked</span>
+          <span className="badge">{pickedCount}/{100 - cmdCount} picked</span>
         </div>
 
         <div className="row" style={{ marginTop: ".6rem" }}>
