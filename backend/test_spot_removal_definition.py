@@ -66,6 +66,8 @@ MUST_FULL = (
     # Decision 36: edicts. The generator cut these for Tergrid before.
     "Diabolic Edict", "Vraska's Fall", "Pharika's Libation", "Fleshbag Marauder",
     "Plaguecrafter", "Sheoldred's Edict", "Grave Pact",
+    # Villainous choice after a real tuck still counts through the tuck.
+    "This Is How It Ends",
 )  # fmt: skip
 # Decision 23: -1/-1 counters on a target creature are light.
 LIGHT_ONLY = ("Unsummon", "Boomerang", "Necropede", "Dread Tiller", "Skinrender")
@@ -95,6 +97,9 @@ NEITHER += (
     # ("unless that player sacrifices") are not edicts (Holiday, 5acd934).
     "Tectonic Break", "Torment of Hailfire", "Indulgent Tormentor",
     "Demanding Dragon",
+    # The opponent can opt out: a villainous choice, or "... unless they discard".
+    "Midnight Crusader Shuttle", "The Dalek Emperor",
+    "The Long Reach of Night // Animus of Night's Reach",
     # An edict mode on a card with a wipe mode is a wipe only (the unless veto).
     "Gix's Command",
 )  # fmt: skip

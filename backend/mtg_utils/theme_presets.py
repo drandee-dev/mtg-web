@@ -1618,12 +1618,14 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             r"(?:shuffles?|puts) (?:it|them) (?:into|on)\b[^.]*?\blibrar",
             # Edicts (decision 36): Diabolic Edict, Vraska's Fall, Fleshbag
             # Marauder. No lands in the noun list: that's land destruction. Not
-            # a punisher the opponent opts into ("unless that player
-            # sacrifices", Torment of Hailfire).
-            r"\b(?<!unless )(?:target (?:player|opponent)|each (?:other )?(?:player|opponent)"
+            # an edict the opponent can opt out of: "unless that player
+            # sacrifices" (Torment of Hailfire), "... unless they discard" (The
+            # Long Reach of Night), or a villainous choice (The Dalek Emperor).
+            r"\b(?<!unless )(?<!choice — )(?:target (?:player|opponent)"
+            r"|each (?:other )?(?:player|opponent)"
             r"|that player|defending player) sacrifices (?:a|an|one|two|three|X|\d+) "
             r"(?:[\w-]+ )?(?:creature|planeswalker|artifact|enchantment"
-            r"|nonland permanent)s?\b",
+            r"|nonland permanent)s?\b(?![^.\n]*\bunless\b)",
         ),
         sentence_veto=_SPOT_VETO,
         unless=_ANY_WIPE,
