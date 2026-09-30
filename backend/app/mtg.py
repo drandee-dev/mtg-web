@@ -699,9 +699,12 @@ def commander_search(
             return []
         extra = dict(pfilter)
 
+    # "Partner with [name]" fixes the partner by name, so that filter replaces
+    # the typed query rather than colliding with it.
+    name = extra.pop("name", query)
     results = _search_cards(
         config.BULK_PATH,
-        name=query,
+        name=name,
         is_commander_filter=True,
         format="commander",
         sort="name-asc",
@@ -710,6 +713,8 @@ def commander_search(
     )
     out = []
     for c in results:
+        if partner_of and c.get("name") == partner_of:
+            continue  # a card can't partner itself
         entry = {
             "name": c.get("name", ""),
             "type_line": c.get("type_line", ""),
@@ -2686,13 +2691,16 @@ def wizard_narrate(
 ) -> dict[str, Any]:
     """Have the AI explain why a batch of suggested cards fits this deck."""
     idx = _bulk_index()
+    # Only names found in bulk reach the prompt, as the card's own name: the
+    # raw client string never does.
     cmd_lines = []
-    for name in (n.strip() for n in commander_name.split(" && ")):
-        rec = idx.get(name)
-        cmd_lines.append(
-            f"Commander: {name} ({(rec or {}).get('type_line', '')})\n"
-            f"Oracle: {_full_oracle(rec)}"
-        )
+    for n in commander_name.split(" && "):
+        rec = idx.get(n.strip())
+        if rec:
+            cmd_lines.append(
+                f"Commander: {rec.get('name', '')} ({rec.get('type_line', '')})\n"
+                f"Oracle: {_full_oracle(rec)}"
+            )
 
     card_details = []
     for name in card_names[:10]:

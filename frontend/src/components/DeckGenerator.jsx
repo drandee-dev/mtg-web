@@ -178,7 +178,18 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
     if (!initialCommander || seededRef.current) return;
     seededRef.current = true;
     pickBranch("commander");
-    generate(commanderNamesClean(initialCommander));
+    // A partner-capable seed gets the partner step, as a picked candidate does
+    // (and a Background can't build alone). The lookup failing just builds.
+    const names = commanderNamesClean(initialCommander);
+    (async () => {
+      if (names.length === 1) {
+        try {
+          const hit = ((await api.commanders(names[0])).results || []).find((c) => c.name === names[0]);
+          if (hit?.partner_kind) return setPartnerFor({ name: hit.name, kind: hit.partner_kind });
+        } catch { /* fall through to a solo build */ }
+      }
+      generate(names);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCommander]);
 
@@ -683,7 +694,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
             <input
               id="gen-cmd"
               value={cmdQuery}
-              onChange={(e) => { setCmdQuery(e.target.value); searchCommanders(e.target.value); }}
+              onChange={(e) => { setCmdQuery(e.target.value); setPartnerFor(null); searchCommanders(e.target.value); }}
               placeholder="Start typing… e.g. atraxa"
               autoComplete="off"
             />
@@ -826,7 +837,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
               <input
                 id="gen-cmd"
                 value={cmdQuery}
-                onChange={(e) => { setCmdQuery(e.target.value); searchCommanders(e.target.value); }}
+                onChange={(e) => { setCmdQuery(e.target.value); setPartnerFor(null); searchCommanders(e.target.value); }}
                 placeholder="Start typing… e.g. nethroi"
                 autoComplete="off"
               />
@@ -846,7 +857,8 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
 
 // Second commander for a partner-capable pick. The backend search returns only
 // legal partners for `first` (every CR 702.124 kind), same as CommanderInput.
-// A Background can't lead alone, so it gets no solo button.
+// A Background can't lead alone, so it gets no solo button, and its pair lists
+// the creature first (the deck's face in MyDecks and the avatar).
 function PartnerStep({ first, onBuild, onCancel }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState(null);
@@ -889,7 +901,7 @@ function PartnerStep({ first, onBuild, onCancel }) {
         <div className="gen-candidates" role="listbox" aria-label="Partner choices">
           {shown.slice(0, 8).map((p) => (
             <button key={p.name} role="option" aria-selected="false" className="gen-candidate"
-              onClick={() => onBuild([first.name, p.name])}>
+              onClick={() => onBuild(first.kind === "background" ? [p.name, first.name] : [first.name, p.name])}>
               <span className="gen-candidate-name">{p.name}</span>
               <span className="muted small">{p.type_line}</span>
               <span className="gen-candidate-go">Build the 98 →</span>

@@ -798,8 +798,10 @@ def import_precon(
 def _commander_field(raw: object) -> str:
     """One commander name or a partner pair "A && B", each name capped."""
     parts = [p.strip() for p in raw.split(" && ")] if isinstance(raw, str) else []
-    if not 1 <= len(parts) <= 2 or any(
-        not p or len(p) > _MAX_CARD_NAME_LEN for p in parts
+    if (
+        not 1 <= len(parts) <= 2
+        or len(set(parts)) != len(parts)
+        or any(not p or len(p) > _MAX_CARD_NAME_LEN for p in parts)
     ):
         raise HTTPException(400, "Provide a valid commander name.")
     return " && ".join(parts)
