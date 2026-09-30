@@ -848,8 +848,13 @@ def deck_composition(text: str, *, fmt: str = "commander") -> dict[str, Any]:
     records = hd.expanded(zones=("commanders", "cards"))  # repeated by quantity
 
     is_commander_fmt = FORMAT_CONFIGS.get(fmt, {}).get("has_commander", False)
+    identity, _ = deck_identity(deck, _bulk_index(), fmt)
     categories: list[dict] = []
     for key, label, target, presets, light_presets in _COMPOSITION:
+        # Decision 41: without W/U/B/R (mono-green, colorless) there are almost
+        # no creature wipes to play, so ask for one instead of three.
+        if key == "board-wipe" and identity is not None and not identity & set("WUBR"):
+            target = 1
         light = 0
         if key == "lands":
             count = stats.get("land_count", 0)
@@ -868,7 +873,9 @@ def deck_composition(text: str, *, fmt: str = "commander") -> dict[str, Any]:
                     light += 1
         status = "ok"
         if is_commander_fmt and target:
-            status = "thin" if count < round(target * 0.6) else "ok"
+            # Decision 8: lands are thin below target, everything else below 85%.
+            floor = target if key == "lands" else 0.85 * target
+            status = "thin" if count < floor else "ok"
         categories.append(
             {
                 "key": key,
