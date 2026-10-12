@@ -256,14 +256,23 @@ assert names(body["creatures"]) == [*DEAR, *CHEAP[:12]] and body["budget_picks"]
 for none in ({}, {"max_card_price": None}):
     r = client.post(URL, json={"commander": CMD, **none})
     assert r.status_code == 200 and "budget_picks" not in r.json()["skeleton"], r.text
-for bad in ("abc", 0, -1, 1000.01, "nan", "inf", [], {}, True, False, 10**400):
+# The request model refuses a bad cap: 422 with a one-line reason that names
+# the field and never repeats what was sent. A boolean and a numeric string
+# are refused too, not read as a price.
+for bad in ("abc", "5", 0, -1, 1000.01, "nan", "inf", [], {}, True, False, 10**400):
     r = client.post(URL, json={"commander": CMD, "max_card_price": bad})
-    assert r.status_code == 400, (str(bad)[:20], r.status_code)
-# A capped build searches the bulk by format, so a bad one is a 400, not a 500.
-for fmt in ("bogus", ["commander"], 5):
+    assert r.status_code == 422, (str(bad)[:20], r.status_code)
+    detail = r.json()["detail"]
+    assert isinstance(detail, str) and detail.startswith("Invalid max_card_price"), (
+        detail
+    )
+    assert "abc" not in detail, detail
+# A capped build searches the bulk by format, so an unknown one is a 400 and a
+# non-string a 422; neither reaches the lookup.
+for fmt, want in (("bogus", 400), (["commander"], 422), (5, 422)):
     for cap in ({}, {"max_card_price": CAP}):
         r = client.post(URL, json={"commander": CMD, "format": fmt, **cap})
-        assert r.status_code == 400, (fmt, cap, r.status_code)
+        assert r.status_code == want, (fmt, cap, r.status_code)
 r = client.post(
     URL, json={"commander": CMD, "format": "paupercommander", "max_card_price": CAP}
 )
@@ -278,6 +287,18 @@ assert r.status_code == 200, r.text
 sent = [p["name"] for f in r.json()["fills"] for p in f["pool"]]
 assert sent and all(price(n) <= CAP for n in sent), sent
 r = client.post("/api/deck/ai/fills", json={"decklist": DECK, "max_card_price": "abc"})
-assert r.status_code == 400, r.status_code
+assert r.status_code == 422, r.status_code
+# The checks the model doesn't make still answer as before.
+for body, want in (
+    ({"decklist": "   "}, 400),  # empty after trimming
+    ({"decklist": DECK, "format": "bogus"}, 400),
+    ({"decklist": DECK, "goals": {"pilot": "nobody"}}, 400),
+    ({"decklist": "x" * 50_001}, 422),  # over the size limit
+    ({"decklist": DECK, "bracket": 9}, 422),
+    ({}, 422),  # no decklist at all
+):
+    r = client.post("/api/deck/ai/fills", json=body)
+    assert r.status_code == want, (str(body)[:40], r.status_code)
+    assert isinstance(r.json()["detail"], str), r.text[:200]
 
 print("test_budget_cap: ok")

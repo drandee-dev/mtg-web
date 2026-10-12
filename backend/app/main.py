@@ -20,8 +20,16 @@ from typing import Annotated
 
 from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field, StringConstraints, field_validator
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import (
+    BaseModel,
+    Field,
+    StrictFloat,
+    StrictInt,
+    StringConstraints,
+    field_validator,
+)
 
 from app import config, mtg, precons, usage
 
@@ -290,6 +298,23 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(RequestValidationError)
+async def _readable_validation_error(request: Request, exc: RequestValidationError):
+    """A request model refused the body: say which field, in one string.
+
+    FastAPI's default `detail` is a list of objects, which the client shows as
+    "[object Object]". The message names the field and the rule, never the
+    value that was sent.
+    """
+    first = exc.errors()[0] if exc.errors() else {}
+    field = ".".join(str(p) for p in first.get("loc", ()) if p != "body")
+    msg = first.get("msg", "invalid request")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": f"Invalid {field}: {msg}" if field else msg},
+    )
+
+
 @app.middleware("http")
 async def _always_vary_on_origin(request: Request, call_next):
     """Make every response cacheable per-origin, including ones with no Origin.
@@ -452,20 +477,30 @@ def _target_bracket(payload: dict) -> int | None:
     return val
 
 
-def _max_card_price(payload: dict) -> float | None:
-    """The generator's per-card price cap in USD; absent or null = no limit."""
-    p = payload.get("max_card_price")
-    if p is None:
-        return None
-    try:
-        if isinstance(p, bool):  # float(True) is 1.0
-            raise TypeError
-        val = float(p)
-    except (ValueError, TypeError, OverflowError):  # overflow: a huge JSON integer
-        raise HTTPException(400, "max_card_price must be a number.")
-    if not 0 < val <= 1000:  # also rejects NaN and infinity
-        raise HTTPException(400, "max_card_price must be above 0, up to 1000.")
-    return val
+# The generator's per-card price cap in USD; absent or null = no limit. Strict,
+# so a boolean or a numeric string is refused instead of read as a price.
+_PriceCap = Annotated[StrictInt | StrictFloat, Field(gt=0, le=1000)]
+
+
+class SkeletonPayload(BaseModel):
+    """Body of wizard/skeleton. Types and sizes here; _commander_field checks
+    the name itself, and the route checks the format is a real one."""
+
+    commander: str = Field(max_length=2 * _MAX_CARD_NAME_LEN + 4)  # "A && B"
+    format: str = Field(default="commander", max_length=30)
+    bracket: int | None = Field(default=None, ge=1, le=5)
+    max_card_price: _PriceCap | None = None
+
+
+class FillsPayload(BaseModel):
+    """Body of ai/fills. `goals` stays a dict here and goes through
+    _parse_goals, which validates it as GoalsPayload like the other routes."""
+
+    decklist: str = Field(max_length=_MAX_DECKLIST_LEN)
+    format: str = Field(default="commander", max_length=30)
+    bracket: int | None = Field(default=None, ge=1, le=5)
+    goals: dict | None = None
+    max_card_price: _PriceCap | None = None
 
 
 @app.post("/api/deck/recommend")
@@ -545,15 +580,16 @@ def deck_validate_cards(payload: ValidateCardsPayload) -> dict:
 
 
 @app.post("/api/deck/ai/fills")
-def deck_ai_fills(request: Request, payload: Annotated[dict, Body()]) -> dict:
+def deck_ai_fills(request: Request, payload: FillsPayload) -> dict:
     _check_ai_access(request)
-    decklist, fmt = _validate_decklist(payload)
+    body = payload.model_dump()
+    decklist, fmt = _validate_decklist(body)  # non-empty, and a known format
     return mtg.ai_composition_fills(
         decklist,
         fmt=fmt,
-        bracket=_target_bracket(payload),
-        goals=_parse_goals(payload),
-        max_card_price=_max_card_price(payload),
+        bracket=payload.bracket,
+        goals=_parse_goals(body),
+        max_card_price=payload.max_card_price,
     )
 
 
@@ -828,17 +864,17 @@ def _commander_field(raw: object) -> str:
 
 
 @app.post("/api/deck/wizard/skeleton")
-def wizard_skeleton(payload: Annotated[dict, Body()]) -> dict:
-    commander = _commander_field(payload.get("commander"))
-    fmt = payload.get("format") or "commander"
+def wizard_skeleton(payload: SkeletonPayload) -> dict:
+    commander = _commander_field(payload.commander)
+    fmt = payload.format or "commander"
     # A capped build searches the bulk by format, so it has to be a real one.
-    if not isinstance(fmt, str) or fmt not in mtg.FORMAT_CONFIGS:
+    if fmt not in mtg.FORMAT_CONFIGS:
         raise HTTPException(400, "Unknown format.")
     return mtg.wizard_build_skeleton(
         commander,
         fmt=fmt,
-        bracket=_target_bracket(payload),
-        max_card_price=_max_card_price(payload),
+        bracket=payload.bracket,
+        max_card_price=payload.max_card_price,
     )
 
 
