@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { api, BRACKETS, FORMATS } from "../lib/api";
+import { api, BRACKETS, FORMATS, PRICE_CAPS } from "../lib/api";
 import CardPreview from "./CardPreview";
 import CommanderInput from "./CommanderInput";
 import { commanderNamesClean } from "../lib/deckParser";
+import { LAND_TARGET } from "../lib/fillMerge";
+import { fmtUsd } from "../lib/format";
 
 const CAT_ORDER = [
   ["staples", "Format staples"],
@@ -14,6 +16,7 @@ const CAT_ORDER = [
   ["sorceries", "Sorceries"],
   ["artifacts", "Artifacts"],
   ["enchantments", "Enchantments"],
+  ["budget_picks", "Budget picks"], // only sent under a price cap
   ["lands", "Utility lands"],
 ];
 
@@ -63,6 +66,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
   const [commander, setCommander] = useState(initialCommander || "");
   const [format, setFormat] = useState("commander");
   const [bracket, setBracket] = useState(null);
+  const [maxCardPrice, setMaxCardPrice] = useState(null); // USD per card; null = any price
   const [skeleton, setSkeleton] = useState(null);
   const [picked, setPicked] = useState({}); // name -> {category, roles}
   const [catIdx, setCatIdx] = useState(0);
@@ -82,12 +86,17 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
     if (!commander) return notify("Pick a commander first.");
     setBusy("skeleton");
     try {
-      const r = await api.wizardSkeleton(commanderNamesClean(commander).join(" && "), format, bracket);
+      const r = await api.wizardSkeleton(commanderNamesClean(commander).join(" && "), format, bracket, maxCardPrice);
       if (r.error) return notify(r.message);
-      setSkeleton(r);
+      // Cards over the price cap come back flagged, not dropped (the collection
+      // route keeps the owned ones). Nothing is owned here, so hide them.
+      const sk = Object.fromEntries(
+        Object.entries(r.skeleton || {}).map(([k, cards]) => [k, cards.filter((c) => !c.over_cap)]),
+      );
+      setSkeleton({ ...r, skeleton: sk });
       const auto = {};
-      (r.skeleton?.staples || []).forEach((c) => { auto[c.name] = { category: "Staple", roles: c.roles || [] }; });
-      (r.skeleton?.suggested_lands || []).forEach((c) => { auto[c.name] = { category: "Land", roles: c.roles || [] }; });
+      (sk.staples || []).forEach((c) => { auto[c.name] = { category: "Staple", roles: c.roles || [] }; });
+      (sk.suggested_lands || []).forEach((c) => { auto[c.name] = { category: "Land", roles: c.roles || [] }; });
       setPicked(auto);
       setCatIdx(0);
       setPhase("building");
@@ -104,13 +113,28 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
     });
   }
 
+  // How many cards "Add all" may take on this step. Never past a full deck.
+  // Budget picks (sent under a price cap, and longer than a deck) are a top-up
+  // for the spell slots the one-shot generator fills, so they stop there and
+  // the land steps and the basics keep their room.
+  function addAllRoom(p) {
+    const room = (100 - cmdCount) - Object.keys(p).length;
+    if (currentCat?.[0] !== "budget_picks") return Math.max(room, 0);
+    const spells = Object.values(p).filter((info) => !(info?.roles || []).includes("Land")).length;
+    return Math.max(Math.min(room, 100 - cmdCount - LAND_TARGET - spells), 0);
+  }
+
   function addAll() {
     if (!currentCat) return;
     const label = currentCat[1];
     setPicked((prev) => {
       const next = { ...prev };
+      let room = addAllRoom(prev);
       currentCards.forEach((c) => {
-        if (!next[c.name]) next[c.name] = { category: label, roles: c.roles || [] };
+        if (room > 0 && !next[c.name]) {
+          next[c.name] = { category: label, roles: c.roles || [] };
+          room--;
+        }
       });
       return next;
     });
@@ -156,6 +180,11 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
           <select value={bracket ?? ""} onChange={(e) => setBracket(e.target.value ? Number(e.target.value) : null)} style={{ width: "auto" }}>
             <option value="">Bracket: auto</option>
             {BRACKETS.map(([v, label]) => <option key={v} value={v}>Bracket {v} — {label}</option>)}
+          </select>
+          <select value={maxCardPrice ?? ""} onChange={(e) => setMaxCardPrice(e.target.value ? Number(e.target.value) : null)}
+            style={{ width: "auto" }} aria-label="Max price per card">
+            <option value="">Any card price</option>
+            {PRICE_CAPS.map((v) => <option key={v} value={v}>Up to {fmtUsd(v)} a card</option>)}
           </select>
         </div>
 
@@ -226,7 +255,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
         </div>
 
         <div className="row" style={{ marginTop: ".6rem" }}>
-          <button className="primary" onClick={addAll}>Add all ({currentCards.filter((c) => !picked[c.name]).length})</button>
+          <button className="primary" onClick={addAll}>Add all ({Math.min(currentCards.filter((c) => !picked[c.name]).length, addAllRoom(picked))})</button>
           <button onClick={nextCat}>{isLastCat ? "Review deck →" : `Skip to next →`}</button>
         </div>
       </div>

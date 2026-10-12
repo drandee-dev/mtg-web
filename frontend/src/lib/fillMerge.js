@@ -15,12 +15,15 @@ export const SPELL_CATS = [
   ["sorceries", "Sorceries"],
   ["artifacts", "Artifacts"],
   ["enchantments", "Enchantments"],
+  // Only sent under a price cap: the most-played affordable cards, drawn last
+  // so they fill only the slots the commander's own lists couldn't.
+  ["budget_picks", "Budget picks"],
 ];
 const STAPLES = "Format staples";
 
 const BASIC_FOR = { W: "Plains", U: "Island", B: "Swamp", R: "Mountain", G: "Forest" };
 const BASIC_NAMES = new Set(["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"]);
-const LAND_TARGET = 36;
+export const LAND_TARGET = 36;
 
 function synergyReason(c) {
   if (c.reason) return `EDHREC: ${c.reason}`;
@@ -30,14 +33,17 @@ function synergyReason(c) {
 
 /** Turn a wizard/skeleton response into a legal 100-card list.
  *  Returns { cards: [{name, qty, category, reason, roles, is_land, inclusion}],
- *  basics: Map(name→qty) }. */
-export function assembleSkeleton(skeleton, commanderNames) {
+ *  basics: Map(name→qty) }. A card the backend flagged over_cap (dearer than
+ *  the per-card price cap) is skipped unless `isOwned(name)`: an owned card
+ *  costs nothing, so the cap doesn't apply to it. */
+export function assembleSkeleton(skeleton, commanderNames, isOwned = () => false) {
   const seen = new Set(commanderNames.map((n) => n.toLowerCase()));
+  const tooDear = (c) => c.over_cap && !isOwned(c.name);
   const spells = [];
   for (const [key, label] of SPELL_CATS) {
     for (const c of skeleton?.[key] || []) {
       const name = c.name;
-      if (!name || seen.has(name.toLowerCase())) continue;
+      if (!name || tooDear(c) || seen.has(name.toLowerCase())) continue;
       seen.add(name.toLowerCase());
       // roles, is_land and inclusion are what mergeFills decides a cut by.
       spells.push({
@@ -50,7 +56,7 @@ export function assembleSkeleton(skeleton, commanderNames) {
   const utilLands = [];
   for (const c of [...(skeleton?.suggested_lands || []), ...(skeleton?.lands || [])]) {
     const name = c.name;
-    if (!name || BASIC_NAMES.has(name) || seen.has(name.toLowerCase())) continue;
+    if (!name || tooDear(c) || BASIC_NAMES.has(name) || seen.has(name.toLowerCase())) continue;
     seen.add(name.toLowerCase());
     utilLands.push({ name, qty: 1, category: "Lands", reason: synergyReason(c), is_land: c.is_land });
     if (utilLands.length >= 8) break;

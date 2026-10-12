@@ -144,3 +144,32 @@ test("the Ezuri shape: 36 lands plus 8 fills still ends at 36 lands", () => {
   assert.deepEqual(r.cut.map((c) => c.name),
     ["Spell 10", "Spell 61", "Spell 60", "Spell 59", "Spell 58", "Spell 57", "Spell 56", "Spell 55"]);
 });
+
+// G4: under a per-card price cap the backend flags dear cards over_cap rather
+// than dropping them, so the collection route can keep the ones the user owns.
+test("assembleSkeleton skips over-cap cards, except the ones the caller owns", () => {
+  const skeleton = {
+    staples: [{ name: "Sol Ring" }, { name: "Mana Crypt", over_cap: true }],
+    creatures: [{ name: "Craterhoof Behemoth", over_cap: true }, { name: "Elvish Mystic" }],
+    lands: [{ name: "Cavern of Souls", over_cap: true, is_land: true }, { name: "Path of Ancestry", is_land: true }],
+    _colors: ["G"],
+  };
+  const names = (r) => r.cards.map((c) => c.name);
+
+  const capped = assembleSkeleton(skeleton, ["Ezuri, Renegade Leader"]);
+  assert.deepEqual(names(capped), ["Sol Ring", "Elvish Mystic", "Path of Ancestry"]);
+  assert.equal(capped.cards.length + sum(capped.basics), 99); // the freed slots go to basics
+
+  const owned = new Set(["Craterhoof Behemoth", "Cavern of Souls"]);
+  const mine = assembleSkeleton(skeleton, ["Ezuri, Renegade Leader"], (n) => owned.has(n));
+  assert.deepEqual(names(mine), ["Sol Ring", "Craterhoof Behemoth", "Elvish Mystic", "Cavern of Souls", "Path of Ancestry"]);
+  assert.equal(mine.cards.length + sum(mine.basics), 99);
+});
+
+test("budget picks are drawn last, and only into slots the other lists left empty", () => {
+  const budget_picks = Array.from({ length: 30 }, (_, i) => ({ name: `Pick ${i}` }));
+  const picked = (n) => assembleSkeleton({ creatures: spells(n), budget_picks, _colors: ["G"] }, ["Ezuri, Renegade Leader"])
+    .cards.filter((c) => c.category === "Budget picks").map((c) => c.name);
+  assert.deepEqual(picked(63), []); // 63 spell slots already full
+  assert.deepEqual(picked(60), ["Pick 0", "Pick 1", "Pick 2"]);
+});
