@@ -2566,10 +2566,11 @@ def _enrich_card(card_dict: dict, idx: Any, cap: float | None = None) -> dict:
     return card_dict
 
 
-# Most-played affordable cards offered when a capped skeleton runs short.
-# ponytail: fixed count, enough for the 6-10 slot shortfalls measured at a $1
-# cap; raise it if capped builds still pad with basics.
-_BUDGET_PICKS = 30
+# Generic most-played affordable cards offered when a capped skeleton runs
+# short, after the commander's own leftover list cards.
+# ponytail: fixed count. A five-colour commander with thin lists (Esika at a $1
+# cap) used 30 of 30; raise it if capped builds still pad with basics.
+_BUDGET_PICKS = 40
 
 
 def wizard_build_skeleton(
@@ -2587,8 +2588,9 @@ def wizard_build_skeleton(
 
     *max_card_price* is a per-card cap in USD. Cards over it (or unpriced) are
     flagged over_cap, not dropped: the collection route keeps the ones the user
-    owns. Each EDHREC list is walked further for cheaper cards, and a
-    budget_picks category tops up what the lists can't supply.
+    owns. Each EDHREC list is walked further for cheaper cards. A budget_picks
+    category tops up what that leaves short: first the lists' remaining
+    affordable cards, then the most-played ones in the commander's colours.
     """
     idx = _bulk_index()
     names = [n.strip() for n in commander.split(" && ") if n.strip()]
@@ -2604,6 +2606,7 @@ def wizard_build_skeleton(
     ]
 
     skeleton: dict[str, list[dict]] = {}
+    spare: list[dict] = []  # capped builds: affordable list cards past the 12
 
     # 1. EDHREC recommendations (the primary source)
     try:
@@ -2623,11 +2626,12 @@ def wizard_build_skeleton(
                 enriched = []
                 # The window is what an uncapped build returns: the first 12
                 # valid cards of the first 15. Under a cap the walk goes on past
-                # it for cheaper cards until 12 are affordable.
+                # it for cheaper cards until 12 are affordable; affordable
+                # cards after that are spare, offered ahead of generic picks.
                 window = affordable = 0
                 for i, c in enumerate(cards):
                     in_window = i < 15 and window < 12
-                    if not in_window and (max_card_price is None or affordable >= 12):
+                    if not in_window and max_card_price is None:
                         break
                     name = c.get("name", "")
                     rec = idx.get(name) if name else None
@@ -2636,20 +2640,23 @@ def wizard_build_skeleton(
                     over = _over_cap(rec, max_card_price)
                     if over and not in_window:
                         continue
+                    entry = _enrich_card(
+                        {
+                            "name": name,
+                            "synergy": c.get("synergy"),
+                            "num_decks": c.get("num_decks"),
+                            "potential_decks": c.get("potential_decks"),
+                        },
+                        idx,
+                        max_card_price,
+                    )
+                    if not in_window and affordable >= 12:
+                        if cat_key != "lands":
+                            spare.append(entry)
+                        continue
                     window += in_window
                     affordable += not over
-                    enriched.append(
-                        _enrich_card(
-                            {
-                                "name": name,
-                                "synergy": c.get("synergy"),
-                                "num_decks": c.get("num_decks"),
-                                "potential_decks": c.get("potential_decks"),
-                            },
-                            idx,
-                            max_card_price,
-                        )
-                    )
+                    enriched.append(entry)
                 if enriched:
                     skeleton[cat_key] = enriched
     except Exception:
@@ -2715,12 +2722,27 @@ def wizard_build_skeleton(
             for k, cards in skeleton.items()
         }
 
-    # Under a cap the commander's lists can run out of affordable cards. Offer
-    # the most-played ones in its colours, which the generator draws last, so a
-    # short deck isn't padded with basics. Skipped when EDHREC gave nothing: an
-    # outage should still look like one.
+    # Under a cap the 12 per list can leave the deck short of affordable cards.
+    # budget_picks, which the generator draws last, covers that so a short deck
+    # isn't padded with basics: the commander's own leftover list cards first
+    # (most played with it first), then the most-played cards in its colours.
+    # Skipped when EDHREC gave nothing: an outage should still look like one.
     if max_card_price is not None and edhrec_answered:
-        taken = {c["name"] for cards in skeleton.values() for c in cards} | set(names)
+        no_gc = allowance is not None  # like fills: none below bracket 4
+
+        # EDHREC names a two-faced card by its front; compare canonical names.
+        def canon(name: str) -> str:
+            return (idx.get(name) or {}).get("name", name)
+
+        taken = {canon(c["name"]) for cards in skeleton.values() for c in cards}
+        taken |= {r.get("name") for r in recs}
+        own = []
+        for c in sorted(spare, key=lambda c: -(c.get("num_decks") or 0)):
+            rec = idx.get(c["name"])
+            if rec["name"] in taken or (no_gc and rec.get("game_changer")):
+                continue
+            taken.add(rec["name"])
+            own.append(c)
         found = _search_cards(
             config.BULK_PATH,
             color_identity="".join(color_identity) or "C",
@@ -2734,11 +2756,10 @@ def wizard_build_skeleton(
             for c in found
             if c["name"] not in taken
             and not _land_flag(c)
-            # Like fills: no game changers below bracket 4.
-            and not (allowance is not None and c.get("game_changer"))
+            and not (no_gc and c.get("game_changer"))
         ][:_BUDGET_PICKS]
-        if picks:
-            skeleton["budget_picks"] = [
+        if own or picks:
+            skeleton["budget_picks"] = own + [
                 _enrich_card(
                     {"name": c["name"], "reason": "most played under your price cap"},
                     idx,

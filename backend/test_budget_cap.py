@@ -6,7 +6,8 @@ way to say "nothing over $5". The cap is per card, not a deck total. Skeleton
 cards over it (or unpriced) come back flagged over_cap rather than dropped, so
 the collection route can keep the ones the user owns; each EDHREC list is
 walked past its usual 12 for cheaper cards; a budget_picks category tops up
-what the lists can't supply; fills search under the same cap.
+what that leaves short, the lists' own leftovers before generic most-played
+cards; fills search under the same cap.
 
 Uses the real bulk on disk, so the fixture is built from today's prices rather
 than hardcoded ones. No network (sockets are disabled below) and no AI call.
@@ -60,8 +61,11 @@ assert not mtg._over_cap({"prices": {"usd": "999"}}, None)  # no cap, nothing ov
 most_played = [
     c["name"]
     for c in mtg._search_cards(
-        config.BULK_PATH, color_identity="R", format="commander",
-        sort="edhrec-desc", limit=800,
+        config.BULK_PATH,
+        color_identity="R",
+        format="commander",
+        sort="edhrec-desc",
+        limit=800,
     )
     if not mtg._land_flag(c)
     and not c.get("game_changer")
@@ -69,17 +73,31 @@ most_played = [
     and c["name"] != CMD
     and price(c["name"]) is not None
 ]
+
+
+def canon(name):
+    return idx.get(name)["name"]
+
+
 *DEAR, DEAR_DEEP = [n for n in most_played if price(n) > CAP][:9]
-CHEAP = [n for n in most_played if price(n) <= CAP][:20]
+cheap_all = [n for n in most_played if price(n) <= CAP]
+# EDHREC names a two-faced card by its front face, search by "Front // Back".
+TWO_FACED = next(n for n in cheap_all if " // " in n and canon(n.split(" // ")[0]) == n)
+FRONT = TWO_FACED.split(" // ")[0]
+CHEAP = [FRONT, *[n for n in cheap_all if n != TWO_FACED][:19]]
 assert len(DEAR) == 8 and len(CHEAP) == 20, (len(DEAR), len(CHEAP))
 # Eight dear cards fill most of the usual window; one more sits past it.
 LISTED = [*DEAR, "Not A Real Card", *CHEAP[:6], DEAR_DEEP, *CHEAP[6:]]
-edhrec = {
-    "creatures": [
+
+
+def listing(card_names):
+    return [
         {"name": n, "synergy": 0.1, "num_decks": 5000 - i, "potential_decks": 10000}
-        for i, n in enumerate(LISTED)
+        for i, n in enumerate(card_names)
     ]
-}
+
+
+edhrec = {"creatures": listing(LISTED)}
 mtg.edhrec_lookup = lambda names: edhrec
 
 
@@ -101,6 +119,11 @@ everything = [c for cards in sk.values() for c in cards]
 assert not any("over_cap" in c for c in everything)
 assert all("price_usd" in c for c in everything)
 assert "budget_picks" not in sk
+# The window is the first 15 listed, not the first 12 valid: five bad names up
+# front leave ten.
+edhrec["creatures"] = listing([*(f"Bad Name {i}" for i in range(5)), *CHEAP])
+assert names(skeleton(None)["creatures"]) == CHEAP[:10]
+edhrec["creatures"] = listing(LISTED)
 
 # --- capped: flagged, not dropped, and backfilled from further down ----------- #
 sk = skeleton(CAP)
@@ -115,40 +138,72 @@ for c in (c for cards in sk.values() for c in cards):
     assert c["price_usd"] == p
 
 # A list with nothing affordable ends where it ends.
-edhrec["creatures"] = edhrec["creatures"][:8]
+edhrec["creatures"] = listing(DEAR)
 assert names(skeleton(CAP)["creatures"]) == DEAR
-edhrec["creatures"] = [
-    {"name": n, "synergy": 0.1, "num_decks": 5000 - i, "potential_decks": 10000}
-    for i, n in enumerate(LISTED)
-]
+edhrec["creatures"] = listing(LISTED)
 
 # Fixed staples and the suggested lands obey the cap like any other card.
 tiny = skeleton(0.01)
-assert all(c.get("over_cap") for c in tiny["staples"]), tiny["staples"]
-assert names(tiny["staples"]) == names(skeleton(None)["staples"])  # flagged, kept
+for key in ("staples", "suggested_lands"):
+    assert tiny[key] and all(c.get("over_cap") for c in tiny[key]), tiny[key]
+    assert names(tiny[key]) == names(skeleton(None)[key])  # flagged, kept
 
-# --- budget_picks: the most-played affordable cards, only under a cap --------- #
+# --- budget_picks: the commander's own leftovers, then the most played -------- #
 picks = sk["budget_picks"]
-assert 0 < len(picks) <= mtg._BUDGET_PICKS
-listed_elsewhere = {c["name"] for k, cards in sk.items() if k != "budget_picks" for c in cards}
-for c in picks:
-    rec = idx.get(c["name"])
-    assert not c.get("over_cap") and price(c["name"]) <= CAP, c
-    assert not c["is_land"], c
-    assert not rec.get("game_changer"), c  # bracket 2
-    assert set(rec.get("color_identity") or []) <= {"R"}, c
-    assert c["name"] not in listed_elsewhere and c["name"] != CMD, c
-ranks = [idx.get(c["name"]).get("edhrec_rank") for c in picks]
-assert ranks == sorted(ranks), ranks  # most played first
+own, generic = picks[: len(CHEAP) - 12], picks[len(CHEAP) - 12 :]
+# The list's affordable cards past the 12 come first, most played first: the
+# commander's own cards before anyone's generic staples.
+assert names(own) == CHEAP[12:], names(own)
+assert all("reason" not in c and c["num_decks"] for c in own), own
+assert DEAR_DEEP not in names(picks)
+assert 0 < len(generic) <= mtg._BUDGET_PICKS
+assert all(c["reason"] == "most played under your price cap" for c in generic)
+# (The index keeps the cheapest printing, and a few of those carry no rank.)
+ranks = [r for c in generic if (r := idx.get(c["name"]).get("edhrec_rank"))]
+assert len(ranks) > len(generic) / 2 and ranks == sorted(ranks), (
+    ranks
+)  # most played first
 
-# No game changers below bracket 4, like fills. Widen the pick count so the
-# fixture can show one: the bracket-5 list must really hold a game changer.
-mtg._BUDGET_PICKS, _picks = 600, mtg._BUDGET_PICKS
+
+def check_picks(sk, cap, bracket):
+    elsewhere = {
+        canon(c["name"]) for k, v in sk.items() if k != "budget_picks" for c in v
+    }
+    seen = set()
+    for c in sk["budget_picks"]:
+        rec = idx.get(c["name"])
+        assert not c.get("over_cap") and price(c["name"]) <= cap, c
+        assert not c["is_land"], c
+        assert bracket >= 4 or not rec.get("game_changer"), c
+        assert set(rec.get("color_identity") or []) <= {"R"}, c
+        # Not already offered, under either spelling of a two-faced card.
+        assert rec["name"] not in elsewhere | seen | {CMD}, c
+        seen.add(rec["name"])
+
+
+check_picks(sk, CAP, 2)
+
+# Widen the generic count so the fixtures can show the two things a short list
+# hides: a two-faced card already listed by its front face, and game changers
+# (none below bracket 4, like fills; the bracket-5 picks must really hold one).
+mtg._BUDGET_PICKS, _picks = 1000, mtg._BUDGET_PICKS
 try:
-    open_gcs = [n for n in names(skeleton(1000.0, bracket=5)["budget_picks"]) if is_gc(n)]
+    wide = skeleton(CAP)
+    assert FRONT in names(wide["creatures"]) and TWO_FACED not in names(
+        wide["budget_picks"]
+    )
+    check_picks(wide, CAP, 2)
+    open_gcs = [
+        n for n in names(skeleton(1000.0, bracket=5)["budget_picks"]) if is_gc(n)
+    ]
     assert open_gcs, "fixture: no game changer among the uncapped-bracket picks"
-    shut = names(skeleton(1000.0, bracket=2)["budget_picks"])
-    assert not any(is_gc(n) for n in shut)
+    shut = skeleton(1000.0, bracket=2)
+    assert not any(is_gc(n) for n in names(shut["budget_picks"]))
+    # The same rule for a game changer left over in the commander's own list.
+    edhrec["creatures"] = listing([*CHEAP[:14], open_gcs[0]])
+    assert open_gcs[0] in names(skeleton(1000.0, bracket=5)["budget_picks"])
+    assert open_gcs[0] not in names(skeleton(1000.0, bracket=2)["budget_picks"])
+    edhrec["creatures"] = listing(LISTED)
 finally:
     mtg._BUDGET_PICKS = _picks
 
@@ -190,13 +245,24 @@ assert names(body["creatures"]) == [*DEAR, *CHEAP[:12]] and body["budget_picks"]
 for none in ({}, {"max_card_price": None}):
     r = client.post(URL, json={"commander": CMD, **none})
     assert r.status_code == 200 and "budget_picks" not in r.json()["skeleton"], r.text
-for bad in ("abc", 0, -1, 1000.01, "nan", "inf", [], {}):
+for bad in ("abc", 0, -1, 1000.01, "nan", "inf", [], {}, True, False, 10**400):
     r = client.post(URL, json={"commander": CMD, "max_card_price": bad})
-    assert r.status_code == 400, (bad, r.status_code)
+    assert r.status_code == 400, (str(bad)[:20], r.status_code)
+# A capped build searches the bulk by format, so a bad one is a 400, not a 500.
+for fmt in ("bogus", ["commander"], 5):
+    for cap in ({}, {"max_card_price": CAP}):
+        r = client.post(URL, json={"commander": CMD, "format": fmt, **cap})
+        assert r.status_code == 400, (fmt, cap, r.status_code)
+r = client.post(
+    URL, json={"commander": CMD, "format": "paupercommander", "max_card_price": CAP}
+)
+assert r.status_code == 200 and r.json()["skeleton"]["budget_picks"], r.text
 
 # The fills route passes the cap on. Its AI gate is not what's under test.
 main._check_ai_access = lambda request: None
-r = client.post("/api/deck/ai/fills", json={"decklist": DECK, "bracket": 2, "max_card_price": CAP})
+r = client.post(
+    "/api/deck/ai/fills", json={"decklist": DECK, "bracket": 2, "max_card_price": CAP}
+)
 assert r.status_code == 200, r.text
 sent = [p["name"] for f in r.json()["fills"] for p in f["pool"]]
 assert sent and all(price(n) <= CAP for n in sent), sent

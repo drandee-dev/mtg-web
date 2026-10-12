@@ -458,8 +458,10 @@ def _max_card_price(payload: dict) -> float | None:
     if p is None:
         return None
     try:
+        if isinstance(p, bool):  # float(True) is 1.0
+            raise TypeError
         val = float(p)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, OverflowError):  # overflow: a huge JSON integer
         raise HTTPException(400, "max_card_price must be a number.")
     if not 0 < val <= 1000:  # also rejects NaN and infinity
         raise HTTPException(400, "max_card_price must be above 0, up to 1000.")
@@ -829,6 +831,9 @@ def _commander_field(raw: object) -> str:
 def wizard_skeleton(payload: Annotated[dict, Body()]) -> dict:
     commander = _commander_field(payload.get("commander"))
     fmt = payload.get("format") or "commander"
+    # A capped build searches the bulk by format, so it has to be a real one.
+    if not isinstance(fmt, str) or fmt not in mtg.FORMAT_CONFIGS:
+        raise HTTPException(400, "Unknown format.")
     return mtg.wizard_build_skeleton(
         commander,
         fmt=fmt,
