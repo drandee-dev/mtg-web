@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, BRACKETS, FORMATS, getCardImage } from "../lib/api";
+import { api, BRACKETS, FORMATS, PRICE_CAPS, getCardImage } from "../lib/api";
 import { searchCommanders as scryfallSearchCommanders } from "../lib/scryfall";
 import { parseNarration } from "../lib/buildNotes";
 import { parseCollectionCsv, buildOwnedIndex, ownedQuantity } from "../lib/collection";
@@ -145,6 +145,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
   const [stepIdx, setStepIdx] = useState(0);
   const [format, setFormat] = useState("commander");
   const [bracket, setBracket] = useState(null);
+  const [maxCardPrice, setMaxCardPrice] = useState(null); // USD per card; null = any price
 
   const [describeText, setDescribeText] = useState("");
   const [candidates, setCandidates] = useState(null); // null | [] | [{name,...}]
@@ -310,7 +311,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
     const commanderName = cmdNames.join(" && ");
     setProgress({ label: "Building the skeleton", pct: 15 });
     try {
-      const sk = await api.wizardSkeleton(commanderName, format, bracket);
+      const sk = await api.wizardSkeleton(commanderName, format, bracket, maxCardPrice);
       if (sk?.error) throw new Error(sk.message || "Commander not found.");
       const colors = sk.commander?.color_identity || [];
       const { cards, basics } = assembleSkeleton({ ...sk.skeleton, _colors: colors }, cmdNames);
@@ -345,7 +346,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
       setProgress({ label: "Closing category gaps", pct: 80 });
       let merged = { cards, basics, added: [], cut: [] };
       try {
-        const fills = await api.aiFills(full, format, bracket);
+        const fills = await api.aiFills(full, format, bracket, undefined, maxCardPrice);
         merged = mergeFills({ cards, basics, commanders: cmdNames, ...fillProposals(fills) });
       } catch { /* fills are optional — the skeleton deck stands on its own */ }
       noteFills(notes, merged);
@@ -427,11 +428,13 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
     const commanderName = cmdNames.join(" && ");
     setProgress({ label: "Building the skeleton", pct: 15 });
     try {
-      const sk = await api.wizardSkeleton(commanderName, format, bracket);
+      const sk = await api.wizardSkeleton(commanderName, format, bracket, maxCardPrice);
       if (sk?.error) throw new Error(sk.message || "Commander not found.");
       const colors = sk.commander?.color_identity || [];
       const ownedFirst = ownedFirstSkeleton(sk.skeleton, ownedIndex);
-      const { cards, basics } = assembleSkeleton({ ...ownedFirst, _colors: colors }, cmdNames);
+      // The price cap is about what you'd have to buy: owned cards ignore it.
+      const { cards, basics } = assembleSkeleton({ ...ownedFirst, _colors: colors }, cmdNames,
+        (name) => ownedQuantity(name, ownedIndex) > 0);
       if (!cards.length) throw new Error("No suggestions came back for that commander.");
 
       const notes = {};
@@ -459,7 +462,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
       setProgress({ label: "Closing category gaps", pct: 65 });
       let merged = { cards, basics, added: [], cut: [] };
       try {
-        const fills = await api.aiFills(full, format, bracket);
+        const fills = await api.aiFills(full, format, bracket, undefined, maxCardPrice);
         const { proposed, thinLabels } = fillProposals(fills);
         merged = mergeFills({
           cards, basics, commanders: cmdNames, thinLabels,
@@ -694,6 +697,11 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
                 <option value="">Bracket: auto</option>
                 {BRACKETS.map(([v, label]) => <option key={v} value={v}>Bracket {v} — {label}</option>)}
               </select>
+              <select value={maxCardPrice ?? ""} onChange={(e) => setMaxCardPrice(e.target.value ? Number(e.target.value) : null)}
+                style={{ width: "auto" }} aria-label="Max price per card">
+                <option value="">Any card price</option>
+                {PRICE_CAPS.map((v) => <option key={v} value={v}>Up to {fmtUsd(v)} a card</option>)}
+              </select>
             </div>
             <label htmlFor="gen-cmd">Commander</label>
             <input
@@ -818,6 +826,11 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
               style={{ width: "auto" }} aria-label="Target bracket">
               <option value="">Bracket: auto</option>
               {BRACKETS.map(([v, label]) => <option key={v} value={v}>Bracket {v} — {label}</option>)}
+            </select>
+            <select value={maxCardPrice ?? ""} onChange={(e) => setMaxCardPrice(e.target.value ? Number(e.target.value) : null)}
+              style={{ width: "auto" }} aria-label="Max price per card">
+              <option value="">Any card price</option>
+              {PRICE_CAPS.map((v) => <option key={v} value={v}>Up to {fmtUsd(v)} a card</option>)}
             </select>
           </div>
 

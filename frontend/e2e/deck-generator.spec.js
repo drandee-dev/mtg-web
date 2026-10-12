@@ -454,3 +454,123 @@ test.describe("Generated deck reasons", () => {
     await expect(page.locator(".cdm-why")).toHaveCount(0);
   });
 });
+
+// G4: a per-card price cap, offered beside Format and Bracket in all three
+// places a deck gets generated. The backend flags cards over the cap rather
+// than dropping them (so the collection route can keep owned ones) and adds a
+// budget_picks list; this skeleton is what it returns under a cap.
+test.describe("Per-card price cap", () => {
+  async function routeCappedSkeleton(page) {
+    await page.route("**/api/deck/wizard/skeleton*", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: false,
+        commander: { name: "Atraxa, Praetors' Voice", color_identity: ["W", "U", "B", "G"] },
+        skeleton: {
+          staples: [{ name: "Sol Ring", reason: "format staple" }],
+          suggested_lands: [{ name: "Command Tower", reason: "staple" }],
+          high_synergy: [
+            { name: "Deepglow Skate", synergy: 0.92 },
+            { name: "Rhystic Study", synergy: 0.71, over_cap: true },
+          ],
+          top_cards: [
+            { name: "Smothering Tithe", synergy: 0.6, over_cap: true },
+            { name: "Cultivate", synergy: 0.4 },
+          ],
+          budget_picks: [{ name: "Counterspell", reason: "most played under your price cap" }],
+        },
+        bracket: null,
+      }),
+    }));
+  }
+  const sentTo = (page, path) => page.waitForRequest((r) => r.url().includes(path));
+  const row = (page, name) => page.locator(".gen-card-row", { hasText: name });
+
+  test("the select offers the caps and defaults to any price", async ({ page }) => {
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+    const cap = page.getByLabel("Max price per card");
+    await expect(cap).toHaveValue("");
+    expect(await cap.locator("option").allTextContents()).toEqual([
+      "Any card price",
+      "Up to $1.00 a card", "Up to $2.00 a card", "Up to $5.00 a card",
+      "Up to $10.00 a card", "Up to $20.00 a card",
+    ]);
+    // Untouched, the cap is not sent at all.
+    const skeleton = sentTo(page, "/api/deck/wizard/skeleton");
+    await page.locator("#gen-cmd").fill("atraxa");
+    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
+    expect((await skeleton).postDataJSON()).not.toHaveProperty("max_card_price");
+  });
+
+  test("one-shot build sends the cap and leaves flagged cards out", async ({ page }) => {
+    await routeCappedSkeleton(page);
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+    await page.getByLabel("Max price per card").selectOption("5");
+
+    const skeleton = sentTo(page, "/api/deck/wizard/skeleton");
+    const fills = sentTo(page, "/api/deck/ai/fills");
+    await page.locator("#gen-cmd").fill("atraxa");
+    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
+    expect((await skeleton).postDataJSON().max_card_price).toBe(5);
+    expect((await fills).postDataJSON().max_card_price).toBe(5);
+
+    await expect(page.locator(".gen-summary")).toContainText("100 cards", { timeout: 20000 });
+    await expect(row(page, "Deepglow Skate")).toBeVisible();
+    await expect(row(page, "Rhystic Study")).toHaveCount(0);
+    await expect(row(page, "Smothering Tithe")).toHaveCount(0);
+    // The lists ran short, so the budget pick fills a slot.
+    await expect(row(page, "Counterspell")).toBeVisible();
+  });
+
+  test("collection build sends the cap but keeps a flagged card you own", async ({ page }) => {
+    await routeCappedSkeleton(page);
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "Build from my collection" }).click();
+    await page.locator("#gen-collection").fill("name,set,quantity\nRhystic Study,,1");
+    await page.locator("button", { hasText: "Continue" }).click();
+    await page.getByLabel("Max price per card").selectOption("5");
+
+    const skeleton = sentTo(page, "/api/deck/wizard/skeleton");
+    const fills = sentTo(page, "/api/deck/ai/fills");
+    await page.locator("#gen-cmd").fill("atraxa");
+    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
+    expect((await skeleton).postDataJSON().max_card_price).toBe(5);
+    expect((await fills).postDataJSON().max_card_price).toBe(5);
+
+    await expect(page.locator(".gen-summary")).toContainText("100 cards", { timeout: 20000 });
+    await expect(row(page, "Rhystic Study")).toBeVisible(); // owned: the cap doesn't apply
+    await expect(row(page, "Smothering Tithe")).toHaveCount(0); // would have to be bought
+  });
+
+  test("guided wizard sends the cap and hides flagged cards", async ({ page }) => {
+    await routeCappedSkeleton(page);
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "Guide me step by step" }).click();
+    await page.getByLabel("Max price per card").selectOption("5");
+    await page.getByPlaceholder("Start typing… e.g. nethroi").fill("atraxa");
+    await page.locator(".ac-item", { hasText: "Atraxa" }).click();
+
+    const skeleton = sentTo(page, "/api/deck/wizard/skeleton");
+    await page.locator("button", { hasText: "Build skeleton" }).click();
+    expect((await skeleton).postDataJSON().max_card_price).toBe(5);
+
+    // Step through every category: the flagged cards are never offered.
+    await expect(page.locator("button", { hasText: "Add all" })).toBeVisible();
+    const seen = [];
+    for (;;) {
+      seen.push(await page.locator(".gen").innerText());
+      const next = page.locator("button", { hasText: "Skip to next" });
+      if (!(await next.count())) break;
+      await next.click();
+    }
+    const all = seen.join("\n");
+    expect(all).toContain("Deepglow Skate");
+    expect(all).toContain("Budget picks");
+    expect(all).toContain("Counterspell");
+    expect(all).not.toContain("Rhystic Study");
+    expect(all).not.toContain("Smothering Tithe");
+  });
+});

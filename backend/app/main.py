@@ -452,6 +452,20 @@ def _target_bracket(payload: dict) -> int | None:
     return val
 
 
+def _max_card_price(payload: dict) -> float | None:
+    """The generator's per-card price cap in USD; absent or null = no limit."""
+    p = payload.get("max_card_price")
+    if p is None:
+        return None
+    try:
+        val = float(p)
+    except (ValueError, TypeError):
+        raise HTTPException(400, "max_card_price must be a number.")
+    if not 0 < val <= 1000:  # also rejects NaN and infinity
+        raise HTTPException(400, "max_card_price must be above 0, up to 1000.")
+    return val
+
+
 @app.post("/api/deck/recommend")
 def deck_recommend(payload: Annotated[dict, Body()]) -> dict:
     decklist, fmt = _validate_decklist(payload)
@@ -533,7 +547,11 @@ def deck_ai_fills(request: Request, payload: Annotated[dict, Body()]) -> dict:
     _check_ai_access(request)
     decklist, fmt = _validate_decklist(payload)
     return mtg.ai_composition_fills(
-        decklist, fmt=fmt, bracket=_target_bracket(payload), goals=_parse_goals(payload)
+        decklist,
+        fmt=fmt,
+        bracket=_target_bracket(payload),
+        goals=_parse_goals(payload),
+        max_card_price=_max_card_price(payload),
     )
 
 
@@ -812,7 +830,10 @@ def wizard_skeleton(payload: Annotated[dict, Body()]) -> dict:
     commander = _commander_field(payload.get("commander"))
     fmt = payload.get("format") or "commander"
     return mtg.wizard_build_skeleton(
-        commander, fmt=fmt, bracket=_target_bracket(payload)
+        commander,
+        fmt=fmt,
+        bracket=_target_bracket(payload),
+        max_card_price=_max_card_price(payload),
     )
 
 

@@ -2136,7 +2136,13 @@ _FILL_SEARCH = {
 
 
 def _fill_candidates(
-    cfg: dict, *, color_identity: str | None, fmt: str, sort: str, limit: int
+    cfg: dict,
+    *,
+    color_identity: str | None,
+    fmt: str,
+    sort: str,
+    limit: int,
+    price_max: float | None = None,
 ) -> list[dict]:
     """Search for cards in one role (a _FILL_SEARCH-shaped cfg).
 
@@ -2151,6 +2157,7 @@ def _fill_candidates(
         "color_identity": color_identity,
         "format": fmt,
         "sort": sort,
+        "price_max": price_max,
     }
     presets = cfg.get("presets")
     tier = cfg.get("tier")
@@ -2195,6 +2202,7 @@ def ai_composition_fills(
     bracket: int | None = None,
     goals: dict | None = None,
     api_key: str | None = None,
+    max_card_price: float | None = None,
 ) -> dict[str, Any]:
     ctx = _deck_context_cached(text, fmt, bracket=bracket)
     goal_sys, goal_user = goals_prompt_parts(goals)
@@ -2228,6 +2236,9 @@ def ai_composition_fills(
                 fmt=deck.get("format", "commander"),
                 sort="edhrec-desc",
                 limit=20,
+                # The generator's per-card cap: search drops dearer and
+                # unpriced cards before the limit, so the pool stays full.
+                price_max=max_card_price,
             )
         except Exception:
             candidates = []
@@ -2533,13 +2544,32 @@ def _land_flag(rec: dict | None) -> bool:
     return bool(rec) and is_land(rec)
 
 
-def _enrich_card(card_dict: dict, idx: Any) -> dict:
-    """Add role tags and the land flag to a card entry from its Scryfall record."""
+def _over_cap(rec: dict | None, cap: float | None) -> bool:
+    """True when a card can't go in a price-capped build: dearer than the
+    per-card cap, or no known price. With no cap nothing is over."""
+    if cap is None:
+        return False
+    price = extract_price(rec)
+    return price is None or price > cap
+
+
+def _enrich_card(card_dict: dict, idx: Any, cap: float | None = None) -> dict:
+    """Add role tags, the land flag and the price to a card entry from its
+    Scryfall record, and flag it over_cap when it breaks the price cap."""
     name = card_dict.get("name", "")
     rec = idx.get(name)
     card_dict["roles"] = _classify_roles(rec)
     card_dict["is_land"] = _land_flag(rec)
+    card_dict["price_usd"] = extract_price(rec)
+    if _over_cap(rec, cap):
+        card_dict["over_cap"] = True
     return card_dict
+
+
+# Most-played affordable cards offered when a capped skeleton runs short.
+# ponytail: fixed count, enough for the 6-10 slot shortfalls measured at a $1
+# cap; raise it if capped builds still pad with basics.
+_BUDGET_PICKS = 30
 
 
 def wizard_build_skeleton(
@@ -2547,12 +2577,18 @@ def wizard_build_skeleton(
     *,
     fmt: str = "commander",
     bracket: int | None = None,
+    max_card_price: float | None = None,
 ) -> dict[str, Any]:
     """Step 1: Given a commander, build a starter skeleton using EDHREC data
     and staple card search. Returns categorized card suggestions.
 
     *commander* is one name or a partner pair "A && B" (the app's commander
     string). A pair builds from the union identity and EDHREC's pair page.
+
+    *max_card_price* is a per-card cap in USD. Cards over it (or unpriced) are
+    flagged over_cap, not dropped: the collection route keeps the ones the user
+    owns. Each EDHREC list is walked further for cheaper cards, and a
+    budget_picks category tops up what the lists can't supply.
     """
     idx = _bulk_index()
     names = [n.strip() for n in commander.split(" && ") if n.strip()]
@@ -2585,10 +2621,23 @@ def wizard_build_skeleton(
             cards = edhrec_cats.get(cat_key, [])
             if cards:
                 enriched = []
-                for c in cards[:15]:
+                # The window is what an uncapped build returns: the first 12
+                # valid cards of the first 15. Under a cap the walk goes on past
+                # it for cheaper cards until 12 are affordable.
+                window = affordable = 0
+                for i, c in enumerate(cards):
+                    in_window = i < 15 and window < 12
+                    if not in_window and (max_card_price is None or affordable >= 12):
+                        break
                     name = c.get("name", "")
-                    if not name or not idx.get(name):
+                    rec = idx.get(name) if name else None
+                    if not rec:
                         continue
+                    over = _over_cap(rec, max_card_price)
+                    if over and not in_window:
+                        continue
+                    window += in_window
+                    affordable += not over
                     enriched.append(
                         _enrich_card(
                             {
@@ -2598,14 +2647,14 @@ def wizard_build_skeleton(
                                 "potential_decks": c.get("potential_decks"),
                             },
                             idx,
+                            max_card_price,
                         )
                     )
-                    if len(enriched) >= 12:
-                        break
                 if enriched:
                     skeleton[cat_key] = enriched
     except Exception:
         pass
+    edhrec_answered = bool(skeleton)
 
     # 2. Mana base: basic lands + command tower + color-fixing
     lands = ["Command Tower"]
@@ -2621,7 +2670,8 @@ def wizard_build_skeleton(
         if b:
             lands.append(b)
     skeleton["suggested_lands"] = [
-        _enrich_card({"name": n, "reason": "staple"}, idx) for n in lands
+        _enrich_card({"name": n, "reason": "staple"}, idx, max_card_price)
+        for n in lands
     ]
 
     # 3. Universal staples (ramp + draw)
@@ -2638,7 +2688,9 @@ def wizard_build_skeleton(
         if rec:
             staples.append(
                 _enrich_card(
-                    {"name": rec.get("name", name), "reason": "format staple"}, idx
+                    {"name": rec.get("name", name), "reason": "format staple"},
+                    idx,
+                    max_card_price,
                 )
             )
     skeleton["staples"] = staples
@@ -2662,6 +2714,38 @@ def wizard_build_skeleton(
             k: [c for c in cards if c["name"] not in plays or c["name"] in keep]
             for k, cards in skeleton.items()
         }
+
+    # Under a cap the commander's lists can run out of affordable cards. Offer
+    # the most-played ones in its colours, which the generator draws last, so a
+    # short deck isn't padded with basics. Skipped when EDHREC gave nothing: an
+    # outage should still look like one.
+    if max_card_price is not None and edhrec_answered:
+        taken = {c["name"] for cards in skeleton.values() for c in cards} | set(names)
+        found = _search_cards(
+            config.BULK_PATH,
+            color_identity="".join(color_identity) or "C",
+            format=fmt,
+            sort="edhrec-desc",
+            price_max=max_card_price,
+            limit=None,
+        )
+        picks = [
+            c
+            for c in found
+            if c["name"] not in taken
+            and not _land_flag(c)
+            # Like fills: no game changers below bracket 4.
+            and not (allowance is not None and c.get("game_changer"))
+        ][:_BUDGET_PICKS]
+        if picks:
+            skeleton["budget_picks"] = [
+                _enrich_card(
+                    {"name": c["name"], "reason": "most played under your price cap"},
+                    idx,
+                    max_card_price,
+                )
+                for c in picks
+            ]
 
     return {
         "error": False,

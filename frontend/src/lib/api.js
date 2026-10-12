@@ -123,8 +123,11 @@ export const api = {
   setSearch: (q) => get("/api/sets", { q }),
   massPrinting: (names, sets, rarity) =>
     post("/api/cards/mass-printing", { names, sets, ...(rarity ? { rarity } : {}) }),
-  wizardSkeleton: (commander, format, bracket) =>
-    post("/api/deck/wizard/skeleton", { commander, format, ...(bracket != null ? { bracket } : {}) }),
+  wizardSkeleton: (commander, format, bracket, maxCardPrice) =>
+    post("/api/deck/wizard/skeleton", {
+      commander, format, ...(bracket != null ? { bracket } : {}),
+      ...(maxCardPrice != null ? { max_card_price: maxCardPrice } : {}),
+    }),
   wizardNarrate: (commander, category, card_names, decklist) =>
     post("/api/deck/wizard/narrate", { commander, category, card_names, decklist }),
   // wizardChat / rulesAsk / aiCombos were removed 2026-09-20: duplicates of
@@ -133,8 +136,11 @@ export const api = {
   // from the UI, and keeping two client methods for one job invited drift.
   rulesAskStream: (question, onChunk) =>
     postStream("/api/rules/ask/stream", { question }, onChunk),
-  aiFills: (decklist, format, bracket, goals) =>
-    post("/api/deck/ai/fills", { decklist, format, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}) }),
+  aiFills: (decklist, format, bracket, goals, maxCardPrice) =>
+    post("/api/deck/ai/fills", {
+      decklist, format, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}),
+      ...(maxCardPrice != null ? { max_card_price: maxCardPrice } : {}),
+    }),
   aiExplain: (decklist, format, card_names, bracket, goals) =>
     post("/api/deck/ai/explain", { decklist, format, card_names, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}) }),
   aiStrategy: (decklist, format, commander, bracket) =>
@@ -291,3 +297,8 @@ export const BRACKETS = [
   [4, "Optimized"],
   [5, "cEDH"],
 ];
+
+// Per-card price caps the deck generator offers, in USD. Value is what the
+// backend's _max_card_price accepts; "any price" (null) is rendered separately
+// by each select.
+export const PRICE_CAPS = [1, 2, 5, 10, 20];
