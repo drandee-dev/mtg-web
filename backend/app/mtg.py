@@ -10,6 +10,7 @@ from __future__ import annotations
 import functools
 import json
 import logging
+import math
 import os
 import re
 from collections import Counter
@@ -877,10 +878,13 @@ def deck_composition(text: str, *, fmt: str = "commander") -> dict[str, Any]:
                     count += 1
                     light += 1
         status = "ok"
+        spare = None
         if is_commander_fmt and target:
             # Decision 8: lands are thin below target, everything else below 85%.
             floor = target if key == "lands" else 0.85 * target
             status = "thin" if count < floor else "ok"
+            # How many cards the category can lose before it reads thin.
+            spare = max(0, count - math.ceil(floor))
         categories.append(
             {
                 "key": key,
@@ -889,6 +893,7 @@ def deck_composition(text: str, *, fmt: str = "commander") -> dict[str, Any]:
                 "light": light,
                 "target": target if (is_commander_fmt and target) else None,
                 "status": status,
+                "spare": spare,
             }
         )
     return {"format": fmt, "is_commander": is_commander_fmt, "categories": categories}
@@ -2316,7 +2321,15 @@ def ai_composition_fills(
         for e in (*f["suggestions"], *f["pool"]):
             e["is_land"] = _land_flag(idx.get(e["name"]))
 
-    return {"error": False, "fills": fills, "model": _AI_MODEL}
+    # A fill displaces a card once lands sit at their floor. `spare` tells the
+    # client how many cards each healthy category can lose before it reads thin,
+    # so closing one gap doesn't open another. Lands have their own floor.
+    spare = {
+        c["label"]: c["spare"]
+        for c in comp["categories"]
+        if c.get("spare") is not None and c["status"] == "ok" and c["key"] != "lands"
+    }
+    return {"error": False, "fills": fills, "spare": spare, "model": _AI_MODEL}
 
 
 # --------------------------------------------------------------------------- #

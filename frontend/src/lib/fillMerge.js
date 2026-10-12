@@ -100,13 +100,17 @@ const isLand = (c) => c.is_land ?? c.category === "Lands";
 /** Returns { cards, basics, added, cut }. `cards` is the skeleton list,
  *  `basics` a Map(name→qty), `proposed` the fills already in the order they
  *  should be tried. Inputs are not mutated. An added card that displaced a
- *  spell carries `displaced: <name>`. */
-export function mergeFills({ cards, basics, proposed, thinLabels = [], commanders = [], landFloor = 36 }) {
+ *  spell carries `displaced: <name>`. `spare` is ai/fills' own field: how many
+ *  cards each healthy category can lose before it reads thin, so closing one
+ *  gap never opens another. */
+export function mergeFills({ cards, basics, proposed, thinLabels = [], commanders = [], landFloor = 36, spare = {} }) {
   const kept = [...cards];
   const nextBasics = new Map(basics);
   const added = [];
   const cut = [];
   const thinRoles = new Set(thinLabels.map((l) => THIN_ROLE[l]).filter(Boolean));
+  // Role -> cuts it can still take. A role with no entry isn't counted.
+  const room = new Map(Object.entries(spare).filter(([l]) => THIN_ROLE[l]).map(([l, n]) => [THIN_ROLE[l], n]));
   const have = new Set([...kept.map((c) => c.name), ...commanders].map((n) => n.toLowerCase()));
   let lands = [...nextBasics.values()].reduce((n, q) => n + q, 0) + kept.filter(isLand).length;
 
@@ -118,7 +122,8 @@ export function mergeFills({ cards, basics, proposed, thinLabels = [], commander
     else nextBasics.set(name, q - 1);
     return true;
   };
-  const cuttable = (c) => !isLand(c) && c.category !== STAPLES && !(c.roles || []).some((r) => thinRoles.has(r));
+  const cuttable = (c) => !isLand(c) && c.category !== STAPLES
+    && !(c.roles || []).some((r) => thinRoles.has(r) || room.get(r) === 0);
   // Least played goes first: lowest EDHREC inclusion, no data counting as
   // lowest; a tie goes to the later (lower-priority) card.
   const played = (c) => c.inclusion ?? -1;
@@ -137,6 +142,7 @@ export function mergeFills({ cards, basics, proposed, thinLabels = [], commander
       const i = leastPlayed();
       if (i < 0) continue;
       displaced = kept.splice(i, 1)[0];
+      for (const r of displaced.roles || []) if (room.has(r)) room.set(r, room.get(r) - 1);
       cut.push({ ...displaced, replacedBy: name });
     }
     have.add(name.toLowerCase());

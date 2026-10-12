@@ -107,12 +107,14 @@ function partitionOwned(list, ownedIndex) {
 }
 
 /** Flatten an ai/fills response into mergeFills' proposed list. Every
- *  category it returns is a thin one, suggestions or not. */
+ *  category it returns is a thin one, suggestions or not; `spare` is what
+ *  the healthy ones can lose. */
 function fillProposals(fills) {
   const list = fills?.fills || [];
   return {
     proposed: list.flatMap((f) => (f.suggestions || []).map((s) => ({ ...s, category: f.category || "Fills" }))),
     thinLabels: list.map((f) => f.category),
+    spare: fills?.spare || {},
   };
 }
 
@@ -463,9 +465,9 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
       let merged = { cards, basics, added: [], cut: [] };
       try {
         const fills = await api.aiFills(full, format, bracket, undefined, maxCardPrice);
-        const { proposed, thinLabels } = fillProposals(fills);
+        const { proposed, thinLabels, spare } = fillProposals(fills);
         merged = mergeFills({
-          cards, basics, commanders: cmdNames, thinLabels,
+          cards, basics, commanders: cmdNames, thinLabels, spare,
           proposed: partitionOwned(proposed, ownedIndex).flat(),
         });
       } catch { /* fills are optional — the skeleton deck stands on its own */ }
