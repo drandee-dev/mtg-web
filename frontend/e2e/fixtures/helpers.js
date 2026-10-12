@@ -1,7 +1,7 @@
 // Shared page helpers for E2E tests.
 // Centralizes common actions so individual tests stay focused on assertions.
 
-import { TEST_DECK_TEXT, TEST_COMMANDER } from "./test-data.js";
+import { TEST_DECK_TEXT } from "./test-data.js";
 
 export async function waitForAppReady(page) {
   await page.waitForSelector(".app", { timeout: 15000 });
@@ -86,7 +86,7 @@ export async function clearLocalStorage(page) {
   await page.evaluate(() => localStorage.clear());
 }
 
-export async function captureScreenshot(page, name) {
+export async function captureScreenshot(page) {
   await page.waitForTimeout(500); // let animations settle
   return page.screenshot({ fullPage: true, path: undefined });
 }

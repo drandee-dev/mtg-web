@@ -7,7 +7,7 @@ const REMEMBER_ME_KEY = "mtgweb:rememberMe";
 export default function Settings({ session, notify }) {
   const [email, setEmail] = useState(() => localStorage.getItem(REMEMBER_EMAIL_KEY) || "");
   const [password, setPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem(REMEMBER_ME_KEY) !== "false");
+  const [rememberMe] = useState(() => localStorage.getItem(REMEMBER_ME_KEY) !== "false");
   const [authMode, setAuthMode] = useState("signin");
   const [busy, setBusy] = useState(false);
 

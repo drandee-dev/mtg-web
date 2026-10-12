@@ -240,7 +240,6 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
   // --- BUILDING PHASE (split view) ---
   const groups = groupByType(picked);
   const catLabel = currentCat ? currentCat[1] : "";
-  const catKey = currentCat ? currentCat[0] : "";
 
   const suggestionsPane = (
     <div>

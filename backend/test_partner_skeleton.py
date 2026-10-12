@@ -135,8 +135,13 @@ assert ok.status_code == 200 and ok.json()["commander"]["color_identity"] == [
     "W", "U", "B", "G",
 ], ok.text
 for bad_cmd in ("", "   ", f"{PAIR} && Kraum, Ludevic's Opus", f"{THRASIOS} && ",
-                "x" * 101, 42, None, f"{THRASIOS} && {THRASIOS}"):
+                "x" * 101, f"{THRASIOS} && {THRASIOS}"):
     resp = client.post("/api/deck/wizard/skeleton", json={"commander": bad_cmd})
     assert resp.status_code == 400, (bad_cmd, resp.status_code)
+# Not a string at all, or far too long: the request model refuses it first.
+for bad_cmd in (42, None, ["Thrasios"], "x" * 500):
+    resp = client.post("/api/deck/wizard/skeleton", json={"commander": bad_cmd})
+    assert resp.status_code == 422, (str(bad_cmd)[:20], resp.status_code)
+assert client.post("/api/deck/wizard/skeleton", json={}).status_code == 422
 
 print("test_partner_skeleton: ok")

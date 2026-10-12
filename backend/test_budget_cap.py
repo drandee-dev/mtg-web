@@ -56,6 +56,16 @@ assert not mtg._over_cap({"prices": {"usd": "2.00"}}, 2.0)  # at the cap is fine
 assert mtg._over_cap({"prices": {}}, 2.0)  # no price: can't promise it's under
 assert mtg._over_cap(None, 2.0)
 assert not mtg._over_cap({"prices": {"usd": "999"}}, None)  # no cap, nothing over
+# A basic land with no price is not over a cap: production had none for Forest,
+# Mountain, Plains and Swamp, and that is a data gap, not a dear card. A priced
+# basic obeys the cap like anything else (a snow basic can cost over $1).
+assert not mtg._over_cap({"type_line": "Basic Land — Forest", "prices": {}}, 0.01)
+assert mtg._over_cap(
+    {"type_line": "Basic Snow Land — Island", "prices": {"usd": "3"}}, 1.0
+)
+assert not mtg._over_cap(
+    {"type_line": "Basic Snow Land — Island", "prices": {"usd": "1"}}, 1.0
+)
 
 # --- fixture: a list whose top is dear, with cheap cards further down --------- #
 most_played = [
@@ -247,14 +257,30 @@ assert names(body["creatures"]) == [*DEAR, *CHEAP[:12]] and body["budget_picks"]
 for none in ({}, {"max_card_price": None}):
     r = client.post(URL, json={"commander": CMD, **none})
     assert r.status_code == 200 and "budget_picks" not in r.json()["skeleton"], r.text
-for bad in ("abc", 0, -1, 1000.01, "nan", "inf", [], {}, True, False, 10**400):
+# The request model refuses a bad cap: 422 with a one-line reason that names
+# the field and never repeats what was sent. A boolean and a numeric string
+# are refused too, not read as a price.
+for bad in ("abc", "5", 0, -1, 1000.01, "nan", "inf", [], {}, True, False, 10**400):
     r = client.post(URL, json={"commander": CMD, "max_card_price": bad})
-    assert r.status_code == 400, (str(bad)[:20], r.status_code)
-# A capped build searches the bulk by format, so a bad one is a 400, not a 500.
-for fmt in ("bogus", ["commander"], 5):
+    assert r.status_code == 422, (str(bad)[:20], r.status_code)
+    detail = r.json()["detail"]
+    assert isinstance(detail, str) and detail.startswith("Invalid max_card_price"), (
+        detail
+    )
+    assert "abc" not in detail, detail
+# A null format still means commander, and a body that isn't JSON gets a plain
+# reason rather than a byte offset dressed up as a field name.
+assert client.post(URL, json={"commander": CMD, "format": None}).status_code == 200
+r = client.post(
+    URL, content=b'{"commander": "Krenko', headers={"Content-Type": "application/json"}
+)
+assert r.status_code == 422 and r.json()["detail"] == "JSON decode error", r.text
+# A capped build searches the bulk by format, so an unknown one is a 400 and a
+# non-string a 422; neither reaches the lookup.
+for fmt, want in (("bogus", 400), (["commander"], 422), (5, 422)):
     for cap in ({}, {"max_card_price": CAP}):
         r = client.post(URL, json={"commander": CMD, "format": fmt, **cap})
-        assert r.status_code == 400, (fmt, cap, r.status_code)
+        assert r.status_code == want, (fmt, cap, r.status_code)
 r = client.post(
     URL, json={"commander": CMD, "format": "paupercommander", "max_card_price": CAP}
 )
@@ -269,6 +295,18 @@ assert r.status_code == 200, r.text
 sent = [p["name"] for f in r.json()["fills"] for p in f["pool"]]
 assert sent and all(price(n) <= CAP for n in sent), sent
 r = client.post("/api/deck/ai/fills", json={"decklist": DECK, "max_card_price": "abc"})
-assert r.status_code == 400, r.status_code
+assert r.status_code == 422, r.status_code
+# The checks the model doesn't make still answer as before.
+for body, want in (
+    ({"decklist": "   "}, 400),  # empty after trimming
+    ({"decklist": DECK, "format": "bogus"}, 400),
+    ({"decklist": DECK, "goals": {"pilot": "nobody"}}, 400),
+    ({"decklist": "x" * 50_001}, 422),  # over the size limit
+    ({"decklist": DECK, "bracket": 9}, 422),
+    ({}, 422),  # no decklist at all
+):
+    r = client.post("/api/deck/ai/fills", json=body)
+    assert r.status_code == want, (str(body)[:40], r.status_code)
+    assert isinstance(r.json()["detail"], str), r.text[:200]
 
 print("test_budget_cap: ok")

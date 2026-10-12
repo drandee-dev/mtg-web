@@ -96,4 +96,17 @@ assert len(f1["Board wipes"]["pool"]) > 2, "the pool stays whole"
 # A wide gap is not capped below the old four.
 assert len(f["Card draw"]["suggestions"]) == 4
 
+# --- spare: what a healthy category can lose before it reads thin -------------- #
+# Four wipes against a target of three: the floor is ceil(0.85 * 3) = 3, so one
+# can go. Thin categories, untargeted ones and lands are not listed. The client
+# uses this so a fill that displaces a card never opens a new gap.
+WIPES = "1 Wrath of God\n1 Day of Judgment\n1 Damnation\n1 Supreme Verdict\n"
+deck = HEAD + "1 Forest\n" + WIPES
+comp = {c["label"]: c for c in mtg.deck_composition(deck)["categories"]}
+assert (comp["Board wipes"]["count"], comp["Board wipes"]["spare"]) == (4, 1), comp
+assert comp["Card draw"]["status"] == "thin" and comp["Card draw"]["spare"] == 0
+assert comp["Tutors"]["spare"] is None  # no target, nothing to protect
+r = mtg.ai_composition_fills(deck)
+assert r["spare"] == {"Board wipes": 1}, r["spare"]
+
 print("test_land_flag_and_fill_cap: ok")

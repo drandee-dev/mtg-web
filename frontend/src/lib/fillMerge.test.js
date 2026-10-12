@@ -145,6 +145,30 @@ test("the Ezuri shape: 36 lands plus 8 fills still ends at 36 lands", () => {
     ["Spell 10", "Spell 61", "Spell 60", "Spell 59", "Spell 58", "Spell 57", "Spell 56", "Spell 55"]);
 });
 
+// Closing one gap must not open another. Live, Edgar Markov's ramp fills cut
+// three removal spells (the least played cards) and left removal at 4 of 8.
+// ai/fills now says how many cards each healthy category can spare.
+test("a fill never cuts a healthy category below its floor", () => {
+  const cards = spells(63);
+  cards.forEach((c, i) => { c.inclusion = (100 - i) / 100; });
+  // The three least-played spells are the removal.
+  for (const i of [60, 61, 62]) cards[i].roles = ["Removal"];
+  const basics = new Map([["Swamp", 36]]);
+  const proposed = ["Fellwar Stone", "Mind Stone", "Thought Vessel", "Solemn Simulacrum"].map((n) => fill(n, "Ramp"));
+  const cutNames = (spare) => mergeFills({ cards, basics, proposed, thinLabels: ["Ramp"], spare }).cut.map((c) => c.name);
+
+  // No spare removal: all three are kept, the next least played go instead.
+  assert.deepEqual(cutNames({ "Spot removal": 0 }), ["Spell 59", "Spell 58", "Spell 57", "Spell 56"]);
+  // One to spare: one goes, then the category is protected.
+  assert.deepEqual(cutNames({ "Spot removal": 1 }), ["Spell 62", "Spell 59", "Spell 58", "Spell 57"]);
+  // An older response without the field cuts by play rate alone, as before.
+  assert.deepEqual(cutNames(undefined), ["Spell 62", "Spell 61", "Spell 60", "Spell 59"]);
+  // Either way the deck stays whole.
+  const r = mergeFills({ cards, basics, proposed, thinLabels: ["Ramp"], spare: { "Spot removal": 0 } });
+  assert.equal(total(r), 99);
+  assert.equal(lands(r), 36);
+});
+
 // G4: under a per-card price cap the backend flags dear cards over_cap rather
 // than dropping them, so the collection route can keep the ones the user owns.
 test("assembleSkeleton skips over-cap cards, except the ones the caller owns", () => {
