@@ -95,4 +95,45 @@ else:
         "a catalog without default_cards should raise for download_bulk to catch"
     )
 
+# And download_bulk does catch it: with the price pass failing, the build still
+# writes the cards with oracle-cards' own prices. Scryfall is stubbed.
+import tempfile  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+ORACLE = [
+    {"name": "Chaos Warp", "oracle_id": "warp", "prices": {"usd": None}},
+    {"name": "Sol Ring", "oracle_id": "ring", "prices": {"usd": "1.51"}},
+]
+
+
+class _Resp:
+    def __init__(self, body):
+        self.body = body
+
+    def read(self):
+        return self.body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def fake_urlopen(req, **kw):
+    if req.full_url.endswith("/bulk-data"):
+        catalog = {
+            "data": [{"type": "oracle_cards", "download_uri": "https://x/oracle"}]
+        }
+        return _Resp(json.dumps(catalog).encode())
+    return _Resp(json.dumps(ORACLE).encode())
+
+
+with tempfile.TemporaryDirectory() as tmp:
+    dd.BULK_PATH = Path(tmp) / "default-cards.json"
+    dd.urlopen = fake_urlopen
+    dd.download_bulk()  # the catalog has no default_cards: the pass raises inside
+    written = json.loads(dd.BULK_PATH.read_text())
+assert [c["prices"] for c in written] == [{"usd": None}, {"usd": "1.51"}], written
+
 print("test_cheapest_prices: ok")

@@ -2559,12 +2559,15 @@ def _land_flag(rec: dict | None) -> bool:
 
 def _over_cap(rec: dict | None, cap: float | None) -> bool:
     """True when a card can't go in a price-capped build: dearer than the
-    per-card cap, or no known price. With no cap nothing is over, and a basic
-    land never is, priced or not."""
-    if cap is None or "Basic" in ((rec or {}).get("type_line") or ""):
+    per-card cap, or no known price. With no cap nothing is over. A basic land
+    with no price is not over either (a missing price there is a data gap, not
+    a dear card); a priced one obeys the cap like anything else."""
+    if cap is None:
         return False
     price = extract_price(rec)
-    return price is None or price > cap
+    if price is None:
+        return "Basic" not in ((rec or {}).get("type_line") or "")
+    return price > cap
 
 
 def _enrich_card(card_dict: dict, idx: Any, cap: float | None = None) -> dict:

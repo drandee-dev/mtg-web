@@ -299,6 +299,6 @@ export const BRACKETS = [
 ];
 
 // Per-card price caps the deck generator offers, in USD. Value is what the
-// backend's _max_card_price accepts; "any price" (null) is rendered separately
-// by each select.
+// backend's max_card_price field accepts; "any price" (null) is rendered
+// separately by each select.
 export const PRICE_CAPS = [1, 2, 5, 10, 20];

@@ -307,7 +307,10 @@ async def _readable_validation_error(request: Request, exc: RequestValidationErr
     value that was sent.
     """
     first = exc.errors()[0] if exc.errors() else {}
-    field = ".".join(str(p) for p in first.get("loc", ()) if p != "body")
+    # String parts only: malformed JSON reports a byte offset, not a field.
+    field = ".".join(
+        p for p in first.get("loc", ()) if isinstance(p, str) and p != "body"
+    )
     msg = first.get("msg", "invalid request")
     return JSONResponse(
         status_code=422,
@@ -487,7 +490,7 @@ class SkeletonPayload(BaseModel):
     the name itself, and the route checks the format is a real one."""
 
     commander: str = Field(max_length=2 * _MAX_CARD_NAME_LEN + 4)  # "A && B"
-    format: str = Field(default="commander", max_length=30)
+    format: str | None = Field(default="commander", max_length=30)  # null = commander
     bracket: int | None = Field(default=None, ge=1, le=5)
     max_card_price: _PriceCap | None = None
 
@@ -497,7 +500,7 @@ class FillsPayload(BaseModel):
     _parse_goals, which validates it as GoalsPayload like the other routes."""
 
     decklist: str = Field(max_length=_MAX_DECKLIST_LEN)
-    format: str = Field(default="commander", max_length=30)
+    format: str | None = Field(default="commander", max_length=30)  # null = commander
     bracket: int | None = Field(default=None, ge=1, le=5)
     goals: dict | None = None
     max_card_price: _PriceCap | None = None

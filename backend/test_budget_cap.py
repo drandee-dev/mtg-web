@@ -56,11 +56,15 @@ assert not mtg._over_cap({"prices": {"usd": "2.00"}}, 2.0)  # at the cap is fine
 assert mtg._over_cap({"prices": {}}, 2.0)  # no price: can't promise it's under
 assert mtg._over_cap(None, 2.0)
 assert not mtg._over_cap({"prices": {"usd": "999"}}, None)  # no cap, nothing over
-# A basic land is never over a cap, even with no price (production had none
-# for Forest, Mountain, Plains and Swamp).
+# A basic land with no price is not over a cap: production had none for Forest,
+# Mountain, Plains and Swamp, and that is a data gap, not a dear card. A priced
+# basic obeys the cap like anything else (a snow basic can cost over $1).
 assert not mtg._over_cap({"type_line": "Basic Land — Forest", "prices": {}}, 0.01)
-assert not mtg._over_cap(
+assert mtg._over_cap(
     {"type_line": "Basic Snow Land — Island", "prices": {"usd": "3"}}, 1.0
+)
+assert not mtg._over_cap(
+    {"type_line": "Basic Snow Land — Island", "prices": {"usd": "1"}}, 1.0
 )
 
 # --- fixture: a list whose top is dear, with cheap cards further down --------- #
@@ -148,14 +152,11 @@ edhrec["creatures"] = listing(DEAR)
 assert names(skeleton(CAP)["creatures"]) == DEAR
 edhrec["creatures"] = listing(LISTED)
 
-# Fixed staples and the suggested lands obey the cap like any other card,
-# except the basics.
+# Fixed staples and the suggested lands obey the cap like any other card.
 tiny = skeleton(0.01)
 for key in ("staples", "suggested_lands"):
-    flagged = [c["name"] for c in tiny[key] if c.get("over_cap")]
-    assert flagged == [n for n in names(tiny[key]) if n != "Mountain"], tiny[key]
+    assert tiny[key] and all(c.get("over_cap") for c in tiny[key]), tiny[key]
     assert names(tiny[key]) == names(skeleton(None)[key])  # flagged, kept
-assert "Mountain" in names(tiny["suggested_lands"])
 
 # --- budget_picks: the commander's own leftovers, then the most played -------- #
 picks = sk["budget_picks"]
@@ -267,6 +268,13 @@ for bad in ("abc", "5", 0, -1, 1000.01, "nan", "inf", [], {}, True, False, 10**4
         detail
     )
     assert "abc" not in detail, detail
+# A null format still means commander, and a body that isn't JSON gets a plain
+# reason rather than a byte offset dressed up as a field name.
+assert client.post(URL, json={"commander": CMD, "format": None}).status_code == 200
+r = client.post(
+    URL, content=b'{"commander": "Krenko', headers={"Content-Type": "application/json"}
+)
+assert r.status_code == 422 and r.json()["detail"] == "JSON decode error", r.text
 # A capped build searches the bulk by format, so an unknown one is a 400 and a
 # non-string a 422; neither reaches the lookup.
 for fmt, want in (("bogus", 400), (["commander"], 422), (5, 422)):
