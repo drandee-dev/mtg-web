@@ -117,8 +117,14 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
     const label = currentCat[1];
     setPicked((prev) => {
       const next = { ...prev };
+      // Stop at a full deck: under a price cap the Budget picks step alone can
+      // list more cards than the deck holds.
+      let room = (100 - cmdCount) - Object.keys(prev).length;
       currentCards.forEach((c) => {
-        if (!next[c.name]) next[c.name] = { category: label, roles: c.roles || [] };
+        if (room > 0 && !next[c.name]) {
+          next[c.name] = { category: label, roles: c.roles || [] };
+          room--;
+        }
       });
       return next;
     });
@@ -239,7 +245,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
         </div>
 
         <div className="row" style={{ marginTop: ".6rem" }}>
-          <button className="primary" onClick={addAll}>Add all ({currentCards.filter((c) => !picked[c.name]).length})</button>
+          <button className="primary" onClick={addAll}>Add all ({Math.min(currentCards.filter((c) => !picked[c.name]).length, Math.max(remaining, 0))})</button>
           <button onClick={nextCat}>{isLastCat ? "Review deck →" : `Skip to next →`}</button>
         </div>
       </div>

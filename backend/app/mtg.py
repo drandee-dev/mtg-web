@@ -2568,9 +2568,10 @@ def _enrich_card(card_dict: dict, idx: Any, cap: float | None = None) -> dict:
 
 # Generic most-played affordable cards offered when a capped skeleton runs
 # short, after the commander's own leftover list cards.
-# ponytail: fixed count. A five-colour commander with thin lists (Esika at a $1
-# cap) used 30 of 30; raise it if capped builds still pad with basics.
-_BUDGET_PICKS = 40
+# One per spell slot (99 cards less 36 lands), so a commander with thin lists
+# never pads with basics for want of picks: Thrasios && Tymna at a $1 cap has
+# no leftovers of its own and used all 40 of an earlier limit.
+_BUDGET_PICKS = 63
 
 
 def wizard_build_skeleton(

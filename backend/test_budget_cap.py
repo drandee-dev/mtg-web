@@ -173,7 +173,9 @@ def check_picks(sk, cap, bracket):
     for c in sk["budget_picks"]:
         rec = idx.get(c["name"])
         assert not c.get("over_cap") and price(c["name"]) <= cap, c
-        assert not c["is_land"], c
+        # Generic picks are never lands. An own leftover is whatever the
+        # commander's spell lists hold, which can be a spell-front land card.
+        assert "reason" not in c or not c["is_land"], c
         assert bracket >= 4 or not rec.get("game_changer"), c
         assert set(rec.get("color_identity") or []) <= {"R"}, c
         # Not already offered, under either spelling of a two-faced card.

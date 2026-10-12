@@ -460,7 +460,7 @@ test.describe("Generated deck reasons", () => {
 // than dropping them (so the collection route can keep owned ones) and adds a
 // budget_picks list; this skeleton is what it returns under a cap.
 test.describe("Per-card price cap", () => {
-  async function routeCappedSkeleton(page) {
+  async function routeCappedSkeleton(page, budgetPicks = [{ name: "Counterspell", reason: "most played under your price cap" }]) {
     await page.route("**/api/deck/wizard/skeleton*", (route) => route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -478,7 +478,7 @@ test.describe("Per-card price cap", () => {
             { name: "Smothering Tithe", synergy: 0.6, over_cap: true },
             { name: "Cultivate", synergy: 0.4 },
           ],
-          budget_picks: [{ name: "Counterspell", reason: "most played under your price cap" }],
+          budget_picks: budgetPicks,
         },
         bracket: null,
       }),
@@ -572,5 +572,30 @@ test.describe("Per-card price cap", () => {
     expect(all).toContain("Counterspell");
     expect(all).not.toContain("Rhystic Study");
     expect(all).not.toContain("Smothering Tithe");
+  });
+
+  // Under a cap the Budget picks step can list more cards than a deck holds
+  // (every leftover list card, then the generic ones). "Add all" stops at 100.
+  test("guided wizard's Add all never overfills the deck", async ({ page }) => {
+    await routeCappedSkeleton(page, Array.from({ length: 120 }, (_, i) => ({ name: `Budget Pick ${i}` })));
+    await openGenerator(page);
+    await page.locator(".gen-door", { hasText: "Guide me step by step" }).click();
+    await page.getByLabel("Max price per card").selectOption("5");
+    await page.getByPlaceholder("Start typing… e.g. nethroi").fill("atraxa");
+    await page.locator(".ac-item", { hasText: "Atraxa" }).click();
+    await page.locator("button", { hasText: "Build skeleton" }).click();
+
+    const addAll = page.locator("button", { hasText: "Add all" });
+    await expect(addAll).toBeVisible();
+    for (;;) {
+      await addAll.click();
+      const next = page.locator("button", { hasText: "Skip to next" });
+      if (!(await next.count())) break;
+      await next.click();
+    }
+    await expect(page.locator(".badge", { hasText: "picked" })).toHaveText("99/99 picked");
+    await expect(addAll).toHaveText("Add all (0)");
+    await page.locator("button", { hasText: "Review deck" }).first().click();
+    await expect(page.locator(".gen")).toContainText("100 cards (including commander)");
   });
 });
