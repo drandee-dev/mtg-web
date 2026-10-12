@@ -2,6 +2,8 @@
 
 Downloads oracle_cards and strips it to only the fields the app uses,
 cutting memory from ~200MB to ~60MB when loaded — fits in 512MB free tier.
+Each card is then priced at its cheapest playable printing, read from a
+streamed pass over default_cards.
 """
 
 import gzip
@@ -67,6 +69,79 @@ def _strip_card(card):
     return out
 
 
+def _usd(card):
+    """A printing's USD price, non-foil first. Same rule as
+    mtg_utils.card_classify.extract_price; this script stays stdlib-only."""
+    prices = card.get("prices") or {}
+    for key in ("usd", "usd_foil"):
+        if prices.get(key) is not None:
+            return float(prices[key])
+    return None
+
+
+def cheapest_playable_prices(lines):
+    """oracle_id -> the lowest USD price among a card's playable paper printings.
+
+    *lines* is Scryfall's default-cards file, one printing per line. A playable
+    printing is what card search already counts as one: not a token or a
+    memorabilia set (gold-bordered World Championship decks, 30th Anniversary),
+    not oversized, and printed on paper.
+    """
+    best = {}
+    for line in lines:
+        # JSONL, or the older array layout ("[", one "{...}," per line, "]").
+        line = line.strip().rstrip(b",")
+        if not line.startswith(b"{"):
+            continue
+        card = json.loads(line)
+        oid, price = card.get("oracle_id"), _usd(card)
+        if (
+            oid is None
+            or price is None
+            or card.get("set_type") in ("token", "memorabilia")
+            or card.get("oversized")
+            or "paper" not in (card.get("games") or [])
+        ):
+            continue
+        if oid not in best or price < best[oid]:
+            best[oid] = price
+    return best
+
+
+def apply_cheapest_prices(cards, best):
+    """Price each card at its cheapest playable printing. oracle-cards keeps one
+    printing per card, and that one is often dearer or has no USD price at all
+    (Chaos Warp, Swiftfoot Boots, basic lands). A price is filled in or lowered,
+    never raised: a token's own printing is cheaper than the promo copies that
+    count as playable. Returns how many cards changed."""
+    changed = 0
+    for card in cards:
+        price, own = best.get(card.get("oracle_id")), _usd(card)
+        if price is not None and (own is None or price < own):
+            card["prices"] = {**(card.get("prices") or {}), "usd": f"{price:.2f}"}
+            changed += 1
+    return changed
+
+
+def _download_cheapest_prices(catalog):
+    """Stream default-cards (every printing, ~500 MB unpacked) and reduce it to
+    one price per card without holding the file in memory."""
+    uri = None
+    for entry in catalog.get("data", []):
+        if entry.get("type") == "default_cards":
+            uri = entry.get("jsonl_download_uri") or entry.get("download_uri")
+            break
+    if not uri:
+        raise RuntimeError("no default_cards entry in the bulk catalog")
+    print(f"Streaming {uri} for cheapest-printing prices...")
+    req = Request(uri, headers={"User-Agent": "MTGWorkshop/1.0", "Accept": "*/*"})
+    with urlopen(req, timeout=120) as resp:
+        gzipped = resp.peek(2)[:2] == b"\x1f\x8b"
+        return cheapest_playable_prices(
+            gzip.GzipFile(fileobj=resp) if gzipped else resp
+        )
+
+
 def download_bulk():
     """Download Scryfall oracle-cards and strip to essential fields."""
     if BULK_PATH.exists():
@@ -98,7 +173,9 @@ def download_bulk():
             uri = entry.get("download_uri") or entry.get("jsonl_download_uri")
             break
     if not uri:
-        print("ERROR: Could not find an oracle_cards download URI in Scryfall bulk catalog.")
+        print(
+            "ERROR: Could not find an oracle_cards download URI in Scryfall bulk catalog."
+        )
         sys.exit(1)
 
     print(f"Downloading {uri} ...")
@@ -122,6 +199,16 @@ def download_bulk():
     del raw, body  # free the raw bytes immediately
     stripped = [_strip_card(c) for c in cards]
     del cards
+
+    # Better prices are an improvement, not a requirement: a failure here keeps
+    # oracle-cards' own prices rather than failing the build.
+    try:
+        changed = apply_cheapest_prices(stripped, _download_cheapest_prices(catalog))
+        print(f"Repriced {changed} cards at their cheapest playable printing.")
+    except Exception as e:
+        print(
+            f"WARNING: cheapest-printing prices unavailable ({e}); keeping oracle-cards prices."
+        )
 
     output = json.dumps(stripped, separators=(",", ":"))
     BULK_PATH.write_text(output)

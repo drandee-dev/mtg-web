@@ -56,6 +56,12 @@ assert not mtg._over_cap({"prices": {"usd": "2.00"}}, 2.0)  # at the cap is fine
 assert mtg._over_cap({"prices": {}}, 2.0)  # no price: can't promise it's under
 assert mtg._over_cap(None, 2.0)
 assert not mtg._over_cap({"prices": {"usd": "999"}}, None)  # no cap, nothing over
+# A basic land is never over a cap, even with no price (production had none
+# for Forest, Mountain, Plains and Swamp).
+assert not mtg._over_cap({"type_line": "Basic Land — Forest", "prices": {}}, 0.01)
+assert not mtg._over_cap(
+    {"type_line": "Basic Snow Land — Island", "prices": {"usd": "3"}}, 1.0
+)
 
 # --- fixture: a list whose top is dear, with cheap cards further down --------- #
 most_played = [
@@ -142,11 +148,14 @@ edhrec["creatures"] = listing(DEAR)
 assert names(skeleton(CAP)["creatures"]) == DEAR
 edhrec["creatures"] = listing(LISTED)
 
-# Fixed staples and the suggested lands obey the cap like any other card.
+# Fixed staples and the suggested lands obey the cap like any other card,
+# except the basics.
 tiny = skeleton(0.01)
 for key in ("staples", "suggested_lands"):
-    assert tiny[key] and all(c.get("over_cap") for c in tiny[key]), tiny[key]
+    flagged = [c["name"] for c in tiny[key] if c.get("over_cap")]
+    assert flagged == [n for n in names(tiny[key]) if n != "Mountain"], tiny[key]
     assert names(tiny[key]) == names(skeleton(None)[key])  # flagged, kept
+assert "Mountain" in names(tiny["suggested_lands"])
 
 # --- budget_picks: the commander's own leftovers, then the most played -------- #
 picks = sk["budget_picks"]
