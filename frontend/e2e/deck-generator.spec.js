@@ -460,7 +460,10 @@ test.describe("Generated deck reasons", () => {
 // than dropping them (so the collection route can keep owned ones) and adds a
 // budget_picks list; this skeleton is what it returns under a cap.
 test.describe("Per-card price cap", () => {
-  async function routeCappedSkeleton(page, budgetPicks = [{ name: "Counterspell", reason: "most played under your price cap" }]) {
+  async function routeCappedSkeleton(page, {
+    budgetPicks = [{ name: "Counterspell", reason: "most played under your price cap" }],
+    lands,
+  } = {}) {
     await page.route("**/api/deck/wizard/skeleton*", (route) => route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -469,7 +472,7 @@ test.describe("Per-card price cap", () => {
         commander: { name: "Atraxa, Praetors' Voice", color_identity: ["W", "U", "B", "G"] },
         skeleton: {
           staples: [{ name: "Sol Ring", reason: "format staple" }],
-          suggested_lands: [{ name: "Command Tower", reason: "staple" }],
+          suggested_lands: [{ name: "Command Tower", reason: "staple", roles: ["Land"], is_land: true }],
           high_synergy: [
             { name: "Deepglow Skate", synergy: 0.92 },
             { name: "Rhystic Study", synergy: 0.71, over_cap: true },
@@ -479,6 +482,7 @@ test.describe("Per-card price cap", () => {
             { name: "Cultivate", synergy: 0.4 },
           ],
           budget_picks: budgetPicks,
+          ...(lands && { lands }),
         },
         bracket: null,
       }),
@@ -575,9 +579,15 @@ test.describe("Per-card price cap", () => {
   });
 
   // Under a cap the Budget picks step can list more cards than a deck holds
-  // (every leftover list card, then the generic ones). "Add all" stops at 100.
-  test("guided wizard's Add all never overfills the deck", async ({ page }) => {
-    await routeCappedSkeleton(page, Array.from({ length: 120 }, (_, i) => ({ name: `Budget Pick ${i}` })));
+  // (every leftover list card, then the generic ones). It is a top-up for the
+  // 63 spell slots the one-shot generator fills, so "Add all" stops there and
+  // the utility lands and the basics still have room.
+  test("guided wizard's Add all tops up the spell slots and leaves room for lands", async ({ page }) => {
+    const land = (name) => ({ name, roles: ["Land"], is_land: true });
+    await routeCappedSkeleton(page, {
+      budgetPicks: Array.from({ length: 120 }, (_, i) => ({ name: `Budget Pick ${i}` })),
+      lands: ["Path of Ancestry", "Exotic Orchard", "Reliquary Tower"].map(land),
+    });
     await openGenerator(page);
     await page.locator(".gen-door", { hasText: "Guide me step by step" }).click();
     await page.getByLabel("Max price per card").selectOption("5");
@@ -588,14 +598,19 @@ test.describe("Per-card price cap", () => {
     const addAll = page.locator("button", { hasText: "Add all" });
     await expect(addAll).toBeVisible();
     for (;;) {
+      // Three spells are in by the Budget picks step, so it may add 60 of 120.
+      if (await page.locator("h3", { hasText: "Budget picks" }).count()) {
+        await expect(addAll).toHaveText("Add all (60)");
+      }
       await addAll.click();
       const next = page.locator("button", { hasText: "Skip to next" });
       if (!(await next.count())) break;
       await next.click();
     }
-    await expect(page.locator(".badge", { hasText: "picked" })).toHaveText("99/99 picked");
-    await expect(addAll).toHaveText("Add all (0)");
+    // 63 spells, Command Tower and the three utility lands: basics still to come.
+    await expect(page.locator(".badge", { hasText: "picked" })).toHaveText("67/99 picked");
     await page.locator("button", { hasText: "Review deck" }).first().click();
-    await expect(page.locator(".gen")).toContainText("100 cards (including commander)");
+    await expect(page.locator(".gen")).toContainText("68 cards (including commander)");
+    await expect(page.locator(".gen")).toContainText("Need 32 more for 100");
   });
 });

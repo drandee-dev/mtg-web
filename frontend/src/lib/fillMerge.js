@@ -23,7 +23,7 @@ const STAPLES = "Format staples";
 
 const BASIC_FOR = { W: "Plains", U: "Island", B: "Swamp", R: "Mountain", G: "Forest" };
 const BASIC_NAMES = new Set(["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"]);
-const LAND_TARGET = 36;
+export const LAND_TARGET = 36;
 
 function synergyReason(c) {
   if (c.reason) return `EDHREC: ${c.reason}`;

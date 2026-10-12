@@ -3,6 +3,7 @@ import { api, BRACKETS, FORMATS, PRICE_CAPS } from "../lib/api";
 import CardPreview from "./CardPreview";
 import CommanderInput from "./CommanderInput";
 import { commanderNamesClean } from "../lib/deckParser";
+import { LAND_TARGET } from "../lib/fillMerge";
 import { fmtUsd } from "../lib/format";
 
 const CAT_ORDER = [
@@ -112,14 +113,23 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
     });
   }
 
+  // How many cards "Add all" may take on this step. Never past a full deck.
+  // Budget picks (sent under a price cap, and longer than a deck) are a top-up
+  // for the spell slots the one-shot generator fills, so they stop there and
+  // the land steps and the basics keep their room.
+  function addAllRoom(p) {
+    const room = (100 - cmdCount) - Object.keys(p).length;
+    if (currentCat?.[0] !== "budget_picks") return Math.max(room, 0);
+    const spells = Object.values(p).filter((info) => !(info?.roles || []).includes("Land")).length;
+    return Math.max(Math.min(room, 100 - cmdCount - LAND_TARGET - spells), 0);
+  }
+
   function addAll() {
     if (!currentCat) return;
     const label = currentCat[1];
     setPicked((prev) => {
       const next = { ...prev };
-      // Stop at a full deck: under a price cap the Budget picks step alone can
-      // list more cards than the deck holds.
-      let room = (100 - cmdCount) - Object.keys(prev).length;
+      let room = addAllRoom(prev);
       currentCards.forEach((c) => {
         if (room > 0 && !next[c.name]) {
           next[c.name] = { category: label, roles: c.roles || [] };
@@ -245,7 +255,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
         </div>
 
         <div className="row" style={{ marginTop: ".6rem" }}>
-          <button className="primary" onClick={addAll}>Add all ({Math.min(currentCards.filter((c) => !picked[c.name]).length, Math.max(remaining, 0))})</button>
+          <button className="primary" onClick={addAll}>Add all ({Math.min(currentCards.filter((c) => !picked[c.name]).length, addAllRoom(picked))})</button>
           <button onClick={nextCat}>{isLastCat ? "Review deck →" : `Skip to next →`}</button>
         </div>
       </div>
