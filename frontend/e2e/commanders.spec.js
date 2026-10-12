@@ -44,4 +44,24 @@ test.describe("Commanders", () => {
     await expect(page.getByRole("heading", { name: "Atraxa, Praetors' Voice" })).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole("button", { name: "Open in deck view →" })).toBeVisible();
   });
+
+  // F2: a partner-capable commander must stop at the partner step instead of
+  // building solo (a Background can't lead alone). The shared mock's search
+  // never returns a partner_kind, so this one answers it for the seeded pick.
+  test("build with strategy on a partner-capable commander opens the partner step", async ({ page }) => {
+    await page.route("**/api/commanders/search*", (route) => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ results: [{ name: "Atraxa, Praetors' Voice", partner_kind: "partner" }] }),
+    }));
+    let built = false;
+    await page.route("**/api/deck/wizard/skeleton*", (route) => { built = true; return route.fallback(); });
+
+    await page.getByRole("listitem", { name: "Atraxa, Praetors' Voice" }).click();
+    await page.getByRole("button", { name: "Build with strategy" }).click();
+
+    await expect(page.locator("#gen-partner")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("button", { name: "Build solo" })).toBeVisible();
+    expect(built).toBe(false);
+  });
 });

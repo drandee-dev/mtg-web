@@ -117,7 +117,7 @@ function DeckHero({ deck, meta, onOpen, onPlaytest, onDelete, onRename, onClone,
 }
 
 
-export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onPlaytest, onNewDeck, onGuidedBuild, notify, refresh, setTab, decksIntent, onIntentConsumed, onOpenAccount, onOpenCommander }) {
+export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onPlaytest, onNewDeck, onGuidedBuild, notify, setTab, decksIntent, onIntentConsumed, onOpenAccount, onOpenCommander }) {
   const [syncNudgeDismissed, setSyncNudgeDismissed] = useState(
     () => { try { return localStorage.getItem("mtgweb:syncnudge") === "1"; } catch { return true; } }
   );

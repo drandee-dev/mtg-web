@@ -381,7 +381,8 @@ export default function App() {
     catch (e) { notify(`Could not load decks: ${e.message}`); }
   }, [store, notify]);
 
-  useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [userId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { refresh(); }, [userId]);
 
   const shareDeck = useCallback(() => {
     const full = assembleDecklist(deckText, commander);

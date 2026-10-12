@@ -30,7 +30,7 @@ function saveRulesHistory(messages) {
   } catch { /* storage full/blocked — history is best-effort */ }
 }
 
-export default function Rules({ aiAvailable, notify, prefill, onPrefillConsumed }) {
+export default function Rules({ notify, prefill, onPrefillConsumed }) {
   const [messages, setMessages] = useState(loadRulesHistory);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);

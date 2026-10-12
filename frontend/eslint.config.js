@@ -18,4 +18,11 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    // Playwright specs and tool configs run in Node, not the browser, and a
+    // Playwright fixture's `use` callback is not a React hook.
+    files: ['e2e/**/*.js', '*.config.js'],
+    languageOptions: { globals: globals.node },
+    rules: { 'react-hooks/rules-of-hooks': 'off' },
+  },
 ])

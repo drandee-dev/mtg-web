@@ -4,7 +4,7 @@ import { commanderNamesClean } from "../../lib/deckParser";
 
 export default function AvatarPopup({
   decks, session, onNewDeck, onImportUrl, onSearchDecks, onOpenDeck, onPasteDecklist,
-  setTab, onAccountSettings, onSignOut, onFeedback, onClose,
+  onAccountSettings, onSignOut, onFeedback, onClose,
 }) {
   const ref = useRef(null);
 

@@ -2,7 +2,6 @@ import { test, expect } from "./fixtures/test-base.js";
 import {
   waitForAppReady,
   dismissColdStart,
-  navigateToTab,
   seedLocalDecks,
   clearLocalStorage,
 } from "./fixtures/helpers.js";
