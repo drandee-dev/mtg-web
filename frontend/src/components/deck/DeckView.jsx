@@ -41,7 +41,7 @@ function appendConsidering(prev, names) {
 export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
   maybeboard, setMaybeboard,
-  deckName, deckId, onSave, onClone, onExport, onPlaytest, onGoldfish, onShare, onRenameDeck,
+  deckName, deckId, onSave, unsaved, onDiscard, onClone, onExport, onPlaytest, onGoldfish, onShare, onRenameDeck,
   startInWizard, onWizardConsumed, initialCommander, startImport, onImportConsumed, onBack, notify, serverWarmed,
   pwInsightsEl, pwStatsEl, goals, setGoals,
 }) {
@@ -1062,13 +1062,25 @@ export default function DeckView({
     },
   };
 
+  // A saved deck with edits not yet saved: marked beside Save in both headers,
+  // and the edits can be dropped from either menu (App keeps them as a draft).
+  const unsavedBadge = unsaved && (
+    <span className="badge warn deck-unsaved" role="status" title="Changes not saved yet. They are kept in this browser until you save or discard them.">
+      Unsaved
+    </span>
+  );
+  const discardItem = unsaved && !locked
+    ? [{ label: "Discard changes", icon: "↺", danger: true, onClick: onDiscard }]
+    : [];
+
   return (
     <div>
       {/* Mobile nav bar — visible only on mobile */}
-      <div className="mobile-deck-nav">
+      <div className={`mobile-deck-nav${unsaved ? " is-unsaved" : ""}`}>
         <button className="mobile-deck-back" onClick={onBack}>&#8249; Decks</button>
         <span className="mobile-deck-name">{deckName || "Untitled deck"}</span>
         <div className="mobile-deck-actions">
+          {unsavedBadge}
           <button
             className={`primary small mobile-deck-save${saveState === "saved" ? " btn-saved" : ""}`}
             disabled={saveState === "saving"}
@@ -1091,6 +1103,7 @@ export default function DeckView({
             { label: "Playtest", icon: "▶", onClick: onPlaytest },
             { label: "Wizard", icon: <SparkleIcon />, onClick: () => setMode("wizard") },
             { label: locked ? "Unlock deck" : "Lock deck (view only)", icon: locked ? <UnlockIcon /> : <LockIcon />, onClick: () => setLocked((l) => !l) },
+            ...discardItem,
           ]} />
         </div>
       </div>
@@ -1151,6 +1164,7 @@ export default function DeckView({
               ⤓ Import cards
             </button>
             <button className="ghost small" onClick={onPlaytest}>▶ Playtest</button>
+            {unsavedBadge}
             <button
               className={`primary small${saveState === "saved" ? " btn-saved" : ""}`}
               disabled={saveState === "saving"}
@@ -1167,6 +1181,7 @@ export default function DeckView({
               ...(locked ? [] : [{ label: textEditOpen ? "Hide text editor" : "Edit as text", icon: "✎", onClick: () => setTextEditOpen((o) => !o) }]),
               { label: "Wizard", icon: <SparkleIcon />, onClick: () => setMode("wizard") },
               { label: locked ? "Unlock deck" : "Lock deck (view only)", icon: locked ? <UnlockIcon /> : <LockIcon />, onClick: () => setLocked((l) => !l) },
+              ...discardItem,
             ]} />
           </div>
         </div>

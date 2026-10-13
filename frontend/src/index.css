@@ -2181,6 +2181,11 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
     max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     pointer-events: none;
   }
+  /* Unsaved: the badge needs the room the centred name sits in, so the name
+     joins the row and truncates before it. */
+  .mobile-deck-nav.is-unsaved .mobile-deck-name {
+    position: static; transform: none; flex: 1; min-width: 0; max-width: none;
+  }
   .mobile-deck-actions {
     display: flex; align-items: center; gap: 4px; margin-left: auto;
   }

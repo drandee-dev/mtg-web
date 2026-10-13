@@ -7,6 +7,7 @@ import { makeStore } from "./lib/store";
 import { downloadFile } from "./lib/hooks";
 import { historyTopIsGhost, registerTabHandler, useBackClose } from "./lib/backstack";
 import { buildPath, parseLocation } from "./lib/routes";
+import { clearDraft, loadDraft, saveDraft } from "./lib/drafts";
 import { DEFAULT_GOALS, loadGoals, saveGoals } from "./lib/goals";
 import { clearBuildNotes } from "./lib/buildNotes";
 import GlobalToolbar from "./components/layout/GlobalToolbar";
@@ -90,6 +91,13 @@ function _loadSharedDeck() {
   } catch { return null; }
 }
 
+// The open saved deck. `saved` is its copy in storage ({ text, format }), kept
+// in the same object as the id so the two can never be out of step: "unsaved"
+// compares the editor against it.
+function _openDeck(deck, text, format) {
+  return { id: deck.id, name: deck.name, saved: { text, format } };
+}
+
 export default function App() {
   // Parsed once per page load (lazy init) — the ?deck= param persists in the
   // URL now, so re-decoding on every render would be wasted work.
@@ -127,8 +135,41 @@ export default function App() {
   const [format, setFormat] = useState(_shared?.format || "commander");
   const [commander, setCommander] = useState(_shared?.commander || "");
   const [maybeboard, setMaybeboard] = useState("");
-  // The currently-open saved deck ({ id, name }), or null for a new unsaved deck.
+  // The currently-open saved deck ({ id, name, saved }, see _openDeck), or null
+  // for a new unsaved deck.
   const [currentDeck, setCurrentDeck] = useState(null);
+  // The editor in storage form. Differing from the saved copy in any part
+  // (cards, commander, Considering, format) is what "unsaved" means.
+  const storageText = assembleForStorage(deckText, commander, maybeboard);
+  const unsaved = Boolean(
+    currentDeck?.id && currentDeck.saved
+    && (storageText !== currentDeck.saved.text || format !== currentDeck.saved.format),
+  );
+
+  // Unsaved edits to a saved deck are kept as a draft as they happen
+  // (lib/drafts), so leaving the deck never depends on a "discard?" prompt.
+  // draftKept is false only when that write failed; the prompts guard then.
+  const draftKept = useRef(true);
+  useEffect(() => {
+    if (!currentDeck?.id || !currentDeck.saved) return;
+    if (unsaved) {
+      draftKept.current = saveDraft(currentDeck.id, { format, decklist_text: storageText });
+    } else {
+      clearDraft(currentDeck.id);
+      draftKept.current = true;
+    }
+  }, [currentDeck?.id, currentDeck?.saved, unsaved, storageText, format]);
+
+  // Fill the editor from a deck's storage form. Returns the card text, and the
+  // whole form as the editor will reassemble it (the saved copy to compare to).
+  const showInEditor = useCallback((fmt, decklistText) => {
+    const { commander: c, deckText: t, maybeboard: mb } = disassembleDecklist(decklistText);
+    setFormat(fmt || "commander");
+    setCommander(c);
+    setDeckText(t);
+    setMaybeboard(mb || "");
+    return { cards: t, text: assembleForStorage(t, c, mb) };
+  }, []);
 
   const savedDeckText = useRef(deckText);
   // Auto-save bookkeeping: a share-link deck saves once on arrival; the busy
@@ -158,8 +199,11 @@ export default function App() {
   // editor, so unsaved edits get the same protection beforeunload already
   // gives page exits. Refs keep the guard stable (and the callbacks dep-free).
   const deckTextRef = useRef("");
-  useEffect(() => { deckTextRef.current = deckText; });
+  const openIdRef = useRef(null);
+  useEffect(() => { deckTextRef.current = deckText; openIdRef.current = currentDeck?.id || null; });
   const confirmDiscardEdits = useCallback(() => {
+    // A saved deck's edits are already kept as its draft: leaving loses nothing.
+    if (openIdRef.current && draftKept.current) return true;
     const cur = deckTextRef.current;
     if (cur && cur !== savedDeckText.current) {
       return window.confirm("You have unsaved deck changes. Discard them?");
@@ -261,14 +305,16 @@ export default function App() {
 
   useEffect(() => {
     function handler(e) {
-      if (deckText && deckText !== savedDeckText.current) { e.preventDefault(); }
+      // Only a deck with no draft to fall back on needs the browser's prompt.
+      const kept = currentDeck?.id && draftKept.current;
+      if (!kept && deckText && deckText !== savedDeckText.current) { e.preventDefault(); }
       if (supabaseEnabled && localStorage.getItem("mtgweb:rememberMe") === "false") {
         supabase.auth.signOut();
       }
     }
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [deckText]);
+  }, [deckText, currentDeck?.id]);
 
   const {
     needRefresh: [needRefresh, setNeedRefresh],
@@ -409,17 +455,21 @@ export default function App() {
     const existing = await store.list();
     const dup = existing.find((d) => d.decklist_text === decklist_text);
     if (dup) {
-      setCurrentDeck({ id: dup.id, name: dup.name });
+      setCurrentDeck(_openDeck(dup, decklist_text, dup.format || "commander"));
       savedDeckText.current = deckText;
+      // Reloading a share link lands here: edits made since it was saved are
+      // in its draft, and showing the link's own text would wipe them.
+      const draft = loadDraft(dup.id);
+      if (draft) showInEditor(draft.format || dup.format, draft.decklist_text);
       return;
     }
     const name = commander ? commanderDisplay(commander) : "Imported deck";
     const saved = await store.save({ name, format, decklist_text });
     await refresh();
     savedDeckText.current = deckText;
-    setCurrentDeck({ id: saved.id, name: saved.name });
+    setCurrentDeck(_openDeck(saved, decklist_text, format));
     notify(`Saved as "${saved.name}".`, { label: "🔗 Share link", onClick: shareDeck });
-  }, [deckText, commander, maybeboard, format, store, refresh, notify, shareDeck]);
+  }, [deckText, commander, maybeboard, format, store, refresh, notify, shareDeck, showInEditor]);
 
   useEffect(() => {
     // Wait for the Supabase session check to resolve first — otherwise a
@@ -440,6 +490,7 @@ export default function App() {
   const deleteDeck = useCallback(async (id) => {
     const doomed = decks.find((d) => d.id === id);
     await store.remove(id);
+    clearDraft(id);
     await refresh();
     notify(
       doomed ? `Deleted "${doomed.name}".` : "Deleted.",
@@ -464,13 +515,13 @@ export default function App() {
     if (!assembleDecklist(deckText, commander).trim()) return notify("Nothing to save yet.");
     if (currentDeck?.id) {
       const saved = await saveDeck({ id: currentDeck.id, name: currentDeck.name, format, decklist_text });
-      setCurrentDeck({ id: saved.id, name: saved.name });
+      setCurrentDeck(_openDeck(saved, decklist_text, format));
     } else {
       // A rename before first save already supplied a name — don't re-prompt.
       const name = currentDeck?.name || prompt("Name this deck:");
       if (!name) return;
       const saved = await saveDeck({ name: name.trim(), format, decklist_text });
-      setCurrentDeck({ id: saved.id, name: saved.name });
+      setCurrentDeck(_openDeck(saved, decklist_text, format));
     }
   }, [currentDeck, saveDeck, format, deckText, commander, maybeboard, notify]);
 
@@ -482,10 +533,10 @@ export default function App() {
     if (currentDeck?.id) {
       const decklist_text = assembleForStorage(deckText, commander, maybeboard);
       const saved = await saveDeck({ id: currentDeck.id, name: trimmed, format, decklist_text });
-      setCurrentDeck({ id: saved.id, name: saved.name });
+      setCurrentDeck(_openDeck(saved, decklist_text, format));
       notify(`Renamed to "${saved.name}".`);
     } else {
-      setCurrentDeck((d) => ({ id: d?.id || null, name: trimmed }));
+      setCurrentDeck((d) => ({ ...d, id: d?.id || null, name: trimmed }));
     }
   }, [currentDeck, saveDeck, format, deckText, commander, maybeboard, notify]);
 
@@ -497,7 +548,7 @@ export default function App() {
     const name = prompt("Name the copy:", `${base} (copy)`);
     if (!name) return;
     const saved = await saveDeck({ name: name.trim(), format, decklist_text });
-    setCurrentDeck({ id: saved.id, name: saved.name });
+    setCurrentDeck(_openDeck(saved, decklist_text, format));
   }, [currentDeck, saveDeck, format, deckText, commander, maybeboard, notify]);
 
   const exportCurrentDeck = useCallback(async () => {
@@ -514,16 +565,32 @@ export default function App() {
   const openDeck = useCallback((deck) => {
     if (deck.id !== currentDeck?.id && !confirmDiscardEdits()) return;
     clearBuildNotes();
-    const { commander: c, deckText: t, maybeboard: mb } = disassembleDecklist(deck.decklist_text);
-    setFormat(deck.format || "commander");
-    setCommander(c);
-    setDeckText(t);
-    setMaybeboard(mb || "");
-    setCurrentDeck({ id: deck.id, name: deck.name });
-    savedDeckText.current = t;
+    const fmt = deck.format || "commander";
+    const shown = showInEditor(fmt, deck.decklist_text);
+    setCurrentDeck(_openDeck(deck, shown.text, fmt));
+    savedDeckText.current = shown.cards;
+    // Edits left unsaved last time come back on top of the saved copy, and
+    // the deck shows as unsaved.
+    const draft = loadDraft(deck.id);
+    if (draft) showInEditor(draft.format || fmt, draft.decklist_text);
     setTab("deck");
-    notify(`Opened "${deck.name}".`);
-  }, [notify, currentDeck, confirmDiscardEdits]);
+    notify(draft ? `Opened "${deck.name}" with your unsaved changes.` : `Opened "${deck.name}".`);
+  }, [notify, currentDeck, confirmDiscardEdits, showInEditor]);
+
+  // "Discard changes": the editor goes back to the saved copy. Destructive, so
+  // the toast offers Undo instead of asking first.
+  const discardChanges = useCallback(() => {
+    const deck = decks.find((d) => d.id === currentDeck?.id);
+    if (!deck) return notify("Couldn't find the saved copy of this deck.");
+    const edits = { format, decklist_text: storageText };
+    const fmt = deck.format || "commander";
+    setCurrentDeck(_openDeck(deck, showInEditor(fmt, deck.decklist_text).text, fmt));
+    notify("Changes discarded.", {
+      label: "Undo",
+      // Only while this deck is still the open one.
+      onClick: () => { if (openIdRef.current === deck.id) showInEditor(edits.format, edits.decklist_text); },
+    });
+  }, [decks, currentDeck?.id, format, storageText, showInEditor, notify]);
 
   const addCardToDecklist = useCallback((name) => {
     setDeckText((prev) => `${prev.replace(/\s*$/, "")}\n1 ${name}`);
@@ -614,6 +681,8 @@ export default function App() {
             deckName={currentDeck?.name || null}
             deckId={currentDeck?.id || null}
             onSave={saveCurrentDeck}
+            unsaved={unsaved}
+            onDiscard={discardChanges}
             onRenameDeck={renameCurrentDeck}
             onClone={cloneCurrentDeck}
             onExport={exportCurrentDeck}
