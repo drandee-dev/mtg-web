@@ -489,6 +489,8 @@ export default function App() {
   // snapshot; a new id is acceptable (share links encode content, not id).
   const deleteDeck = useCallback(async (id) => {
     const doomed = decks.find((d) => d.id === id);
+    // Unsaved edits go with the deck, and come back with it on Undo.
+    const draft = loadDraft(id);
     await store.remove(id);
     clearDraft(id);
     await refresh();
@@ -498,7 +500,8 @@ export default function App() {
         label: "Undo",
         onClick: async () => {
           try {
-            await saveDeck({ name: doomed.name, format: doomed.format, decklist_text: doomed.decklist_text });
+            const restored = await saveDeck({ name: doomed.name, format: doomed.format, decklist_text: doomed.decklist_text });
+            if (draft) saveDraft(restored.id, draft);
             notify(`Restored "${doomed.name}".`);
           } catch {
             notify("Couldn't restore the deck.");

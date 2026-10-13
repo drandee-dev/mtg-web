@@ -11,7 +11,7 @@ import {
   loadSharedDeck,
   deckMenuAction,
 } from "./fixtures/helpers.js";
-import { TEST_DECK_STORAGE, TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
+import { TEST_DECK_STORAGE, TEST_DECK_TEXT, TEST_DECK_LINES, TEST_COMMANDER } from "./fixtures/test-data.js";
 
 const OTHER_DECK = {
   id: "test-deck-2",
@@ -144,6 +144,56 @@ test.describe("Deck drafts", () => {
     await page.locator(".dh-format").selectOption("commander");
     await expect(unsavedMark(page)).toHaveCount(0);
     await expect.poll(async () => draftOf(page, TEST_DECK_STORAGE.id)).toBeNull();
+  });
+
+  // Each edit here leaves the deck's own card list alone, which is all the
+  // old check looked at.
+  test("a Considering change or a commander change counts as unsaved", async ({ page, isMobile }) => {
+    test.skip(isMobile, "desktop card-modal flow");
+    await seedLocalDecks(page, [{
+      ...TEST_DECK_STORAGE,
+      decklist_text: `${TEST_DECK_STORAGE.decklist_text}\nMaybeboard\n1 Lightning Bolt`,
+    }]);
+    await page.reload();
+    await waitForAppReady(page);
+    await openFromDecks(page, TEST_DECK_STORAGE.name);
+    await expect(unsavedMark(page)).toHaveCount(0);
+
+    const considering = page.locator(".considering-group, .stack-column-considering");
+    await considering.locator('[aria-label*="Lightning Bolt"]').first().click();
+    await page.locator(".cdm-panel button.btn-danger", { hasText: "Remove" }).click();
+    await expect(unsavedMark(page)).toHaveText("Unsaved");
+    await expect.poll(async () => (await draftOf(page, TEST_DECK_STORAGE.id))?.decklist_text).not.toContain("Lightning Bolt");
+    const afterConsidering = (await draftOf(page, TEST_DECK_STORAGE.id)).decklist_text;
+    for (const line of TEST_DECK_LINES) expect(afterConsidering).toContain(line);
+
+    await deckMenuAction(page, "Discard changes");
+    await expect(unsavedMark(page)).toHaveCount(0);
+
+    await page.locator(`.card-grid-container [aria-label*="${TEST_COMMANDER.split(",")[0]}"]`).first().click();
+    await page.locator(".cdm-actions button", { hasText: "Change commander" }).click();
+    await expect(unsavedMark(page)).toHaveText("Unsaved");
+    await expect.poll(async () => (await draftOf(page, TEST_DECK_STORAGE.id))?.decklist_text).not.toContain(TEST_COMMANDER);
+    const afterCommander = (await draftOf(page, TEST_DECK_STORAGE.id)).decklist_text;
+    for (const line of TEST_DECK_LINES) expect(afterCommander).toContain(line);
+  });
+
+  test("deleting a deck and undoing brings its unsaved edits back", async ({ page }) => {
+    await openFromDecks(page, TEST_DECK_STORAGE.name);
+    await addBolt(page);
+    await expect(unsavedMark(page)).toHaveText("Unsaved");
+
+    await navigateToTab(page, "My Decks");
+    const tile = page.locator(".deck-card", { hasText: TEST_DECK_STORAGE.name });
+    await tile.getByRole("button", { name: "Deck actions" }).click();
+    await tile.locator(".deck-card-menu-item", { hasText: "Delete" }).click();
+    await expect(tile).toHaveCount(0);
+    expect(await draftOf(page, TEST_DECK_STORAGE.id)).toBeNull();
+
+    await page.locator(".toast .toast-action", { hasText: "Undo" }).click();
+    await openFromDecks(page, TEST_DECK_STORAGE.name);
+    await expect(boltInDeck(page).first()).toBeAttached();
+    await expect(unsavedMark(page)).toHaveText("Unsaved");
   });
 });
 

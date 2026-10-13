@@ -15,7 +15,8 @@ const key = (deckId) => `mtgweb:draft:${deckId}`;
 export function loadDraft(deckId) {
   try {
     const draft = JSON.parse(localStorage.getItem(key(deckId)));
-    return typeof draft?.decklist_text === "string" ? draft : null;
+    if (typeof draft?.decklist_text !== "string") return null;
+    return { decklist_text: draft.decklist_text, format: typeof draft.format === "string" ? draft.format : "" };
   } catch {
     return null;
   }
