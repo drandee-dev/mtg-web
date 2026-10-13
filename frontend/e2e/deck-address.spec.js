@@ -259,6 +259,48 @@ test.describe("Deck addresses", () => {
     await expect(page.getByRole("heading", { name: "Deck not found" })).toBeVisible();
     expect(await draftOf(page, DECK_A.id)).toBeNull();
   });
+
+  test("Undo after a delete brings the deck back at the same address", async ({ page }) => {
+    await openFromDecks(page, DECK_A.name);
+    await navigateToTab(page, "My Decks");
+    const tile = page.locator(".deck-card", { hasText: DECK_A.name });
+    await tile.getByRole("button", { name: "Deck actions" }).click();
+    await tile.locator(".deck-card-menu-item", { hasText: "Delete" }).click();
+    await expect(tile).toHaveCount(0);
+
+    await page.locator(".toast .toast-action", { hasText: "Undo" }).click();
+    await expect(tile).toHaveCount(1);
+    expect((await savedDecks(page)).map((d) => d.id).sort()).toEqual([DECK_A.id, DECK_B.id].sort());
+
+    await openAddress(page, `/decks/${DECK_A.id}`);
+    await expect(deckTitle(page)).toContainText(DECK_A.name);
+    await expect(inDeck(page, "Rhystic Study").first()).toBeAttached({ timeout: 10000 });
+  });
+
+  // The deck list saves a rename itself, so the editor has to hear about it:
+  // left with the old name, its next Save would write that name back.
+  test("a rename from the deck list reaches the open deck and survives its next Save", async ({ page, isMobile }) => {
+    test.skip(isMobile, "at phone width a first-row tile's Rename sits under the filter bar");
+    page.on("dialog", (d) => d.accept("Renamed in the list"));
+    await openFromDecks(page, DECK_A.name);
+    await navigateToTab(page, "My Decks");
+    const tile = page.locator(".deck-card", { hasText: DECK_A.name });
+    await tile.getByRole("button", { name: "Deck actions" }).click();
+    await tile.locator(".deck-card-menu-item", { hasText: "Rename" }).click();
+    await expect(page.locator(".deck-card", { hasText: "Renamed in the list" })).toHaveCount(1);
+
+    await navigateToTab(page, "Analyze & Build");
+    await expect(page).toHaveURL(atPath(`/decks/${DECK_A.id}`));
+    await expect(deckTitle(page)).toContainText("Renamed in the list");
+    await expect(page).toHaveTitle("Renamed in the list · MTG Workshop");
+    await expect(unsavedMark(page)).toHaveCount(0);
+
+    await page.locator("button.primary:visible", { hasText: /^Save/ }).first().click();
+    await expect.poll(async () => (await savedDecks(page)).find((d) => d.id === DECK_A.id)?.name).toBe("Renamed in the list");
+    // Give a late write of the old name time to land.
+    await page.waitForTimeout(500);
+    expect((await savedDecks(page)).find((d) => d.id === DECK_A.id).name).toBe("Renamed in the list");
+  });
 });
 
 // A share link is how a deck arrives; once saved, its address is the deck.
