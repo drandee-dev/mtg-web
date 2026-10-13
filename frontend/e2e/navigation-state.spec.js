@@ -17,14 +17,19 @@ test.describe("Navigation & state persistence", () => {
 
   test("browser back returns to the previous tab", async ({ page }) => {
     await navigateToTab(page, "Rules");
-    await expect(page).toHaveURL(/tab=rules/);
+    await expect(page).toHaveURL(/\/rules$/);
     await navigateToTab(page, "Card Search");
-    await expect(page).toHaveURL(/tab=cards/);
+    await expect(page).toHaveURL(/\/cards$/);
 
     await page.goBack();
-    await expect(page).toHaveURL(/tab=rules/);
+    await expect(page).toHaveURL(/\/rules$/);
+    await expect(page.locator(".rules-input-row input")).toBeVisible();
     await page.goBack();
-    await expect(page).not.toHaveURL(/tab=/); // decks (default) again
+    await expect(page).toHaveURL((url) => url.pathname === "/" && url.search === ""); // decks (default) again
+
+    await page.goForward();
+    await expect(page).toHaveURL(/\/rules$/);
+    await expect(page.locator(".rules-input-row input")).toBeVisible();
   });
 
   test("rules Q&A history survives a tab switch", async ({ page }) => {

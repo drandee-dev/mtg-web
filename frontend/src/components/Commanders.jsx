@@ -1,5 +1,5 @@
 // Commander browse directory + per-commander strategy page (tapped-decks gameplan,
-// Job 2). Navigation is the app's existing ?tab=&slug= query-param pattern through
+// Job 2). Navigation is /commanders and /commanders/<slug> (lib/routes) through
 // lib/backstack's single popstate owner — no second router (see App.jsx).
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../lib/api";

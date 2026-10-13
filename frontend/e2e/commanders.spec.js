@@ -28,8 +28,10 @@ test.describe("Commanders", () => {
   });
 
   test("open a commander page shows art, oracle text and chips, then builds with strategy", async ({ page }) => {
+    await expect(page).toHaveURL(/\/commanders$/);
     await page.getByRole("listitem", { name: "Atraxa, Praetors' Voice" }).click();
 
+    await expect(page).toHaveURL(/\/commanders\/atraxa-praetors-voice$/);
     await expect(page.getByRole("heading", { name: "Atraxa, Praetors' Voice" })).toBeVisible();
     await expect(page.getByText(/Flying, vigilance, deathtouch/)).toBeVisible();
     await expect(page.getByText("Superfriends counters")).toBeVisible();
@@ -43,6 +45,26 @@ test.describe("Commanders", () => {
     // ends on the Review screen for that commander.
     await expect(page.getByRole("heading", { name: "Atraxa, Praetors' Voice" })).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole("button", { name: "Open in deck view →" })).toBeVisible();
+  });
+
+  test("a commander page has its own address: Back, cold load and an old link", async ({ page }) => {
+    const heading = page.getByRole("heading", { name: "Atraxa, Praetors' Voice" });
+    await page.getByRole("listitem", { name: "Atraxa, Praetors' Voice" }).click();
+    await expect(heading).toBeVisible();
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/commanders$/);
+    await expect(page.getByRole("listitem")).toHaveCount(2);
+
+    await page.goto("/commanders/atraxa-praetors-voice");
+    await waitForAppReady(page);
+    await expect(heading).toBeVisible({ timeout: 10000 });
+    await expect(page).toHaveURL(/\/commanders\/atraxa-praetors-voice$/);
+
+    await page.goto("/?tab=commanders&slug=atraxa-praetors-voice");
+    await waitForAppReady(page);
+    await expect(heading).toBeVisible({ timeout: 10000 });
+    await expect(page).toHaveURL(/\/commanders\/atraxa-praetors-voice$/);
   });
 
   // F2: a partner-capable commander must stop at the partner step instead of

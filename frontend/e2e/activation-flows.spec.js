@@ -185,7 +185,7 @@ test.describe("Activation flows", () => {
     await expect(modal).toBeVisible();
     await modal.locator('button:has-text("Rules")').click();
 
-    await expect(page).toHaveURL(/tab=rules/);
+    await expect(page).toHaveURL((url) => url.pathname === "/rules");
     await expect(page.locator(".rules-input-row input")).toHaveValue(/How does Sol Ring work/);
   });
 });

@@ -6,6 +6,7 @@ import { commanderDisplay } from "./lib/deckParser";
 import { makeStore } from "./lib/store";
 import { downloadFile } from "./lib/hooks";
 import { historyTopIsGhost, registerTabHandler, useBackClose } from "./lib/backstack";
+import { buildPath, parseLocation } from "./lib/routes";
 import { DEFAULT_GOALS, loadGoals, saveGoals } from "./lib/goals";
 import { clearBuildNotes } from "./lib/buildNotes";
 import GlobalToolbar from "./components/layout/GlobalToolbar";
@@ -65,9 +66,6 @@ const TABS = [
   ["cards", "Card Search"],
 ];
 
-const VALID_TABS = new Set(TABS.map(([id]) => id));
-const TAB_ALIASES = { analyze: "deck", build: "deck" };
-
 // Unicode-safe base64. Plain btoa/atob throw on non-ASCII bytes, so share links
 // for decks with accented card names (e.g. "Jötun Grunt") would otherwise break.
 function _b64encode(str) {
@@ -92,29 +90,17 @@ function _loadSharedDeck() {
   } catch { return null; }
 }
 
-function _initialTab() {
-  const params = new URLSearchParams(window.location.search);
-  const t = params.get("tab");
-  if (t && VALID_TABS.has(t)) return t;
-  if (t && TAB_ALIASES[t]) return TAB_ALIASES[t];
-  return "decks";
-}
-
-// Sub-navigation within the Commanders tab: ?tab=commanders&slug=<slug> opens a
-// commander's page. Deliberately a query param through the app's one existing
-// history mechanism, not a second router — see the Commanders tab section below.
-function _initialSlug() {
-  return new URLSearchParams(window.location.search).get("slug") || null;
-}
-
 export default function App() {
   // Parsed once per page load (lazy init) — the ?deck= param persists in the
   // URL now, so re-decoding on every render would be wasted work.
   const [_shared] = useState(_loadSharedDeck);
-  const [tab, setTab] = useState(_shared ? "deck" : _initialTab());
-  // Which commander page is open within the Commanders tab (?slug=), and the
-  // commander the Wizard should pre-seed when "Build with strategy" is clicked.
-  const [commanderSlug, setCommanderSlug] = useState(_shared ? null : _initialSlug());
+  // The address picks the tab (lib/routes: /rules, /cards, /commanders/<slug>),
+  // through the app's one history mechanism, not a second router. A share link
+  // always opens its deck.
+  const [tab, setTab] = useState(() => (_shared ? "deck" : parseLocation(window.location).tab));
+  // Which commander page is open within the Commanders tab (/commanders/<slug>),
+  // and the commander the Wizard should pre-seed when "Build with strategy" is clicked.
+  const [commanderSlug, setCommanderSlug] = useState(() => (_shared ? null : parseLocation(window.location).slug));
   const [wizardInitialCommander, setWizardInitialCommander] = useState("");
   const [playtesting, setPlaytesting] = useState(false);
   // Cards to seed into the opening hand when Playtest opens ("goldfish this line").
@@ -235,22 +221,25 @@ export default function App() {
   useEffect(() => {
     registerTabHandler(() => {
       popNav.current = true;
-      setTab(_initialTab());
-      setCommanderSlug(_initialSlug());
+      const route = parseLocation(window.location);
+      setTab(route.tab);
+      setCommanderSlug(route.slug);
     });
   }, []);
 
+  const addressSynced = useRef(false);
   useEffect(() => {
-    const url = new URL(window.location);
-    if (tab === "decks") { url.searchParams.delete("tab"); }
-    else { url.searchParams.set("tab", tab); }
-    if (tab === "commanders" && commanderSlug) { url.searchParams.set("slug", commanderSlug); }
-    else { url.searchParams.delete("slug"); }
+    const { pathname, search, hash } = window.location;
+    const next = buildPath({ tab, slug: commanderSlug }, search) + hash;
+    const onLoad = !addressSynced.current;
+    addressSynced.current = true;
     if (popNav.current) { popNav.current = false; return; }
-    if (url.href !== window.location.href) {
-      // Recycle an abandoned layer entry rather than stacking on top of it.
-      if (historyTopIsGhost()) window.history.replaceState({ tab }, "", url);
-      else window.history.pushState({ tab }, "", url);
+    if (next !== pathname + search + hash) {
+      // On load the address is only being corrected (an old ?tab= link becomes
+      // its path), so it replaces. So does an abandoned layer entry, recycled
+      // rather than stacked on.
+      if (onLoad || historyTopIsGhost()) window.history.replaceState({ tab }, "", next);
+      else window.history.pushState({ tab }, "", next);
     }
   }, [tab, commanderSlug]);
 
@@ -390,7 +379,8 @@ export default function App() {
     const encoded = _b64encode(full);
     const params = new URLSearchParams({ deck: encoded, fmt: format });
     if (commander) params.set("cmd", commander);
-    const url = `${window.location.origin}${window.location.pathname}?${params}`;
+    // From "/", not the current path: the Share toast outlives a tab switch.
+    const url = `${window.location.origin}/?${params}`;
     navigator.clipboard.writeText(url).then(
       () => notify("Share link copied to clipboard!"),
       () => notify("Couldn't copy — check browser permissions."),
