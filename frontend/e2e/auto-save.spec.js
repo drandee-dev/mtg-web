@@ -26,11 +26,13 @@ test.describe("Deck auto-save", () => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await expect.poll(async () => (await decksInStorage(page)).length).toBe(1);
 
-    await page.reload();
-    await page.waitForSelector('[role="tabpanel"]');
+    // A reload is on the saved deck's own address now, so open the link again.
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     // Give the auto-save effect time to run (it should dedup, not save)
     await page.waitForTimeout(800);
     expect((await decksInStorage(page)).length).toBe(1);
+    const [{ id }] = await decksInStorage(page);
+    await expect(page).toHaveURL(new RegExp(`/decks/${id}$`));
   });
 
   test("picking a first commander auto-saves a new deck", async ({ page }) => {
