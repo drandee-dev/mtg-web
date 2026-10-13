@@ -52,10 +52,11 @@ test.describe("Navigation & Layout", () => {
   });
 
   test("an old ?tab= link is replaced by its path", async ({ page }) => {
-    await page.goto("/?tab=rules");
+    // The hash rides along: a sign-in link returns with its token in one.
+    await page.goto("/?tab=rules#x=1");
     await waitForAppReady(page);
     await expect(page.locator(".rules-input-row input")).toBeVisible();
-    await expect(page).toHaveURL(/\/rules$/);
+    await expect(page).toHaveURL((url) => url.pathname === "/rules" && url.search === "" && url.hash === "#x=1");
 
     // Replaced, not stacked: Back leaves for the page before the old link.
     await page.goBack();

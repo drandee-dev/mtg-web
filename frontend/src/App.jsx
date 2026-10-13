@@ -105,9 +105,6 @@ export default function App() {
   const [playtesting, setPlaytesting] = useState(false);
   // Cards to seed into the opening hand when Playtest opens ("goldfish this line").
   const [playtestStage, setPlaytestStage] = useState(null);
-  // Back/forward support: tab changes push real history entries; popstate
-  // restores the tab (lib/backstack also lets open layers intercept back).
-  const popNav = useRef(false);
   // Per-tab window scroll positions, restored when a tab remounts.
   const tabScroll = useRef({});
   const [session, setSession] = useState(null);
@@ -220,7 +217,6 @@ export default function App() {
   // restores the tab from the URL without pushing again.
   useEffect(() => {
     registerTabHandler(() => {
-      popNav.current = true;
       const route = parseLocation(window.location);
       setTab(route.tab);
       setCommanderSlug(route.slug);
@@ -230,17 +226,23 @@ export default function App() {
   const addressSynced = useRef(false);
   useEffect(() => {
     const { pathname, search, hash } = window.location;
-    const next = buildPath({ tab, slug: commanderSlug }, search) + hash;
-    const onLoad = !addressSynced.current;
-    addressSynced.current = true;
-    if (popNav.current) { popNav.current = false; return; }
-    if (next !== pathname + search + hash) {
+    const slug = tab === "commanders" ? commanderSlug : null;
+    const next = buildPath({ tab, slug }, search) + hash;
+    if (!addressSynced.current) {
       // On load the address is only being corrected (an old ?tab= link becomes
-      // its path), so it replaces. So does an abandoned layer entry, recycled
-      // rather than stacked on.
-      if (onLoad || historyTopIsGhost()) window.history.replaceState({ tab }, "", next);
-      else window.history.pushState({ tab }, "", next);
+      // its path), so it replaces.
+      addressSynced.current = true;
+      if (next !== pathname + search + hash) window.history.replaceState({ tab }, "", next);
+      return;
     }
+    // Back/forward already moved the address to where the state now is. Read
+    // it rather than flag the pop: a pop that changes nothing (the skip link's
+    // #main-content) never reaches this effect to clear a flag.
+    const here = parseLocation(window.location);
+    if (here.tab === tab && here.slug === slug) return;
+    // Recycle an abandoned layer entry rather than stacking on top of it.
+    if (historyTopIsGhost()) window.history.replaceState({ tab }, "", next);
+    else window.history.pushState({ tab }, "", next);
   }, [tab, commanderSlug]);
 
   // Back gesture closes full-screen/system layers before walking tabs.

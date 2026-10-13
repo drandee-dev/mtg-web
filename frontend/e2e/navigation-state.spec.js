@@ -32,6 +32,20 @@ test.describe("Navigation & state persistence", () => {
     await expect(page.locator(".rules-input-row input")).toBeVisible();
   });
 
+  // A pop that changes neither tab nor commander (the skip link's #main-content
+  // jump fires one) must not leave the next navigation without an address.
+  test("an in-page jump does not swallow the next navigation", async ({ page }) => {
+    await navigateToTab(page, "Rules");
+    await expect(page).toHaveURL(/\/rules$/);
+    await page.evaluate(() => { window.location.hash = "main-content"; });
+    await expect(page).toHaveURL(/\/rules#main-content$/);
+
+    await navigateToTab(page, "Card Search");
+    await expect(page).toHaveURL((url) => url.pathname === "/cards");
+    await page.goBack();
+    await expect(page).toHaveURL((url) => url.pathname === "/rules");
+  });
+
   test("rules Q&A history survives a tab switch", async ({ page }) => {
     // Seed a completed exchange the way Rules.jsx persists one.
     await page.evaluate(() => {
