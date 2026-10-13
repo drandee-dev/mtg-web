@@ -8,6 +8,7 @@ import {
   dismissColdStart,
   seedLocalDecks,
   navigateToTab,
+  backToDeck,
   loadSharedDeck,
   deckMenuAction,
 } from "./fixtures/helpers.js";
@@ -42,7 +43,7 @@ async function addBolt(page) {
   await name.press("Enter");
   await page.locator(".results-table tbody tr", { hasText: "Lightning Bolt" })
     .getByRole("button", { name: "+ Add" }).click();
-  await navigateToTab(page, "Analyze & Build");
+  await backToDeck(page);
   await expect(page.locator(".card-grid-container")).toBeVisible();
 }
 

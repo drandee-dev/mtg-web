@@ -1,7 +1,7 @@
 // Bracket labels match the official WotC brackets (1-5), the stats bar counts
 // the commander once, and the health score drops when legality fails.
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, waitForAppReady, dismissColdStart, navigateToTab } from "./fixtures/helpers.js";
+import { loadSharedDeck, waitForAppReady, dismissColdStart, openNewDeck } from "./fixtures/helpers.js";
 import { TEST_COMMANDER } from "./fixtures/test-data.js";
 
 // Analyze stub with real backend semantics: total_cards counts every card in
@@ -34,7 +34,7 @@ test("picking Bracket 5 — cEDH sends bracket 5", async ({ page }) => {
   await page.goto("/");
   await waitForAppReady(page);
   await dismissColdStart(page);
-  await navigateToTab(page, "Analyze & Build");
+  await openNewDeck(page);
   await page.locator(".empty-action", { hasText: "Guided build" }).click();
   await page.locator(".gen-door", { hasText: "I know my commander" }).click();
 

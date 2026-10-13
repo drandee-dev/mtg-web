@@ -28,6 +28,12 @@
 
 :root {
   --safe-top: env(safe-area-inset-top, 0px);
+  /* The two fixed bars. Everything that sits under the top bar or above the
+     phone's bottom bar reads these, so a bar and its neighbours cannot drift.
+     --tabbar-total includes the home indicator, which the bar itself owns. */
+  --topbar-h: 64px;
+  --tabbar-h: 64px;
+  --tabbar-total: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
   /* Layering tiers — new z-indexes should use these (component-local stacking
      under 10 stays ad-hoc): sticky(10) < nav(50) < popover(200) < fab(900)
      < sheet(950) < modal(1000) < banner/toast(2000). */
@@ -226,55 +232,74 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 .badge.bad { color: var(--bad); background: var(--bad-soft); }
 
 /* App shell */
-.app { width: min(95vw, 2100px); margin: 0 auto; padding: 3.2rem 1.5rem 5rem; padding-top: calc(3.2rem + var(--safe-top)); }
+.app { width: min(95vw, 2100px); margin: 0 auto; padding: 3.2rem 1.5rem 5rem; padding-top: calc(var(--topbar-h) + .2rem + var(--safe-top)); }
 
-/* ── Global toolbar (Archidekt-style) ── */
+/* Both bars are dark in either theme, so the tokens their contents read are
+   pinned to the dark values here. Left to the theme, Light puts its dark
+   text on the bars' dark background. The account menu hangs off the top bar
+   and takes the same values. */
+.global-toolbar, .bottom-nav {
+  --text: #ededf0; --text-secondary: #b0b4be; --muted: #71767f;
+  --border: rgba(255,255,255,.08); --border-strong: rgba(255,255,255,.14);
+  --panel: #16181f; --panel-2: #1c1f28;
+  --hover: rgba(255,255,255,.05); --accent-soft: rgba(201,138,58,.12);
+  color: var(--text);
+}
+
+/* ── Top bar: the four places, then New deck and the account menu ── */
 .global-toolbar {
   position: fixed; top: 0; left: 0; right: 0; z-index: var(--z-nav);
-  height: calc(3rem + var(--safe-top));
-  display: flex; align-items: center; justify-content: space-between;
+  height: calc(var(--topbar-h) + var(--safe-top));
+  display: flex; align-items: center;
   background: rgba(12,13,17,.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
-  padding: 0 1rem; padding-top: var(--safe-top);
-  gap: .5rem;
+  padding: 0 28px; padding-top: var(--safe-top);
+  gap: 32px;
 }
 
-/* Left: brand */
-.gt-left { display: flex; align-items: center; flex: none; }
+/* Brand: a link home */
 .gt-brand {
-  display: flex; align-items: center; gap: .45rem;
-  background: transparent; border: none; padding: .25rem .4rem;
-  cursor: pointer; min-height: auto; color: var(--text);
+  display: flex; align-items: center; gap: 10px; flex: none;
+  min-height: 44px; color: var(--text);
+  font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
+  font-weight: 600; font-size: 18px; white-space: nowrap;
 }
-.gt-brand:hover { background: var(--hover); border-radius: var(--radius); }
+.gt-brand:hover { text-decoration: none; }
 .gt-logo-dot {
   width: 10px; height: 10px; border-radius: 50%;
-  background: var(--accent); box-shadow: 0 0 8px rgba(201,138,58,.4);
-  flex: none;
+  background: var(--accent);
+  flex: none; transition: box-shadow .15s;
 }
-.gt-logo-text { font-weight: 700; font-size: var(--fs-base); letter-spacing: -.01em; white-space: nowrap; }
+.gt-brand:hover .gt-logo-dot { box-shadow: 0 0 0 4px var(--accent-soft); }
 
-/* Center: nav tabs */
-.gt-nav {
-  display: flex; align-items: center; gap: .1rem;
-  position: absolute; left: 50%; transform: translateX(-50%);
+/* The places. The current one is told apart by weight and tint, plus a rule. */
+.gt-nav { display: flex; align-self: stretch; gap: 4px; }
+.gt-link {
+  display: flex; align-items: center; padding: 0 14px;
+  color: var(--text-secondary); font-weight: 500; white-space: nowrap;
+  transition: color .15s;
 }
-.gt-tab {
-  background: transparent; border: none; border-bottom: 2px solid transparent;
-  border-radius: 0; padding: .5rem .7rem; min-height: auto;
-  color: var(--muted); font-size: var(--fs-xs); font-weight: 500; white-space: nowrap;
-  transition: color .15s, border-color .15s;
-}
-.gt-tab:hover { color: var(--text-secondary); background: transparent; border-color: transparent; }
-.gt-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.gt-link:hover { color: var(--text); text-decoration: none; }
+.gt-link[aria-current="page"] { color: var(--text); font-weight: 700; box-shadow: inset 0 -2px 0 var(--accent); }
+.gt-link:focus-visible { outline-offset: -3px; }
 
-/* Right: user + hamburger */
-.gt-right { display: flex; align-items: center; gap: .4rem; flex: none; }
+/* Right: New deck, then the account menu */
+.gt-right { display: flex; align-items: center; gap: 10px; flex: none; margin-left: auto; }
+.gt-new {
+  display: flex; align-items: center; height: 44px; padding: 0 18px;
+  border-radius: 10px; border: 1px solid transparent;
+  background: var(--accent); color: #1a1206; font-weight: 700; white-space: nowrap;
+  transition: filter .15s, border-color .15s, background .15s;
+}
+.gt-new:hover { filter: brightness(1.12); text-decoration: none; }
+/* On a deck the gold button is Save, so New deck steps back to an outline. */
+.gt-new-quiet { background: transparent; border-color: var(--border-strong); color: var(--text); font-weight: 500; }
+.gt-new-quiet:hover { filter: none; background: var(--hover); }
 .gt-user-wrap { position: relative; }
 .gt-avatar {
-  width: 30px; height: 30px; border-radius: 50%;
-  background: var(--panel-2); border: 1px solid var(--border);
-  color: var(--text-secondary); font-size: var(--fs-2xs); font-weight: 700;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--panel-2); border: 1px solid var(--border-strong);
+  color: var(--text); font-size: var(--fs-sm); font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   padding: 0; min-height: auto; min-width: auto; cursor: pointer;
   transition: border-color .15s, background .15s;
@@ -300,41 +325,19 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
   animation: fadeSlideIn .12s ease-out;
 }
 .avp-section { padding: 6px 4px; }
-.avp-section-label {
-  padding: 4px 12px 6px; font-size: var(--fs-2xs); font-weight: 600;
-  color: var(--muted); letter-spacing: .06em; text-transform: uppercase;
+.avp-email {
+  padding: 6px 12px 8px; font-size: var(--fs-xs); color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.avp-divider { height: 1px; background: var(--border); margin: 0 10px; }
 .avp-row {
   width: 100%; display: flex; align-items: center; gap: 10px;
   padding: 8px 12px; font-size: var(--fs-sm); color: var(--text);
   background: transparent; border: none; border-radius: 8px;
-  cursor: pointer; text-align: left; font-family: inherit; min-height: auto;
+  cursor: pointer; text-align: left; font-family: inherit; min-height: 44px;
   transition: background .1s;
 }
 .avp-row:hover { background: var(--hover); }
-.avp-row-highlight { background: rgba(255,255,255,.04); }
 .avp-row-danger { color: var(--bad); }
-.avp-badge-new {
-  margin-left: auto; font-size: var(--fs-2xs); font-weight: 600;
-  background: rgba(201,138,58,.12); color: var(--accent);
-  border-radius: 4px; padding: 1px 6px;
-}
-.avp-search-shell {
-  width: calc(100% - 8px); display: flex; align-items: center; gap: 8px;
-  margin: 2px 4px; padding: 0 10px; height: 32px;
-  background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
-  cursor: pointer; font-family: inherit; transition: border-color .1s;
-}
-.avp-search-shell:hover { border-color: rgba(var(--accent-rgb, 201,138,58), .4); }
-.avp-search-placeholder { font-size: var(--fs-xs); color: var(--muted); font-weight: 400; }
-.avp-deck-art {
-  width: 28px; height: 20px; border-radius: 4px; overflow: hidden; flex: none;
-}
-.avp-deck-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.avp-deck-art-placeholder { width: 100%; height: 100%; background: var(--panel); }
-.avp-deck-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.avp-deck-count { margin-left: auto; font-size: var(--fs-2xs); color: var(--muted); flex: none; }
 
 
 /* Deck layout — 2 column on desktop (rem widths scale with the fluid root).
@@ -387,8 +390,8 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 
 /* Deck sidebar */
 .deck-sidebar {
-  position: sticky; top: 4rem;
-  max-height: calc(100vh - 4.5rem); max-height: calc(100dvh - 4.5rem); overflow-y: auto;
+  position: sticky; top: calc(var(--topbar-h) + 1rem);
+  max-height: calc(100vh - var(--topbar-h) - 1.5rem); max-height: calc(100dvh - var(--topbar-h) - 1.5rem); overflow-y: auto;
   overscroll-behavior: contain;
 }
 .sidebar-warming-pill {
@@ -787,7 +790,7 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
    Used in the toolbar Quick add (compact) and the deck search panel opened by
    the "Card search" button / mobile + FAB. Dropdown reuses .deck-input-result*. */
 .deck-search-panel {
-  position: relative; margin-bottom: .5rem; scroll-margin-top: 3.5rem;
+  position: relative; margin-bottom: .5rem; scroll-margin-top: calc(var(--topbar-h) + .5rem);
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
   padding: .55rem;
 }
@@ -828,7 +831,7 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 }
 .deck-input-result:hover .deck-input-result-add { opacity: 1; }
 
-/* (Tab nav merged into GlobalToolbar — .gt-nav / .gt-tab above) */
+/* (The places live in GlobalToolbar — .gt-nav / .gt-link above) */
 
 .results-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
 .results-table th, .results-table td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
@@ -922,22 +925,28 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 .bottom-nav {
   display: none;
   position: fixed; bottom: 0; left: 0; right: 0; z-index: var(--z-nav);
-  height: 3.5rem;
+  height: var(--tabbar-total);
   background: rgba(12,13,17,.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid var(--border);
-  align-items: stretch; justify-content: space-around;
-  padding: 0 .25rem; padding-bottom: env(safe-area-inset-bottom, 0);
+  align-items: stretch;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-.bn-tab {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: .1rem; background: transparent; border: none; border-radius: 0;
-  color: var(--muted); padding: .25rem 0; min-height: auto; cursor: pointer;
+.bn-link {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; color: var(--text-secondary); font-size: var(--fs-2xs); font-weight: 500; white-space: nowrap;
   transition: color .15s;
 }
-.bn-tab.active { color: var(--accent); }
-.bn-tab:hover { color: var(--text-secondary); background: transparent; }
-.bn-icon { font-size: 1.1rem; line-height: 1; }
-.bn-label { font-size: var(--fs-2xs); font-weight: 600; letter-spacing: .02em; text-transform: uppercase; }
+.bn-link:hover { color: var(--text); text-decoration: none; }
+.bn-link[aria-current="page"] { color: var(--accent); font-weight: 700; }
+.bn-link:focus-visible { outline-offset: -3px; }
+.bn-new { color: var(--text); }
+.bn-new-mark {
+  /* Taller than the 20px icons beside it; the margin gives the height back so
+     all five labels sit on one line. */
+  width: 34px; height: 26px; border-radius: 8px; margin: -3px 0;
+  background: var(--accent); color: #1a1206;
+  display: flex; align-items: center; justify-content: center;
+}
 
 /* ── Deck stats bar (Job 4) — full-width dock, same fixed-chrome grammar as
    .global-toolbar (top) and .bottom-nav (mobile bottom); doesn't need to
@@ -1915,7 +1924,7 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
   .landing-hero-mobile { display: none; }
   .landing-body-mobile { display: none; }
   .landing-hero-desktop {
-    display: flex; height: calc(100vh - 3rem); height: calc(100dvh - 3rem); position: relative; overflow: hidden;
+    display: flex; height: calc(100vh - var(--topbar-h)); height: calc(100dvh - var(--topbar-h)); position: relative; overflow: hidden;
   }
   .landing-desktop-bg { position: absolute; inset: 0; overflow: hidden; }
   .landing-desktop-bg img {
@@ -2062,7 +2071,10 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 /* ── Rules chat Q&A ── */
 .rules-chat {
   max-width: 720px; margin: 0 auto;
-  display: flex; flex-direction: column; height: calc(100vh - 5rem); height: calc(100dvh - 5rem - var(--safe-top));
+  /* The page's top padding (the bar plus .2rem) and 1.8rem of slack below. */
+  display: flex; flex-direction: column;
+  height: calc(100vh - var(--topbar-h) - 2rem);
+  height: calc(100dvh - var(--topbar-h) - 2rem - var(--safe-top));
 }
 .rules-header { margin-bottom: .9rem; }
 .rules-header h2 {
@@ -2600,7 +2612,7 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 .deck-layout-3col .deck-main { overflow-y: auto; }
 .deck-layout-3col .deck-sidebar { overflow-y: auto; }
 .cmdr-col {
-  position: sticky; top: 6.5rem;
+  position: sticky; top: calc(var(--topbar-h) + 3.5rem);
   border-right: 1px solid var(--border);
   background: linear-gradient(180deg, #0b0c11 0%, #08090d 100%);
   padding: 1rem .85rem; display: flex; flex-direction: column; gap: .5rem;
@@ -2977,27 +2989,32 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 
 /* Responsive: mobile (<700px) — bottom nav, single column */
 @media (max-width: 699px) {
-  .app { padding: 3.2rem .75rem 5.5rem; padding-top: calc(3.2rem + var(--safe-top)); }
+  /* The phone's top bar is the slim one: brand and account menu only. The
+     places and New deck are in the bottom bar. */
+  :root { --topbar-h: 52px; }
+  .global-toolbar { padding-left: 16px; padding-right: 8px; }
+  .gt-new { display: none; }
+  .app { padding: 3.2rem .75rem calc(var(--tabbar-total) + 2rem); padding-top: calc(var(--topbar-h) + .2rem + var(--safe-top)); }
   /* Deck view carries an extra fixed bar (.deck-stats-bar) above the bottom
      nav — give it more bottom clearance so the last row of cards doesn't sit
      behind it. .app-deckview is the existing per-route scoping class (App.jsx). */
-  .app-deckview { padding-bottom: 8rem; }
+  .app-deckview { padding-bottom: calc(var(--tabbar-total) + 4.5rem); }
   /* iOS Safari auto-zooms focused form controls whose text is under 16px —
      !important intentionally beats per-component font-size overrides. */
   input, textarea, select { font-size: 16px !important; }
   .gt-nav { display: none; }
   .bottom-nav { display: flex; }
-  .toast { bottom: 4.5rem; }
-  .pwa-update-banner { bottom: 4.5rem; }
+  .toast { bottom: calc(var(--tabbar-total) + 1rem); }
+  .pwa-update-banner { bottom: calc(var(--tabbar-total) + 1rem); }
   /* Deck stats bar goes compact: one row of middot-separated chips (the same
      idiom as .cmdr-strip-meta), not the desktop tiled value/label layout.
-     bottom: 4.5rem matches every other fixed mobile element that sits above
-     .bottom-nav (toast, pwa-update-banner, .planeswalker-btn) — not a fresh
-     calculation. */
+     Its bottom matches every other fixed mobile element that sits above
+     .bottom-nav (toast, pwa-update-banner, .planeswalker-btn): the bar's
+     full height plus 1rem. */
   .deck-stats-bar {
     height: auto; min-height: 2.75rem; justify-content: flex-start;
     overflow-x: auto; padding: .5rem .75rem; gap: .35rem;
-    bottom: 4.5rem;
+    bottom: calc(var(--tabbar-total) + 1rem);
   }
   .dsb-stat {
     flex-direction: row; padding: 0; border-left: none; gap: .3rem; flex: none;
@@ -3010,9 +3027,9 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
   .dsb-val { font-size: var(--fs-xs); }
   /* Floating buttons above the bottom nav — one clean right-edge column:
      Planeswalker hub, then the + FAB above it (deck view only). */
-  .planeswalker-btn { bottom: 4.5rem; right: 1rem; }
-  .pw-fc-tag { bottom: 5.15rem; right: 4.2rem; }
-  .deck-fab { bottom: calc(4.5rem + 54px); }
+  .planeswalker-btn { bottom: calc(var(--tabbar-total) + 1rem); right: 1rem; }
+  .pw-fc-tag { bottom: calc(var(--tabbar-total) + 1.65rem); right: 4.2rem; }
+  .deck-fab { bottom: calc(var(--tabbar-total) + 1rem + 54px); }
   .deck-fab { display: flex; }
   .deck-layout { grid-template-columns: 1fr; }
   .deck-layout-3col { grid-template-columns: 1fr; height: auto; overflow: visible; }
@@ -3048,12 +3065,14 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
   }
   .rules-chips::-webkit-scrollbar { display: none; }
   .rules-chips button { white-space: nowrap; flex: none; }
+  /* The question box is the bottom of this column, so the column has to end
+     above the bottom bar: a taller bar would otherwise sit on top of it. */
+  .rules-chat { height: calc(100dvh - var(--topbar-h) - .2rem - var(--safe-top) - var(--tabbar-total) - 1rem); }
   .rules-input-row input { border-color: rgba(201,138,58,.4); border-radius: 20px; }
   .rules-ask-label { display: none; }
   .rules-ask-icon { display: inline; }
   .rules-ask-btn { border-radius: 50%; width: 44px; height: 44px; padding: 0; font-size: 17px;
     display: flex; align-items: center; justify-content: center; }
-  .gt-avatar { width: 36px; height: 36px; }
   .card-modal img { width: min(85vw, calc(75vh * 63 / 88)); max-width: 85vw; max-height: 75vh; }
 }
 
@@ -3370,8 +3389,10 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .edm-hint { margin-top: .5rem; font-size: var(--fs-xs); color: var(--muted); }
 .edm-foot { display: flex; justify-content: flex-end; gap: .5rem; padding: 0 1.1rem .9rem; flex-wrap: wrap; }
 
-/* Avatar recent-decks list: cap height once it holds more than a few rows */
-.avp-recents-scroll { max-height: 228px; overflow-y: auto; }
+/* Card search: which deck + Add goes to, and the way back to it */
+.cards-deck { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; margin: 0 0 .6rem; color: var(--text-secondary); }
+.cards-deck strong { color: var(--text); }
+.cards-deck-back { display: inline-flex; align-items: center; min-height: 44px; font-weight: 500; }
 
 
 /* == Touch ergonomics (visual-standards audit 2026-07-17) ==================

@@ -3,7 +3,7 @@
 // Duplicate protection: reopening the same link adopts the saved deck.
 
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, navigateToTab } from "./fixtures/helpers.js";
+import { loadSharedDeck, openNewDeck } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
 const decksInStorage = (page) =>
@@ -38,7 +38,7 @@ test.describe("Deck auto-save", () => {
   test("picking a first commander auto-saves a new deck", async ({ page }) => {
     await page.goto("/");
     await page.waitForSelector(".app");
-    await navigateToTab(page, "Analyze & Build");
+    await openNewDeck(page);
 
     await page.locator("#cmd-input").fill("atraxa");
     await page.locator(".autocomplete .ac-item").first().click();

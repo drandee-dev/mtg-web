@@ -50,6 +50,27 @@ test.describe("Rules", () => {
     await expect(page.locator(".rules-msg-ai")).toHaveCount(0);
   });
 
+  // The question box is the bottom of the chat column, and the column is
+  // sized against both bars. Sized for a shorter bar, the box ends up under
+  // the bottom one and a tap on it lands on a bar item.
+  test("on a phone the question box stays clear of the bottom bar after an answer", async ({ page, isMobile }) => {
+    test.skip(!isMobile, "the bottom bar is the phone's");
+    const input = page.locator(".rules-input-row input");
+    await input.fill("trample");
+    await input.press("Enter");
+    await expect(page.locator(".rules-msg-ai")).toHaveCount(1);
+
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const box = await input.boundingBox();
+    const bar = await page.locator(".bottom-nav").boundingBox();
+    expect(box.y + box.height).toBeLessThanOrEqual(bar.y);
+    const reached = await page.evaluate(
+      ([x, y]) => Boolean(document.elementFromPoint(x, y)?.closest(".rules-input-row")),
+      [box.x + box.width / 2, box.y + box.height / 2],
+    );
+    expect(reached, "a tap on the middle of the question box reaches it").toBe(true);
+  });
+
   test("visual: rules tab", async ({ page }) => {
     await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot("rules-tab.png", { fullPage: true });

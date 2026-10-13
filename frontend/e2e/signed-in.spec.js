@@ -3,7 +3,7 @@
 // cloud store is where a save or a delete takes long enough to be overtaken.
 
 import { test, expect } from "./fixtures/test-base.js";
-import { waitForAppReady, navigateToTab } from "./fixtures/helpers.js";
+import { waitForAppReady, navigateToTab, backToDeck, openNewDeck } from "./fixtures/helpers.js";
 import { TEST_DECK_STORAGE } from "./fixtures/test-data.js";
 import { fakeCloud, cloudOrigin, hasSession } from "./fixtures/fake-cloud.js";
 
@@ -41,7 +41,7 @@ async function addBolt(page) {
   await name.press("Enter");
   await page.locator(".results-table tbody tr", { hasText: "Lightning Bolt" })
     .getByRole("button", { name: "+ Add" }).click();
-  await navigateToTab(page, "Analyze & Build");
+  await backToDeck(page);
   await expect(grid(page)).toBeVisible();
   await expect(unsavedMark(page)).toHaveText("Unsaved");
 }
@@ -91,6 +91,43 @@ test.describe("Signed in", () => {
     expect(await hasSession(page)).toBe(true);
   });
 
+  // Two new decks both have no id. "New deck" clicked while the first one's
+  // save is out must stay a new deck, not become the saved one.
+  test("New deck during a slow first save stays its own deck", async ({ page }) => {
+    const cloud = await fakeCloud(page);
+    await page.goto("/");
+    await waitForAppReady(page);
+    await openNewDeck(page);
+    await expect(page).toHaveURL(atPath("/new"));
+
+    cloud.saveDelay = 1500;
+    await page.locator("#cmd-input").fill("atraxa");
+    await page.locator(".autocomplete .ac-item").first().click();
+    await openNewDeck(page);
+    await expect(page.locator(".empty-deck")).toBeVisible();
+    expect(cloud.decks, "the first save had already returned; nothing was tested").toEqual([]);
+
+    await expect.poll(() => cloud.decks.length, { timeout: 10000 }).toBe(1);
+    const first = cloud.decks[0].id;
+    // The list reload and the adopt follow the save.
+    await page.waitForTimeout(1000);
+    await expect(page).toHaveURL(atPath("/new"));
+    await expect(page.locator(".empty-deck")).toBeVisible();
+    await expect(unsavedMark(page)).toHaveCount(0);
+    expect(await draftOf(page, first)).toBeNull();
+
+    // The second deck gets a row and an address of its own. (The mocked
+    // search offers any known card; which one leads the deck does not matter.)
+    cloud.saveDelay = 0;
+    await page.locator("#cmd-input").fill("sol ring");
+    await page.locator(".autocomplete .ac-item", { hasText: "Sol Ring" }).click();
+    await expect.poll(() => cloud.decks.length, { timeout: 10000 }).toBe(2);
+    const second = cloud.decks.find((d) => d.id !== first);
+    await expect(page).toHaveURL(atPath(`/decks/${second.id}`));
+    expect(second.decklist_text).toContain("Sol Ring");
+    expect(cloud.decks.find((d) => d.id === first).decklist_text).toContain("Atraxa");
+  });
+
   test("a slow delete does not load the deck back, and Undo returns it in place with its edits", async ({ page }) => {
     const cloud = await fakeCloud(page, [CLOUD_DECK]);
     await openCloudDeck(page);
@@ -102,7 +139,7 @@ test.describe("Signed in", () => {
     await tile.getByRole("button", { name: "Deck actions" }).click();
     await tile.locator(".deck-card-menu-item", { hasText: "Delete" }).click();
     // Back on the deck before the delete has returned: it is still there.
-    await navigateToTab(page, "Analyze & Build");
+    await page.goBack();
     await expect(page).toHaveURL(atPath(`/decks/${CLOUD_DECK.id}`));
     await expect(grid(page)).toBeVisible();
     expect(cloud.decks.map((d) => d.id)).toEqual([CLOUD_DECK.id]);

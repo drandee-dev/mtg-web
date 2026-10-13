@@ -37,7 +37,7 @@ test.describe("Insights persistence", () => {
     expect(combosCalls.n).toBe(1);
 
     await navigateToTab(page, "Rules");
-    await navigateToTab(page, "Analyze & Build");
+    await page.goBack();
 
     // Cached result renders, same tool still open, and no re-fetch happened.
     await expect(page.locator('.insp-tab:has-text("Combos")')).toHaveClass(/active/);
@@ -140,7 +140,7 @@ test.describe("Insights persistence", () => {
 
     // Leave the deck tab and come back — verdicts survive the unmount.
     await navigateToTab(page, "Rules");
-    await navigateToTab(page, "Analyze & Build");
+    await page.goBack();
     await expect(pane.locator(".opt-card:has-text('Lightning Bolt') .opt-cat")).toContainText("Pinned");
     await expect(pane.locator('.opt-card:has-text("Rhystic Study")')).toHaveCount(0);
 
@@ -240,7 +240,7 @@ test.describe("Insights persistence", () => {
     // Leaving the deck tab and returning must not resurrect it — that would
     // put the second Apply click back within reach.
     await navigateToTab(page, "Rules");
-    await navigateToTab(page, "Analyze & Build");
+    await page.goBack();
     await expect(pane.locator('.opt-card:has(.opt-cat:text-is("High synergy")):has-text("Lightning Bolt")')).toHaveCount(0);
     await expect(oneCopy).toHaveCount(1);
     await expect(twoCopies).toHaveCount(0);
