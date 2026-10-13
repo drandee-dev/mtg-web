@@ -439,10 +439,17 @@ export default function App() {
     if ((s?.user?.id || null) !== userIdRef.current && openIdRef.current) emptyEditor();
     setSession(s);
   }, [emptyEditor]);
+  // getSession answers "no session" with an error when the token has run out
+  // and the refresh could not reach the server. That is a dead connection, not
+  // a sign-out (which arrives as its own event), so the session on hand stays.
+  const readSession = useCallback(
+    () => supabase.auth.getSession().then(({ data, error }) => { if (!error) applySession(data.session); }),
+    [applySession],
+  );
 
   useEffect(() => {
     if (!supabaseEnabled) return;
-    supabase.auth.getSession().then(({ data }) => { applySession(data.session); setAuthReady(true); });
+    readSession().then(() => setAuthReady(true));
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       applySession(s);
       setAuthReady(true);
@@ -452,7 +459,7 @@ export default function App() {
       }
     });
     return () => sub.subscription.unsubscribe();
-  }, [applySession]);
+  }, [applySession, readSession]);
 
   // PWA magic-link return: detect auth callback in browser and prompt return to PWA
   const [showPwaReturn, setShowPwaReturn] = useState(() => {
@@ -467,13 +474,11 @@ export default function App() {
   useEffect(() => {
     if (!supabaseEnabled) return;
     function onVisible() {
-      if (document.visibilityState === "visible") {
-        supabase.auth.getSession().then(({ data }) => applySession(data.session));
-      }
+      if (document.visibilityState === "visible") readSession();
     }
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [applySession]);
+  }, [readSession]);
 
   const userId = session?.user?.id || null;
   setAccessToken(session?.access_token || "");
@@ -633,11 +638,14 @@ export default function App() {
       doomed && {
         label: "Undo",
         onClick: async () => {
+          // The draft goes back first: the save reloads the list, and if the
+          // address is this deck's it loads at once and reads its draft then.
+          if (draft) saveDraft(doomed.id, draft);
           try {
-            const restored = await saveDeck({ id: doomed.id, name: doomed.name, format: doomed.format, decklist_text: doomed.decklist_text });
-            if (draft) saveDraft(restored.id, draft);
+            await saveDeck({ id: doomed.id, name: doomed.name, format: doomed.format, decklist_text: doomed.decklist_text });
             notify(`Restored "${doomed.name}".`);
           } catch {
+            if (draft) clearDraft(doomed.id);
             notify("Couldn't restore the deck.");
           }
         },

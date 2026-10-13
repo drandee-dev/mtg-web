@@ -277,6 +277,29 @@ test.describe("Deck addresses", () => {
     await expect(inDeck(page, "Rhystic Study").first()).toBeAttached({ timeout: 10000 });
   });
 
+  // Back onto the deleted deck's address, then Undo: the deck loads the moment
+  // it is back in the list, so its unsaved edits have to be back before that.
+  test("Undo from the deleted deck's own address brings its unsaved edits back with it", async ({ page }) => {
+    await openFromDecks(page, DECK_A.name);
+    await addBolt(page);
+    await expect(unsavedMark(page)).toHaveText("Unsaved");
+    await navigateToTab(page, "My Decks");
+    const tile = page.locator(".deck-card", { hasText: DECK_A.name });
+    await tile.getByRole("button", { name: "Deck actions" }).click();
+    await tile.locator(".deck-card-menu-item", { hasText: "Delete" }).click();
+    await expect(tile).toHaveCount(0);
+
+    await page.goBack();
+    await expect(page).toHaveURL(atPath(`/decks/${DECK_A.id}`));
+    await expect(page.getByRole("heading", { name: "Deck not found" })).toBeVisible();
+    await page.locator(".toast .toast-action", { hasText: "Undo" }).click();
+
+    await expect(deckTitle(page)).toContainText(DECK_A.name);
+    await expect(inDeck(page, "Lightning Bolt").first()).toBeAttached({ timeout: 10000 });
+    await expect(unsavedMark(page)).toHaveText("Unsaved");
+    expect((await draftOf(page, DECK_A.id)).decklist_text).toContain("Lightning Bolt");
+  });
+
   // The deck list saves a rename itself, so the editor has to hear about it:
   // left with the old name, its next Save would write that name back.
   test("a rename from the deck list reaches the open deck and survives its next Save", async ({ page, isMobile }) => {
@@ -295,11 +318,13 @@ test.describe("Deck addresses", () => {
     await expect(page).toHaveTitle("Renamed in the list · MTG Workshop");
     await expect(unsavedMark(page)).toHaveCount(0);
 
+    // The name is already right in storage, so wait on something only this
+    // Save changes before reading it.
+    const stored = async () => (await savedDecks(page)).find((d) => d.id === DECK_A.id);
+    const renamedAt = (await stored()).updated_at;
     await page.locator("button.primary:visible", { hasText: /^Save/ }).first().click();
-    await expect.poll(async () => (await savedDecks(page)).find((d) => d.id === DECK_A.id)?.name).toBe("Renamed in the list");
-    // Give a late write of the old name time to land.
-    await page.waitForTimeout(500);
-    expect((await savedDecks(page)).find((d) => d.id === DECK_A.id).name).toBe("Renamed in the list");
+    await expect.poll(async () => (await stored()).updated_at).not.toBe(renamedAt);
+    expect((await stored()).name).toBe("Renamed in the list");
   });
 });
 
