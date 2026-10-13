@@ -67,6 +67,31 @@ test.describe("Commanders", () => {
     await expect(page).toHaveURL(/\/commanders\/atraxa-praetors-voice$/);
   });
 
+  // A set name is one unbroken line, and at phone width it used to hold its
+  // column open: three columns ran past the screen and the whole page scrolled
+  // sideways (501px in a 375px viewport on production, 2026-10-13).
+  test("a long set name in the printings does not make the page scroll sideways", async ({ page }) => {
+    const prints = ["Commander Anthology Volume II", "Commander 2016", "Phyrexia: All Will Be One Promos", "Secret Lair Drop"]
+      .map((set_name, i) => ({ set: `S${i}`, set_name, cn: String(i), released: "2020-01-01", image: "", thumb: "", price_usd: 5 + i }));
+    await page.route("**/api/cards/prints**", (r) =>
+      r.fulfill({ contentType: "application/json", body: JSON.stringify({ name: "Atraxa, Praetors' Voice", prints }) }));
+
+    await page.getByRole("listitem", { name: "Atraxa, Praetors' Voice" }).click();
+    await expect(page.locator(".cmdr-print")).toHaveCount(4);
+
+    const { scrollWidth, clientWidth } = await page.evaluate(() => {
+      const de = document.documentElement;
+      return { scrollWidth: de.scrollWidth, clientWidth: de.clientWidth };
+    });
+    expect(clientWidth).toBeGreaterThan(0);
+    expect(scrollWidth).toBe(clientWidth);
+    // Every printing is still on the page, inside the screen.
+    for (const tile of await page.locator(".cmdr-print").all()) {
+      const box = await tile.boundingBox();
+      expect(box.x + box.width).toBeLessThanOrEqual(clientWidth + 1);
+    }
+  });
+
   // F2: a partner-capable commander must stop at the partner step instead of
   // building solo (a Background can't lead alone). The shared mock's search
   // never returns a partner_kind, so this one answers it for the seeded pick.

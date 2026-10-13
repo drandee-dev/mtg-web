@@ -2486,6 +2486,10 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
    NOT reuse .card-thumb: that class pins a card aspect-ratio on the tile and gives
    its image height:100%, which sizes the tile to the art alone and leaves the meta
    row overlapping the grid row below. */
+/* A grid item is never narrower than its longest unbroken line unless told so,
+   and a set name is one line: without this a long one holds its column open
+   and the page scrolls sideways on a phone. */
+.cmdr-print { min-width: 0; }
 .cmdr-print img {
   display: block; width: 100%; aspect-ratio: 488 / 680; object-fit: cover;
   border-radius: 4.8% / 3.4%; background: var(--panel-2);
