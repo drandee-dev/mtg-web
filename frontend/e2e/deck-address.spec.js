@@ -158,6 +158,60 @@ test.describe("Deck addresses", () => {
     await expect(deckTitle(page)).toContainText("Atraxa");
   });
 
+  // A paste gives the deck its id while the upgrade guide is open, so a
+  // modal's history entry is on top of /new when the address changes.
+  async function pasteNewDeck(page) {
+    await navigateToTab(page, "Analyze & Build");
+    await expect(page).toHaveURL(atPath("/new"));
+    await page.locator(".empty-action", { hasText: "Paste a decklist" }).click();
+    await page.locator(".icm-panel textarea").fill(`Commander\n1 ${TEST_COMMANDER}\n\nDeck\n1 Sol Ring\n1 Arcane Signet\n1 Counterspell`);
+    await page.locator(".icm-foot button", { hasText: "Import" }).click();
+    await expect(page.locator('[aria-label="Upgrade this deck"]')).toBeVisible();
+    await expect.poll(async () => (await savedDecks(page)).length).toBe(3);
+    const created = (await savedDecks(page)).find((d) => d.id !== DECK_A.id && d.id !== DECK_B.id);
+    await expect(page).toHaveURL(atPath(`/decks/${created.id}`));
+    return created.id;
+  }
+  const onPastedDeck = async (page, id) => {
+    await expect(page).toHaveURL(atPath(`/decks/${id}`));
+    await expect(inDeck(page, "Counterspell").first()).toBeAttached({ timeout: 10000 });
+    await expect(page.locator(".empty-deck")).toHaveCount(0);
+  };
+
+  test("a deck pasted on /new keeps its address when the guide is closed with its button", async ({ page }) => {
+    const id = await pasteNewDeck(page);
+    await page.locator(".upr-panel .icm-close").click();
+    await onPastedDeck(page, id);
+
+    // Leaving and coming Back lands on the deck, not on the /new it started as.
+    await navigateToTab(page, "Rules");
+    await expect(page).toHaveURL(atPath("/rules"));
+    await page.goBack();
+    await onPastedDeck(page, id);
+    // One more Back leaves the deck: the guide's entry did not pile up under it.
+    await page.goBack();
+    await expect(page).toHaveURL(atPath("/"));
+    await page.goForward();
+    await onPastedDeck(page, id);
+  });
+
+  test("a deck pasted on /new keeps its address when the guide is closed with Back", async ({ page }) => {
+    const id = await pasteNewDeck(page);
+    await page.goBack();
+    await expect(page.locator('[aria-label="Upgrade this deck"]')).toHaveCount(0);
+    await onPastedDeck(page, id);
+
+    await navigateToTab(page, "Rules");
+    await expect(page).toHaveURL(atPath("/rules"));
+    await page.goBack();
+    await onPastedDeck(page, id);
+
+    await page.reload();
+    await waitForAppReady(page);
+    await onPastedDeck(page, id);
+    expect((await savedDecks(page)).length).toBe(3);
+  });
+
   test("a new deck not saved yet survives Back onto a saved deck", async ({ page }) => {
     const dialogs = [];
     page.on("dialog", (d) => { dialogs.push(d.type()); d.dismiss().catch(() => {}); });

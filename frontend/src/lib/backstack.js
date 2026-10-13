@@ -32,6 +32,9 @@ function _handlePop() {
     top.viaPop = true;
     _layers.pop();
     top.onClose();
+    // The entry now on top was pushed before the layer opened, and the app may
+    // have moved on from its address since (a deck saved under an open modal).
+    if (_onPopTab) _onPopTab(true);
     return;
   }
   const marker = window.history.state?.mtgwebLayer;
@@ -50,7 +53,9 @@ function _bind() {
   window.addEventListener("popstate", _handlePop);
 }
 
-/** App calls this once: `onPopTab` restores the tab from the URL on back. */
+/** App calls this once: `onPopTab` restores the tab from the URL on back. It is
+ * also called with `true` after back closes a layer, when the app stays where
+ * it is and only the address it landed on may need correcting. */
 export function registerTabHandler(onPopTab) {
   _bind();
   _onPopTab = onPopTab;

@@ -206,6 +206,10 @@ export default function App() {
   const deckTextRef = useRef("");
   const openIdRef = useRef(null);
   const userIdRef = useRef(null);
+  // A new deck with no id yet has no draft to fall back on. If Back lands on a
+  // saved deck while one is in the editor it is held here, and put back when
+  // the address returns to /new.
+  const heldNewDeck = useRef(null);
   useEffect(() => {
     deckTextRef.current = deckText;
     openIdRef.current = currentDeck?.id || null;
@@ -291,7 +295,21 @@ export default function App() {
   // back returns to the previous tab instead of exiting the app); back/forward
   // restores the tab from the URL without pushing again.
   useEffect(() => {
-    registerTabHandler(() => setRoute(parseLocation(window.location)));
+    registerTabHandler((layerClosed) => {
+      const next = parseLocation(window.location);
+      // Back onto /new while the editor holds a saved deck. A deck that got
+      // its id under an open modal (a paste, an import) could not take over
+      // its /new entry then, because the modal's entry was on top; it does
+      // now. Any older /new likewise shows the deck the editor holds instead
+      // of emptying it, unless a new deck was set aside for it.
+      if (next.tab === "deck" && !next.deckId && openIdRef.current && !heldNewDeck.current) {
+        next.deckId = openIdRef.current;
+        const { search, hash } = window.location;
+        window.history.replaceState(window.history.state, "", buildPath(next, search) + hash);
+      }
+      // Back closing a layer never moves the app; only the address needed a look.
+      if (!layerClosed) setRoute(next);
+    });
   }, []);
 
   const addressSynced = useRef(false);
@@ -312,12 +330,18 @@ export default function App() {
     // #main-content) never reaches this effect to clear a flag.
     const here = parseLocation(window.location);
     if (here.tab === tab && here.slug === slug && here.deckId === deckId) return;
-    // A new deck that has just been given its id (first save, a share link's
-    // auto-save) keeps its place in history: /new becomes /decks/<id>, so Back
-    // doesn't return to an empty editor.
+    // A deck taking the place of /new (a new deck just given its id by a first
+    // save or a share link's auto-save, or a saved deck opened from the menu)
+    // keeps that place in history: /new becomes /decks/<id>, so Back doesn't
+    // return to an empty editor.
     const savedFromNew = here.tab === "deck" && !here.deckId && deckId;
-    // Recycle an abandoned layer entry rather than stacking on top of it.
-    if (savedFromNew || historyTopIsGhost()) window.history.replaceState({ tab }, "", next);
+    // Recycle an abandoned layer entry rather than stacking on top of it. A
+    // layer still open (the deck got its id under a modal) keeps its marker,
+    // so its entry is recycled later like any other; the /new entry beneath it
+    // is put right when Back reaches it (the pop handler above).
+    const top = window.history.state;
+    const ghost = historyTopIsGhost();
+    if (savedFromNew || ghost) window.history.replaceState(top?.mtgwebLayer && !ghost ? top : { tab }, "", next);
     else window.history.pushState({ tab }, "", next);
   }, [tab, commanderSlug, deckId]);
 
@@ -337,7 +361,8 @@ export default function App() {
     function handler(e) {
       // Only a deck with no draft to fall back on needs the browser's prompt.
       const kept = currentDeck?.id && draftKept.current;
-      if (!kept && deckText && deckText !== savedDeckText.current) { e.preventDefault(); }
+      // So does a new deck set aside by Back: it lives only in memory.
+      if ((!kept && deckText && deckText !== savedDeckText.current) || heldNewDeck.current) { e.preventDefault(); }
       if (supabaseEnabled && localStorage.getItem("mtgweb:rememberMe") === "false") {
         supabase.auth.signOut();
       }
@@ -470,17 +495,14 @@ export default function App() {
     ? resolveDeckRoute({ deckId, decks, decksLoadedFor, authReady, userId })
     : null;
   const wantedDeck = wanted?.deck || null;
-  // A new deck with no id yet has no draft to fall back on. If Back lands on a
-  // saved deck while one is in the editor it is held here, and put back when
-  // the address returns to /new.
-  const heldNewDeck = useRef(null);
   // Setting state from this effect is its job: the address is the outside
   // system, and the deck list it resolves against arrives after the first render.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (tab !== "deck" || deckReady) return;
     if (!deckId) {
-      // /new, with a saved deck still in the editor (its edits are in its draft).
+      // /new, with a saved deck still in the editor (its edits are in its
+      // draft). The pop handler only lets this through for a held new deck.
       emptyEditor();
       const held = heldNewDeck.current;
       if (held) showInEditor(held.format, held.decklist_text);
