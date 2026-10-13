@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/decks/:path*", "destination": "/index.html" },
+    { "source": "/new", "destination": "/index.html" },
+    { "source": "/commanders", "destination": "/index.html" },
+    { "source": "/commanders/:path*", "destination": "/index.html" },
+    { "source": "/cards", "destination": "/index.html" },
+    { "source": "/rules", "destination": "/index.html" }
+  ]
+}
