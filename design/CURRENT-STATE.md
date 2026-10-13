@@ -20,7 +20,7 @@
 
 - **Desktop:** Top toolbar tabs (My Decks, Analyze & Build, Rules, Card Search) + avatar dropdown menu
 - **Mobile (<700px):** Bottom nav bar (Decks, Build, Rules, Cards) — top toolbar tabs are hidden
-- **Tab state:** SPA with `?tab=` query param sync, no react-router. Aliases: `?tab=analyze` → deck, `?tab=build` → deck
+- **Tab state:** SPA with path addresses (`/`, `/commanders`, `/commanders/<slug>`, `/cards`, `/rules`; `frontend/src/lib/routes.js`), no react-router. The deck editor is still `/?tab=deck`. Old `?tab=` links are replaced by the path on load, including the aliases `?tab=analyze` and `?tab=build` → deck
 
 ## Overlays / Modals
 
