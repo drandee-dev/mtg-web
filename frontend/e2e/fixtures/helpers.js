@@ -70,6 +70,13 @@ export async function loadSharedDeck(page, deckText, commander = "") {
   await dismissColdStart(page);
 }
 
+// A cold load of an address, as a bookmark or a second browser tab would make.
+export async function openAddress(page, path) {
+  await page.goto(path);
+  await waitForAppReady(page);
+  await dismissColdStart(page);
+}
+
 // Open the deck view's ⋯ menu (the visible one for this viewport) and click an item.
 export async function deckMenuAction(page, itemText) {
   await page.locator(".more-menu-btn:visible").first().click();

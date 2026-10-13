@@ -47,7 +47,7 @@ test.describe("My Decks", () => {
     // overlay with Edit/Playtest/Export buttons was removed).
     await page.locator(".deck-card .deck-card-art").first().click();
 
-    await expect(page).toHaveURL(/tab=deck/);
+    await expect(page).toHaveURL(new RegExp(`/decks/${TEST_DECK_STORAGE.id}$`));
     await expect(page.locator(".card-grid-container")).toBeVisible({ timeout: 10000 });
   });
 

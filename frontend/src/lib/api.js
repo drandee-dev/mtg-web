@@ -246,8 +246,11 @@ export function warnIfBadAdd({ before, commander, format, name, notify, undo }) 
 // Reverse of assembleDecklist: split a saved decklist that may carry
 // "Commander\n1 Name\nDeck\n<rest>" headers (and an optional trailing
 // "Maybeboard\n<rest>" section) back into { commander, deckText, maybeboard }.
-const _CMD_BLOCK = /^\s*commander\s*\r?\n((?:\s*\d+\s+.+\r?\n)+)\s*deck\s*\r?\n([\s\S]*)$/i;
-const _MAYBE_SPLIT = /\r?\n\s*maybeboard\s*\r?\n/i;
+// A deck can be a commander and nothing else (that is what the first commander
+// pick auto-saves), or a commander and a Considering pile: after the trim
+// nothing follows "Deck", and "Maybeboard" opens the body.
+const _CMD_BLOCK = /^\s*commander\s*\r?\n((?:\s*\d+\s+.+\r?\n)+)\s*deck\s*(?:\r?\n([\s\S]*))?$/i;
+const _MAYBE_SPLIT = /(?:^|\r?\n)\s*maybeboard\s*\r?\n/i;
 export function disassembleDecklist(text) {
   const raw = (text || "").trim();
   let commander = "";
@@ -258,7 +261,7 @@ export function disassembleDecklist(text) {
       .map((l) => l.trim().replace(/^\d+\s+/, "").trim())
       .filter(Boolean);
     commander = cmds.join(" && ");
-    body = m[2].trim();
+    body = (m[2] || "").trim();
   }
   let deckText = body;
   let maybeboard = "";

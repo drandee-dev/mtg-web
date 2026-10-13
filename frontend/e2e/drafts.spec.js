@@ -197,9 +197,9 @@ test.describe("Deck drafts", () => {
   });
 });
 
-// A share-link deck is re-read from its link on every reload and matched back
-// onto the saved deck, so that path has to restore the draft too.
-test("reloading a share link keeps the edits made since it was saved", async ({ page }) => {
+// A share link opened again is re-read and matched back onto the saved deck,
+// so that path has to restore the draft too.
+test("opening a share link again keeps the edits made since it was saved", async ({ page }) => {
   await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
   await expect.poll(async () => (await savedDecks(page)).length).toBe(1);
   const [{ id }] = await savedDecks(page);
@@ -209,8 +209,7 @@ test("reloading a share link keeps the edits made since it was saved", async ({ 
   await expect(unsavedMark(page)).toHaveText("Unsaved");
   await expect.poll(async () => (await draftOf(page, id))?.decklist_text).toContain("Lightning Bolt");
 
-  await page.reload();
-  await waitForAppReady(page);
+  await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
   await expect(boltInDeck(page).first()).toBeAttached({ timeout: 10000 });
   await expect(unsavedMark(page)).toHaveText("Unsaved");
   expect((await savedDecks(page)).length).toBe(1);
