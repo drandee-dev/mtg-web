@@ -234,6 +234,18 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 /* App shell */
 .app { width: min(95vw, 2100px); margin: 0 auto; padding: 3.2rem 1.5rem 5rem; padding-top: calc(var(--topbar-h) + .2rem + var(--safe-top)); }
 
+/* Both bars are dark in either theme, so the tokens their contents read are
+   pinned to the dark values here. Left to the theme, Light puts its dark
+   text on the bars' dark background. The account menu hangs off the top bar
+   and takes the same values. */
+.global-toolbar, .bottom-nav {
+  --text: #ededf0; --text-secondary: #b0b4be; --muted: #71767f;
+  --border: rgba(255,255,255,.08); --border-strong: rgba(255,255,255,.14);
+  --panel: #16181f; --panel-2: #1c1f28;
+  --hover: rgba(255,255,255,.05); --accent-soft: rgba(201,138,58,.12);
+  color: var(--text);
+}
+
 /* ── Top bar: the four places, then New deck and the account menu ── */
 .global-toolbar {
   position: fixed; top: 0; left: 0; right: 0; z-index: var(--z-nav);
@@ -1912,7 +1924,7 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
   .landing-hero-mobile { display: none; }
   .landing-body-mobile { display: none; }
   .landing-hero-desktop {
-    display: flex; height: calc(100vh - 3rem); height: calc(100dvh - 3rem); position: relative; overflow: hidden;
+    display: flex; height: calc(100vh - var(--topbar-h)); height: calc(100dvh - var(--topbar-h)); position: relative; overflow: hidden;
   }
   .landing-desktop-bg { position: absolute; inset: 0; overflow: hidden; }
   .landing-desktop-bg img {
@@ -2059,7 +2071,10 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 /* ── Rules chat Q&A ── */
 .rules-chat {
   max-width: 720px; margin: 0 auto;
-  display: flex; flex-direction: column; height: calc(100vh - 5rem); height: calc(100dvh - 5rem - var(--safe-top));
+  /* The page's top padding (the bar plus .2rem) and 1.8rem of slack below. */
+  display: flex; flex-direction: column;
+  height: calc(100vh - var(--topbar-h) - 2rem);
+  height: calc(100dvh - var(--topbar-h) - 2rem - var(--safe-top));
 }
 .rules-header { margin-bottom: .9rem; }
 .rules-header h2 {
@@ -3013,7 +3028,7 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
   /* Floating buttons above the bottom nav — one clean right-edge column:
      Planeswalker hub, then the + FAB above it (deck view only). */
   .planeswalker-btn { bottom: calc(var(--tabbar-total) + 1rem); right: 1rem; }
-  .pw-fc-tag { bottom: 5.15rem; right: 4.2rem; }
+  .pw-fc-tag { bottom: calc(var(--tabbar-total) + 1.65rem); right: 4.2rem; }
   .deck-fab { bottom: calc(var(--tabbar-total) + 1rem + 54px); }
   .deck-fab { display: flex; }
   .deck-layout { grid-template-columns: 1fr; }
@@ -3050,12 +3065,14 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
   }
   .rules-chips::-webkit-scrollbar { display: none; }
   .rules-chips button { white-space: nowrap; flex: none; }
+  /* The question box is the bottom of this column, so the column has to end
+     above the bottom bar: a taller bar would otherwise sit on top of it. */
+  .rules-chat { height: calc(100dvh - var(--topbar-h) - .2rem - var(--safe-top) - var(--tabbar-total) - 1rem); }
   .rules-input-row input { border-color: rgba(201,138,58,.4); border-radius: 20px; }
   .rules-ask-label { display: none; }
   .rules-ask-icon { display: inline; }
   .rules-ask-btn { border-radius: 50%; width: 44px; height: 44px; padding: 0; font-size: 17px;
     display: flex; align-items: center; justify-content: center; }
-  .gt-avatar { width: 36px; height: 36px; }
   .card-modal img { width: min(85vw, calc(75vh * 63 / 88)); max-width: 85vw; max-height: 75vh; }
 }
 

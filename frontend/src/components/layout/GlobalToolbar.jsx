@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import AvatarPopup from "./AvatarPopup";
 import NavLink from "./NavLink";
 import { loadDirectory } from "../../lib/commanderDirectory";
@@ -15,6 +16,7 @@ export default function GlobalToolbar({
   setSettingsOpen, onNewDeck, onDeck, onSignOut,
   avatarMenuOpen, setAvatarMenuOpen, onFeedback,
 }) {
+  const avatarRef = useRef(null);
   const initials = cloud
     ? session.user.email.slice(0, 2).toUpperCase()
     : "?";
@@ -48,6 +50,7 @@ export default function GlobalToolbar({
         </NavLink>
         <div className="gt-user-wrap">
           <button
+            ref={avatarRef}
             className={`gt-avatar${avatarMenuOpen ? " active" : ""}`}
             onClick={() => setAvatarMenuOpen((s) => !s)}
             aria-label="Account menu"
@@ -59,6 +62,7 @@ export default function GlobalToolbar({
           {avatarMenuOpen && (
             <AvatarPopup
               session={session}
+              triggerRef={avatarRef}
               onAccountSettings={() => { setAvatarMenuOpen(false); setSettingsOpen(true); }}
               onSignOut={onSignOut}
               onFeedback={onFeedback}

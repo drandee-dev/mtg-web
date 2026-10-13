@@ -115,11 +115,48 @@ test.describe("Navigation & Layout", () => {
     await page.getByRole("button", { name: "Account menu" }).click();
     const menu = page.getByRole("group", { name: "Account" });
     await expect(page.getByRole("button", { name: "Account menu" })).toHaveAttribute("aria-expanded", "true");
-    await expect(menu.getByRole("button").first()).toHaveText("Sign in");
+    await expect(menu.getByRole("button").first()).toHaveText("Sign in or settings");
     await expect(menu).not.toContainText(/New Deck|Import|Paste|Recent|Search/i);
 
+    // Escape from a row inside it closes it and hands focus back to its button.
+    await menu.getByRole("button").first().focus();
     await page.keyboard.press("Escape");
     await expect(menu).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Account menu" })).toBeFocused();
+  });
+
+  test("the bars keep readable labels in the Light theme", async ({ page }) => {
+    await page.evaluate(() => { document.documentElement.dataset.theme = "light"; });
+    const color = (locator) => locator.evaluate((el) => getComputedStyle(el).color);
+    // The theme did switch: the page's own text is dark now.
+    expect(await color(page.locator("main#main-content"))).toBe("rgb(26, 26, 30)");
+    // The bars stay dark, so their labels stay light.
+    expect(await color(mainNav(page).getByRole("link", { name: "Rules", exact: true }))).toBe("rgb(176, 180, 190)");
+    expect(await color(page.locator(".gt-brand"))).toBe("rgb(237, 237, 240)");
+  });
+
+  test("New deck over a deck that is not saved yet asks first, and Cancel keeps it", async ({ page }) => {
+    const asked = [];
+    page.on("dialog", (d) => { asked.push(d.type()); d.dismiss().catch(() => {}); });
+    await openNewDeck(page);
+    // No commander, so nothing saves it: the card lives only in the editor.
+    await navigateToTab(page, "Card Search");
+    const name = page.locator('input[placeholder="bolt"]');
+    await name.fill("bolt");
+    await name.press("Enter");
+    await page.locator(".results-table tbody tr", { hasText: "Lightning Bolt" })
+      .getByRole("button", { name: "+ Add" }).click();
+    await backToDeck(page);
+    const bolt = page.locator('.card-grid-container [aria-label*="Lightning Bolt"]');
+    await expect(bolt.first()).toBeAttached();
+    await page.evaluate(() => { window.__samePage = true; });
+
+    await openNewDeck(page);
+    expect(asked).toEqual(["confirm"]);
+    await expect(page).toHaveURL((url) => url.pathname === "/new");
+    await expect(bolt.first()).toBeAttached();
+    // The link's own address was not followed: this is still the same page load.
+    expect(await page.evaluate(() => window.__samePage)).toBe(true);
   });
 
   test("Cards names the deck it adds to and links back to it, only when one is open", async ({ page }) => {

@@ -1,8 +1,6 @@
 // Shared page helpers for E2E tests.
 // Centralizes common actions so individual tests stay focused on assertions.
 
-import { TEST_DECK_TEXT } from "./test-data.js";
-
 export async function waitForAppReady(page) {
   await page.waitForSelector(".app", { timeout: 15000 });
   // The app renders immediately now (no blocking overlay) — just wait for a tab panel
@@ -46,25 +44,6 @@ export async function openNewDeck(page) {
 // From Cards, the link back to the deck the + Add button adds to.
 export async function backToDeck(page) {
   await page.locator(".cards-deck-back").click();
-}
-
-export async function fillDeckEditor(page, deckText = TEST_DECK_TEXT, commander = "") {
-  await openNewDeck(page);
-
-  if (commander) {
-    const cmdInput = page.locator('input[placeholder*="commander" i], input[placeholder*="Commander" i]').first();
-    if (await cmdInput.isVisible()) {
-      await cmdInput.fill(commander);
-      // Wait for commander autocomplete and select first result
-      const suggestion = page.locator(".commander-suggestions li, .commander-results li, [class*=commander] li").first();
-      if (await suggestion.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await suggestion.click();
-      }
-    }
-  }
-
-  const textarea = page.locator("textarea").first();
-  await textarea.fill(deckText);
 }
 
 // Load a deck through the app's share-link mechanism (?deck=<base64>) so the deck
