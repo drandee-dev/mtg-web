@@ -1,50 +1,18 @@
 import AvatarPopup from "./AvatarPopup";
+import NavLink from "./NavLink";
 import { loadDirectory } from "../../lib/commanderDirectory";
 
-// Per-tab data to warm on hover, keyed by tab id. Only Commanders has a heavy
-// fetch worth starting early (~500KB post-compression, see Commanders.jsx);
-// every other tab's data is small or already loaded. A no-op default keeps
-// the hover handler unconditional rather than branching per tab id.
+// Per-place data to warm on hover, keyed by place id. Only Commanders has a
+// heavy fetch worth starting early (~500KB post-compression, see
+// Commanders.jsx); every other place's data is small or already loaded.
 const PREFETCH = { commanders: loadDirectory };
 
-const TAB_ICONS = {
-  decks: (
-    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-      <rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-      <rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-      <rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-      <rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5"/>
-    </svg>
-  ),
-  deck: (
-    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-      <rect x="2.5" y="1.5" width="11" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
-      <line x1="5" y1="5.5" x2="11" y2="5.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-      <line x1="5" y1="8" x2="9" y2="8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-    </svg>
-  ),
-  rules: (
-    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-      <path d="M8 3.5v10M8 3.5C8 3.5 6.5 2 3 2v10c3.5 0 5 1.5 5 1.5M8 3.5C8 3.5 9.5 2 13 2v10c-3.5 0-5 1.5-5 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  ),
-  commanders: (
-    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-      <path d="M2 12.5h12l-1-6.5-3 3-2-4-2 4-3-3-1 6.5z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
-    </svg>
-  ),
-  cards: (
-    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-      <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.5"/>
-      <line x1="10" y1="10" x2="14.5" y2="14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-    </svg>
-  ),
-};
-
+// The bar names the four places. "New deck" and the account menu sit beside
+// them as actions. `place` is the place the screen belongs to (a deck is a
+// page under Decks), or null on the New deck screen.
 export default function GlobalToolbar({
-  tabs, tab, setTab, cloud, session,
-  setSettingsOpen,
-  decks, onNewDeck, onImportUrl, onSearchDecks, onOpenDeck, onPasteDecklist, onSignOut,
+  places, place, setTab, cloud, session,
+  setSettingsOpen, onNewDeck, onDeck, onSignOut,
   avatarMenuOpen, setAvatarMenuOpen, onFeedback,
 }) {
   const initials = cloud
@@ -53,52 +21,44 @@ export default function GlobalToolbar({
 
   return (
     <header className="global-toolbar" role="banner">
-      <div className="gt-left">
-        <button
-          className="gt-brand"
-          onClick={() => setTab("decks")}
-          aria-label="Go to My Decks"
-        >
-          <span className="gt-logo-dot" />
-          <span className="gt-logo-text">MTG Workshop</span>
-        </button>
-      </div>
+      <NavLink className="gt-brand" href="/" onNavigate={() => setTab("decks")}>
+        <span className="gt-logo-dot" aria-hidden="true" />
+        <span className="gt-logo-text">MTG Workshop</span>
+      </NavLink>
 
-      <nav className="gt-nav" role="tablist" aria-label="Main navigation">
-        {tabs.map(([id, label]) => (
-          <button
+      <nav className="gt-nav" aria-label="Main">
+        {places.map(([id, label, href]) => (
+          <NavLink
             key={id}
-            role="tab"
-            aria-selected={tab === id}
-            className={`gt-tab${tab === id ? " active" : ""}`}
-            onClick={() => setTab(id)}
+            href={href}
+            current={place === id}
+            className="gt-link"
+            onNavigate={() => setTab(id)}
             onMouseEnter={() => PREFETCH[id]?.()}
-            style={{ display: "flex", alignItems: "center", gap: "5px" }}
           >
-            {TAB_ICONS[id]}{label}
-          </button>
+            {label}
+          </NavLink>
         ))}
       </nav>
 
       <div className="gt-right">
+        {/* The gold button is the screen's main action: on a deck that is Save. */}
+        <NavLink className={`gt-new${onDeck ? " gt-new-quiet" : ""}`} href="/new" onNavigate={onNewDeck}>
+          New deck
+        </NavLink>
         <div className="gt-user-wrap">
           <button
             className={`gt-avatar${avatarMenuOpen ? " active" : ""}`}
             onClick={() => setAvatarMenuOpen((s) => !s)}
             aria-label="Account menu"
+            aria-expanded={avatarMenuOpen}
+            aria-controls="account-menu"
           >
             {initials}
           </button>
           {avatarMenuOpen && (
             <AvatarPopup
-              decks={decks}
               session={session}
-              onNewDeck={onNewDeck}
-              onImportUrl={onImportUrl}
-              onSearchDecks={onSearchDecks}
-              onOpenDeck={onOpenDeck}
-              onPasteDecklist={onPasteDecklist}
-              setTab={setTab}
               onAccountSettings={() => { setAvatarMenuOpen(false); setSettingsOpen(true); }}
               onSignOut={onSignOut}
               onFeedback={onFeedback}

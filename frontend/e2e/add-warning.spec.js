@@ -1,7 +1,7 @@
 // Adding an off-color card by hand warns with Undo and never blocks (Job E3).
 // Each add path gets its own test: they share a helper, not a call site.
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, waitForAppReady, dismissColdStart, navigateToTab, seedLocalDecks } from "./fixtures/helpers.js";
+import { loadSharedDeck, waitForAppReady, dismissColdStart, navigateToTab, backToDeck, seedLocalDecks } from "./fixtures/helpers.js";
 import { TEST_COMMANDER, TEST_DECK_TEXT, TEST_DECK_STORAGE } from "./fixtures/test-data.js";
 
 const REASON = "Outside the deck's color identity (WUBG)";
@@ -71,7 +71,7 @@ test("Search tab add of an off-color card warns, and Undo removes it", async ({ 
   const sentAfterAdd = seen.length;
 
   await warning(page).getByRole("button", { name: "Undo" }).click();
-  await navigateToTab(page, "Analyze & Build");
+  await backToDeck(page);
   await expect(page.locator(".card-grid-container").first()).toBeVisible();
   await expect(deckHasBolt(page)).toHaveCount(0);
   expect(seen.length).toBe(sentAfterAdd); // Undo itself asks nothing

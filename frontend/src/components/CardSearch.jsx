@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../lib/api";
 import CardPreview from "./CardPreview";
+import NavLink from "./layout/NavLink";
 
 // Tabs unmount on switch — this module-level snapshot keeps the last search
 // (filters + results) alive for the session, so hopping to another tab and
@@ -10,7 +11,7 @@ const EMPTY_FILTERS = { name: "", type: "", oracle: "", color_identity: "", cmc_
 let _lastSearch = { f: EMPTY_FILTERS, res: null };
 
 // Search Scryfall bulk data with deck-building filters.
-export default function CardSearch({ addCard, notify }) {
+export default function CardSearch({ addCard, notify, deckName, deckHref, onBackToDeck }) {
   const [f, setF] = useState(_lastSearch.f);
   const [res, setRes] = useState(_lastSearch.res);
   const [busy, setBusy] = useState(false);
@@ -34,6 +35,13 @@ export default function CardSearch({ addCard, notify }) {
     <div>
       <div className="panel">
         <h2>Card search</h2>
+        {/* Which deck + Add goes to, and the way back to it. */}
+        {deckName && (
+          <p className="cards-deck small">
+            <span>Adding to <strong>{deckName}</strong></span>
+            <NavLink className="cards-deck-back" href={deckHref} onNavigate={onBackToDeck}>Back to deck</NavLink>
+          </p>
+        )}
         {!res && <p className="muted small">Search every Magic card by name, type, text, or cost — tap + Add to drop one straight into your deck.</p>}
         <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}
           onKeyDown={(e) => { if (e.key === "Enter" && !busy) run(); }}>

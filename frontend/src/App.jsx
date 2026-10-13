@@ -59,12 +59,13 @@ function PasswordResetModal({ onDone, notify }) {
   );
 }
 
-const TABS = [
-  ["decks", "My Decks"],
-  ["deck", "Analyze & Build"],
-  ["commanders", "Commanders"],
-  ["rules", "Rules"],
-  ["cards", "Card Search"],
+// The four places the bars name: id, label, address. A deck is a page under
+// Decks, and the New deck screen is an action beside them, not a place.
+const PLACES = [
+  ["decks", "Decks", "/"],
+  ["commanders", "Commanders", "/commanders"],
+  ["cards", "Cards", "/cards"],
+  ["rules", "Rules", "/rules"],
 ];
 
 // Unicode-safe base64. Plain btoa/atob throw on non-ASCII bytes, so share links
@@ -195,11 +196,6 @@ export default function App() {
   // Pending import-modal tab ("paste" | "url") to open once the new-deck editor
   // mounts, set by avatar-menu shortcuts. null = none.
   const [startImport, setStartImport] = useState(null);
-  // Pending action to run when the Decks tab mounts, set by avatar-menu shortcuts:
-  // "import" opens the import panel, "search" focuses the deck-search box. null = none.
-  const [decksIntent, setDecksIntent] = useState(null);
-  const clearDecksIntent = useCallback(() => setDecksIntent(null), []);
-
   // In-app unsaved-changes guard: opening/creating another deck overwrites the
   // editor, so unsaved edits get the same protection beforeunload already
   // gives page exits. Refs keep the guard stable (and the callbacks dep-free).
@@ -210,6 +206,9 @@ export default function App() {
   // saved deck while one is in the editor it is held here, and put back when
   // the address returns to /new.
   const heldNewDeck = useRef(null);
+  // Counts every time a different deck is put in the editor (emptyEditor,
+  // loadDeck). A new deck has no id to be told apart by; its turn stands in.
+  const editorTurn = useRef(0);
   useEffect(() => {
     deckTextRef.current = deckText;
     openIdRef.current = currentDeck?.id || null;
@@ -240,6 +239,7 @@ export default function App() {
   // just-generated deck an id deliberately isn't one of them.
   const emptyEditor = useCallback(() => {
     clearBuildNotes();
+    editorTurn.current++;
     setDeckText("");
     setCommander("");
     setMaybeboard("");
@@ -252,6 +252,7 @@ export default function App() {
   // top of the saved copy, and the deck shows as unsaved. Returns whether any did.
   const loadDeck = useCallback((deck) => {
     clearBuildNotes();
+    editorTurn.current++;
     const fmt = deck.format || "commander";
     const shown = showInEditor(fmt, deck.decklist_text);
     setCurrentDeck(_openDeck(deck, shown.text, fmt));
@@ -508,6 +509,8 @@ export default function App() {
   // Forward. DeckView stays unmounted until the two agree.
   const editorId = currentDeck?.id || null;
   const deckReady = tab === "deck" && deckId === editorId;
+  // The place the bars light: a deck is a page under Decks, /new is no place.
+  const place = tab === "deck" ? (deckId ? "decks" : null) : tab;
   const wanted = tab === "deck" && deckId && !deckReady
     ? resolveDeckRoute({ deckId, decks, decksLoadedFor, authReady, userId })
     : null;
@@ -543,8 +546,12 @@ export default function App() {
   // then. Only the deck that was saved takes the saved copy: on any other deck
   // it would turn that deck's whole text into unsaved edits and a draft. A new
   // deck gets its id here, and its address with it. Returns whether it applied.
-  const adoptSaved = useCallback((wasId, saved, text, fmt) => {
+  // Two new decks both have no id, so a new deck's save also carries the
+  // editor's turn from when it started (`turn`): "New deck" clicked while the
+  // save was out is a different deck, and must not take the saved one's id.
+  const adoptSaved = useCallback((wasId, saved, text, fmt, turn) => {
     if (openIdRef.current !== (wasId || null)) return false;
+    if (!wasId && turn !== editorTurn.current) return false;
     setCurrentDeck(_openDeck(saved, text, fmt));
     if (saved.id !== wasId) setRoute((r) => (r.tab === "deck" ? { ...r, deckId: saved.id } : r));
     return true;
@@ -585,10 +592,11 @@ export default function App() {
   const autoSaveNewDeck = useCallback(async () => {
     const decklist_text = assembleForStorage(deckText, commander, maybeboard);
     if (!assembleDecklist(deckText, commander).trim()) return;
+    const turn = editorTurn.current;
     const existing = await store.list();
     const dup = existing.find((d) => d.decklist_text === decklist_text);
     if (dup) {
-      if (!adoptSaved(null, dup, decklist_text, dup.format || "commander")) return;
+      if (!adoptSaved(null, dup, decklist_text, dup.format || "commander", turn)) return;
       savedDeckText.current = deckText;
       // Opening a share link again lands here: edits made since it was saved
       // are in its draft, and showing the link's own text would wipe them.
@@ -599,7 +607,7 @@ export default function App() {
     const name = commander ? commanderDisplay(commander) : "Imported deck";
     const saved = await store.save({ name, format, decklist_text });
     await refresh();
-    if (!adoptSaved(null, saved, decklist_text, format)) return;
+    if (!adoptSaved(null, saved, decklist_text, format, turn)) return;
     savedDeckText.current = deckText;
     notify(`Saved as "${saved.name}".`, { label: "🔗 Share link", onClick: shareDeck });
   }, [deckText, commander, maybeboard, format, store, refresh, notify, shareDeck, showInEditor, adoptSaved]);
@@ -665,8 +673,9 @@ export default function App() {
       // A rename before first save already supplied a name — don't re-prompt.
       const name = currentDeck?.name || prompt("Name this deck:");
       if (!name) return;
+      const turn = editorTurn.current;
       const saved = await saveDeck({ name: name.trim(), format, decklist_text });
-      adoptSaved(null, saved, decklist_text, format);
+      adoptSaved(null, saved, decklist_text, format, turn);
     }
   }, [currentDeck, saveDeck, format, deckText, commander, maybeboard, notify, adoptSaved]);
 
@@ -692,8 +701,9 @@ export default function App() {
     const base = currentDeck?.name || "Untitled deck";
     const name = prompt("Name the copy:", `${base} (copy)`);
     if (!name) return;
+    const turn = editorTurn.current;
     const saved = await saveDeck({ name: name.trim(), format, decklist_text });
-    adoptSaved(currentDeck?.id, saved, decklist_text, format);
+    adoptSaved(currentDeck?.id, saved, decklist_text, format, turn);
   }, [currentDeck, saveDeck, format, deckText, commander, maybeboard, notify, adoptSaved]);
 
   const exportCurrentDeck = useCallback(async () => {
@@ -776,27 +786,21 @@ export default function App() {
       )}
 
       <GlobalToolbar
-        tabs={TABS}
-        tab={tab}
+        places={PLACES}
+        place={place}
         setTab={setTab}
         cloud={cloud}
         session={session}
-        supabaseEnabled={supabaseEnabled}
-        settingsOpen={settingsOpen}
         setSettingsOpen={setSettingsOpen}
-        decks={decks}
         onNewDeck={newDeck}
-        onImportUrl={() => newDeck("url")}
-        onSearchDecks={() => { setDecksIntent("search"); setTab("decks"); }}
-        onOpenDeck={openDeck}
-        onPasteDecklist={() => newDeck("paste")}
+        onDeck={deckReady}
         onSignOut={() => { supabase.auth.signOut(); notify("Signed out."); }}
         avatarMenuOpen={avatarMenuOpen}
         setAvatarMenuOpen={setAvatarMenuOpen}
         onFeedback={FEEDBACK_ENABLED ? () => setFeedbackOpen(true) : null}
       />
 
-      <main id="main-content" role="tabpanel">
+      <main id="main-content">
         {playtesting && (
           <Playtest
             decklist={assembleDecklist(deckText, commander)}
@@ -870,8 +874,6 @@ export default function App() {
             notify={notify}
             refresh={refresh}
             setTab={setTab}
-            decksIntent={decksIntent}
-            onIntentConsumed={clearDecksIntent}
             onOpenAccount={supabaseEnabled ? () => setSettingsOpen(true) : null}
             onOpenCommander={setCommanderSlug}
           />
@@ -893,7 +895,15 @@ export default function App() {
             onPrefillConsumed={() => setRulesPrefill(null)}
           />
         )}
-        {tab === "cards" && <CardSearch addCard={addCardFromSearch} notify={notify} />}
+        {tab === "cards" && (
+          <CardSearch
+            addCard={addCardFromSearch}
+            notify={notify}
+            deckName={currentDeck?.name || (storageText.trim() ? "your new deck" : null)}
+            deckHref={buildPath({ tab: "deck", deckId: currentDeck?.id || null })}
+            onBackToDeck={() => setTab("deck")}
+          />
+        )}
       </main>
 
       {settingsOpen && (
@@ -934,7 +944,7 @@ export default function App() {
           )}
         </div>
       )}
-      <BottomNav tabs={TABS} tab={tab} setTab={setTab} />
+      <BottomNav places={PLACES} place={place} setTab={setTab} onNewDeck={newDeck} onNew={tab === "deck" && !deckId} />
       <Planeswalker
         decklist={deckText}
         commander={commander}

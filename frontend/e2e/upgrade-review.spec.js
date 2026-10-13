@@ -3,7 +3,7 @@
 // Changes queue for swaps. Runs against the hermetic mock backend.
 
 import { test, expect } from "./fixtures/test-base.js";
-import { waitForAppReady, dismissColdStart, navigateToTab, loadSharedDeck } from "./fixtures/helpers.js";
+import { waitForAppReady, dismissColdStart, navigateToTab, openNewDeck, loadSharedDeck } from "./fixtures/helpers.js";
 import { TEST_COMMANDER, TEST_DECK_TEXT } from "./fixtures/test-data.js";
 
 const PASTE_TEXT = `Commander\n1 ${TEST_COMMANDER}\n\nDeck\n${TEST_DECK_TEXT}`;
@@ -20,7 +20,7 @@ async function pasteIntoEmptyDeck(page) {
   await page.goto("/");
   await waitForAppReady(page);
   await dismissColdStart(page);
-  await navigateToTab(page, "Analyze & Build");
+  await openNewDeck(page);
   await page.locator(".empty-action", { hasText: "Paste a decklist" }).click();
   await page.locator(".icm-panel textarea").fill(PASTE_TEXT);
   await page.locator(".icm-foot button", { hasText: "Import" }).click();
@@ -115,7 +115,7 @@ test.describe("Upgrade review — guided flow", () => {
     await page.goto("/");
     await waitForAppReady(page);
     await dismissColdStart(page);
-    await navigateToTab(page, "Analyze & Build");
+    await openNewDeck(page);
     await page.locator(".empty-action", { hasText: "Paste a decklist" }).click();
     await page.locator(".icm-panel textarea").fill(`Commander\n1 ${TEST_COMMANDER}\n\nDeck\n${names}`);
     await page.locator(".icm-foot button", { hasText: "Import" }).click();
@@ -163,7 +163,7 @@ test.describe("Upgrade review — guided flow", () => {
     await page.goto("/");
     await waitForAppReady(page);
     await dismissColdStart(page);
-    await navigateToTab(page, "Analyze & Build");
+    await openNewDeck(page);
     await page.locator(".empty-action", { hasText: "Import from URL" }).click();
     await page.locator(".icm-panel input").fill("https://archidekt.com/decks/12345");
     await page.locator(".icm-foot button", { hasText: "Import" }).click();
@@ -195,7 +195,7 @@ test.describe("Upgrade review — guided flow", () => {
 
     // Tab switch unmounts DeckView entirely; only the persisted cache survives it.
     await navigateToTab(page, "Rules");
-    await navigateToTab(page, "Analyze & Build");
+    await page.goBack();
 
     // Empty the deck and paste the exact same list back in — the guide
     // reopens with the same signature, so cached ratings should reappear

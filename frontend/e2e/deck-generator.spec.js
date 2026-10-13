@@ -1,14 +1,14 @@
 // Branching entry screen + one-shot full-deck generator. Runs entirely
 // against the hermetic mock backend — no live FastAPI, no model key.
 import { test, expect } from "./fixtures/test-base.js";
-import { waitForAppReady, dismissColdStart, navigateToTab, seedLocalDecks } from "./fixtures/helpers.js";
+import { waitForAppReady, dismissColdStart, navigateToTab, openNewDeck, seedLocalDecks } from "./fixtures/helpers.js";
 
 async function openGenerator(page) {
   await page.goto("/");
   await waitForAppReady(page);
   await dismissColdStart(page);
   // The empty deck view's "Guided build" action is the entry point.
-  await navigateToTab(page, "Analyze & Build");
+  await openNewDeck(page);
   await page.locator(".empty-action", { hasText: "Guided build" }).click();
   await expect(page.locator(".gen-doors")).toBeVisible();
 }
@@ -371,7 +371,7 @@ test.describe("Generated deck reasons", () => {
     await dismissColdStart(page);
 
     // Generate a deck — Sol Ring picks up a note.
-    await navigateToTab(page, "Analyze & Build");
+    await openNewDeck(page);
     await page.locator(".empty-action", { hasText: "Guided build" }).click();
     await page.locator(".gen-door", { hasText: "I know my commander" }).click();
     await page.locator("#gen-cmd").fill("atraxa");

@@ -8,6 +8,8 @@ import {
   waitForAppReady,
   seedLocalDecks,
   navigateToTab,
+  openNewDeck,
+  backToDeck,
   loadSharedDeck,
 } from "./fixtures/helpers.js";
 import { TEST_DECK_STORAGE, TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
@@ -45,7 +47,7 @@ async function addBolt(page) {
   await name.press("Enter");
   await page.locator(".results-table tbody tr", { hasText: "Lightning Bolt" })
     .getByRole("button", { name: "+ Add" }).click();
-  await navigateToTab(page, "Analyze & Build");
+  await backToDeck(page);
   await expect(grid(page)).toBeVisible();
 }
 
@@ -132,7 +134,7 @@ test.describe("Deck addresses", () => {
   });
 
   test("the empty editor is /new, and an old ?tab=deck link lands there", async ({ page }) => {
-    await navigateToTab(page, "Analyze & Build");
+    await openNewDeck(page);
     await expect(page).toHaveURL(atPath("/new"));
     await expect(page.locator(".empty-deck")).toBeVisible();
 
@@ -142,7 +144,7 @@ test.describe("Deck addresses", () => {
   });
 
   test("a new deck takes over /new when it is saved, so Back skips the empty editor", async ({ page }) => {
-    await navigateToTab(page, "Analyze & Build");
+    await openNewDeck(page);
     await expect(page).toHaveURL(atPath("/new"));
     await page.locator("#cmd-input").fill("atraxa");
     await page.locator(".autocomplete .ac-item").first().click();
@@ -161,7 +163,7 @@ test.describe("Deck addresses", () => {
   // A paste gives the deck its id while the upgrade guide is open, so a
   // modal's history entry is on top of /new when the address changes.
   async function pasteNewDeck(page) {
-    await navigateToTab(page, "Analyze & Build");
+    await openNewDeck(page);
     await expect(page).toHaveURL(atPath("/new"));
     await page.locator(".empty-action", { hasText: "Paste a decklist" }).click();
     await page.locator(".icm-panel textarea").fill(`Commander\n1 ${TEST_COMMANDER}\n\nDeck\n1 Sol Ring\n1 Arcane Signet\n1 Counterspell`);
@@ -249,10 +251,12 @@ test.describe("Deck addresses", () => {
     await tile.locator(".deck-card-menu-item", { hasText: "Delete" }).click();
     await expect(tile).toHaveCount(0);
 
-    // The editor no longer holds the deleted deck.
-    await navigateToTab(page, "Analyze & Build");
-    await expect(page).toHaveURL(atPath("/new"));
-    await expect(page.locator(".empty-deck")).toBeVisible();
+    // The editor no longer holds the deleted deck: Back onto its address
+    // finds nothing to show.
+    await page.goBack();
+    await expect(page).toHaveURL(atPath(`/decks/${DECK_A.id}`));
+    await expect(page.getByRole("heading", { name: "Deck not found" })).toBeVisible();
+    await expect(grid(page)).toHaveCount(0);
     expect(await draftOf(page, DECK_A.id)).toBeNull();
 
     await openAddress(page, `/decks/${DECK_A.id}`);
@@ -312,7 +316,7 @@ test.describe("Deck addresses", () => {
     await tile.locator(".deck-card-menu-item", { hasText: "Rename" }).click();
     await expect(page.locator(".deck-card", { hasText: "Renamed in the list" })).toHaveCount(1);
 
-    await navigateToTab(page, "Analyze & Build");
+    await page.goBack();
     await expect(page).toHaveURL(atPath(`/decks/${DECK_A.id}`));
     await expect(deckTitle(page)).toContainText("Renamed in the list");
     await expect(page).toHaveTitle("Renamed in the list · MTG Workshop");

@@ -31,11 +31,11 @@ const SESSION = {
 const CORS = { "access-control-allow-origin": "*", "content-type": "application/json" };
 
 /** Sign the page in to a fake account holding `decks`. Returns the state the
- * test steers: `decks` (the account's rows), `deleteDelay` in ms, and
- * `auth`: "up" (refresh works), "down" (no connection) or "revoked" (the
- * refresh token is refused, which is a real sign-out). Call before goto. */
+ * test steers: `decks` (the account's rows), `saveDelay` and `deleteDelay` in
+ * ms, and `auth`: "up" (refresh works), "down" (no connection) or "revoked"
+ * (the refresh token is refused, which is a real sign-out). Call before goto. */
 export async function fakeCloud(page, decks = []) {
-  const state = { decks: decks.map((d) => ({ ...d })), deleteDelay: 0, auth: "up", authCalls: 0 };
+  const state = { decks: decks.map((d) => ({ ...d })), saveDelay: 0, deleteDelay: 0, auth: "up", authCalls: 0 };
   const key = `sb-${new URL(cloudOrigin).hostname.split(".")[0]}-auth-token`;
 
   // Lowest precedence: whatever no page route answered, and is not local, dies.
@@ -52,6 +52,7 @@ export async function fakeCloud(page, decks = []) {
       state.decks = state.decks.filter((d) => d.id !== id);
       return route.fulfill({ status: 204, headers: { "access-control-allow-origin": "*" } });
     }
+    if (state.saveDelay) await new Promise((r) => setTimeout(r, state.saveDelay));
     const body = JSON.parse(req.postData());
     const row = Array.isArray(body) ? body[0] : body;
     const saved = { id: row.id || randomUUID(), name: row.name, format: row.format, decklist_text: row.decklist_text, updated_at: row.updated_at };

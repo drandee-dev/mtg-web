@@ -3,7 +3,7 @@
 // 1-card sideboard that must land in Considering — never the maindeck.
 
 import { test, expect } from "./fixtures/test-base.js";
-import { waitForAppReady, dismissColdStart, navigateToTab, loadSharedDeck } from "./fixtures/helpers.js";
+import { waitForAppReady, dismissColdStart, openNewDeck, loadSharedDeck } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
 test.describe("URL import + Considering + rename", () => {
@@ -13,7 +13,7 @@ test.describe("URL import + Considering + rename", () => {
     await page.goto("/");
     await waitForAppReady(page);
     await dismissColdStart(page);
-    await navigateToTab(page, "Analyze & Build");
+    await openNewDeck(page);
 
     // Empty-state action card opens the modal on the URL tab
     await page.locator(".empty-action", { hasText: "Import from URL" }).click();

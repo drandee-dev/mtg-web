@@ -117,7 +117,7 @@ function DeckHero({ deck, meta, onOpen, onPlaytest, onDelete, onRename, onClone,
 }
 
 
-export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onPlaytest, onNewDeck, onGuidedBuild, notify, setTab, decksIntent, onIntentConsumed, onOpenAccount, onOpenCommander }) {
+export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onPlaytest, onNewDeck, onGuidedBuild, notify, setTab, onOpenAccount, onOpenCommander }) {
   const [syncNudgeDismissed, setSyncNudgeDismissed] = useState(
     () => { try { return localStorage.getItem("mtgweb:syncnudge") === "1"; } catch { return true; } }
   );
@@ -143,17 +143,6 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
   const [sortBy, setSortBy] = useState("updated");
   const [sortDir, setSortDir] = useState("desc");
   const [exportModalDeck, setExportModalDeck] = useState(null);
-  const searchRef = useRef(null);
-
-  // Run a pending avatar-menu intent once the Decks tab mounts: "import" opens the
-  // import panel, "search" focuses the deck-search box. Consume it so it fires once.
-  useEffect(() => {
-    if (!decksIntent) return;
-    if (decksIntent === "import") setShowImport(true);
-    else if (decksIntent === "search") searchRef.current?.focus();
-    onIntentConsumed?.();
-  }, [decksIntent, onIntentConsumed]);
-
   // Cached commanders resolve at render time (instant paint); the rest are listed
   // in `missing` for the fetch effect below.
   const { cachedMeta, missing } = useMemo(() => {
@@ -376,7 +365,6 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
               <div className="mydecks-filter-inputwrap">
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{ flexShrink: 0 }}><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
                 <input
-                  ref={searchRef}
                   type="text"
                   value={deckSearch}
                   onChange={(e) => setDeckSearch(e.target.value)}
@@ -475,10 +463,8 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
 
           {/* Feature strip for returning users */}
           <div className="feature-strip">
-            <button className="feature-strip-btn" onClick={() => setTab("deck")}>🃏 Analyze & Build</button>
             <button className="feature-strip-btn" onClick={() => setTab("rules")}>📖 Rules & Rulings</button>
             <button className="feature-strip-btn" onClick={() => setTab("cards")}>🔍 Card Search</button>
-            <button className="feature-strip-btn" onClick={() => setTab("deck")}>✨ AI Advisor</button>
           </div>
 
           {/* Same band as the new-user landing. A returning user is the one most
