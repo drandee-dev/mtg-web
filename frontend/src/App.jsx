@@ -428,11 +428,30 @@ export default function App() {
   // to local-only storage instead of the account.
   const [authReady, setAuthReady] = useState(!supabaseEnabled);
 
+  // The open deck belongs to the store it was opened from: this browser's
+  // decks, or one account's. When the account changes under it (sign in, sign
+  // out, another tab doing either) the editor lets go of it, and its address
+  // resolves again against the new list: the deck if it is there, "Deck not
+  // found" if not. Kept, a Save would copy it into the other store. Its
+  // unsaved edits stay in its draft. A new deck with no id belongs to no
+  // store yet, and stays.
+  const applySession = useCallback((s) => {
+    if ((s?.user?.id || null) !== userIdRef.current && openIdRef.current) emptyEditor();
+    setSession(s);
+  }, [emptyEditor]);
+  // getSession answers "no session" with an error when the token has run out
+  // and the refresh could not reach the server. That is a dead connection, not
+  // a sign-out (which arrives as its own event), so the session on hand stays.
+  const readSession = useCallback(
+    () => supabase.auth.getSession().then(({ data, error }) => { if (!error) applySession(data.session); }),
+    [applySession],
+  );
+
   useEffect(() => {
     if (!supabaseEnabled) return;
-    supabase.auth.getSession().then(({ data }) => { setSession(data.session); setAuthReady(true); });
+    readSession().then(() => setAuthReady(true));
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
-      setSession(s);
+      applySession(s);
       setAuthReady(true);
       if (event === "PASSWORD_RECOVERY") {
         setShowPasswordReset(true);
@@ -440,7 +459,7 @@ export default function App() {
       }
     });
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [applySession, readSession]);
 
   // PWA magic-link return: detect auth callback in browser and prompt return to PWA
   const [showPwaReturn, setShowPwaReturn] = useState(() => {
@@ -455,13 +474,11 @@ export default function App() {
   useEffect(() => {
     if (!supabaseEnabled) return;
     function onVisible() {
-      if (document.visibilityState === "visible") {
-        supabase.auth.getSession().then(({ data }) => setSession(data.session));
-      }
+      if (document.visibilityState === "visible") readSession();
     }
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, []);
+  }, [readSession]);
 
   const userId = session?.user?.id || null;
   setAccessToken(session?.access_token || "");
@@ -549,6 +566,10 @@ export default function App() {
 
   const saveDeck = useCallback(async (deck) => {
     const saved = await store.save(deck);
+    // A save from outside the editor (a rename in the deck list) can be of the
+    // deck the editor holds. Its name follows, or the editor's next Save
+    // would write the old one back.
+    if (saved.id === openIdRef.current) setCurrentDeck((d) => (d?.id === saved.id ? { ...d, name: saved.name } : d));
     await refresh();
     savedDeckText.current = deckText;
     // Share-after-save: the moment a deck is saved is the moment sharing it
@@ -598,13 +619,16 @@ export default function App() {
 
   // Delete is destructive — pair it with a toast Undo (guideline: destructive
   // actions need confirmation or undo). Restore re-creates the deck from the
-  // snapshot; a new id is acceptable (share links encode content, not id).
+  // snapshot under the same id, so its address opens it again.
   const deleteDeck = useCallback(async (id) => {
     const doomed = decks.find((d) => d.id === id);
     // Unsaved edits go with the deck, and come back with it on Undo.
     const draft = loadDraft(id);
     await store.remove(id);
     clearDraft(id);
+    // It leaves the list now, not when the reload below lands: until then its
+    // address would still find it there and load it straight back.
+    setDecks((list) => list.filter((d) => d.id !== id));
     // If it is the deck in the editor, the editor empties with it: left there,
     // the next edit would write a draft for a deck that no longer exists.
     if (openIdRef.current === id) emptyEditor();
@@ -614,11 +638,14 @@ export default function App() {
       doomed && {
         label: "Undo",
         onClick: async () => {
+          // The draft goes back first: the save reloads the list, and if the
+          // address is this deck's it loads at once and reads its draft then.
+          if (draft) saveDraft(doomed.id, draft);
           try {
-            const restored = await saveDeck({ name: doomed.name, format: doomed.format, decklist_text: doomed.decklist_text });
-            if (draft) saveDraft(restored.id, draft);
+            await saveDeck({ id: doomed.id, name: doomed.name, format: doomed.format, decklist_text: doomed.decklist_text });
             notify(`Restored "${doomed.name}".`);
           } catch {
+            if (draft) clearDraft(doomed.id);
             notify("Couldn't restore the deck.");
           }
         },
