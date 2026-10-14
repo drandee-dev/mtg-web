@@ -594,12 +594,18 @@ export default function App() {
     const { commander: cmd, deckText: cards } = disassembleDecklist(decklist_text);
     const share = { label: "🔗 Share link", onClick: () => copyShareLink(assembleDecklist(cards, cmd), fmt, cmd) };
     if (asked !== moves.current || askedBy !== userIdRef.current) {
-      // Said only to the account that asked for it: that is whose list it is in.
+      // Openable only by the account that asked for it: that is whose list it is in.
       if (askedBy === userIdRef.current) {
         notify(`Saved as "${saved.name}".`, {
           label: "Open",
           onClick: () => { if (askedBy === userIdRef.current) { loadDeck(saved); goTo({ tab: "deck", deckId: saved.id }); } },
         });
+      } else {
+        // The account changed while it was built or saved. It is not opened,
+        // but it is said where it went, or the next move is to build (and pay) again.
+        notify(askedBy
+          ? `Saved "${saved.name}" to the account that was signed in when it was started.`
+          : `Saved "${saved.name}" to this browser's decks, not your account: it was started before you signed in.`);
       }
       return saved;
     }

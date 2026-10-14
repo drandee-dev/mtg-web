@@ -204,6 +204,8 @@ test.describe("Signed in", () => {
     await expect(page).toHaveURL(atPath("/new"));
     await expect(grid(page)).toHaveCount(0);
     expect(await page.evaluate(() => localStorage.getItem("mtgweb:decks"))).toBeNull();
+    // Not in silence: without being told, the next move is to build (and pay) again.
+    await expect(page.locator(".toast")).toContainText("to the account that was signed in when it was started");
   });
 
   // The one way a deck can still get its id under an open layer: a panel

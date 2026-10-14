@@ -267,9 +267,9 @@ test.describe("New deck screen", () => {
     await expect(page).toHaveURL(atPath("/"));
   });
 
-  // A built deck was paid for. If its save is turned down it is kept in this
-  // browser and offered again whenever this screen opens: leaving, Back and a
-  // reload all drop what is only on screen.
+  // A built deck was paid for. If its save is turned down it stays on this
+  // screen to be tried again. (Keeping it past leaving the screen is its own
+  // job: the build plan's "Job 2.2, shipped".)
   const unsavedYet = (page) => page.getByRole("alert").filter({ hasText: `“${TEST_COMMANDER}” isn’t saved yet` });
   async function buildWithSavesRefused(page) {
     await openNew(page);
@@ -280,47 +280,28 @@ test.describe("New deck screen", () => {
     expect(await savedDecks(page)).toEqual([]);
   }
 
-  test("a built deck the save turns down survives leaving and a reload, and is saved without building again", async ({ page }) => {
+  test("a built deck the save turns down is kept on screen and saved on a second try, without building again", async ({ page }) => {
     const allow = await refuseSaves(page);
     const builds = watchBuilds(page);
     await buildWithSavesRefused(page);
     const built = builds.length;
     expect(builds.filter((b) => b.endsWith("skeleton")).length).toBe(1);
 
-    // Away by the bar and back by the bar: the deck is offered, not a fresh screen.
-    await navigateToTab(page, "Rules");
-    await openNewDeck(page);
-    await expect(unsavedYet(page)).toBeVisible();
-    await expect(heading(page)).toHaveCount(0);
-    // And after a reload (which refuses saves again until allowed).
-    await page.reload();
-    await waitForAppReady(page);
-    await expect(unsavedYet(page)).toBeVisible();
-
     await allow();
     await page.getByRole("button", { name: "Try again" }).click();
     await expect(page).toHaveURL(onADeck);
     await expect(deckTitle(page)).toContainText("Atraxa");
     expect((await savedDecks(page))[0].decklist_text).toContain("1 Deepglow Skate");
-    // The deck that was paid for is the one saved, and it is no longer held.
+    // The deck that was paid for is the one saved.
     expect(builds.length).toBe(built);
-    expect(await page.evaluate(() => localStorage.getItem("mtgweb:unsavedNewDeck"))).toBeNull();
-    await openNewDeck(page);
-    await expect(heading(page)).toBeVisible();
   });
 
-  test("Discard lets the unsaved deck go for good", async ({ page }) => {
+  test("Discard returns to where the build was started", async ({ page }) => {
     await refuseSaves(page);
     await buildWithSavesRefused(page);
     await page.getByRole("button", { name: "Discard" }).click();
-    // Back where the build was started from, with nothing held.
     await expect(page.getByRole("alert")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /^Build the 99/ })).toBeVisible();
-    expect(await page.evaluate(() => localStorage.getItem("mtgweb:unsavedNewDeck"))).toBeNull();
-    await page.reload();
-    await waitForAppReady(page);
-    await expect(heading(page)).toBeVisible();
-    await expect(page.getByRole("alert")).toHaveCount(0);
   });
 });
 
