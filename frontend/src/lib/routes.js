@@ -19,6 +19,8 @@ const OLD_TABS = new Map([
 ]);
 // What a share link carries (see App's _loadSharedDeck).
 const SHARE_PARAMS = ["deck", "fmt", "cmd"];
+// /new?commander=<name>: the commander a new deck starts from.
+const SEED_PARAM = "commander";
 
 function _decode(s) {
   try { return decodeURIComponent(s); } catch { return s; }
@@ -36,9 +38,15 @@ export function parseLocation({ pathname = "/", search = "" } = {}) {
     // Only the first segment is the deck: /decks/<id>/anything is still that deck.
     return { tab: "deck", slug: null, deckId: _decode(path.split("/")[2]) };
   }
-  if (path === "/new") return { tab: "deck", slug: null, deckId: null };
-  if (PATH_PLACES.has(path)) return { tab: PATH_PLACES.get(path), slug: null, deckId: null };
   const params = new URLSearchParams(search);
+  if (path === "/new") {
+    // A commander page's link names the commander to start from. It is only a
+    // name to look up: nothing is built until a button is pressed.
+    const seed = (params.get(SEED_PARAM) || "").trim();
+    const route = { tab: "deck", slug: null, deckId: null };
+    return seed && seed.length <= 100 ? { ...route, seed } : route;
+  }
+  if (PATH_PLACES.has(path)) return { tab: PATH_PLACES.get(path), slug: null, deckId: null };
   const tab = OLD_TABS.get(params.get("tab")) || "decks";
   return { tab, slug: tab === "commanders" ? params.get("slug") || null : null, deckId: null };
 }
@@ -47,15 +55,19 @@ export function parseLocation({ pathname = "/", search = "" } = {}) {
  * string: everything in it except the old tab/slug params is kept. A share
  * link's ?deck= rides along until its deck is saved, so a reload before then
  * still opens it; a saved deck's address is the deck, and drops it. */
-export function buildPath({ tab, slug = null, deckId = null }, search = "") {
+export function buildPath({ tab, slug = null, deckId = null, seed = null }, search = "") {
   const params = new URLSearchParams(search);
   params.delete("tab");
   params.delete("slug");
+  // The commander for a new deck belongs to /new alone: left in the query it
+  // would ride along to every later address, and be picked again on the way back.
+  params.delete(SEED_PARAM);
   let path = PLACE_PATHS.get(tab) || "/";
   if (tab === "commanders" && slug) path = `/commanders/${encodeURIComponent(slug)}`;
   if (tab === "deck") {
     path = deckId ? `/decks/${encodeURIComponent(deckId)}` : "/new";
     if (deckId) for (const p of SHARE_PARAMS) params.delete(p);
+    else if (seed) params.set(SEED_PARAM, seed);
   }
   const query = params.toString();
   return query ? `${path}?${query}` : path;

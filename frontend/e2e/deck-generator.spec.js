@@ -1,16 +1,51 @@
-// Branching entry screen + one-shot full-deck generator. Runs entirely
-// against the hermetic mock backend — no live FastAPI, no model key.
+// The doors of the New deck screen that build or fetch a deck: the one-shot
+// generator (commander, describe, collection), the precon lookup and the
+// step-by-step wizard. Runs entirely against the hermetic mock backend, with
+// no live FastAPI and no model key. The screen itself, and the guards around
+// saving, are in new-deck.spec.js.
+//
+// There is no review screen: a deck is saved the moment it is built and opens
+// as itself. What that screen used to show is checked where it lives now: the
+// saved decklist, the reason on a card's detail, the buy list on the deck page.
 import { test, expect } from "./fixtures/test-base.js";
 import { waitForAppReady, dismissColdStart, navigateToTab, openNewDeck, seedLocalDecks } from "./fixtures/helpers.js";
 
-async function openGenerator(page) {
+const savedDecks = (page) =>
+  page.evaluate(() => JSON.parse(localStorage.getItem("mtgweb:decks") || "[]"));
+const onADeck = (url) => /^\/decks\/[^/]+$/.test(url.pathname) && url.search === "";
+const door = (page, name) => page.locator(".nd-door", { hasText: name });
+const buildButton = (page) => page.getByRole("button", { name: /^Build the \d+/ });
+const sentTo = (page, path) => page.waitForRequest((r) => r.url().includes(path));
+// Copies in a stored decklist, the commander's own line included.
+const copies = (text) => text.split("\n").reduce((n, l) => n + Number(l.match(/^(\d+)\s/)?.[1] || 0), 0);
+
+async function openNew(page) {
   await page.goto("/");
   await waitForAppReady(page);
   await dismissColdStart(page);
-  // The empty deck view's "Guided build" action is the entry point.
   await openNewDeck(page);
-  await page.locator(".empty-action", { hasText: "Guided build" }).click();
-  await expect(page.locator(".gen-doors")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Start a new deck" })).toBeVisible();
+}
+
+// The commander door as far as its choice.
+async function pickCommander(page, query = "atraxa", name = "Atraxa") {
+  await page.locator("#gen-cmd").fill(query);
+  await page.locator(".gen-candidate", { hasText: name }).click();
+}
+
+// The deck a build just made: on its own address, and the last one saved.
+async function builtDeck(page) {
+  await expect(page).toHaveURL(onADeck, { timeout: 20000 });
+  await expect(page.locator(".deck-layout")).toBeVisible();
+  return (await savedDecks(page)).at(-1);
+}
+
+// "I know my commander" for Atraxa, built.
+async function buildAtraxa(page) {
+  await openNew(page);
+  await pickCommander(page);
+  await buildButton(page).click();
+  return builtDeck(page);
 }
 
 // The raw decklist, via the deck view's own text editor. The card grid renders
@@ -26,90 +61,42 @@ async function rawDecklist(page) {
   return text;
 }
 
-test.describe("Deck generator entry screen", () => {
-  test("offers five labelled routes with honest effort badges", async ({ page }) => {
-    await openGenerator(page);
-    const doors = page.locator(".gen-door");
-    await expect(doors).toHaveCount(5);
-    // The two headline routes come first and render large, with a benefit
-    // list; the three compact routes follow.
-    await expect(doors.nth(0)).toContainText("Describe what you like");
-    await expect(doors.nth(0).locator(".gen-badge")).toHaveText("Uses AI");
-    await expect(doors.nth(1)).toContainText("I know my commander");
-    await expect(doors.nth(2)).toContainText("Guide me step by step");
-    await expect(doors.nth(2).locator(".gen-badge")).toHaveText("No AI");
-    // Precon is free: the published list, straight from the endpoint.
-    await expect(doors.nth(3)).toContainText("Start from a precon");
-    await expect(doors.nth(3).locator(".gen-badge")).toHaveText("No AI");
-    await expect(doors.nth(4)).toContainText("Build from my collection");
-    await expect(doors.nth(4).locator(".gen-badge")).toHaveText("New");
-    await expect(doors.nth(4)).toBeEnabled();
-  });
+test.describe("Building a deck from the New deck screen", () => {
+  test("the step counter follows the door, not a fixed total", async ({ page }) => {
+    await openNew(page);
+    const back = page.locator(".gen-head button", { hasText: "Back" });
 
-  // The size split is the whole point of this screen: the two routes that get
-  // a benefit list are the two that render large, and nothing else does. A
-  // tone with no matching CSS rule used to leave a door unaccented, so this
-  // also asserts every door draws a real accent on its icon tile.
-  test("two primary doors are larger and every door carries a real accent", async ({ page }) => {
-    await openGenerator(page);
-    const primary = page.locator(".gen-door-lg");
-    await expect(primary).toHaveCount(2);
-    await expect(primary.nth(0)).toContainText("Describe what you like");
-    await expect(primary.nth(1)).toContainText("I know my commander");
-    await expect(page.locator(".gen-door-sm")).toHaveCount(3);
-    await expect(page.locator(".gen-door-lg .gen-door-win")).toHaveCount(6);
-    await expect(page.locator(".gen-door-sm .gen-door-win")).toHaveCount(0);
-
-    const heights = await page.locator(".gen-door").evaluateAll((els) =>
-      els.map((e) => e.getBoundingClientRect().height));
-    expect(Math.min(heights[0], heights[1])).toBeGreaterThan(Math.max(...heights.slice(2)));
-
-    // Every accent resolves from the door's own --door var, which only a
-    // .gen-door-<tone> rule sets. A tone with no rule (what "plain" was)
-    // leaves it empty here, and no two routes share a colour.
-    const tints = await page.locator(".gen-door").evaluateAll((els) =>
-      els.map((e) => getComputedStyle(e).getPropertyValue("--door").trim()));
-    expect(tints.filter(Boolean)).toHaveLength(5);
-    expect(new Set(tints).size).toBe(5);
-  });
-
-  test("step counter reflects the chosen route, not a fixed total", async ({ page }) => {
-    await openGenerator(page);
-
-    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+    await door(page, "Start from a precon").click();
     await expect(page.locator(".gen-step")).toContainText("Step 2 of 3");
-
-    await page.locator(".gen-head button", { hasText: "Back" }).click();
-    await page.locator(".gen-door", { hasText: "Describe what you like" }).click();
+    await back.click();
+    await door(page, "Build from my collection").click();
     await expect(page.locator(".gen-step")).toContainText("Step 2 of 4");
+    await back.click();
+    await door(page, "Paste or import").click();
+    await expect(page.locator(".gen-step")).toContainText("Step 2 of 2");
+    await back.click();
+    await pickCommander(page);
+    await expect(page.locator(".gen-step")).toContainText("Step 2 of 3");
+    // Back from a door is the screen again, with the search cleared.
+    await back.click();
+    await expect(page.locator("#gen-cmd")).toHaveValue("");
+    await expect(page.locator(".gen-candidate")).toHaveCount(0);
   });
 
-  test("known commander builds a legal 100-card deck that lands in the deck view", async ({ page }) => {
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+  test("known commander builds a legal 100-card deck that opens as a deck", async ({ page }) => {
+    const deck = await buildAtraxa(page);
 
-    await page.locator("#gen-cmd").fill("atraxa");
-    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
-
-    // Review step: the build is 100 cards and most picks carry a reason.
-    await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
-    await expect(page.locator(".gen-step")).toContainText("Step 3 of 3");
-    await expect(page.locator(".gen-summary")).toContainText("100 cards");
-    // wizard/narrate supplies the per-card sentences. Every non-basic pick
-    // gets one; the basic-land panel is counts only, so it has none.
-    const whys = page.locator(".gen-card-why");
-    expect(await whys.count()).toBeGreaterThanOrEqual(10);
-    await expect(whys.first()).toContainText("Pulls its weight");
+    // The build is 100 cards and says how many carry a reason.
+    await expect(page.locator(".toast")).toContainText("Deck built: 100 cards.");
+    expect(copies(deck.decklist_text)).toBe(100);
     // ai/fills closed a category gap, trading a basic for a real card.
-    await expect(page.locator(".gen-cat", { hasText: "Card draw" })).toBeVisible();
-
-    await page.locator("button", { hasText: "Open in deck view" }).click();
+    expect(deck.decklist_text).toContain("1 Malakir Rebirth");
 
     // Normal deck view, not a bespoke display surface.
-    await expect(page.locator(".deck-layout")).toBeVisible();
     await expect(page.locator(".card-grid-container")).toBeVisible();
     // The commander goes to the command zone, not into the 99 as well.
     await expect(await rawDecklist(page)).not.toContain("Atraxa");
+    expect(deck.decklist_text.match(/Atraxa/g)).toHaveLength(1);
   });
 
   // F2: a partner-capable pick offers solo or a legal partner, and the pair
@@ -139,33 +126,34 @@ test.describe("Deck generator entry screen", () => {
         + "Partner (You can have two commanders if both have partner.)",
     }, { name: tymna, type_line: "Legendary Creature — Human Cleric", color_identity: ["W", "B"] });
 
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+    await openNew(page);
     await page.locator("#gen-cmd").fill("thras");
     const pick = page.locator(".gen-candidate", { hasText: thrasios });
     await expect(pick).toContainText("Add a partner?");
     await pick.click();
 
-    await expect(page.locator("button", { hasText: "Build solo" })).toBeVisible();
-    const skeleton = page.waitForRequest((r) => r.url().includes("/api/deck/wizard/skeleton"));
+    // On this door a pick only settles who the commander is; nothing builds yet.
+    await expect(page.locator("button", { hasText: "Go solo" })).toBeVisible();
     await page.locator("#gen-partner").fill("tym");
     await page.locator(".gen-candidate", { hasText: tymna }).click();
-
     expect(partnerOf()).toBe(thrasios);
-    expect((await skeleton).postDataJSON().commander).toBe(`${thrasios} && ${tymna}`);
-    await expect(page.locator(".gen-summary")).toContainText("100 cards", { timeout: 20000 });
-    await expect(page.locator(".gen-h2")).toHaveText(`${thrasios} + ${tymna}`);
+    await expect(page.locator(".nd-chosen h2")).toHaveText(`${thrasios} + ${tymna}`);
 
-    await page.locator("button", { hasText: "Open in deck view" }).click();
-    await expect(page.locator(".deck-layout")).toBeVisible();
+    const skeleton = sentTo(page, "/api/deck/wizard/skeleton");
+    await page.getByRole("button", { name: /^Build the 98/ }).click();
+    expect((await skeleton).postDataJSON().commander).toBe(`${thrasios} && ${tymna}`);
+
+    const deck = await builtDeck(page);
+    expect(copies(deck.decklist_text)).toBe(100);
+    expect(deck.name).toBe(`${thrasios} + ${tymna}`);
     const text = await rawDecklist(page);
     expect(text).not.toContain(thrasios);
     expect(text).not.toContain(tymna);
   });
 
-  // A Background can't lead alone (CR 702.124k): no solo build, and the pair
+  // A Background can't lead alone (CR 702.124k): no solo choice, and the pair
   // lists the creature first so it is the deck's face.
-  test("a Background pick has no solo build and pairs creature-first", async ({ page }) => {
+  test("a Background pick has no solo choice and pairs creature-first", async ({ page }) => {
     const giants = "Raised by Giants";
     const wilson = "Wilson, Refined Grizzly";
     await routePair(page, {
@@ -174,66 +162,42 @@ test.describe("Deck generator entry screen", () => {
       oracle_text: "Commander creatures you own have base power and toughness 10/10 and are Giants in addition to their other types.",
     }, { name: wilson, type_line: "Legendary Creature — Bear Warrior", color_identity: ["G"] });
 
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+    await openNew(page);
     await page.locator("#gen-cmd").fill("giants");
     await page.locator(".gen-candidate", { hasText: giants }).click();
 
     await expect(page.locator("#gen-partner")).toBeVisible();
-    await expect(page.locator("button", { hasText: "Build solo" })).toHaveCount(0);
-    const skeleton = page.waitForRequest((r) => r.url().includes("/api/deck/wizard/skeleton"));
+    await expect(page.locator("button", { hasText: /solo/i })).toHaveCount(0);
     await page.locator("#gen-partner").fill("wil");
     await page.locator(".gen-candidate", { hasText: wilson }).click();
+    await expect(page.locator(".nd-chosen h2")).toHaveText(`${wilson} + ${giants}`);
+
+    const skeleton = sentTo(page, "/api/deck/wizard/skeleton");
+    await page.getByRole("button", { name: /^Build the 98/ }).click();
     expect((await skeleton).postDataJSON().commander).toBe(`${wilson} && ${giants}`);
   });
 
-  // Regression: clicking Back while the one-shot build is still in flight
-  // (skeleton request pending) used to leave the in-flight generate() call
-  // running against stale state. api.js's post()/postStream() now guard
-  // JSON.stringify(body), so nothing lets a bad body crash the page
-  // uncaught — this asserts the click itself is clean end to end.
-  test("clicking Back mid-build does not crash the page", async ({ page }) => {
-    const errors = [];
-    page.on("pageerror", (e) => errors.push(e.message));
-
-    await page.route("**/api/deck/wizard/skeleton*", async (route) => {
-      await new Promise((r) => setTimeout(r, 500));
-      await route.fallback();
-    });
-
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
-    await page.locator("#gen-cmd").fill("atraxa");
-    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
-
-    await expect(page.locator(".gen-building")).toBeVisible();
-    await page.locator(".gen-head button", { hasText: "Back" }).click();
-    await expect(page.locator(".gen-doors")).toBeVisible();
-
-    // Let the in-flight build resolve in the background.
-    await page.waitForTimeout(1000);
-    expect(errors).toEqual([]);
-  });
-
-  test("describing a deck names a commander and builds from it", async ({ page }) => {
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "Describe what you like" }).click();
-
+  test("describing a deck offers commanders that fit and builds from the one picked", async ({ page }) => {
+    await openNew(page);
     await page.locator("#gen-describe").fill("I want counters on everything and lots of proliferate");
+    // The budget set on the card is the build's price cap.
+    await page.locator(".nd-field select").selectOption("5");
     await page.locator("button", { hasText: "Find my commander" }).click();
 
     await expect(page.locator(".gen-candidate").first()).toBeVisible({ timeout: 15000 });
-    await expect(page.locator(".gen-step")).toContainText("Step 3 of 4");
+    await expect(page.locator(".gen-step")).toContainText("Step 2 of 3");
+    await expect(page.getByLabel("Max price per card")).toHaveValue("5");
+    const skeleton = sentTo(page, "/api/deck/wizard/skeleton");
     await page.locator(".gen-candidate").first().click();
+    expect((await skeleton).postDataJSON().max_card_price).toBe(5);
 
-    await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
-    await expect(page.locator(".gen-summary")).toContainText("100 cards");
+    const deck = await builtDeck(page);
+    expect(copies(deck.decklist_text)).toBe(100);
   });
 
-  test("precon route imports a published decklist into the deck view", async ({ page }) => {
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "Start from a precon" }).click();
-    await expect(page.locator(".gen-step")).toContainText("Step 2 of 3");
+  test("precon route saves the published decklist as a deck", async ({ page }) => {
+    await openNew(page);
+    await door(page, "Start from a precon").click();
 
     // Partial name is enough — the endpoint fuzzy-matches server side.
     await page.locator("#gen-precon").fill("necron");
@@ -245,7 +209,7 @@ test.describe("Deck generator entry screen", () => {
     // Other matches from the same search are offered rather than hidden.
     await expect(page.locator(".gen-candidate", { hasText: "Tyranid Swarm" })).toBeVisible();
 
-    await page.locator("button", { hasText: "Open in deck view" }).click();
+    await page.locator("button", { hasText: "Create this deck" }).click();
     await expect(page.locator(".card-grid-container")).toBeVisible({ timeout: 10000 });
     await expect(page.locator('.card-grid-container [aria-label="1x Sol Ring"]')).toHaveCount(1);
     // The commander belongs in the command zone only. The card grid hides it
@@ -258,19 +222,38 @@ test.describe("Deck generator entry screen", () => {
   });
 
   test("an unmatched precon name reports it and stays put", async ({ page }) => {
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "Start from a precon" }).click();
+    await openNew(page);
+    await door(page, "Start from a precon").click();
     await page.locator("#gen-precon").fill("not a real deck");
     await page.locator("button", { hasText: "Find this deck" }).click();
     await expect(page.locator(".toast")).toContainText("No precon found");
     await expect(page.locator("#gen-precon")).toBeVisible();
   });
 
-  test("guided route still hands off to the category-fill wizard", async ({ page }) => {
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "Guide me step by step" }).click();
+  test("guided route hands off to the category-fill wizard, whose deck is saved under its commander", async ({ page }) => {
+    await openNew(page);
+    await door(page, "Guide me step by step").click();
     await expect(page.locator(".gen-step")).toContainText("Step 2 of 3");
     await expect(page.locator("h2", { hasText: "Deck wizard" })).toBeVisible();
+
+    await page.getByPlaceholder("Start typing… e.g. nethroi").fill("atraxa");
+    await page.locator(".ac-item", { hasText: "Atraxa" }).click();
+    await page.locator("button", { hasText: "Build skeleton" }).click();
+    for (;;) {
+      const next = page.locator("button", { hasText: "Skip to next" });
+      await expect(next.or(page.locator("button", { hasText: "Review deck" })).first()).toBeVisible();
+      if (!(await next.count())) break;
+      await next.click();
+    }
+    await page.locator("button", { hasText: "Review deck" }).first().click();
+    expect(await savedDecks(page)).toEqual([]);
+    await page.locator("button", { hasText: "Create the deck" }).click();
+
+    const deck = await builtDeck(page);
+    expect(deck.name).toBe("Atraxa, Praetors' Voice");
+    // The staples and the mana base are picked for you; the commander leads.
+    expect(deck.decklist_text.startsWith("Commander\n1 Atraxa, Praetors' Voice\nDeck\n")).toBe(true);
+    expect(deck.decklist_text).toContain("1 Sol Ring");
   });
 });
 
@@ -289,23 +272,17 @@ test.describe("Collection route", () => {
     ",,3",
   ].join("\n");
 
-  test("step counter reflects the collection route's four steps", async ({ page }) => {
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "Build from my collection" }).click();
-    await expect(page.locator(".gen-step")).toContainText("Step 2 of 4");
-  });
-
   test("a malformed row is skipped and reported, not fatal to the import", async ({ page }) => {
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "Build from my collection" }).click();
+    await openNew(page);
+    await door(page, "Build from my collection").click();
     await page.locator("#gen-collection").fill(COLLECTION_CSV);
     await expect(page.locator(".gen .panel")).toContainText("6 unique cards recognized");
     await expect(page.locator(".gen .panel")).toContainText("1 row skipped");
   });
 
-  test("builds a deck weighted toward owned cards, buying only the gap", async ({ page }) => {
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "Build from my collection" }).click();
+  test("builds a deck weighted toward owned cards, and the deck page lists only the gap to buy", async ({ page }) => {
+    await openNew(page);
+    await door(page, "Build from my collection").click();
 
     // Upload a file rather than paste, to exercise the file-load path too.
     await page.locator('input[type="file"]').setInputFiles({
@@ -317,38 +294,37 @@ test.describe("Collection route", () => {
     await page.locator("button", { hasText: "Continue" }).click();
 
     await expect(page.locator(".gen-step")).toContainText("Step 3 of 4");
-    await page.locator("#gen-cmd").fill("atraxa");
-    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
+    await pickCommander(page);
+    const deck = await builtDeck(page);
+    expect(copies(deck.decklist_text)).toBe(100);
 
-    await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
-    await expect(page.locator(".gen-step")).toContainText("Step 4 of 4");
-    await expect(page.locator(".gen-summary")).toContainText("100 cards");
+    // The buy list came with the deck: only what the collection lacks, priced
+    // from the same per-card lookup, and totalled.
+    const buy = page.getByRole("region", { name: "What to buy" });
+    await expect(buy).toContainText("picks already in your collection");
+    await expect(buy.locator(".gen-card-row", { hasText: "Counterspell" }).locator(".badge.warn")).toContainText("Buy");
+    await expect(buy.locator(".gen-card-row", { hasText: "Sol Ring" })).toHaveCount(0);
+    await expect(buy.locator(".gen-lede")).toContainText("cards to buy");
+    await expect(buy.locator(".gen-lede")).toContainText("$26.05");
 
-    // Owned picks carry no Buy badge; a known-unowned pick does, priced.
-    const solRingRow = page.locator(".gen-card-row", { hasText: "Sol Ring" });
-    await expect(solRingRow.locator(".badge.warn")).toHaveCount(0);
-    const counterspellRow = page.locator(".gen-card-row", { hasText: "Counterspell" }).first();
-    await expect(counterspellRow.locator(".badge.warn")).toContainText("Buy");
-
-    // The buy summary totals only the gap, priced from the same per-card lookup.
-    const buySummary = page.locator(".gen-cat", { hasText: "picks already in your collection" });
-    await expect(buySummary).toBeVisible();
-    await expect(page.locator(".gen-lede", { hasText: "cards to buy" })).toContainText("$26.05");
+    // It is shown once: dismissed, it does not come back with the deck.
+    await buy.getByRole("button", { name: "Dismiss" }).click();
+    await expect(buy).toHaveCount(0);
+    await page.reload();
+    await waitForAppReady(page);
+    await expect(page.locator(".card-grid-container")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("region", { name: "What to buy" })).toHaveCount(0);
   });
 });
 
 test.describe("Generated deck reasons", () => {
   test.skip(({ isMobile }) => isMobile, "desktop card grid flow");
 
-  test("a generated card explains itself in the card detail modal", async ({ page }) => {
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
-    await page.locator("#gen-cmd").fill("atraxa");
-    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
-    await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
-    await page.locator("button", { hasText: "Open in deck view" }).click();
+  const solRing = (page) => page.locator('.card-grid-container [aria-label="1x Sol Ring"]').first();
 
-    await page.locator('.card-grid-container [aria-label="1x Sol Ring"]').first().click();
+  test("a generated card explains itself in the card detail modal", async ({ page }) => {
+    await buildAtraxa(page);
+    await solRing(page).click();
     await expect(page.locator(".cdm-why")).toContainText("Pulls its weight");
   });
 
@@ -366,19 +342,10 @@ test.describe("Generated deck reasons", () => {
     await waitForAppReady(page);
     await dismissColdStart(page);
     await seedLocalDecks(page, [OTHER]);
-    await page.reload();
-    await waitForAppReady(page);
-    await dismissColdStart(page);
 
     // Generate a deck — Sol Ring picks up a note.
-    await openNewDeck(page);
-    await page.locator(".empty-action", { hasText: "Guided build" }).click();
-    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
-    await page.locator("#gen-cmd").fill("atraxa");
-    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
-    await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
-    await page.locator("button", { hasText: "Open in deck view" }).click();
-    await page.locator('.card-grid-container [aria-label="1x Sol Ring"]').first().click();
+    await buildAtraxa(page);
+    await solRing(page).click();
     await expect(page.locator(".cdm-why")).toContainText("Pulls its weight");
     await page.locator(".cdm-close").click();
 
@@ -387,7 +354,7 @@ test.describe("Generated deck reasons", () => {
     await navigateToTab(page, "My Decks");
     await page.locator(".deck-card", { hasText: OTHER.name }).locator(".deck-card-art").click();
     await expect(page.locator(".card-grid-container")).toBeVisible({ timeout: 10000 });
-    await page.locator('.card-grid-container [aria-label="1x Sol Ring"]').first().click();
+    await solRing(page).click();
     await expect(page.locator(".cdm-name")).toHaveText("Sol Ring");
     await expect(page.locator(".cdm-why")).toHaveCount(0);
   });
@@ -396,13 +363,8 @@ test.describe("Generated deck reasons", () => {
   // saved one. The mock import also contains Sol Ring, so a surviving note
   // would attach itself to a card this deck never explained.
   test("build notes do not survive a URL import over the generated deck", async ({ page }) => {
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
-    await page.locator("#gen-cmd").fill("atraxa");
-    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
-    await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
-    await page.locator("button", { hasText: "Open in deck view" }).click();
-    await page.locator('.card-grid-container [aria-label="1x Sol Ring"]').first().click();
+    await buildAtraxa(page);
+    await solRing(page).click();
     await expect(page.locator(".cdm-why")).toContainText("Pulls its weight");
     await page.locator(".cdm-close").click();
 
@@ -414,7 +376,7 @@ test.describe("Generated deck reasons", () => {
     await page.locator(".icm-confirm button", { hasText: "Replace deck" }).click();
     await expect(page.locator(".deck-title")).toContainText("Mock Import");
 
-    await page.locator('.card-grid-container [aria-label="1x Sol Ring"]').first().click();
+    await solRing(page).click();
     await expect(page.locator(".cdm-name")).toHaveText("Sol Ring");
     await expect(page.locator(".cdm-why")).toHaveCount(0);
   });
@@ -423,13 +385,8 @@ test.describe("Generated deck reasons", () => {
   // replacement too, and it goes through mergeImportedText's wasEmpty branch
   // rather than any of App's deck-switch callbacks.
   test("build notes do not survive a paste into an emptied deck", async ({ page }) => {
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
-    await page.locator("#gen-cmd").fill("atraxa");
-    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
-    await expect(page.locator(".gen-card-row").first()).toBeVisible({ timeout: 20000 });
-    await page.locator("button", { hasText: "Open in deck view" }).click();
-    await page.locator('.card-grid-container [aria-label="1x Sol Ring"]').first().click();
+    await buildAtraxa(page);
+    await solRing(page).click();
     await expect(page.locator(".cdm-why")).toContainText("Pulls its weight");
     await page.locator(".cdm-close").click();
 
@@ -444,12 +401,12 @@ test.describe("Generated deck reasons", () => {
     // Paste a fresh list that also runs Sol Ring. A paste into an empty deck
     // opens the Job 3 guided review (goals → bracket/ratings → swaps); close
     // it to get back to the deck grid, same as a user would.
-    await page.locator(".empty-action", { hasText: "Paste a decklist" }).click();
+    await page.locator(".empty-action", { hasText: "Import cards" }).click();
     await page.locator(".icm-panel textarea").fill("1 Sol Ring\n1 Counterspell");
     await page.locator(".icm-foot button", { hasText: "Import" }).click();
     await page.locator(".upr-panel .icm-close").click();
 
-    await page.locator('.card-grid-container [aria-label="1x Sol Ring"]').first().click();
+    await solRing(page).click();
     await expect(page.locator(".cdm-name")).toHaveText("Sol Ring");
     await expect(page.locator(".cdm-why")).toHaveCount(0);
   });
@@ -488,12 +445,10 @@ test.describe("Per-card price cap", () => {
       }),
     }));
   }
-  const sentTo = (page, path) => page.waitForRequest((r) => r.url().includes(path));
-  const row = (page, name) => page.locator(".gen-card-row", { hasText: name });
 
   test("the select offers the caps and defaults to any price", async ({ page }) => {
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+    await openNew(page);
+    await pickCommander(page);
     const cap = page.getByLabel("Max price per card");
     await expect(cap).toHaveValue("");
     expect(await cap.locator("option").allTextContents()).toEqual([
@@ -503,56 +458,55 @@ test.describe("Per-card price cap", () => {
     ]);
     // Untouched, the cap is not sent at all.
     const skeleton = sentTo(page, "/api/deck/wizard/skeleton");
-    await page.locator("#gen-cmd").fill("atraxa");
-    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
+    await buildButton(page).click();
     expect((await skeleton).postDataJSON()).not.toHaveProperty("max_card_price");
   });
 
   test("one-shot build sends the cap and leaves flagged cards out", async ({ page }) => {
     await routeCappedSkeleton(page);
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+    await openNew(page);
+    await pickCommander(page);
     await page.getByLabel("Max price per card").selectOption("5");
 
     const skeleton = sentTo(page, "/api/deck/wizard/skeleton");
     const fills = sentTo(page, "/api/deck/ai/fills");
-    await page.locator("#gen-cmd").fill("atraxa");
-    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
+    await buildButton(page).click();
     expect((await skeleton).postDataJSON().max_card_price).toBe(5);
     expect((await fills).postDataJSON().max_card_price).toBe(5);
 
-    await expect(page.locator(".gen-summary")).toContainText("100 cards", { timeout: 20000 });
-    await expect(row(page, "Deepglow Skate")).toBeVisible();
-    await expect(row(page, "Rhystic Study")).toHaveCount(0);
-    await expect(row(page, "Smothering Tithe")).toHaveCount(0);
+    const { decklist_text } = await builtDeck(page);
+    expect(copies(decklist_text)).toBe(100);
+    expect(decklist_text).toContain("1 Deepglow Skate");
+    expect(decklist_text).not.toContain("Rhystic Study");
+    expect(decklist_text).not.toContain("Smothering Tithe");
     // The lists ran short, so the budget pick fills a slot.
-    await expect(row(page, "Counterspell")).toBeVisible();
+    expect(decklist_text).toContain("1 Counterspell");
   });
 
   test("collection build sends the cap but keeps a flagged card you own", async ({ page }) => {
     await routeCappedSkeleton(page);
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "Build from my collection" }).click();
+    await openNew(page);
+    await door(page, "Build from my collection").click();
     await page.locator("#gen-collection").fill("name,set,quantity\nRhystic Study,,1");
     await page.locator("button", { hasText: "Continue" }).click();
     await page.getByLabel("Max price per card").selectOption("5");
 
     const skeleton = sentTo(page, "/api/deck/wizard/skeleton");
     const fills = sentTo(page, "/api/deck/ai/fills");
-    await page.locator("#gen-cmd").fill("atraxa");
-    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
+    await pickCommander(page);
     expect((await skeleton).postDataJSON().max_card_price).toBe(5);
     expect((await fills).postDataJSON().max_card_price).toBe(5);
 
-    await expect(page.locator(".gen-summary")).toContainText("100 cards", { timeout: 20000 });
-    await expect(row(page, "Rhystic Study")).toBeVisible(); // owned: the cap doesn't apply
-    await expect(row(page, "Smothering Tithe")).toHaveCount(0); // would have to be bought
+    const { decklist_text } = await builtDeck(page);
+    expect(copies(decklist_text)).toBe(100);
+    expect(decklist_text).toContain("1 Rhystic Study"); // owned: the cap doesn't apply
+    expect(decklist_text).not.toContain("Smothering Tithe"); // would have to be bought
   });
 
   test("guided wizard sends the cap and hides flagged cards", async ({ page }) => {
     await routeCappedSkeleton(page);
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "Guide me step by step" }).click();
+    await openNew(page);
+    await door(page, "Guide me step by step").click();
     await page.getByLabel("Max price per card").selectOption("5");
     await page.getByPlaceholder("Start typing… e.g. nethroi").fill("atraxa");
     await page.locator(".ac-item", { hasText: "Atraxa" }).click();
@@ -588,8 +542,8 @@ test.describe("Per-card price cap", () => {
       budgetPicks: Array.from({ length: 120 }, (_, i) => ({ name: `Budget Pick ${i}` })),
       lands: ["Path of Ancestry", "Exotic Orchard", "Reliquary Tower"].map(land),
     });
-    await openGenerator(page);
-    await page.locator(".gen-door", { hasText: "Guide me step by step" }).click();
+    await openNew(page);
+    await door(page, "Guide me step by step").click();
     await page.getByLabel("Max price per card").selectOption("5");
     await page.getByPlaceholder("Start typing… e.g. nethroi").fill("atraxa");
     await page.locator(".ac-item", { hasText: "Atraxa" }).click();

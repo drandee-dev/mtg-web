@@ -126,6 +126,19 @@ test.describe("Planeswalker chat", () => {
     await expect(reply.locator(".pw-cardchip-btn")).toHaveCount(0);
   });
 
+  // Every deck has an id now, so with none open there is no deck to add to:
+  // a chip's add button would report a success that went nowhere.
+  test("with no deck open, a suggested card has no add button", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForSelector("main#main-content");
+    await openChat(page);
+    await page.locator(".pw-chip").first().click();
+    const reply = page.locator(".pw-msg.pw-assistant").last();
+    await expect(reply.locator(".pw-cardname, .pw-cardchip-name", { hasText: "Lightning Bolt" }).first()).toBeVisible();
+    await page.waitForTimeout(600); // the validate call's verdict would have landed
+    await expect(reply.locator(".pw-cardchip-btn")).toHaveCount(0);
+  });
+
   test("a failed validate call leaves chips without add buttons (fail closed)", async ({ page }) => {
     await page.route("**/api/deck/validate-cards", (route) =>
       route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "Card validation failed." }) }));

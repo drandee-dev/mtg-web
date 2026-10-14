@@ -11,10 +11,11 @@ test.describe("Activation flows", () => {
   test.skip(({ isMobile }) => isMobile, "desktop flows");
 
   test("deck completing to 100 fires a one-time Playtest toast", async ({ page }) => {
-    // loadSharedDeck embeds the commander as a deck line too, so 97 Sol Ring
-    // arrives as 97 + 1 (commander line) + 1 (commander) = 99 → one short.
-    await loadSharedDeck(page, "97 Sol Ring", TEST_COMMANDER);
-    // Let the arrival auto-save settle first (its toast + deckId change)
+    // 98 + the commander = 99 → one short. (A share link's deck used to count
+    // its commander twice until the first reload; it is loaded like any saved
+    // deck now, so the commander is counted once from the start.)
+    await loadSharedDeck(page, "98 Sol Ring", TEST_COMMANDER);
+    // Let the arrival save settle first (its toast)
     await expect(page.locator(".toast")).toContainText("Saved", { timeout: 10000 });
 
     // Cross the line: append the 100th card via the text editor

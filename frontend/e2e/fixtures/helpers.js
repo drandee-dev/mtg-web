@@ -36,9 +36,38 @@ export async function navigateToTab(page, tabName) {
   await page.locator('nav[aria-label="Main"]:visible').getByRole("link", { name: label, exact: true }).click();
 }
 
-// "New deck" in whichever bar is showing: the empty editor at /new.
+// "New deck" in whichever bar is showing: the New deck screen at /new.
 export async function openNewDeck(page) {
   await page.locator(".gt-new:visible, .bn-new:visible").first().click();
+}
+
+// A door of the New deck screen, by its label.
+export const newDeckDoor = (page, name) => page.locator(".nd-door", { hasText: name });
+
+// A new deck from a pasted list: the "Paste or import" door. The deck opens
+// saved, at its own address, with the upgrade guide over it.
+export async function pasteNewDeck(page, text) {
+  await openNewDeck(page);
+  await newDeckDoor(page, "Paste or import").click();
+  await page.locator("#nd-paste").fill(text);
+  await page.getByRole("button", { name: "Create the deck →" }).click();
+  await page.waitForURL((url) => url.pathname.startsWith("/decks/"));
+}
+
+// The same door's other half: a Moxfield or Archidekt link.
+export async function importNewDeck(page, url = "https://archidekt.com/decks/12345") {
+  await openNewDeck(page);
+  await newDeckDoor(page, "Paste or import").click();
+  await page.locator("#nd-url").fill(url);
+  await page.getByRole("button", { name: "Import the deck →" }).click();
+  await page.waitForURL((u) => u.pathname.startsWith("/decks/"));
+}
+
+// The commander door as far as its choice: "Build the 99" or "Start from scratch".
+export async function pickNewDeckCommander(page, query = "atraxa", name = "Atraxa") {
+  await openNewDeck(page);
+  await page.locator("#gen-cmd").fill(query);
+  await page.locator(".gen-candidate", { hasText: name }).click();
 }
 
 // From Cards, the link back to the deck the + Add button adds to.

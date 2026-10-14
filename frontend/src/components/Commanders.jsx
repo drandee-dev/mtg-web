@@ -6,6 +6,8 @@ import { api } from "../lib/api";
 import { fmtUsd } from "../lib/format";
 import { useCardImage } from "../lib/hooks";
 import { loadDirectory } from "../lib/commanderDirectory";
+import { buildPath } from "../lib/routes";
+import NavLink from "./layout/NavLink";
 import ManaCost, { ManaIcon } from "./deck/ManaCost";
 
 const COLORS = ["W", "U", "B", "R", "G"];
@@ -136,7 +138,7 @@ function ArtVariants({ name }) {
   );
 }
 
-function CommanderDetail({ entry, onBack, onBuildWithStrategy, onBuildFromScratch }) {
+function CommanderDetail({ entry, onBack, onBuild }) {
   const data = useCardImage(entry.name);
   const hasChips = entry.playstyle || entry.difficulty || entry.wins_via?.length || entry.themes?.length;
 
@@ -183,11 +185,17 @@ function CommanderDetail({ entry, onBack, onBuildWithStrategy, onBuildFromScratc
               <p className="muted small">Strategy chips not available for this commander yet.</p>
             )}
 
+            {/* One link to the New deck screen with this commander picked. The
+                choice between a built deck (which calls the AI) and a blank
+                one is made there, so no link or reload ever starts a build. */}
             <div className="row" style={{ marginTop: ".8rem" }}>
-              <button className="primary" onClick={() => onBuildWithStrategy(entry.name)}>
-                Build with strategy
-              </button>
-              <button onClick={() => onBuildFromScratch(entry.name)}>Build from scratch</button>
+              <NavLink
+                className="btn-link"
+                href={buildPath({ tab: "deck", seed: entry.name })}
+                onNavigate={() => onBuild(entry.name)}
+              >
+                Build a deck with this commander
+              </NavLink>
             </div>
           </div>
         </div>
@@ -205,7 +213,7 @@ function CommanderDetail({ entry, onBack, onBuildWithStrategy, onBuildFromScratc
   );
 }
 
-export default function Commanders({ slug, setSlug, onBuildWithStrategy, onBuildFromScratch, notify }) {
+export default function Commanders({ slug, setSlug, onBuild, notify }) {
   const [all, setAll] = useState(null); // full directory, loaded once
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
@@ -254,8 +262,7 @@ export default function Commanders({ slug, setSlug, onBuildWithStrategy, onBuild
       <CommanderDetail
         entry={entry}
         onBack={() => setSlug(null)}
-        onBuildWithStrategy={onBuildWithStrategy}
-        onBuildFromScratch={onBuildFromScratch}
+        onBuild={onBuild}
       />
     );
   }

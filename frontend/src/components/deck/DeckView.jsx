@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, assembleDecklist, disassembleDecklist, getCardImage, FORMATS, warnIfBadAdd } from "../../lib/api";
 import CommanderInput from "../CommanderInput";
-import DeckGenerator from "../DeckGenerator";
 import CardGrid from "./CardGrid";
 import CardTypeahead from "./CardTypeahead";
 import DeckSidebar from "./DeckSidebar";
@@ -11,12 +10,13 @@ import ImportCardsModal from "./ImportCardsModal";
 import MassArtModal from "./MassArtModal";
 import UpgradeReview from "./UpgradeReview";
 import MoreMenu from "./MoreMenu";
-import { PaletteIcon, LinkIcon, SparkleIcon, LockIcon, UnlockIcon, ListIcon, SearchIcon } from "../Icons";
+import { PaletteIcon, LinkIcon, LockIcon, UnlockIcon, ListIcon, SearchIcon } from "../Icons";
 import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderDisplay, commanderNamesClean, setCommanderPrinting } from "../../lib/deckParser";
 import { goalsToApi } from "../../lib/goals";
 import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry, isVisibleEntry } from "../../lib/optimizeLog";
 import { deckSignature, loadInsights, saveInsights, PANEL_KEYS } from "../../lib/insightsCache";
-import { clearBuildNotes, setBuildNotes } from "../../lib/buildNotes";
+import { clearBuildNotes } from "../../lib/buildNotes";
+import { fmtUsd } from "../../lib/format";
 import { ManaIcon } from "./ManaCost";
 import DeckStatsBar from "./DeckStatsBar";
 
@@ -42,10 +42,9 @@ export default function DeckView({
   decklist, setDecklist, format, setFormat, commander, setCommander,
   maybeboard, setMaybeboard,
   deckName, deckId, onSave, unsaved, onDiscard, onClone, onExport, onPlaytest, onGoldfish, onShare, onRenameDeck,
-  startInWizard, onWizardConsumed, initialCommander, startImport, onImportConsumed, onBack, notify, serverWarmed,
+  arrival, onArrivalDone, onBack, notify, serverWarmed,
   pwInsightsEl, pwStatsEl, goals, setGoals,
 }) {
-  const [mode, setMode] = useState(startInWizard ? "wizard" : "manual");
   const [textEditOpen, setTextEditOpen] = useState(false);
   // Goals/Assessment collapse state — moved inline out of the rail (Job 6),
   // collapsed by default, persisted the same way Planeswalker's own expand
@@ -65,35 +64,29 @@ export default function DeckView({
     try { localStorage.setItem("mtgweb:assessmentOpen", next ? "1" : "0"); } catch { /* best-effort */ }
   }
 
-  useEffect(() => {
-    if (startInWizard) {
-      setMode("wizard");
-      onWizardConsumed?.();
-    }
-  }, [startInWizard, onWizardConsumed]);
   const [importOpen, setImportOpen] = useState(null); // null | "paste" | "url"
   const [massArtOpen, setMassArtOpen] = useState(false);
   // Job 3 guided flow: opens once, right after a pasted decklist replaces an
   // empty deck (see handleImportText) — that's the "I already have a list,
   // upgrade it" case, distinct from pasting more cards into a deck in progress.
-  const [upgradeReviewOpen, setUpgradeReviewOpen] = useState(false);
+  // A deck made from a pasted or imported list on the New deck screen arrives
+  // with it open (`arrival.review`), since that paste happened before this
+  // page existed.
+  const [upgradeReviewOpen, setUpgradeReviewOpen] = useState(Boolean(arrival?.review));
+  function closeUpgradeReview() {
+    setUpgradeReviewOpen(false);
+    onArrivalDone?.();
+  }
   const [pendingImport, setPendingImport] = useState(null); // URL import awaiting replace-confirm
   const [titleEdit, setTitleEdit] = useState(null); // null | in-progress rename text
 
-  // Suggested-goals dismissal — per deck, persists. (Hook lives up here with the
-  // rest of the state: it must run on every render, including wizard mode.)
+  // Suggested-goals dismissal — per deck, persists.
   const readSuggDismissed = (id) => {
     try { return localStorage.getItem(`mtgweb:goalsugg:${id || "current"}`) === "1"; } catch { return true; }
   };
   const [suggState, setSuggState] = useState(() => ({ deckId, dismissed: readSuggDismissed(deckId) }));
   if (suggState.deckId !== deckId) setSuggState({ deckId, dismissed: readSuggDismissed(deckId) });
 
-  useEffect(() => {
-    if (startImport) {
-      setImportOpen(startImport);
-      onImportConsumed?.();
-    }
-  }, [startImport, onImportConsumed]);
   // Insight results persist per-deck (`mtgweb:insights`) so paid AI panels
   // survive tab switches (DeckView unmounts) and reloads. Hydrate initial
   // state from the cache; each panel remembers the deck signature it was
@@ -600,36 +593,6 @@ export default function DeckView({
     }
   }
 
-  // `notes` (name → why it's here) only comes from the one-shot generator; the
-  // step-by-step wizard passes nothing and the card modal simply shows no note.
-  function handleWizardFinish(dl, cmd, notes) {
-    // Split the Commander block off properly. Stripping just the bare
-    // "Commander"/"Deck" lines left the commander's own "1 Name" line behind,
-    // so it sat in the command zone AND the 99 — invisible in the card grid,
-    // which hides the commander there, but real in every saved, shared,
-    // exported and analyzed copy of the deck.
-    const { commander: parsedCmd, deckText } = disassembleDecklist(dl);
-    setDecklist(deckText);
-    setCommander(cmd || parsedCmd);
-    setBuildNotes(notes || {});
-    setMode("manual");
-    notify?.("Deck loaded — tune it here.");
-  }
-
-  if (mode === "wizard") {
-    return (
-      <div>
-        <div className="panel">
-          <div className="spread">
-            <span />
-            <button className="ghost small" onClick={() => setMode("manual")}>← Back to deck view</button>
-          </div>
-        </div>
-        <DeckGenerator onFinish={handleWizardFinish} notify={notify} initialCommander={initialCommander} />
-      </div>
-    );
-  }
-
   const hasCommander = isCommanderFmt && commander;
   // A pasted list's first line is usually its commander. Offer it, never move
   // it silently. Only from a result for the current list, and only when that
@@ -961,7 +924,7 @@ export default function DeckView({
   }
 
   function goToChangesFromReview() {
-    setUpgradeReviewOpen(false);
+    closeUpgradeReview();
     loadChanges({ deep: true }); // sets activePanel("Changes") itself
   }
 
@@ -1101,7 +1064,6 @@ export default function DeckView({
             { label: "Export .txt", icon: "↓", onClick: onExport },
             ...(locked ? [] : [{ label: textEditOpen ? "Hide text editor" : "Edit as text", icon: "✎", onClick: () => setTextEditOpen((o) => !o) }]),
             { label: "Playtest", icon: "▶", onClick: onPlaytest },
-            { label: "Wizard", icon: <SparkleIcon />, onClick: () => setMode("wizard") },
             { label: locked ? "Unlock deck" : "Lock deck (view only)", icon: locked ? <UnlockIcon /> : <LockIcon />, onClick: () => setLocked((l) => !l) },
             ...discardItem,
           ]} />
@@ -1179,7 +1141,6 @@ export default function DeckView({
               { label: "Clone deck", icon: "⎘", onClick: onClone },
               { label: "Export .txt", icon: "↓", onClick: onExport },
               ...(locked ? [] : [{ label: textEditOpen ? "Hide text editor" : "Edit as text", icon: "✎", onClick: () => setTextEditOpen((o) => !o) }]),
-              { label: "Wizard", icon: <SparkleIcon />, onClick: () => setMode("wizard") },
               { label: locked ? "Unlock deck" : "Lock deck (view only)", icon: locked ? <UnlockIcon /> : <LockIcon />, onClick: () => setLocked((l) => !l) },
               ...discardItem,
             ]} />
@@ -1232,6 +1193,38 @@ export default function DeckView({
           crowned leading column inside the grid (CardGrid), not a side panel. */}
       <div className="deck-layout">
         <div className="deck-main">
+          {/* A collection build's buy list. It comes with the deck from the New
+              deck screen and shows until dismissed; it is not saved. */}
+          {arrival?.buy && (
+            <div className="panel" role="region" aria-label="What to buy">
+              <div className="spread">
+                <h3 className="gen-cat">
+                  {arrival.buy.owned} of {arrival.buy.picks} picks already in your collection
+                </h3>
+                <button className="ghost small" onClick={onArrivalDone}>Dismiss</button>
+              </div>
+              {arrival.buy.list.length === 0 ? (
+                <p className="muted small">Nothing left to buy — the whole deck came from your collection.</p>
+              ) : (
+                <>
+                  <p className="gen-lede" style={{ marginBottom: ".6rem" }}>
+                    {arrival.buy.list.length} card{arrival.buy.list.length === 1 ? "" : "s"} to buy
+                    {arrival.buy.total > 0 ? `, about ${fmtUsd(arrival.buy.total)} total` : ""}.
+                  </p>
+                  {arrival.buy.list.map((c) => (
+                    <div key={c.name} className="gen-card-row">
+                      <span className="gen-card-name">
+                        {c.name}{" "}
+                        <span className="badge warn small">
+                          {c.price_usd != null ? `Buy · ${fmtUsd(c.price_usd)}` : "Buy · price unknown"}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
           {/* Deck Goals + Assessment — inline above the card list, collapsed
               by default (Job 6: moved out of the rail, which had no collapse
               control for either and set Assessment's prose at ~40 chars/line). */}
@@ -1257,35 +1250,23 @@ export default function DeckView({
           {deckEmpty && !searchOpen ? (
             <div className="empty-deck">
               <div className="empty-deck-inner">
+                {/* The ways to start a deck are on the New deck screen. This deck
+                    exists already: these two add cards to it. */}
                 <h3>Your deck is empty</h3>
-                <p className="muted">Add cards any way you like — every option is one click away.</p>
+                <p className="muted">Add cards one at a time, or bring in a list.</p>
                 <div className="empty-actions">
-                  <button className="empty-action" onClick={() => setImportOpen("paste")}>
-                    <span className="empty-action-ico"><ListIcon size={18} /></span>
-                    <span className="empty-action-txt">
-                      <span className="empty-action-t">Paste a decklist</span>
-                      <span className="empty-action-d">From Arena, Moxfield, Archidekt, or any text export</span>
-                    </span>
-                  </button>
-                  <button className="empty-action" onClick={() => setImportOpen("url")}>
-                    <span className="empty-action-ico"><LinkIcon size={18} /></span>
-                    <span className="empty-action-txt">
-                      <span className="empty-action-t">Import from URL</span>
-                      <span className="empty-action-d">Moxfield or Archidekt deck link</span>
-                    </span>
-                  </button>
                   <button className="empty-action" onClick={toggleSearch}>
                     <span className="empty-action-ico"><SearchIcon size={18} /></span>
                     <span className="empty-action-txt">
                       <span className="empty-action-t">Search for cards</span>
-                      <span className="empty-action-d">Build card-by-card with search &amp; filters</span>
+                      <span className="empty-action-d">Add card by card, with search as you type</span>
                     </span>
                   </button>
-                  <button className="empty-action" onClick={() => setMode("wizard")}>
-                    <span className="empty-action-ico"><SparkleIcon size={18} /></span>
+                  <button className="empty-action" onClick={() => setImportOpen("paste")}>
+                    <span className="empty-action-ico"><ListIcon size={18} /></span>
                     <span className="empty-action-txt">
-                      <span className="empty-action-t">Guided build</span>
-                      <span className="empty-action-d">Pick a commander — AI helps fill each category</span>
+                      <span className="empty-action-t">Import cards</span>
+                      <span className="empty-action-d">Paste a list, or a Moxfield or Archidekt link</span>
                     </span>
                   </button>
                 </div>
@@ -1348,7 +1329,7 @@ export default function DeckView({
 
       <UpgradeReview
         open={upgradeReviewOpen}
-        onClose={() => setUpgradeReviewOpen(false)}
+        onClose={closeUpgradeReview}
         goals={goals}
         setGoals={setGoals}
         deckCardNames={deckCardNames}
