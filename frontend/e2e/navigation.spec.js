@@ -188,20 +188,22 @@ test.describe("Navigation & Layout", () => {
     await expect(row).toBeVisible();
     await expect(page.locator(".results-table").getByRole("button", { name: /Add/ })).toHaveCount(0);
 
-    await seedLocalDecks(page, [TEST_DECK_STORAGE]);
+    // A long name, so a phone has to make room for it.
+    const deck = { ...TEST_DECK_STORAGE, name: "Atraxa, Praetors' Voice Superfriends on a Budget" };
+    await seedLocalDecks(page, [deck]);
     await page.goto("/");
     await waitForAppReady(page);
     await page.locator(".deck-card .deck-card-art").first().click();
     await expect(page.locator(".card-grid-container")).toBeVisible();
     await navigateToTab(page, "Card Search");
-    await expect(page.locator(".cards-deck")).toContainText(`Adding to ${TEST_DECK_STORAGE.name}`);
+    await expect(page.locator(".cards-deck")).toContainText(`Adding to ${deck.name}`);
     await expect(help).toBeVisible();
     await expect(help).not.toContainText("Open a deck");
     // Each result's button names the deck it adds to.
     await box.fill("bolt");
     await box.press("Enter");
-    await expect(row.getByRole("button", { name: `Add to ${TEST_DECK_STORAGE.name}`, exact: true })).toBeVisible();
-    // Whole on screen, not cut off at the side of the table on a phone
+    await expect(row.getByRole("button", { name: `Add to ${deck.name}`, exact: true })).toBeVisible();
+    // Whole on screen, not cut off at the side of the results on a phone
     // (toBeVisible passes for a button scrolled out of its box).
     await expect(page.locator(".results-table tbody tr").first().getByRole("button", { name: /^Add to / }))
       .toBeInViewport({ ratio: 1 });

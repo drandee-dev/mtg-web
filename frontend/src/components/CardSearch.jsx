@@ -76,7 +76,7 @@ export default function CardSearch({ addCard, notify, deckName, deckHref, onBack
                     {addCard && (
                       <td>
                         <button className="ghost small cards-add" title={`Add to ${deckName}`}
-                          onClick={() => { addCard(c.name); notify(`Added ${c.name}`); }}>Add<span className="cards-add-deck"> to {deckName}</span></button>
+                          onClick={() => { addCard(c.name); notify(`Added ${c.name}`); }}>Add to {deckName}</button>
                       </td>
                     )}
                   </tr>
