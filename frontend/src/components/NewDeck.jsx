@@ -203,6 +203,13 @@ function NewDeckSteps({ onCreate, notify, seed }) {
     try {
       await onCreate(deck);
     } catch (e) {
+      // Kept: the panel above is now the way to this deck. Left on its step, the
+      // same press would make it a second time (and a build would be paid again).
+      if (e.kept) {
+        toDoors();
+        setPasteText("");
+        setPasteUrl("");
+      }
       notify?.(e.kept
         ? `Couldn't save "${deck.name}": ${e.message}. It's kept in this browser: try again from New deck or Decks.`
         : e.kept === false
@@ -279,18 +286,21 @@ function NewDeckSteps({ onCreate, notify, seed }) {
     setCollectionStats(null);
   }
 
-  function back() {
+  // The doors, with the search and its results dropped: they belong to the door left.
+  function toDoors() {
     setPrecon(null);
     setPartnerFor(null);
-    if (stepIdx <= 1) {
-      // Back on this screen: the search and its results belong to the door left.
-      setBranch(null);
-      setStepIdx(0);
-      setChosen(null);
-      setCandidates(null);
-      setCmdQuery("");
-      return;
-    }
+    setBranch(null);
+    setStepIdx(0);
+    setChosen(null);
+    setCandidates(null);
+    setCmdQuery("");
+  }
+
+  function back() {
+    if (stepIdx <= 1) return toDoors();
+    setPrecon(null);
+    setPartnerFor(null);
     setStepIdx((i) => i - 1);
   }
 

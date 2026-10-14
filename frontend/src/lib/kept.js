@@ -11,7 +11,9 @@ const KEY = "mtgweb:kept";
 export function readKept() {
   try {
     const list = JSON.parse(localStorage.getItem(KEY));
-    return Array.isArray(list) ? list.filter((e) => e?.id && typeof e.deck?.decklist_text === "string") : [];
+    return Array.isArray(list)
+      ? list.filter((e) => e?.id && typeof e.deck?.name === "string" && typeof e.deck.decklist_text === "string")
+      : [];
   } catch {
     return [];
   }

@@ -209,29 +209,103 @@ test.describe("Signed in", () => {
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem("mtgweb:kept")).length)).toBe(1);
   });
 
-  // A kept deck's Try again on one screen, then the same press on the other
-  // screen while the first save is still out: one save, one deck.
-  test("Try again pressed again on Decks home during a slow retry makes one deck", async ({ page }) => {
-    const cloud = await fakeCloud(page);
-    await page.goto("/");
-    await waitForAppReady(page);
+  // A pasted deck whose save the account turns down, so it is kept.
+  async function pasteKept(page, cloud) {
     cloud.failSaves = 1;
     await openNewDeck(page);
     await newDeckDoor(page, "Paste or import").click();
     await page.locator("#nd-paste").fill(TEST_DECK_STORAGE.decklist_text);
     await page.getByRole("button", { name: "Create the deck →" }).click();
-    const tryAgain = page.locator(".kept-decks").getByRole("button", { name: "Try again" });
-    await expect(tryAgain).toHaveCount(1);
+    await expect(page.locator(".kept-decks [role=status]")).toHaveCount(1);
+  }
+  const keptStore = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("mtgweb:kept") || "[]"));
+
+  // Until the sign-in check settles a signed-in person reads as signed out, and
+  // would be offered decks kept for this browser's signed-out use.
+  test("decks kept while signed out are not shown before the sign-in check settles", async ({ page }) => {
+    await fakeCloud(page);
+    await page.addInitScript(() => {
+      // An expired token: who this is is only known once the refresh returns.
+      for (const k of Object.keys(localStorage)) {
+        if (k.startsWith("sb-") && k.endsWith("-auth-token")) {
+          localStorage.setItem(k, JSON.stringify({ ...JSON.parse(localStorage.getItem(k)), expires_at: 1 }));
+        }
+      }
+      localStorage.setItem("mtgweb:kept", JSON.stringify([{
+        id: "kept-signed-out", owner: null,
+        deck: { name: "Browser deck", format: "commander", decklist_text: "Commander\n1 Atraxa, Praetors' Voice\nDeck\n" },
+      }]));
+    });
+    let release;
+    const held = new Promise((r) => { release = r; });
+    await page.route(`${cloudOrigin}/auth/v1/token**`, async (route) => { await held; await route.fallback(); });
+    await page.goto("/");
+    await expect(page.locator(".dh")).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    await expect(page.locator(".kept-decks")).toHaveCount(0);
+    release();
+    await expect.poll(() => hasSession(page)).toBe(true);
+    await page.waitForTimeout(300);
+    await expect(page.locator(".kept-decks")).toHaveCount(0);
+  });
+
+  // Left on its step, the same press would make the deck a second time.
+  test("after a deck is kept the screen goes back to the doors, with the pasted list cleared", async ({ page }) => {
+    const cloud = await fakeCloud(page);
+    await page.goto("/");
+    await waitForAppReady(page);
+    await pasteKept(page, cloud);
+    await expect(page.getByRole("heading", { name: "Start a new deck" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create the deck →" })).toHaveCount(0);
+    await newDeckDoor(page, "Paste or import").click();
+    await expect(page.locator("#nd-paste")).toHaveValue("");
+  });
+
+  // Saved after all (the same list pasted again here; a reload while a save's
+  // answer was on its way, or another tab, end the same way): Try again finds
+  // it and saves nothing.
+  test("Try again on a kept deck the account already has opens that one and saves nothing", async ({ page }) => {
+    const cloud = await fakeCloud(page);
+    await page.goto("/");
+    await waitForAppReady(page);
+    await pasteKept(page, cloud);
+    await newDeckDoor(page, "Paste or import").click();
+    await page.locator("#nd-paste").fill(TEST_DECK_STORAGE.decklist_text);
+    await page.getByRole("button", { name: "Create the deck →" }).click();
+    // The deck page, not just the row: leaving while the save's answer is still
+    // on its way keeps a second copy (the case this guard is for, but not this test's).
+    await expect(page).toHaveURL(/\/decks\/[^/]+$/);
+    expect(cloud.decks.length).toBe(1);
+
+    await page.goto("/");
+    await waitForAppReady(page);
+    await page.locator(".kept-decks").getByRole("button", { name: "Try again" }).click();
+    await expect(page.locator(".toast", { hasText: "was already saved" })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`/decks/${cloud.decks[0].id}$`));
+    await page.waitForTimeout(800); // a save would have landed by now
+    expect(cloud.decks.length).toBe(1);
+    expect(await keptStore(page)).toEqual([]);
+  });
+
+  // A kept deck's Try again on one screen, then a look at the other while the
+  // save is still out: it says so there too, and one save makes one deck.
+  test("a slow Try again shows as saving on Decks home too, and makes one deck", async ({ page }) => {
+    const cloud = await fakeCloud(page);
+    await page.goto("/");
+    await waitForAppReady(page);
+    await pasteKept(page, cloud);
+    const retry = page.locator(".kept-decks button.primary");
 
     cloud.saveDelay = 2000;
-    await tryAgain.click();
+    await retry.click();
     await navigateToTab(page, "Decks");
-    await expect(tryAgain).toBeEnabled();
-    await tryAgain.click();
+    await expect(retry).toHaveText("Saving…");
+    await expect(retry).toBeDisabled();
+    await expect(page.locator(".kept-decks").getByRole("button", { name: "Discard" })).toBeDisabled();
     await expect.poll(() => cloud.decks.length, { timeout: 10000 }).toBe(1);
     await page.waitForTimeout(2500); // a second save would have landed by now
     expect(cloud.decks.length).toBe(1);
-    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("mtgweb:kept") || "[]"))).toEqual([]);
+    expect(await keptStore(page)).toEqual([]);
   });
 
   // The same, with the account gone during the build, not the save: a build

@@ -501,7 +501,11 @@ export default function App() {
   // until the sign-in check settles: until then a signed-in person reads as
   // signed out and would be offered that person's decks.
   const [keptAll, setKeptAll] = useState(readKept);
-  const kept = useMemo(() => (authReady ? keptAll.filter((e) => e.owner === userId) : []), [keptAll, authReady, userId]);
+  // `busy` while its Try again is out, on whichever screen it was pressed.
+  const [retryingIds, setRetryingIds] = useState([]);
+  const kept = useMemo(() => (authReady
+    ? keptAll.filter((e) => e.owner === userId).map((e) => ({ ...e, busy: retryingIds.includes(e.id) }))
+    : []), [keptAll, authReady, userId, retryingIds]);
 
   // Held here, not on Decks home: leaving the page and coming back mid-copy
   // must not offer a second copy of the decks not yet marked.
@@ -672,20 +676,38 @@ export default function App() {
   // save that went through drops it. One try at a time per deck, held here
   // and not in the panel: leaving for the other screen mid-try and pressing
   // Try again there would otherwise save it twice.
+  //
+  // A deck the account already has, same name, format and cards, is not saved
+  // again: its save may have reached the server after all (a reload while the
+  // answer was on its way), or the same door was pressed again, or another tab
+  // saved it. The kept copy goes and the saved one opens.
   const retrying = useRef(new Set());
   const retryKept = useCallback(async (entry) => {
     if (retrying.current.has(entry.id)) return;
+    // Saved or discarded in another tab since this list was read.
+    if (!readKept().some((e) => e.id === entry.id)) { setKeptAll(readKept()); return; }
     retrying.current.add(entry.id);
+    setRetryingIds([...retrying.current]);
+    const d = entry.deck;
     try {
-      await createDeck(entry.deck, moves.current);
+      const asked = moves.current;
+      const same = (await store.list()).find((s) =>
+        s.name === d.name && s.decklist_text === d.decklist_text && (s.format || "commander") === (d.format || "commander"));
+      if (same) {
+        if (asked === moves.current) showSaved(same);
+        notify(`"${d.name}" was already saved.`);
+      } else {
+        await createDeck(d, asked);
+      }
       dropKept(entry.id);
     } catch (e) {
-      notify(`Still couldn't save "${entry.deck.name}": ${e.message}`);
+      notify(`Still couldn't save "${d.name}": ${e.message}`);
     } finally {
       retrying.current.delete(entry.id);
+      setRetryingIds([...retrying.current]);
       setKeptAll(readKept());
     }
-  }, [createDeck, notify]);
+  }, [createDeck, notify, store, showSaved]);
   const discardKept = useCallback((entry) => { dropKept(entry.id); setKeptAll(readKept()); }, []);
 
   // A share link's deck is saved on arrival, like any other new deck. Opening

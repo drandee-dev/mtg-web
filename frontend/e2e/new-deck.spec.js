@@ -298,13 +298,14 @@ test.describe("New deck screen", () => {
     expect(await keptStore(page)).toEqual([]);
   });
 
-  test("Discard drops the kept deck and leaves the build's step", async ({ page }) => {
+  test("a kept build goes back to the doors, so it cannot be built (and paid) twice; Discard drops it", async ({ page }) => {
     await refuseSaves(page);
     await buildWithSavesRefused(page);
+    await expect(heading(page)).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Build the 99/ })).toHaveCount(0);
     await page.getByRole("button", { name: "Discard" }).click();
     await expect(page.locator(".kept-decks")).toHaveCount(0);
     expect(await keptStore(page)).toEqual([]);
-    await expect(page.getByRole("button", { name: /^Build the 99/ })).toBeVisible();
   });
 
   test("a kept deck survives a reload and is offered on Decks home", async ({ page }) => {
