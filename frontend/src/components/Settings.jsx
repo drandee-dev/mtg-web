@@ -93,8 +93,8 @@ export default function Settings({ session, notify }) {
           <>
             <p className="muted small">
               {authMode === "signup"
-                ? "Create an account to sync your decks across devices."
-                : "Sign in to sync your decks across devices."}
+                ? "Create an account to open your decks on any device. Decks already saved in this browser can be copied to it from Decks."
+                : "Sign in to open your account's decks on any device. Decks saved in this browser can be copied to it from Decks."}
             </p>
             <label>Email</label>
             <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@example.com" />

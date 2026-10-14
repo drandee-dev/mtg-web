@@ -331,4 +331,31 @@ test.describe("Signed in, with decks saved in this browser", () => {
     await expect(offer(page)).toHaveCount(0);
     expect(cloud.decks.map((d) => d.name).sort()).toEqual(["Browser deck one", "Browser deck two", CLOUD_DECK.name].sort());
   });
+
+  test("leaving Decks home and coming back mid-copy does not start a second copy", async ({ page }) => {
+    const cloud = await openHome(page, []);
+    cloud.saveDelay = 1500;
+    await offer(page).click();
+    await navigateToTab(page, "Commanders");
+    await navigateToTab(page, "My Decks");
+    // Still the same copy: the button says so and does nothing.
+    await expect(page.getByRole("button", { name: "Copying…" })).toBeDisabled();
+    await expect(page.locator(".toast", { hasText: "Copied 2 decks to your account." })).toBeVisible({ timeout: 10000 });
+    expect(cloud.decks).toHaveLength(2);
+  });
+
+  test("a sign-out mid-copy stops it, and says the rest are still in this browser", async ({ page }) => {
+    await page.clock.install();
+    const cloud = await openHome(page, []);
+    cloud.saveDelay = 1500;
+    await offer(page).click();
+    // The token runs out and the refresh is refused while the first save is out.
+    cloud.auth = "revoked";
+    await page.clock.fastForward("02:00:00");
+    await wake(page);
+    await expect(page.locator(".toast", { hasText: "before the account changed. The rest are still in this browser." })).toBeVisible({ timeout: 20000 });
+    expect(cloud.decks.length).toBeLessThan(2);
+    expect(await hasSession(page)).toBe(false);
+    expect((await localDecks(page)).map((d) => d.name).sort()).toEqual(["Browser deck one", "Browser deck two"]);
+  });
 });

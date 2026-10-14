@@ -4,6 +4,8 @@ import {
   dismissColdStart,
   seedLocalDecks,
   clearLocalStorage,
+  deckMenuAction,
+  navigateToTab,
 } from "./fixtures/helpers.js";
 import { TEST_DECK_STORAGE } from "./fixtures/test-data.js";
 
@@ -86,6 +88,30 @@ test.describe("My Decks", () => {
 
     await expect(page).toHaveURL(new RegExp(`/decks/${TEST_DECK_STORAGE.id}$`));
     await expect(page.locator(".card-grid-container")).toBeVisible({ timeout: 10000 });
+  });
+
+  test("a browser deck already copied to an account stays marked through a rename and a delete undone", async ({ page }) => {
+    const mark = async () => (await page.evaluate(() => JSON.parse(localStorage.getItem("mtgweb:decks"))))
+      .find((d) => d.id === TEST_DECK_STORAGE.id)?.copiedTo;
+    await seedLocalDecks(page, [{ ...TEST_DECK_STORAGE, copiedTo: ["acct-1"] }]);
+
+    // The deck page's own saves rebuild the deck from its fields.
+    await page.goto(`/decks/${TEST_DECK_STORAGE.id}`);
+    await waitForAppReady(page);
+    await expect(page.locator(".card-grid-container")).toBeVisible({ timeout: 10000 });
+    page.once("dialog", (d) => d.accept("Renamed deck"));
+    await deckMenuAction(page, "Rename deck");
+    await expect(page.locator(".toast", { hasText: 'Renamed to "Renamed deck"' })).toBeVisible();
+    expect(await mark()).toEqual(["acct-1"]);
+
+    // Delete takes the record away; Undo puts it back from the list's copy.
+    await navigateToTab(page, "My Decks");
+    await page.getByRole("button", { name: /^Actions for / }).click();
+    await page.locator(".deck-card-menu-item", { hasText: "Delete" }).click();
+    expect(await mark()).toBeUndefined();
+    await page.locator(".toast .toast-action", { hasText: "Undo" }).click();
+    await expect(page.locator(".deck-card")).toHaveCount(1);
+    expect(await mark()).toEqual(["acct-1"]);
   });
 
   test("a tile's ⋯ menu closes on Escape and gives focus back to its button", async ({ page }) => {

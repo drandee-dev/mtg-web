@@ -496,13 +496,29 @@ export default function App() {
   // `decks` is the trigger, not an input: the marks a copy writes are read here.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const toCopy = useMemo(() => (accountListIn ? localDecksToCopy(userId) : []), [accountListIn, userId, decks]);
+  // Held here, not on Decks home: leaving the page and coming back mid-copy
+  // must not offer a second copy of the decks not yet marked.
+  const [copying, setCopying] = useState(false);
+  const copyingRef = useRef(false);
   const copyToAccount = useCallback(async () => {
-    const { copied, failed } = await copyLocalDecks(userId);
-    await refresh();
-    const n = (k) => `${k} deck${k !== 1 ? "s" : ""}`;
-    notify(failed
-      ? `Copied ${n(copied)}. ${n(failed)} could not be copied; try again.`
-      : `Copied ${n(copied)} to your account.`);
+    if (copyingRef.current) return;
+    copyingRef.current = true;
+    setCopying(true);
+    try {
+      const { copied, failed } = await copyLocalDecks(userId, () => userIdRef.current === userId);
+      const n = (k) => `${k} deck${k !== 1 ? "s" : ""}`;
+      if (userIdRef.current !== userId) {
+        notify(`Copied ${n(copied)} before the account changed. The rest are still in this browser.`);
+        return;
+      }
+      await refresh();
+      notify(failed
+        ? `Copied ${n(copied)}. ${n(failed)} could not be copied; try again.`
+        : `Copied ${n(copied)} to your account.`);
+    } finally {
+      copyingRef.current = false;
+      setCopying(false);
+    }
   }, [userId, refresh, notify]);
 
   // The address names the deck and the editor follows it. Opening a deck from
@@ -686,7 +702,8 @@ export default function App() {
           // address is this deck's it loads at once and reads its draft then.
           if (draft) saveDraft(doomed.id, draft);
           try {
-            await saveDeck({ id: doomed.id, name: doomed.name, format: doomed.format, decklist_text: doomed.decklist_text });
+            // copiedTo: a browser deck already copied to an account stays copied.
+            await saveDeck({ id: doomed.id, name: doomed.name, format: doomed.format, decklist_text: doomed.decklist_text, copiedTo: doomed.copiedTo });
             notify(`Restored "${doomed.name}".`);
           } catch {
             if (draft) clearDraft(doomed.id);
@@ -920,6 +937,7 @@ export default function App() {
             onOpenCommander={setCommanderSlug}
             toCopy={toCopy.length}
             onCopyToAccount={copyToAccount}
+            copying={copying}
           />
         )}
         {tab === "commanders" && (

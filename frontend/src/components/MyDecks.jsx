@@ -158,7 +158,7 @@ function TeaserTile({ entry, onOpen }) {
   );
 }
 
-export default function MyDecks({ decks, signedIn, onSave, onDelete, onOpen, onPlaytest, onNewDeck, notify, setTab, onOpenAccount, onOpenCommander, toCopy = 0, onCopyToAccount }) {
+export default function MyDecks({ decks, signedIn, onSave, onDelete, onOpen, onPlaytest, onNewDeck, notify, setTab, onOpenAccount, onOpenCommander, toCopy = 0, onCopyToAccount, copying = false }) {
   const [syncNudgeDismissed, setSyncNudgeDismissed] = useState(
     () => { try { return localStorage.getItem("mtgweb:syncnudge") === "1"; } catch { return true; } }
   );
@@ -166,11 +166,6 @@ export default function MyDecks({ decks, signedIn, onSave, onDelete, onOpen, onP
   function dismissSyncNudge() {
     try { localStorage.setItem("mtgweb:syncnudge", "1"); } catch { /* best-effort */ }
     setSyncNudgeDismissed(true);
-  }
-  const [copying, setCopying] = useState(false);
-  async function copy() {
-    setCopying(true);
-    try { await onCopyToAccount(); } finally { setCopying(false); }
   }
   const [fetchedMeta, setFetchedMeta] = useState({});
   // Most recently edited deck, for the resume band. Sorts a copy: decks is a
@@ -272,7 +267,7 @@ export default function MyDecks({ decks, signedIn, onSave, onDelete, onOpen, onP
           <span className="dh-notice-text">
             {toCopy === 1 ? "1 deck is" : `${toCopy} decks are`} saved in this browser and not in your account.
           </span>
-          <button className="primary" onClick={copy} disabled={copying}>
+          <button className="primary" onClick={onCopyToAccount} disabled={copying}>
             {copying ? "Copying…" : "Copy to my account"}
           </button>
         </div>

@@ -3,7 +3,8 @@
 //     or the user isn't signed in. Export/Import moves decks between devices manually.
 //   - supabaseStore: cloud-synced per account, so the same decks appear on every device.
 //
-// A deck is { id, name, format, decklist_text, updated_at }.
+// A deck is { id, name, format, decklist_text, updated_at }. A local deck may
+// also carry `copiedTo` (see copyLocalDecks), which a local save keeps.
 
 import { supabase } from "./supabase";
 
@@ -31,8 +32,10 @@ const localStore = {
     const decks = await this.list();
     const now = new Date().toISOString();
     const id = deck.id || uid();
-    const next = { ...deck, id, updated_at: now };
     const idx = decks.findIndex((d) => d.id === id);
+    // Callers save { id, name, format, decklist_text }; the copy marks are the
+    // store's, so an edit does not make a copied deck look uncopied.
+    const next = { copiedTo: decks[idx]?.copiedTo, ...deck, id, updated_at: now };
     if (idx >= 0) decks[idx] = next;
     else decks.push(next);
     localStorage.setItem(LOCAL_KEY, JSON.stringify(decks));
@@ -92,10 +95,13 @@ export function localDecksToCopy(userId) {
   return userId ? readLocal().filter((d) => !(d.copiedTo || []).includes(userId)) : [];
 }
 
-export async function copyLocalDecks(userId) {
+// `stillSignedIn` is asked before each deck: a copy started by one account
+// stops when that account signs out or another signs in.
+export async function copyLocalDecks(userId, stillSignedIn = () => true) {
   const cloud = supabaseStore(userId);
   let copied = 0, failed = 0;
   for (const deck of localDecksToCopy(userId)) {
+    if (!stillSignedIn()) break;
     try {
       await cloud.save({ name: deck.name, format: deck.format, decklist_text: deck.decklist_text });
     } catch {
