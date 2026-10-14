@@ -2038,6 +2038,9 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
   padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--text-secondary);
 }
 .dh-notice-x:hover { background: var(--hover); color: var(--text); }
+/* Decks whose save failed (KeptDecks), on Decks home and above the New deck steps. */
+.kept-decks { display: flex; flex-direction: column; gap: 8px; }
+.nd-kept { max-width: 720px; margin: 24px auto 0; padding: 0 16px; }
 /* The band is art under a dark wash in either theme, so its text reads the
    dark values (as the bars do). */
 .dh-band {

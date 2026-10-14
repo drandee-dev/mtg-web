@@ -4,6 +4,7 @@ import { commanderNamesClean } from "../lib/deckParser";
 import { useCardImage } from "../lib/hooks";
 import { buildPath } from "../lib/routes";
 import ExportDeckModal from "./ExportDeckModal";
+import KeptDecks from "./KeptDecks";
 import NavLink from "./layout/NavLink";
 
 const WUBRG_COLORS = ["W", "U", "B", "R", "G"];
@@ -158,7 +159,7 @@ function TeaserTile({ entry, onOpen }) {
   );
 }
 
-export default function MyDecks({ decks, signedIn, onSave, onDelete, onOpen, onPlaytest, onNewDeck, notify, setTab, onOpenAccount, onOpenCommander, toCopy = 0, onCopyToAccount, copying = false }) {
+export default function MyDecks({ decks, signedIn, onSave, onDelete, onOpen, onPlaytest, onNewDeck, notify, setTab, onOpenAccount, onOpenCommander, toCopy = 0, onCopyToAccount, copying = false, kept, onRetryKept, onDiscardKept }) {
   const [syncNudgeDismissed, setSyncNudgeDismissed] = useState(
     () => { try { return localStorage.getItem("mtgweb:syncnudge") === "1"; } catch { return true; } }
   );
@@ -261,6 +262,8 @@ export default function MyDecks({ decks, signedIn, onSave, onDelete, onOpen, onP
   return (
     <div className="dh">
       <ExportDeckModal deck={exportModalDeck} onClose={() => setExportModalDeck(null)} notify={notify} />
+
+      <KeptDecks kept={kept} onRetry={onRetryKept} onDiscard={onDiscardKept} />
 
       {toCopy > 0 && (
         <div className="dh-notice" role="status">

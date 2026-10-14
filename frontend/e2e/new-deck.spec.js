@@ -267,10 +267,10 @@ test.describe("New deck screen", () => {
     await expect(page).toHaveURL(atPath("/"));
   });
 
-  // A built deck was paid for. If its save is turned down it stays on this
-  // screen to be tried again. (Keeping it past leaving the screen is its own
-  // job: the build plan's "Job 2.2, shipped".)
-  const unsavedYet = (page) => page.getByRole("alert").filter({ hasText: `“${TEST_COMMANDER}” isn’t saved yet` });
+  // A built deck was paid for. If its save is turned down it is kept in this
+  // browser, for the account that built it, until it saves or is discarded.
+  const unsavedYet = (page) => page.locator(".kept-decks [role=status]").filter({ hasText: `“${TEST_COMMANDER}” isn’t saved yet` });
+  const keptStore = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("mtgweb:kept") || "[]"));
   async function buildWithSavesRefused(page) {
     await openNew(page);
     await pickAtraxa(page);
@@ -280,10 +280,11 @@ test.describe("New deck screen", () => {
     expect(await savedDecks(page)).toEqual([]);
   }
 
-  test("a built deck the save turns down is kept on screen and saved on a second try, without building again", async ({ page }) => {
+  test("a built deck the save turns down is kept and saved on a second try, without building again", async ({ page }) => {
     const allow = await refuseSaves(page);
     const builds = watchBuilds(page);
     await buildWithSavesRefused(page);
+    await expect(page.locator(".toast", { hasText: "It's kept in this browser" })).toBeVisible();
     const built = builds.length;
     expect(builds.filter((b) => b.endsWith("skeleton")).length).toBe(1);
 
@@ -292,16 +293,80 @@ test.describe("New deck screen", () => {
     await expect(page).toHaveURL(onADeck);
     await expect(deckTitle(page)).toContainText("Atraxa");
     expect((await savedDecks(page))[0].decklist_text).toContain("1 Deepglow Skate");
-    // The deck that was paid for is the one saved.
+    // The deck that was paid for is the one saved, and it is no longer kept.
     expect(builds.length).toBe(built);
+    expect(await keptStore(page)).toEqual([]);
   });
 
-  test("Discard returns to where the build was started", async ({ page }) => {
+  test("a kept build goes back to the doors, so it cannot be built (and paid) twice; Discard drops it", async ({ page }) => {
     await refuseSaves(page);
     await buildWithSavesRefused(page);
+    await expect(heading(page)).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Build the 99/ })).toHaveCount(0);
     await page.getByRole("button", { name: "Discard" }).click();
-    await expect(page.getByRole("alert")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: /^Build the 99/ })).toBeVisible();
+    await expect(page.locator(".kept-decks")).toHaveCount(0);
+    expect(await keptStore(page)).toEqual([]);
+  });
+
+  test("a kept deck survives a reload and is offered on Decks home", async ({ page }) => {
+    await refuseSaves(page);
+    await buildWithSavesRefused(page);
+    await page.goto("/");
+    await waitForAppReady(page);
+    await expect(unsavedYet(page)).toBeVisible();
+    // The init script refuses again after the reload; let this try through.
+    await page.evaluate(() => window.__allowSaves());
+    await page.getByRole("button", { name: "Try again" }).click();
+    await expect(page).toHaveURL(onADeck);
+    expect((await savedDecks(page))[0].decklist_text).toContain("1 Deepglow Skate");
+    expect(await keptStore(page)).toEqual([]);
+  });
+
+  test("a build whose save fails after New deck was pressed shows on the screen already open, and outlives the next deck", async ({ page }) => {
+    const allow = await refuseSaves(page);
+    // Hold the build at its last request, so New deck can be pressed mid-build.
+    let release;
+    const held = new Promise((r) => { release = r; });
+    let reached;
+    const atFills = new Promise((r) => { reached = r; });
+    await page.route("**/api/deck/ai/fills", async (route) => { reached(); await held; await route.fallback(); });
+    await openNew(page);
+    await pickAtraxa(page);
+    await page.getByRole("button", { name: /^Build the 99/ }).click();
+    await atFills;
+    await openNewDeck(page);
+    await expect(heading(page)).toBeVisible();
+    release();
+    await expect(unsavedYet(page)).toBeVisible({ timeout: 15000 });
+    await expect(page).toHaveURL(atPath("/new"));
+
+    // The next deck's save fails too: a blank deck has nothing to keep.
+    await door(page, "Blank deck").click();
+    await expect(page.locator(".toast", { hasText: "Couldn't save the deck" })).toBeVisible();
+    await expect(unsavedYet(page)).toHaveCount(1);
+    // And the next one saves: the kept deck is still there afterwards.
+    await allow();
+    await door(page, "Blank deck").click();
+    await expect(page).toHaveURL(onADeck);
+    await openNewDeck(page);
+    await expect(unsavedYet(page)).toHaveCount(1);
+    expect((await keptStore(page)).length).toBe(1);
+  });
+
+  test("when the browser's storage is full, the toast does not say the deck is kept", async ({ page }) => {
+    await page.addInitScript(() => {
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key === "mtgweb:decks" || key === "mtgweb:kept") throw new Error("storage is full");
+        return setItem.call(this, key, value);
+      };
+    });
+    await openNew(page);
+    await pickAtraxa(page);
+    await page.getByRole("button", { name: /^Build the 99/ }).click();
+    await expect(page.locator(".toast", { hasText: "It could not be kept either" })).toBeVisible({ timeout: 15000 });
+    await expect(page.locator(".toast", { hasText: "It's kept" })).toHaveCount(0);
+    await expect(page.locator(".kept-decks")).toHaveCount(0);
   });
 });
 
