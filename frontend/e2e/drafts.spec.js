@@ -186,7 +186,7 @@ test.describe("Deck drafts", () => {
 
     await navigateToTab(page, "My Decks");
     const tile = page.locator(".deck-card", { hasText: TEST_DECK_STORAGE.name });
-    await tile.getByRole("button", { name: "Deck actions" }).click();
+    await tile.getByRole("button", { name: /^Actions for / }).click();
     await tile.locator(".deck-card-menu-item", { hasText: "Delete" }).click();
     await expect(tile).toHaveCount(0);
     expect(await draftOf(page, TEST_DECK_STORAGE.id)).toBeNull();

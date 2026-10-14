@@ -3,7 +3,8 @@
 //     or the user isn't signed in. Export/Import moves decks between devices manually.
 //   - supabaseStore: cloud-synced per account, so the same decks appear on every device.
 //
-// A deck is { id, name, format, decklist_text, updated_at }.
+// A deck is { id, name, format, decklist_text, updated_at }. A local deck may
+// also carry `copiedTo` (see copyLocalDecks), which a local save keeps.
 
 import { supabase } from "./supabase";
 
@@ -13,22 +14,28 @@ function uid() {
   return (crypto?.randomUUID?.() || `id_${Date.now()}_${Math.random().toString(36).slice(2)}`);
 }
 
+function readLocal() {
+  try {
+    const raw = localStorage.getItem(LOCAL_KEY);
+    const decks = raw ? JSON.parse(raw) : [];
+    return decks.sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
+  } catch {
+    return [];
+  }
+}
+
 const localStore = {
   async list() {
-    try {
-      const raw = localStorage.getItem(LOCAL_KEY);
-      const decks = raw ? JSON.parse(raw) : [];
-      return decks.sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
-    } catch {
-      return [];
-    }
+    return readLocal();
   },
   async save(deck) {
     const decks = await this.list();
     const now = new Date().toISOString();
     const id = deck.id || uid();
-    const next = { ...deck, id, updated_at: now };
     const idx = decks.findIndex((d) => d.id === id);
+    // Callers save { id, name, format, decklist_text }; the copy marks are the
+    // store's, so an edit does not make a copied deck look uncopied.
+    const next = { copiedTo: decks[idx]?.copiedTo, ...deck, id, updated_at: now };
     if (idx >= 0) decks[idx] = next;
     else decks.push(next);
     localStorage.setItem(LOCAL_KEY, JSON.stringify(decks));
@@ -77,6 +84,39 @@ function supabaseStore(userId) {
 // Pick the active backend. Cloud when signed in; local otherwise.
 export function makeStore(userId) {
   return userId && supabase ? supabaseStore(userId) : localStore;
+}
+
+// Signing in shows the account's decks, so decks made in this browser while
+// signed out drop out of sight. These two copy them over. A copied deck is
+// marked with the account it went to (`copiedTo`) instead of reusing its id
+// in the cloud: an id another account already copied, or one that is not a
+// UUID, would be refused. The browser's own copies are left as they were.
+export function localDecksToCopy(userId) {
+  return userId ? readLocal().filter((d) => !(d.copiedTo || []).includes(userId)) : [];
+}
+
+// `stillSignedIn` is asked before each deck: a copy started by one account
+// stops when that account signs out or another signs in.
+export async function copyLocalDecks(userId, stillSignedIn = () => true) {
+  const cloud = supabaseStore(userId);
+  let copied = 0, failed = 0;
+  for (const deck of localDecksToCopy(userId)) {
+    if (!stillSignedIn()) break;
+    try {
+      await cloud.save({ name: deck.name, format: deck.format, decklist_text: deck.decklist_text });
+    } catch {
+      failed++;
+      continue;
+    }
+    copied++;
+    // ponytail: a mark that cannot be written (storage full) leaves the deck
+    // offered again, and a second press copies it twice.
+    try {
+      const all = readLocal().map((d) => (d.id === deck.id ? { ...d, copiedTo: [...(d.copiedTo || []), userId] } : d));
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(all));
+    } catch { /* see above */ }
+  }
+  return { copied, failed };
 }
 
 export { uid };

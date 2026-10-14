@@ -254,7 +254,7 @@ test.describe("Deck addresses", () => {
 
     await navigateToTab(page, "My Decks");
     const tile = page.locator(".deck-card", { hasText: DECK_A.name });
-    await tile.getByRole("button", { name: "Deck actions" }).click();
+    await tile.getByRole("button", { name: /^Actions for / }).click();
     await tile.locator(".deck-card-menu-item", { hasText: "Delete" }).click();
     await expect(tile).toHaveCount(0);
 
@@ -275,7 +275,7 @@ test.describe("Deck addresses", () => {
     await openFromDecks(page, DECK_A.name);
     await navigateToTab(page, "My Decks");
     const tile = page.locator(".deck-card", { hasText: DECK_A.name });
-    await tile.getByRole("button", { name: "Deck actions" }).click();
+    await tile.getByRole("button", { name: /^Actions for / }).click();
     await tile.locator(".deck-card-menu-item", { hasText: "Delete" }).click();
     await expect(tile).toHaveCount(0);
 
@@ -296,7 +296,7 @@ test.describe("Deck addresses", () => {
     await expect(unsavedMark(page)).toHaveText("Unsaved");
     await navigateToTab(page, "My Decks");
     const tile = page.locator(".deck-card", { hasText: DECK_A.name });
-    await tile.getByRole("button", { name: "Deck actions" }).click();
+    await tile.getByRole("button", { name: /^Actions for / }).click();
     await tile.locator(".deck-card-menu-item", { hasText: "Delete" }).click();
     await expect(tile).toHaveCount(0);
 
@@ -319,7 +319,7 @@ test.describe("Deck addresses", () => {
     await openFromDecks(page, DECK_A.name);
     await navigateToTab(page, "My Decks");
     const tile = page.locator(".deck-card", { hasText: DECK_A.name });
-    await tile.getByRole("button", { name: "Deck actions" }).click();
+    await tile.getByRole("button", { name: /^Actions for / }).click();
     await tile.locator(".deck-card-menu-item", { hasText: "Rename" }).click();
     await expect(page.locator(".deck-card", { hasText: "Renamed in the list" })).toHaveCount(1);
 

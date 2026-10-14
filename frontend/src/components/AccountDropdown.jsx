@@ -159,7 +159,7 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--accent-2)" strokeWidth="1.4" strokeLinecap="round" style={{ flex: "none", marginTop: "1px" }}><path d="M4 11.5a3.5 3.5 0 1 1 .5-6.97A4 4 0 1 1 11.5 9H5"/><path d="M5 11.5l-2 2 2 2"/></svg>
               <div>
                 <div className="account-callout-title account-callout-title-blue">Sign in to enable cloud sync</div>
-                <div className="account-callout-text">Your decks are saved locally. Sign in to back them up and access from any device.</div>
+                <div className="account-callout-text">Your decks are saved in this browser. Sign in, then copy them to your account from Decks to open them on any device.</div>
               </div>
             </div>
           ) : (

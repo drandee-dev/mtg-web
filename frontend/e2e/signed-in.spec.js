@@ -246,7 +246,7 @@ test.describe("Signed in", () => {
     await navigateToTab(page, "My Decks");
     cloud.deleteDelay = 1500;
     const tile = page.locator(".deck-card", { hasText: CLOUD_DECK.name });
-    await tile.getByRole("button", { name: "Deck actions" }).click();
+    await tile.getByRole("button", { name: /^Actions for / }).click();
     await tile.locator(".deck-card-menu-item", { hasText: "Delete" }).click();
     // Back on the deck before the delete has returned: it is still there.
     await page.goBack();
@@ -268,5 +268,94 @@ test.describe("Signed in", () => {
     await expect(unsavedMark(page)).toHaveText("Unsaved");
     expect(cloud.decks.map((d) => d.id)).toEqual([CLOUD_DECK.id]);
     expect((await draftOf(page, CLOUD_DECK.id)).decklist_text).toContain("Lightning Bolt");
+  });
+});
+
+// Decks made in this browser while signed out, then a sign-in: the account's
+// list replaces them on screen, so Decks home offers to copy them over.
+test.describe("Signed in, with decks saved in this browser", () => {
+  test.skip(!cloudOrigin, "no frontend/.env, so this build has no cloud mode");
+
+  const LOCAL = [
+    { ...TEST_DECK_STORAGE, id: "local-1", name: "Browser deck one", updated_at: "2026-01-03T00:00:00.000Z" },
+    { ...TEST_DECK_STORAGE, id: "local-2", name: "Browser deck two", updated_at: "2026-01-04T00:00:00.000Z" },
+  ];
+  const offer = (page) => page.getByRole("button", { name: "Copy to my account" });
+  const localDecks = (page) => page.evaluate(() => JSON.parse(localStorage.getItem("mtgweb:decks")));
+
+  async function openHome(page, cloudDecks) {
+    const cloud = await fakeCloud(page, cloudDecks);
+    await page.addInitScript((d) => {
+      if (!localStorage.getItem("mtgweb:decks")) localStorage.setItem("mtgweb:decks", JSON.stringify(d));
+    }, LOCAL);
+    await page.goto("/");
+    await waitForAppReady(page);
+    return cloud;
+  }
+
+  test("an empty account is offered the browser's decks, copies them once, and the browser keeps its own", async ({ page }) => {
+    const cloud = await openHome(page, []);
+    await expect(page.locator("main")).toContainText("2 decks are saved in this browser and not in your account");
+
+    await offer(page).click();
+    await expect(page.locator(".toast", { hasText: "Copied 2 decks to your account." })).toBeVisible();
+    await expect(offer(page)).toHaveCount(0);
+    expect(cloud.decks.map((d) => d.name).sort()).toEqual(["Browser deck one", "Browser deck two"]);
+    // Fresh ids in the account, not the browser's: an id another account
+    // copied, or one that is not a UUID, would be refused.
+    expect(cloud.decks.some((d) => d.id.startsWith("local-"))).toBe(false);
+    await expect(page.locator(".deck-card")).toHaveCount(2);
+
+    // The marks outlive a reload: nothing is offered twice.
+    await page.reload();
+    await waitForAppReady(page);
+    await expect(page.locator(".deck-card")).toHaveCount(2);
+    await expect(offer(page)).toHaveCount(0);
+    expect(cloud.decks).toHaveLength(2);
+    const kept = await localDecks(page);
+    expect(kept.map((d) => d.name).sort()).toEqual(["Browser deck one", "Browser deck two"]);
+    expect(kept.every((d) => d.copiedTo?.length === 1)).toBe(true);
+  });
+
+  test("a deck whose copy fails stays offered, and a second press copies only that one", async ({ page }) => {
+    const cloud = await openHome(page, [CLOUD_DECK]);
+    await expect(page.locator(".deck-card")).toHaveCount(1);
+    cloud.failSaves = 1;
+
+    await offer(page).click();
+    await expect(page.locator(".toast", { hasText: "Copied 1 deck. 1 deck could not be copied; try again." })).toBeVisible();
+    await expect(page.locator("main")).toContainText("1 deck is saved in this browser and not in your account");
+
+    await offer(page).click();
+    await expect(page.locator(".toast", { hasText: "Copied 1 deck to your account." })).toBeVisible();
+    await expect(offer(page)).toHaveCount(0);
+    expect(cloud.decks.map((d) => d.name).sort()).toEqual(["Browser deck one", "Browser deck two", CLOUD_DECK.name].sort());
+  });
+
+  test("leaving Decks home and coming back mid-copy does not start a second copy", async ({ page }) => {
+    const cloud = await openHome(page, []);
+    cloud.saveDelay = 1500;
+    await offer(page).click();
+    await navigateToTab(page, "Commanders");
+    await navigateToTab(page, "My Decks");
+    // Still the same copy: the button says so and does nothing.
+    await expect(page.getByRole("button", { name: "Copying…" })).toBeDisabled();
+    await expect(page.locator(".toast", { hasText: "Copied 2 decks to your account." })).toBeVisible({ timeout: 10000 });
+    expect(cloud.decks).toHaveLength(2);
+  });
+
+  test("a sign-out mid-copy stops it, and says the rest are still in this browser", async ({ page }) => {
+    await page.clock.install();
+    const cloud = await openHome(page, []);
+    cloud.saveDelay = 1500;
+    await offer(page).click();
+    // The token runs out and the refresh is refused while the first save is out.
+    cloud.auth = "revoked";
+    await page.clock.fastForward("02:00:00");
+    await wake(page);
+    await expect(page.locator(".toast", { hasText: "before the account changed. The rest are still in this browser." })).toBeVisible({ timeout: 20000 });
+    expect(cloud.decks.length).toBeLessThan(2);
+    expect(await hasSession(page)).toBe(false);
+    expect((await localDecks(page)).map((d) => d.name).sort()).toEqual(["Browser deck one", "Browser deck two"]);
   });
 });
