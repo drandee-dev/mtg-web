@@ -1,10 +1,30 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { api, disassembleDecklist, getCardImage, FORMATS } from "../lib/api";
+import { disassembleDecklist, getCardImage, FORMATS } from "../lib/api";
 import { commanderNamesClean } from "../lib/deckParser";
+import { useCardImage } from "../lib/hooks";
+import { buildPath } from "../lib/routes";
 import ExportDeckModal from "./ExportDeckModal";
-import NewUserLanding, { UrlImportInline, CommanderTeaser } from "./Landing";
+import NavLink from "./layout/NavLink";
 
 const WUBRG_COLORS = ["W", "U", "B", "R", "G"];
+const FORMAT_LABEL = Object.fromEntries(FORMATS);
+// Search, filter and sort earn their room once the grid runs past two rows.
+const SEARCH_FROM = 9;
+
+// Command Tower's art.
+const WELCOME_ART = "https://cards.scryfall.io/art_crop/front/1/a/1ac6cb62-45da-4e9a-84c6-09e6eacf0664.jpg";
+
+// A curated five rather than the top five by EDHREC rank, because ranking them
+// means loading the whole commander directory (~505KB over the wire). Each
+// tile resolves its own art through the cached per-card lookup. Slugs checked
+// against the directory, so none of these dead-end.
+const TEASER_COMMANDERS = [
+  { name: "Atraxa, Praetors' Voice", slug: "atraxa-praetors-voice", tag: "Superfriends" },
+  { name: "Krenko, Mob Boss", slug: "krenko-mob-boss", tag: "Goblin tokens" },
+  { name: "Muldrotha, the Gravetide", slug: "muldrotha-the-gravetide", tag: "Graveyard value" },
+  { name: "Isshin, Two Heavens as One", slug: "isshin-two-heavens-as-one", tag: "Combat triggers" },
+  { name: "Miirym, Sentinel Wyrm", slug: "miirym-sentinel-wyrm", tag: "Dragon tribal" },
+];
 
 // Commander art + color identity never change for a given card, so cache them in
 // localStorage keyed by commander name — decks paint instantly on return visits.
@@ -18,12 +38,25 @@ function writeMetaCache(cache) {
   try { localStorage.setItem(META_CACHE_KEY, JSON.stringify(cache)); } catch { /* quota — skip */ }
 }
 
-
-
 function deckCardCount(text) {
   return (text || "").split("\n")
     .filter((l) => /^\s*\d/.test(l) && !/^\s*commander\s*$/i.test(l))
     .reduce((s, l) => s + (parseInt(l.trim(), 10) || 0), 0);
+}
+
+// "100 cards", or how far off it is: a Commander deck is exactly 100, a
+// constructed deck at least 60.
+function cardsFact(deck) {
+  const count = deckCardCount(deck.decklist_text);
+  const isCmdr = !deck.format || deck.format === "commander" || deck.format === "paupercommander";
+  const target = isCmdr ? 100 : 60;
+  const off = isCmdr && count > target ? `, ${count - target} over`
+    : count < target ? `, ${target - count} short` : "";
+  return { text: `${count} cards${off}`, off: Boolean(off) };
+}
+
+function formatLabel(deck) {
+  return FORMAT_LABEL[deck.format || "commander"] || deck.format;
 }
 
 function relativeTime(iso) {
@@ -31,7 +64,7 @@ function relativeTime(iso) {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "";
   const secs = Math.max(0, (Date.now() - then) / 1000);
-  if (secs < 60) return "Just now";
+  if (secs < 60) return "just now";
   const mins = Math.floor(secs / 60);
   if (mins < 60) return `${mins} min${mins !== 1 ? "s" : ""} ago`;
   const hrs = Math.floor(mins / 60);
@@ -44,7 +77,9 @@ function relativeTime(iso) {
   return `${months} month${months !== 1 ? "s" : ""} ago`;
 }
 
-function DeckHero({ deck, meta, onOpen, onPlaytest, onDelete, onRename, onClone, onExport }) {
+const deckHref = (deck) => buildPath({ tab: "deck", deckId: deck.id });
+
+function DeckTile({ deck, meta, onOpen, onPlaytest, onDelete, onRename, onClone, onExport }) {
   const art = meta?.art_crop;
   const colors = meta?.color_identity || [];
   // Equal-width segment per identity color (colorless commanders get a C segment).
@@ -55,69 +90,75 @@ function DeckHero({ deck, meta, onOpen, onPlaytest, onDelete, onRename, onClone,
   useEffect(() => {
     if (!menuOpen) return;
     function handler(e) { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); }
+    function onKey(e) {
+      if (e.key !== "Escape") return;
+      setMenuOpen(false);
+      menuRef.current?.querySelector(".deck-card-menu-btn")?.focus();
+    }
     document.addEventListener("pointerdown", handler);
-    return () => document.removeEventListener("pointerdown", handler);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", handler);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [menuOpen]);
 
-  const isCmdr = deck.format === "commander" || deck.format === "paupercommander";
-  const count = deckCardCount(deck.decklist_text);
-  const total = isCmdr ? 100 : 60;
-  const when = relativeTime(deck.updated_at);
-  const fmtLabel = (deck.format || "commander").replace(/^\w/, (c) => c.toUpperCase());
+  const cards = cardsFact(deck);
+  const act = (fn) => () => { setMenuOpen(false); fn(deck); };
 
   return (
-    <div className="deck-card">
-      {/* Art */}
-      <div className="deck-card-art" onClick={() => onOpen(deck)} role="button" tabIndex={0}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(deck); } }}
-        aria-label={`Open ${deck.name}`}>
-        {art ? <img src={art} alt="" loading="lazy" /> : <div className="deck-card-art-ph" />}
-        <div className="deck-card-art-gradient" />
-      </div>
-      {/* WUBRG color identity bar (Archidekt-style) */}
-      {barColors.length > 0 && (
-        <div className="deck-card-colorbar" aria-label={`Colors: ${barColors.join(", ")}`}>
-          {barColors.map((c) => (
-            <span key={c} className={`deck-card-colorseg colorseg-${c}`}>{c}</span>
-          ))}
-        </div>
-      )}
-      {/* Body */}
-      <div className="deck-card-body">
-        <div className="deck-card-name">{deck.name}</div>
-        <div className="deck-card-row">
-          <span className="deck-card-format">{fmtLabel}</span>
-          <span className="deck-card-count">{count}/{total}</span>
-        </div>
-        <div className="deck-card-row">
-          <span className="deck-card-time">
-            {when === "Just now" && <span className="deck-card-dot" />}
-            {when}
+    <div className={`deck-card${menuOpen ? " deck-card-menu-open" : ""}`}>
+      <NavLink href={deckHref(deck)} onNavigate={() => onOpen(deck)} className="deck-card-link">
+        <span className="deck-card-art">
+          {art ? <img src={art} alt="" loading="lazy" /> : <span className="deck-card-art-ph" />}
+        </span>
+        {barColors.length > 0 && (
+          <span className="deck-card-colorbar" role="img" aria-label={`Colors: ${barColors.join(", ")}`}>
+            {barColors.map((c) => <span key={c} className={`deck-card-colorseg colorseg-${c}`} />)}
           </span>
-          <div className="deck-card-menu-wrap" ref={menuRef}>
-            <button className="deck-card-menu-btn" onClick={() => setMenuOpen((o) => !o)} aria-label="Deck actions">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="3.5" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="12.5" cy="8" r="1.3" fill="currentColor"/></svg>
-            </button>
-            {menuOpen && (
-              <div className="deck-card-menu">
-                <button className="deck-card-menu-item" onClick={() => { setMenuOpen(false); onRename(deck); }}>Rename</button>
-                <button className="deck-card-menu-item" onClick={() => { setMenuOpen(false); onClone(deck); }}>Clone deck</button>
-                <div className="deck-card-menu-divider" />
-                <button className="deck-card-menu-item" onClick={() => { setMenuOpen(false); onExport(deck); }}>Export…</button>
-                <button className="deck-card-menu-item" onClick={() => { setMenuOpen(false); onPlaytest?.(deck); }}>Playtest</button>
-                <div className="deck-card-menu-divider" />
-                <button className="deck-card-menu-item deck-card-menu-danger" onClick={() => { setMenuOpen(false); onDelete(deck.id); }}>Delete</button>
-              </div>
-            )}
+        )}
+        <span className="deck-card-body">
+          <span className="deck-card-name">{deck.name || "Untitled deck"}</span>
+          <span className="deck-card-facts">
+            {formatLabel(deck)}, <span className={cards.off ? "dh-off" : undefined}>{cards.text}</span>
+          </span>
+          {deck.updated_at && <span className="deck-card-time">Edited {relativeTime(deck.updated_at)}</span>}
+        </span>
+      </NavLink>
+      <div className="deck-card-menu-wrap" ref={menuRef}>
+        <button className="deck-card-menu-btn" onClick={() => setMenuOpen((o) => !o)}
+          aria-label={`Actions for ${deck.name || "Untitled deck"}`} aria-expanded={menuOpen}>
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"/><circle cx="8" cy="8" r="1.3"/><circle cx="12.5" cy="8" r="1.3"/></svg>
+        </button>
+        {menuOpen && (
+          <div className="deck-card-menu">
+            <button className="deck-card-menu-item" onClick={act(onRename)}>Rename</button>
+            <button className="deck-card-menu-item" onClick={act(onClone)}>Clone deck</button>
+            <div className="deck-card-menu-divider" />
+            <button className="deck-card-menu-item" onClick={act(onExport)}>Export…</button>
+            <button className="deck-card-menu-item" onClick={act(onPlaytest)}>Playtest</button>
+            <div className="deck-card-menu-divider" />
+            <button className="deck-card-menu-item deck-card-menu-danger" onClick={act((d) => onDelete(d.id))}>Delete</button>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
 }
 
+function TeaserTile({ entry, onOpen }) {
+  const data = useCardImage(entry.name);
+  const img = data?.art_crop || data?.image || null;
+  return (
+    <NavLink href={buildPath({ tab: "commanders", slug: entry.slug })} onNavigate={() => onOpen(entry.slug)} className="teaser-tile">
+      <span className="teaser-tile-art">{img && <img src={img} alt="" loading="lazy" />}</span>
+      <span className="teaser-tile-name">{entry.name.split(",")[0]}</span>
+      <span className="teaser-tile-tag">{entry.tag}</span>
+    </NavLink>
+  );
+}
 
-export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOpen, onPlaytest, onNewDeck, onGuidedBuild, notify, setTab, onOpenAccount, onOpenCommander }) {
+export default function MyDecks({ decks, signedIn, onSave, onDelete, onOpen, onPlaytest, onNewDeck, notify, setTab, onOpenAccount, onOpenCommander, toCopy = 0, onCopyToAccount }) {
   const [syncNudgeDismissed, setSyncNudgeDismissed] = useState(
     () => { try { return localStorage.getItem("mtgweb:syncnudge") === "1"; } catch { return true; } }
   );
@@ -126,11 +167,11 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
     try { localStorage.setItem("mtgweb:syncnudge", "1"); } catch { /* best-effort */ }
     setSyncNudgeDismissed(true);
   }
-  const [importText, setImportText] = useState("");
-  const [importName, setImportName] = useState("");
-  const [importFormat, setImportFormat] = useState("commander");
-  const [busy, setBusy] = useState(false);
-  const [showImport, setShowImport] = useState(false);
+  const [copying, setCopying] = useState(false);
+  async function copy() {
+    setCopying(true);
+    try { await onCopyToAccount(); } finally { setCopying(false); }
+  }
   const [fetchedMeta, setFetchedMeta] = useState({});
   // Most recently edited deck, for the resume band. Sorts a copy: decks is a
   // prop and sorting it in place would reorder the caller's array.
@@ -188,67 +229,6 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
     return () => { cancelled = true; };
   }, [missing]);
 
-  async function doImport() {
-    if (!importText.trim()) return notify("Paste a decklist to import.");
-    setBusy(true);
-    try {
-      await onSave({
-        name: importName.trim() || "Imported deck",
-        format: importFormat,
-        decklist_text: importText,
-      });
-      setImportText("");
-      setImportName("");
-      setShowImport(false);
-      notify("Imported.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function doImportUrl(url) {
-    const trimmed = (url || "").trim();
-    if (!trimmed) return notify("Paste a deck URL to import.");
-    setBusy(true);
-    try {
-      const res = await api.importUrl(trimmed);
-      await onSave({
-        name: res.name || "Imported deck",
-        format: res.format || "commander",
-        decklist_text: res.decklist || "",
-      });
-      notify(`Imported from ${res.source || "URL"}.`);
-    } catch (e) {
-      notify(`Import failed: ${e.message}`);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function onImportFile(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const txt = String(reader.result);
-        if (file.name.endsWith(".json")) {
-          const d = JSON.parse(txt);
-          setImportText(d.decklist_text || "");
-          setImportName(d.name || file.name.replace(/\.json$/, ""));
-          if (d.format) setImportFormat(d.format);
-        } else {
-          setImportText(txt);
-          setImportName(file.name.replace(/\.[^.]+$/, ""));
-        }
-        setShowImport(true);
-      } catch (err) {
-        notify(`Could not read file: ${err.message}`);
-      }
-    };
-    reader.readAsText(file);
-  }
-
   async function rename(deck) {
     const name = prompt("Rename deck:", deck.name);
     if (name && name !== deck.name) await onSave({ ...deck, name });
@@ -262,192 +242,136 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
     notify("Deck cloned.");
   }
 
+  const searchable = decks.length >= SEARCH_FROM;
+  const shown = searchable ? decks.filter((d) => {
+    if (deckSearch && !d.name?.toLowerCase().includes(deckSearch.toLowerCase())) return false;
+    if (formatFilter !== "all" && d.format !== formatFilter) return false;
+    return true;
+  }) : decks;
+  const sorted = [...shown].sort((a, b) => {
+    let cmp = 0;
+    if (sortBy === "updated") cmp = (a.updated_at || "").localeCompare(b.updated_at || "");
+    else if (sortBy === "name") cmp = (a.name || "").localeCompare(b.name || "");
+    else if (sortBy === "format") cmp = (a.format || "").localeCompare(b.format || "");
+    return sortDir === "desc" ? -cmp : cmp;
+  });
+
+  // Hidden at one deck, where the band and the grid would show the same deck
+  // twice over. The page's main heading is the band's deck when it shows.
+  const resume = decks.length > 1 ? mostRecent : null;
+  const ListHeading = resume ? "h2" : "h1";
+  const resumeArt = resume ? deckMeta[resume.id]?.art_crop : null;
+  const resumeCards = resume ? cardsFact(resume) : null;
+
   return (
-    <div>
+    <div className="dh">
       <ExportDeckModal deck={exportModalDeck} onClose={() => setExportModalDeck(null)} notify={notify} />
 
-      {/* Import panel (collapsible) */}
-      {showImport && (
-        <div className="panel" style={{ marginBottom: "1rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: ".75rem", marginBottom: ".5rem" }}>
-            {decks.length === 0 && (
-              <button className="ghost small" onClick={() => setShowImport(false)} style={{ padding: ".2rem .6rem", fontSize: ".8rem", flexShrink: 0 }}>← Back</button>
-            )}
-            <h3 style={{ margin: 0 }}>Import a deck</h3>
-          </div>
-          <p className="muted small">Paste from Archidekt / Moxfield / Arena, or load a file.</p>
-          <div className="row">
-            <input placeholder="Deck name" value={importName} onChange={(e) => setImportName(e.target.value)} style={{ flex: "1 1 200px" }} />
-            <select value={importFormat} onChange={(e) => setImportFormat(e.target.value)} style={{ width: "auto" }}>
-              {FORMATS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-            </select>
-          </div>
-          <textarea value={importText} onChange={(e) => setImportText(e.target.value)} placeholder={"1 Sol Ring\n…"} />
-          <div className="row" style={{ marginTop: ".5rem" }}>
-            <button className="primary" onClick={doImport} disabled={busy}>Save</button>
-            <label style={{ margin: 0, cursor: "pointer" }}>
-              <input type="file" accept=".txt,.json,.csv" onChange={onImportFile} style={{ display: "none" }} />
-              <span className="badge" style={{ cursor: "pointer" }}>Load file…</span>
-            </label>
-            <button className="ghost small" onClick={() => setShowImport(false)}>Cancel</button>
-          </div>
+      {toCopy > 0 && (
+        <div className="dh-notice" role="status">
+          <span className="dh-notice-text">
+            {toCopy === 1 ? "1 deck is" : `${toCopy} decks are`} saved in this browser and not in your account.
+          </span>
+          <button className="primary" onClick={copy} disabled={copying}>
+            {copying ? "Copying…" : "Copy to my account"}
+          </button>
         </div>
       )}
 
-      {/* New user landing */}
-      {decks.length === 0 && !showImport && (
-        <NewUserLanding
-          onNewDeck={onNewDeck}
-          onGuidedBuild={onGuidedBuild}
-          onShowImport={() => setShowImport(true)}
-          onImportUrl={doImportUrl}
-          busy={busy}
-          onOpenCommander={onOpenCommander}
-          onBrowseCommanders={() => setTab("commanders")}
-        />
+      {decks.length === 0 && (
+        <section className="dh-band">
+          <img src={WELCOME_ART} alt="" className="dh-band-art" fetchPriority="high" />
+          <div className="dh-band-body">
+            <h1 className="dh-band-title">Build and tune Magic decks</h1>
+            <p className="dh-band-facts">
+              Start from a commander, from a description of how you like to play, or from a list you already have.
+            </p>
+            <div className="dh-band-actions">
+              <NavLink href="/new" onNavigate={onNewDeck} className="btn-link">New deck</NavLink>
+            </div>
+          </div>
+        </section>
       )}
 
-      {/* Returning user */}
+      {resume && (
+        <section className="dh-band" aria-labelledby="dh-resume">
+          {resumeArt && <img src={resumeArt} alt="" className="dh-band-art" fetchPriority="high" />}
+          <div className="dh-band-body">
+            {resume.updated_at && <p className="dh-band-when">Edited {relativeTime(resume.updated_at)}</p>}
+            <h1 className="dh-band-title" id="dh-resume">{resume.name || "Untitled deck"}</h1>
+            <p className="dh-band-facts">
+              <span>{formatLabel(resume)}</span>
+              <span className={resumeCards.off ? "dh-off" : undefined}>{resumeCards.text}</span>
+            </p>
+            <div className="dh-band-actions">
+              <NavLink href={deckHref(resume)} onNavigate={() => onOpen(resume)} className="btn-link">Open deck</NavLink>
+              {onPlaytest && <button className="dh-band-ghost" onClick={() => onPlaytest(resume)}>Playtest</button>}
+            </div>
+          </div>
+        </section>
+      )}
+
       {decks.length > 0 && (
-        <>
-          {/* Pick up where you left off. The most recently touched deck gets a
-              band of its own: on a return visit it is what you came for, and
-              hunting for it in a date-sorted grid was the old behaviour.
-              Hidden at one deck, where the band and the grid would be the same
-              deck twice over and the grid already says it. */}
-          {decks.length > 1 && mostRecent && (
-            <section className="panel landing-band resume-band">
-              <div className="band-eyebrow">Pick up where you left off</div>
-              <div className="spread" style={{ alignItems: "center", flexWrap: "wrap", gap: ".75rem" }}>
-                <div style={{ minWidth: 0 }}>
-                  <h2 className="band-title" style={{ overflowWrap: "anywhere" }}>
-                    {mostRecent.name || "Untitled deck"}
-                  </h2>
-                  <p className="muted small" style={{ margin: 0 }}>
-                    {deckCardCount(mostRecent.decklist_text)} cards
-                    {mostRecent.format ? ` · ${mostRecent.format}` : ""}
-                    {mostRecent.updated_at ? ` · edited ${relativeTime(mostRecent.updated_at)}` : ""}
-                  </p>
-                </div>
-                <div className="row" style={{ gap: ".5rem" }}>
-                  <button className="primary" onClick={() => onOpen?.(mostRecent)}>Resume</button>
-                  {onPlaytest && (
-                    <button className="ghost small" onClick={() => onPlaytest(mostRecent)}>Playtest</button>
-                  )}
+        <section className="dh-section">
+          <div className="dh-head">
+            <ListHeading className="dh-title">Your decks</ListHeading>
+            <span className="dh-count">{decks.length} deck{decks.length !== 1 ? "s" : ""}</span>
+          </div>
+
+          {searchable && (
+            <div className="mydecks-filterbar">
+              <div className="mydecks-filter-group mydecks-filter-search">
+                <label className="mydecks-filter-label" htmlFor="dh-search">Search</label>
+                <div className="mydecks-filter-inputwrap">
+                  <svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{ flexShrink: 0 }}><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+                  <input id="dh-search" type="search" autoComplete="off" value={deckSearch} onChange={(e) => setDeckSearch(e.target.value)}
+                    placeholder="Search decks…" className="mydecks-filter-input" />
                 </div>
               </div>
-            </section>
-          )}
-
-          {/* Header row */}
-          <div className="spread" style={{ margin: ".5rem 0 .75rem", flexWrap: "wrap" }}>
-            <div>
-              <div className="band-eyebrow">Your library</div>
-              <h2 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, letterSpacing: "-.02em" }}>My Decks</h2>
-              <span className="muted small">{cloud ? "Cloud-synced" : "This device"} · {decks.length} deck{decks.length !== 1 ? "s" : ""}</span>
-            </div>
-            <div className="row" style={{ gap: ".5rem" }}>
-              <UrlImportInline onImport={doImportUrl} busy={busy} />
-              {onGuidedBuild && (
-                <button className="guided-build-btn" onClick={onGuidedBuild}
-                  style={{ background: "transparent", border: "1px solid rgba(201,138,58,.45)", color: "var(--accent)", borderRadius: "var(--radius)", padding: ".45rem .85rem", fontSize: ".8rem", fontWeight: 600 }}>
-                  ✨ Guided Build
+              <div className="mydecks-filter-group">
+                <label className="mydecks-filter-label" htmlFor="dh-format">Format</label>
+                <select id="dh-format" value={formatFilter} onChange={(e) => setFormatFilter(e.target.value)} className="mydecks-filter-select">
+                  <option value="all">All</option>
+                  {FORMATS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+                </select>
+              </div>
+              <div className="mydecks-filter-group">
+                <label className="mydecks-filter-label" htmlFor="dh-sort">Sort by</label>
+                <select id="dh-sort" value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="mydecks-filter-select">
+                  <option value="updated">Updated</option>
+                  <option value="name">Name</option>
+                  <option value="format">Format</option>
+                </select>
+              </div>
+              <div className="mydecks-filter-group">
+                <span className="mydecks-filter-label">&nbsp;</span>
+                <button className="mydecks-filter-dir" onClick={() => setSortDir((d) => d === "asc" ? "desc" : "asc")}
+                  aria-label={sortDir === "asc" ? "Sort descending" : "Sort ascending"}>
+                  {sortDir === "asc" ? "↑" : "↓"}
                 </button>
-              )}
-              {onNewDeck && <button className="primary" onClick={onNewDeck}>+ New Deck</button>}
-            </div>
-          </div>
-
-          {/* Filter toolbar */}
-          <div className="mydecks-filterbar">
-            <div className="mydecks-filter-group mydecks-filter-search">
-              <label className="mydecks-filter-label">Search</label>
-              <div className="mydecks-filter-inputwrap">
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" style={{ flexShrink: 0 }}><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
-                <input
-                  type="text"
-                  value={deckSearch}
-                  onChange={(e) => setDeckSearch(e.target.value)}
-                  placeholder="Search decks…"
-                  className="mydecks-filter-input"
-                />
               </div>
             </div>
-            <div className="mydecks-filter-group">
-              <label className="mydecks-filter-label">Format</label>
-              <select
-                value={formatFilter}
-                onChange={(e) => setFormatFilter(e.target.value)}
-                className="mydecks-filter-select"
-              >
-                <option value="all">All</option>
-                {FORMATS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-              </select>
-            </div>
-            <div className="mydecks-filter-group">
-              <label className="mydecks-filter-label">Sort by</label>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="mydecks-filter-select"
-              >
-                <option value="updated">Updated</option>
-                <option value="name">Name</option>
-                <option value="format">Format</option>
-              </select>
-            </div>
-            <div className="mydecks-filter-group">
-              <label className="mydecks-filter-label">&nbsp;</label>
-              <button
-                className="mydecks-filter-dir"
-                onClick={() => setSortDir((d) => d === "asc" ? "desc" : "asc")}
-                aria-label={sortDir === "asc" ? "Sort descending" : "Sort ascending"}
-              >
-                {sortDir === "asc" ? "↑" : "↓"}
-              </button>
-            </div>
-          </div>
+          )}
 
-          {/* Sync nudge — anonymous users with real collections risk silent data
-              loss; one-time banner, dismissal persists. */}
+          {/* Anonymous users with real collections risk losing them with the
+              browser's data; one-time banner, dismissal persists. */}
           {showSyncNudge && (
-            <div className="sync-nudge">
-              <span className="sync-nudge-text">
-                <strong>{decks.length} decks</strong> live only on this device — sign in to sync them across devices and keep them safe.
+            <div className="dh-notice">
+              <span className="dh-notice-text">
+                {decks.length} decks are saved only in this browser. Sign in to copy them to an account you can open anywhere.
               </span>
-              <span className="sync-nudge-actions">
-                <button className="sync-nudge-cta" onClick={onOpenAccount}>Sign in</button>
-                <button className="sync-nudge-x" aria-label="Dismiss sync reminder" onClick={dismissSyncNudge}>✕</button>
+              <span className="dh-notice-actions">
+                <button className="primary" onClick={onOpenAccount}>Sign in</button>
+                <button className="dh-notice-x" aria-label="Dismiss sign-in reminder" onClick={dismissSyncNudge}>
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+                </button>
               </span>
             </div>
           )}
 
-          {/* Deck hero grid — New Deck tile leads (Archidekt-style) */}
           <div className="hero-grid">
-            {onNewDeck && (
-              <div className="deck-card-new" onClick={onNewDeck} role="button" tabIndex={0}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onNewDeck(); } }}>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "2rem", lineHeight: 1, color: "var(--muted)" }}>+</div>
-                  <div style={{ fontSize: "var(--fs-xs)", marginTop: ".3rem", color: "var(--muted)" }}>New Deck</div>
-                </div>
-              </div>
-            )}
-            {decks
-              .filter((d) => {
-                if (deckSearch && !d.name?.toLowerCase().includes(deckSearch.toLowerCase())) return false;
-                if (formatFilter !== "all" && d.format !== formatFilter) return false;
-                return true;
-              })
-              .sort((a, b) => {
-                let cmp = 0;
-                if (sortBy === "updated") cmp = (a.updated_at || "").localeCompare(b.updated_at || "");
-                else if (sortBy === "name") cmp = (a.name || "").localeCompare(b.name || "");
-                else if (sortBy === "format") cmp = (a.format || "").localeCompare(b.format || "");
-                return sortDir === "desc" ? -cmp : cmp;
-              })
-              .map((d) => (
-              <DeckHero
+            {sorted.map((d) => (
+              <DeckTile
                 key={d.id}
                 deck={d}
                 meta={deckMeta[d.id]}
@@ -460,22 +384,19 @@ export default function MyDecks({ decks, signedIn, cloud, onSave, onDelete, onOp
               />
             ))}
           </div>
-
-          {/* Feature strip for returning users */}
-          <div className="feature-strip">
-            <button className="feature-strip-btn" onClick={() => setTab("rules")}>📖 Rules & Rulings</button>
-            <button className="feature-strip-btn" onClick={() => setTab("cards")}>🔍 Card Search</button>
-          </div>
-
-          {/* Same band as the new-user landing. A returning user is the one most
-              likely to want the next deck, so the discovery surface belongs here
-              too rather than only on the empty state. */}
-          <CommanderTeaser
-            onOpenCommander={onOpenCommander}
-            onBrowseAll={() => setTab("commanders")}
-          />
-        </>
+          {searchable && sorted.length === 0 && <p className="muted">No decks match.</p>}
+        </section>
       )}
+
+      <section className="dh-section" aria-labelledby="dh-start">
+        <div className="dh-head dh-head-spread">
+          <h2 className="dh-title" id="dh-start">Start from a commander</h2>
+          <NavLink href="/commanders" onNavigate={() => setTab("commanders")} className="dh-more">Browse all</NavLink>
+        </div>
+        <div className="teaser-row">
+          {TEASER_COMMANDERS.map((e) => <TeaserTile key={e.slug} entry={e} onOpen={onOpenCommander} />)}
+        </div>
+      </section>
     </div>
   );
 }

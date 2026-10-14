@@ -13,15 +13,19 @@ function uid() {
   return (crypto?.randomUUID?.() || `id_${Date.now()}_${Math.random().toString(36).slice(2)}`);
 }
 
+function readLocal() {
+  try {
+    const raw = localStorage.getItem(LOCAL_KEY);
+    const decks = raw ? JSON.parse(raw) : [];
+    return decks.sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
+  } catch {
+    return [];
+  }
+}
+
 const localStore = {
   async list() {
-    try {
-      const raw = localStorage.getItem(LOCAL_KEY);
-      const decks = raw ? JSON.parse(raw) : [];
-      return decks.sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
-    } catch {
-      return [];
-    }
+    return readLocal();
   },
   async save(deck) {
     const decks = await this.list();
@@ -77,6 +81,36 @@ function supabaseStore(userId) {
 // Pick the active backend. Cloud when signed in; local otherwise.
 export function makeStore(userId) {
   return userId && supabase ? supabaseStore(userId) : localStore;
+}
+
+// Signing in shows the account's decks, so decks made in this browser while
+// signed out drop out of sight. These two copy them over. A copied deck is
+// marked with the account it went to (`copiedTo`) instead of reusing its id
+// in the cloud: an id another account already copied, or one that is not a
+// UUID, would be refused. The browser's own copies are left as they were.
+export function localDecksToCopy(userId) {
+  return userId ? readLocal().filter((d) => !(d.copiedTo || []).includes(userId)) : [];
+}
+
+export async function copyLocalDecks(userId) {
+  const cloud = supabaseStore(userId);
+  let copied = 0, failed = 0;
+  for (const deck of localDecksToCopy(userId)) {
+    try {
+      await cloud.save({ name: deck.name, format: deck.format, decklist_text: deck.decklist_text });
+    } catch {
+      failed++;
+      continue;
+    }
+    copied++;
+    // ponytail: a mark that cannot be written (storage full) leaves the deck
+    // offered again, and a second press copies it twice.
+    try {
+      const all = readLocal().map((d) => (d.id === deck.id ? { ...d, copiedTo: [...(d.copiedTo || []), userId] } : d));
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(all));
+    } catch { /* see above */ }
+  }
+  return { copied, failed };
 }
 
 export { uid };

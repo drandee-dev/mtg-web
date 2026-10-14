@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { supabase, supabaseEnabled } from "./lib/supabase";
 import { api, assembleDecklist, assembleForStorage, disassembleDecklist, setAccessToken, warnIfBadAdd } from "./lib/api";
 import { commanderDisplay } from "./lib/deckParser";
-import { makeStore } from "./lib/store";
+import { copyLocalDecks, localDecksToCopy, makeStore } from "./lib/store";
 import { downloadFile } from "./lib/hooks";
 import { historyTopIsGhost, registerTabHandler, useBackClose } from "./lib/backstack";
 import { buildPath, parseLocation, resolveDeckRoute } from "./lib/routes";
@@ -489,6 +489,22 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { refresh(); }, [userId]);
 
+  // This browser's decks not yet in the signed-in account. Only once the
+  // account's own list is in, and read again each time it reloads, which is
+  // what a copy ends with.
+  const accountListIn = cloud && decksLoadedFor === userId;
+  // `decks` is the trigger, not an input: the marks a copy writes are read here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const toCopy = useMemo(() => (accountListIn ? localDecksToCopy(userId) : []), [accountListIn, userId, decks]);
+  const copyToAccount = useCallback(async () => {
+    const { copied, failed } = await copyLocalDecks(userId);
+    await refresh();
+    const n = (k) => `${k} deck${k !== 1 ? "s" : ""}`;
+    notify(failed
+      ? `Copied ${n(copied)}. ${n(failed)} could not be copied; try again.`
+      : `Copied ${n(copied)} to your account.`);
+  }, [userId, refresh, notify]);
+
   // The address names the deck and the editor follows it. Opening a deck from
   // the list fills the editor itself (openDeck), so this only has work to do
   // when the address moved first: a cold load, a second browser tab, Back,
@@ -517,7 +533,7 @@ export default function App() {
   // The browser title names the place, and on a deck address the deck.
   const deckMissing = wanted?.status === "missing";
   useEffect(() => {
-    const names = { decks: "My Decks", commanders: "Commanders", rules: "Rules", cards: "Card Search" };
+    const names = { decks: "Decks", commanders: "Commanders", rules: "Rules", cards: "Card Search" };
     const deckTitle = atNew ? "New deck" : deckMissing ? "Deck not found" : currentDeck?.name || "Deck";
     document.title = `${tab === "deck" ? deckTitle : names[tab] || "MTG Workshop"} · MTG Workshop`;
   }, [tab, atNew, deckMissing, currentDeck?.name]);
@@ -898,12 +914,12 @@ export default function App() {
             onOpen={openDeck}
             onPlaytest={(deck) => { openDeck(deck); setPlaytesting(true); }}
             onNewDeck={startNew}
-            onGuidedBuild={startNew}
             notify={notify}
-            refresh={refresh}
             setTab={setTab}
             onOpenAccount={supabaseEnabled ? () => setSettingsOpen(true) : null}
             onOpenCommander={setCommanderSlug}
+            toCopy={toCopy.length}
+            onCopyToAccount={copyToAccount}
           />
         )}
         {tab === "commanders" && (
