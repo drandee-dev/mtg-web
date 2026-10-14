@@ -70,7 +70,7 @@ export async function pickNewDeckCommander(page, query = "atraxa", name = "Atrax
   await page.locator(".gen-candidate", { hasText: name }).click();
 }
 
-// From Cards, the link back to the deck the + Add button adds to.
+// From Cards, the link back to the deck the Add button adds to.
 export async function backToDeck(page) {
   await page.locator(".cards-deck-back").click();
 }

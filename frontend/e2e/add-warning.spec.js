@@ -64,7 +64,7 @@ test("Search tab add of an off-color card warns, and Undo removes it", async ({ 
   const input = page.locator('input[type="text"], input[type="search"], input[placeholder*="search" i], input[placeholder*="card" i]').first();
   await input.fill("Lightning Bolt");
   await input.press("Enter");
-  await page.locator("tr", { hasText: "Lightning Bolt" }).getByRole("button", { name: "+ Add" }).first().click();
+  await page.locator("tr", { hasText: "Lightning Bolt" }).getByRole("button", { name: /^Add to / }).first().click();
 
   await expect(warning(page)).toBeVisible();
   expect(seen.at(-1).decklist).not.toContain("Lightning Bolt");

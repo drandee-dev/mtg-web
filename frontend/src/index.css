@@ -3022,10 +3022,12 @@ a.btn-link:hover { filter: brightness(1.12); text-decoration: none; }
 .edm-hint { margin-top: .5rem; font-size: var(--fs-xs); color: var(--muted); }
 .edm-foot { display: flex; justify-content: flex-end; gap: .5rem; padding: 0 1.1rem .9rem; flex-wrap: wrap; }
 
-/* Card search: which deck + Add goes to, and the way back to it */
+/* Card search: which deck Add goes to, and the way back to it */
 .cards-deck { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; margin: 0 0 .6rem; color: var(--text-secondary); }
 .cards-deck strong { color: var(--text); }
 .cards-deck-back { display: inline-flex; align-items: center; min-height: 44px; font-weight: 500; }
+/* A long deck name is cut short on every row; the title and the line above carry it in full. */
+.cards-add { max-width: 11rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 
 /* == Touch ergonomics (visual-standards audit 2026-07-17) ==================

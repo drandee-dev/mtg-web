@@ -158,7 +158,7 @@ test.describe("Navigation & Layout", () => {
     await name.fill("bolt");
     await name.press("Enter");
     await page.locator(".results-table tbody tr", { hasText: "Lightning Bolt" })
-      .getByRole("button", { name: "+ Add" }).click();
+      .getByRole("button", { name: /^Add to / }).click();
     await backToDeck(page);
     const bolt = page.locator('.card-grid-container [aria-label*="Lightning Bolt"]');
     await expect(bolt.first()).toBeAttached();
@@ -175,14 +175,18 @@ test.describe("Navigation & Layout", () => {
   test("Cards names the deck it adds to and links back to it, only when one is open", async ({ page }) => {
     await navigateToTab(page, "Card Search");
     await expect(page.locator(".cards-deck")).toHaveCount(0);
-    // With no deck open there is nothing to add to, so no button offers to:
-    // every deck has an id now, and no new deck in the making catches the card.
+    // With no deck open there is nothing to add to, so no button offers to,
+    // and the help text says how to get one: every deck has an id now, and
+    // no new deck in the making catches the card.
+    const help = page.getByText(/^Search every Magic card/);
+    await expect(help).toContainText("Open a deck to add cards to it.");
+    await expect(help).not.toContainText("your deck");
     const box = page.locator('input[placeholder="bolt"]');
     await box.fill("bolt");
     await box.press("Enter");
     const row = page.locator(".results-table tbody tr", { hasText: "Lightning Bolt" });
     await expect(row).toBeVisible();
-    await expect(page.getByRole("button", { name: "+ Add" })).toHaveCount(0);
+    await expect(page.locator(".results-table").getByRole("button")).toHaveCount(0);
 
     await seedLocalDecks(page, [TEST_DECK_STORAGE]);
     await page.goto("/");
@@ -191,6 +195,8 @@ test.describe("Navigation & Layout", () => {
     await expect(page.locator(".card-grid-container")).toBeVisible();
     await navigateToTab(page, "Card Search");
     await expect(page.locator(".cards-deck")).toContainText(`Adding to ${TEST_DECK_STORAGE.name}`);
+    // The search survives the trip, and each row's button names the deck.
+    await expect(row.getByRole("button", { name: `Add to ${TEST_DECK_STORAGE.name}`, exact: true })).toBeVisible();
     await expect(page.locator(".cards-deck-back")).toHaveAttribute("href", `/decks/${TEST_DECK_STORAGE.id}`);
     await backToDeck(page);
     await expect(page).toHaveURL(new RegExp(`/decks/${TEST_DECK_STORAGE.id}$`));

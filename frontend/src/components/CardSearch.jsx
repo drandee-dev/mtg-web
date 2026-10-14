@@ -35,14 +35,18 @@ export default function CardSearch({ addCard, notify, deckName, deckHref, onBack
     <div>
       <div className="panel">
         <h2>Card search</h2>
-        {/* Which deck + Add goes to, and the way back to it. */}
+        {/* Which deck Add goes to, and the way back to it. */}
         {deckName && (
           <p className="cards-deck small">
             <span>Adding to <strong>{deckName}</strong></span>
             <NavLink className="cards-deck-back" href={deckHref} onNavigate={onBackToDeck}>Back to deck</NavLink>
           </p>
         )}
-        {!res && <p className="muted small">Search every Magic card by name, type, text, or cost — tap + Add to drop one straight into your deck.</p>}
+        {!res && (
+          <p className="muted small">
+            Search every Magic card by name, type, text, or cost.{!addCard && " Open a deck to add cards to it."}
+          </p>
+        )}
         <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}
           onKeyDown={(e) => { if (e.key === "Enter" && !busy) run(); }}>
           <div><label>Name</label><input value={f.name} onChange={(e) => up("name", e.target.value)} placeholder="bolt" /></div>
@@ -69,7 +73,12 @@ export default function CardSearch({ addCard, notify, deckName, deckHref, onBack
                     <td className="muted">{c.type_line}</td>
                     <td>{c.cmc}</td>
                     <td>{c.prices?.usd ? `$${c.prices.usd}` : "—"}</td>
-                    {addCard && <td><button className="ghost small" onClick={() => { addCard(c.name); notify(`Added ${c.name}`); }}>+ Add</button></td>}
+                    {addCard && (
+                      <td>
+                        <button className="ghost small cards-add" title={`Add to ${deckName}`}
+                          onClick={() => { addCard(c.name); notify(`Added ${c.name}`); }}>Add to {deckName}</button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

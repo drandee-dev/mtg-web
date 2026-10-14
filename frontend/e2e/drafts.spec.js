@@ -42,7 +42,7 @@ async function addBolt(page) {
   await name.fill("bolt");
   await name.press("Enter");
   await page.locator(".results-table tbody tr", { hasText: "Lightning Bolt" })
-    .getByRole("button", { name: "+ Add" }).click();
+    .getByRole("button", { name: /^Add to / }).click();
   await backToDeck(page);
   await expect(page.locator(".card-grid-container")).toBeVisible();
 }
