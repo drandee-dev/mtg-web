@@ -174,6 +174,66 @@ test.describe("Signed in", () => {
     expect(await page.evaluate(() => localStorage.getItem("mtgweb:decks"))).toBeNull();
   });
 
+  // A deck whose save the account turned down is kept in this browser for that
+  // account only: signed out (and reloaded) nobody else is offered it.
+  test("a deck kept for the account is not offered once signed out", async ({ page }) => {
+    const cloud = await fakeCloud(page);
+    await page.goto("/");
+    await waitForAppReady(page);
+    cloud.failSaves = 1;
+    await openNewDeck(page);
+    await newDeckDoor(page, "Paste or import").click();
+    await page.locator("#nd-paste").fill(TEST_DECK_STORAGE.decklist_text);
+    await page.getByRole("button", { name: "Create the deck →" }).click();
+    const keptRow = page.locator(".kept-decks [role=status]");
+    await expect(keptRow).toHaveCount(1);
+    const owner = await page.evaluate(() => {
+      const k = Object.keys(localStorage).find((key) => key.startsWith("sb-") && key.endsWith("-auth-token"));
+      return [JSON.parse(localStorage.getItem("mtgweb:kept"))[0].owner, JSON.parse(localStorage.getItem(k)).user.id];
+    });
+    expect(owner[0]).toBe(owner[1]);
+
+    // Signed out, then a fresh load of Decks home.
+    await page.evaluate(() => {
+      for (const k of Object.keys(localStorage)) if (k.startsWith("sb-") && k.endsWith("-auth-token")) localStorage.removeItem(k);
+    });
+    await page.goto("/");
+    await waitForAppReady(page);
+    expect(await hasSession(page)).toBe(false);
+    await expect(page.locator(".dh")).toBeVisible();
+    await expect(keptRow).toHaveCount(0);
+    await openNewDeck(page);
+    await expect(page.getByRole("heading", { name: "Start a new deck" })).toBeVisible();
+    await expect(keptRow).toHaveCount(0);
+    // Still kept for the account that made it.
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("mtgweb:kept")).length)).toBe(1);
+  });
+
+  // A kept deck's Try again on one screen, then the same press on the other
+  // screen while the first save is still out: one save, one deck.
+  test("Try again pressed again on Decks home during a slow retry makes one deck", async ({ page }) => {
+    const cloud = await fakeCloud(page);
+    await page.goto("/");
+    await waitForAppReady(page);
+    cloud.failSaves = 1;
+    await openNewDeck(page);
+    await newDeckDoor(page, "Paste or import").click();
+    await page.locator("#nd-paste").fill(TEST_DECK_STORAGE.decklist_text);
+    await page.getByRole("button", { name: "Create the deck →" }).click();
+    const tryAgain = page.locator(".kept-decks").getByRole("button", { name: "Try again" });
+    await expect(tryAgain).toHaveCount(1);
+
+    cloud.saveDelay = 2000;
+    await tryAgain.click();
+    await navigateToTab(page, "Decks");
+    await expect(tryAgain).toBeEnabled();
+    await tryAgain.click();
+    await expect.poll(() => cloud.decks.length, { timeout: 10000 }).toBe(1);
+    await page.waitForTimeout(2500); // a second save would have landed by now
+    expect(cloud.decks.length).toBe(1);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem("mtgweb:kept") || "[]"))).toEqual([]);
+  });
+
   // The same, with the account gone during the build, not the save: a build
   // takes a minute, and the store it saves to is the one from when the door
   // was pressed. The account has to be taken then too.

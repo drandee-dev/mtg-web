@@ -9,6 +9,7 @@ import { SPELL_CATS, assembleSkeleton, mergeFills } from "../lib/fillMerge";
 import { fmtUsd } from "../lib/format";
 import { useCardImage } from "../lib/hooks";
 import { SearchIcon } from "./Icons";
+import KeptDecks from "./KeptDecks";
 import LoadingIndicator from "./LoadingIndicator";
 import Wizard from "./Wizard";
 
@@ -137,8 +138,21 @@ function toLines(cards, basics) {
  * also takes what only the door knows: `notes` (why each card is there),
  * `toast`, and `arrival` (what the deck page shows once when it opens: the
  * upgrade guide after a paste, the buy list after a collection build). It
- * rejects when the save fails. `seed` is a commander named by the address. */
-export default function NewDeck({ onCreate, notify, seed }) {
+ * rejects when the save fails, with `kept` saying whether the deck was kept
+ * in this browser. `seed` is a commander named by the address. Decks kept
+ * from earlier tries (`kept`) show above whichever step is on screen. */
+export default function NewDeck({ kept, onRetryKept, onDiscardKept, ...rest }) {
+  return (
+    <>
+      {kept?.length > 0 && (
+        <div className="nd-kept"><KeptDecks kept={kept} onRetry={onRetryKept} onDiscard={onDiscardKept} /></div>
+      )}
+      <NewDeckSteps {...rest} />
+    </>
+  );
+}
+
+function NewDeckSteps({ onCreate, notify, seed }) {
   // A seed opens on the commander door, looking the name up.
   const [branch, setBranch] = useState(seed ? "commander" : null);
   const [stepIdx, setStepIdx] = useState(seed ? 1 : 0);
@@ -175,14 +189,9 @@ export default function NewDeck({ onCreate, notify, seed }) {
   const [importing, setImporting] = useState(false);
 
   // One deck per press: `creating` disables the doors and turns a second press
-  // away (React renders between two clicks, so the second sees it). `failed`
-  // is the deck a save turned down, kept so it can be tried again: a built
-  // deck was paid for.
-  // ponytail: kept on this screen only, so leaving it drops the deck. A draft
-  // in this browser, offered again only to the account that built it, is its
-  // own job (build plan, "Job 2.2, shipped").
+  // away (React renders between two clicks, so the second sees it). A deck the
+  // save turned down is kept by createDeck, not here: this screen may be gone.
   const [creating, setCreating] = useState(false);
-  const [failed, setFailed] = useState(null);
 
   const steps = branch ? BRANCHES[branch].steps : null;
   const stepCount = steps?.length ?? null;
@@ -191,12 +200,14 @@ export default function NewDeck({ onCreate, notify, seed }) {
   async function create(deck) {
     if (creating) return;
     setCreating(true);
-    setFailed(null);
     try {
       await onCreate(deck);
     } catch (e) {
-      setFailed(deck);
-      notify?.(`Couldn't save the deck: ${e.message}`);
+      notify?.(e.kept
+        ? `Couldn't save "${deck.name}": ${e.message}. It's kept in this browser: try again from New deck or Decks.`
+        : e.kept === false
+          ? `Couldn't save "${deck.name}": ${e.message}. It could not be kept either: this browser's storage is full or blocked.`
+          : `Couldn't save the deck: ${e.message}`);
     } finally {
       setCreating(false);
     }
@@ -625,24 +636,6 @@ export default function NewDeck({ onCreate, notify, seed }) {
     } finally {
       setProgress(null);
     }
-  }
-
-  /* ── A deck the save turned down: nothing else until it is saved or dropped ─ */
-  if (failed) {
-    return (
-      <div className="gen">
-        <div className="panel" role="alert">
-          <h2 className="gen-h2" style={{ marginTop: 0 }}>“{failed.name}” isn’t saved yet</h2>
-          <p className="gen-lede">The save didn’t go through. The deck is still here while this page stays open: try again, or discard it.</p>
-          <div className="row" style={{ gap: ".4rem" }}>
-            <button className="primary" onClick={() => create(failed)} disabled={creating}>
-              {creating ? "Saving…" : "Try again"}
-            </button>
-            <button className="ghost" onClick={() => setFailed(null)} disabled={creating}>Discard</button>
-          </div>
-        </div>
-      </div>
-    );
   }
 
   /* ── Guided branch: the existing category-fill wizard ──────────────────── */

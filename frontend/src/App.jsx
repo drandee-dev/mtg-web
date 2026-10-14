@@ -8,6 +8,7 @@ import { downloadFile } from "./lib/hooks";
 import { historyTopIsGhost, registerTabHandler, useBackClose } from "./lib/backstack";
 import { buildPath, parseLocation, resolveDeckRoute } from "./lib/routes";
 import { clearDraft, loadDraft, saveDraft } from "./lib/drafts";
+import { dropKept, keepDeck, readKept } from "./lib/kept";
 import { DEFAULT_GOALS, loadGoals, saveGoals } from "./lib/goals";
 import { clearBuildNotes, setBuildNotes } from "./lib/buildNotes";
 import GlobalToolbar from "./components/layout/GlobalToolbar";
@@ -496,6 +497,12 @@ export default function App() {
   // `decks` is the trigger, not an input: the marks a copy writes are read here.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const toCopy = useMemo(() => (accountListIn ? localDecksToCopy(userId) : []), [accountListIn, userId, decks]);
+  // New decks whose save failed (lib/kept), the ones this account made. None
+  // until the sign-in check settles: until then a signed-in person reads as
+  // signed out and would be offered that person's decks.
+  const [keptAll, setKeptAll] = useState(readKept);
+  const kept = useMemo(() => (authReady ? keptAll.filter((e) => e.owner === userId) : []), [keptAll, authReady, userId]);
+
   // Held here, not on Decks home: leaving the page and coming back mid-copy
   // must not offer a second copy of the decks not yet marked.
   const [copying, setCopying] = useState(false);
@@ -613,15 +620,27 @@ export default function App() {
   // person has moved on since (any link, Back, "New deck" again), during the
   // build or the save, or the account has changed, the deck is not opened over
   // what they are looking at: it is saved, and the toast offers it.
-  const createDeck = useCallback(async (
-    { name, format: fmt = "commander", decklist_text, notes, arrival: onArrival, toast },
-    asked,
-  ) => {
+  //
+  // With `keep`, a deck with cards whose save fails is kept in this browser
+  // for the account that made it, and the error says whether that worked
+  // (`kept`). It is kept here, not on the screen that asked, because that
+  // screen may be gone ("New deck" pressed during the build).
+  const createDeck = useCallback(async (deck, asked, { keep = false } = {}) => {
+    const { name, format: fmt = "commander", decklist_text, notes, arrival: onArrival, toast } = deck;
     // The account whose `store` this is: the one signed in when the door was
     // pressed. A build can take a minute, and this function is only entered
     // after it, so the account "now" would already be the changed one.
     const askedBy = userId;
-    const saved = await store.save({ name, format: fmt, decklist_text });
+    let saved;
+    try {
+      saved = await store.save({ name, format: fmt, decklist_text });
+    } catch (e) {
+      if (keep && decklist_text?.trim()) {
+        e.kept = Boolean(keepDeck(askedBy, deck));
+        setKeptAll(readKept());
+      }
+      throw e;
+    }
     await refresh();
     const { commander: cmd, deckText: cards } = disassembleDecklist(decklist_text);
     const share = { label: "🔗 Share link", onClick: () => copyShareLink(assembleDecklist(cards, cmd), fmt, cmd) };
@@ -648,6 +667,26 @@ export default function App() {
     notify(toast || `Saved as "${saved.name}".`, share);
     return saved;
   }, [store, userId, refresh, notify, copyShareLink, showSaved, loadDeck, goTo]);
+
+  // A kept deck: Try again saves and opens it like a new one, and only a
+  // save that went through drops it. One try at a time per deck, held here
+  // and not in the panel: leaving for the other screen mid-try and pressing
+  // Try again there would otherwise save it twice.
+  const retrying = useRef(new Set());
+  const retryKept = useCallback(async (entry) => {
+    if (retrying.current.has(entry.id)) return;
+    retrying.current.add(entry.id);
+    try {
+      await createDeck(entry.deck, moves.current);
+      dropKept(entry.id);
+    } catch (e) {
+      notify(`Still couldn't save "${entry.deck.name}": ${e.message}`);
+    } finally {
+      retrying.current.delete(entry.id);
+      setKeptAll(readKept());
+    }
+  }, [createDeck, notify]);
+  const discardKept = useCallback((entry) => { dropKept(entry.id); setKeptAll(readKept()); }, []);
 
   // A share link's deck is saved on arrival, like any other new deck. Opening
   // the same link again finds the deck it already made (same contents) and
@@ -917,7 +956,8 @@ export default function App() {
         {/* Not before the sign-in check settles: until then the app reads as
             signed out, and a deck made now would be saved to this browser. */}
         {atNew && !shared && (authReady ? (
-          <NewDeck key={visit} seed={seed} onCreate={(deck) => createDeck(deck, visit)} notify={notify} />
+          <NewDeck key={visit} seed={seed} onCreate={(deck) => createDeck(deck, visit, { keep: true })} notify={notify}
+            kept={kept} onRetryKept={retryKept} onDiscardKept={discardKept} />
         ) : (
           <div className="panel"><p className="muted small" role="status">Loading…</p></div>
         ))}
@@ -938,6 +978,9 @@ export default function App() {
             toCopy={toCopy.length}
             onCopyToAccount={copyToAccount}
             copying={copying}
+            kept={kept}
+            onRetryKept={retryKept}
+            onDiscardKept={discardKept}
           />
         )}
         {tab === "commanders" && (
