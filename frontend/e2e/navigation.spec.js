@@ -186,7 +186,7 @@ test.describe("Navigation & Layout", () => {
     await box.press("Enter");
     const row = page.locator(".results-table tbody tr", { hasText: "Lightning Bolt" });
     await expect(row).toBeVisible();
-    await expect(page.locator(".results-table").getByRole("button")).toHaveCount(0);
+    await expect(page.locator(".results-table").getByRole("button", { name: /Add/ })).toHaveCount(0);
 
     await seedLocalDecks(page, [TEST_DECK_STORAGE]);
     await page.goto("/");
@@ -195,7 +195,11 @@ test.describe("Navigation & Layout", () => {
     await expect(page.locator(".card-grid-container")).toBeVisible();
     await navigateToTab(page, "Card Search");
     await expect(page.locator(".cards-deck")).toContainText(`Adding to ${TEST_DECK_STORAGE.name}`);
-    // The search survives the trip, and each row's button names the deck.
+    await expect(help).toBeVisible();
+    await expect(help).not.toContainText("Open a deck");
+    // Each result's button names the deck it adds to.
+    await box.fill("bolt");
+    await box.press("Enter");
     await expect(row.getByRole("button", { name: `Add to ${TEST_DECK_STORAGE.name}`, exact: true })).toBeVisible();
     await expect(page.locator(".cards-deck-back")).toHaveAttribute("href", `/decks/${TEST_DECK_STORAGE.id}`);
     await backToDeck(page);
