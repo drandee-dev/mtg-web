@@ -3026,8 +3026,15 @@ a.btn-link:hover { filter: brightness(1.12); text-decoration: none; }
 .cards-deck { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; margin: 0 0 .6rem; color: var(--text-secondary); }
 .cards-deck strong { color: var(--text); }
 .cards-deck-back { display: inline-flex; align-items: center; min-height: 44px; font-weight: 500; }
-/* A long deck name is cut short on every row; the title and the line above carry it in full. */
-.cards-add { max-width: 11rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A long deck name is cut short on every row; the title and the line above carry it in full.
+   overflow moves an inline-block's baseline to its bottom edge, hence vertical-align. */
+.cards-add { max-width: 11rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: top; }
+/* A phone has no room for the name on every row: the button shows "Add" and keeps the
+   deck in its accessible name. The "Adding to" line above says which deck. */
+@media (max-width: 700px) {
+  .cards-add-deck { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .results-table th, .results-table td { padding-inline: .35rem; }
+}
 
 
 /* == Touch ergonomics (visual-standards audit 2026-07-17) ==================

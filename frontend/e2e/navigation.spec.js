@@ -201,6 +201,10 @@ test.describe("Navigation & Layout", () => {
     await box.fill("bolt");
     await box.press("Enter");
     await expect(row.getByRole("button", { name: `Add to ${TEST_DECK_STORAGE.name}`, exact: true })).toBeVisible();
+    // Whole on screen, not cut off at the side of the table on a phone
+    // (toBeVisible passes for a button scrolled out of its box).
+    await expect(page.locator(".results-table tbody tr").first().getByRole("button", { name: /^Add to / }))
+      .toBeInViewport({ ratio: 1 });
     await expect(page.locator(".cards-deck-back")).toHaveAttribute("href", `/decks/${TEST_DECK_STORAGE.id}`);
     await backToDeck(page);
     await expect(page).toHaveURL(new RegExp(`/decks/${TEST_DECK_STORAGE.id}$`));
