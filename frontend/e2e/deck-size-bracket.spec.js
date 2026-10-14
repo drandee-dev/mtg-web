@@ -1,7 +1,7 @@
 // Bracket labels match the official WotC brackets (1-5), the stats bar counts
 // the commander once, and the health score drops when legality fails.
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, waitForAppReady, dismissColdStart, openNewDeck } from "./fixtures/helpers.js";
+import { loadSharedDeck, waitForAppReady, dismissColdStart, pickNewDeckCommander } from "./fixtures/helpers.js";
 import { TEST_COMMANDER } from "./fixtures/test-data.js";
 
 // Analyze stub with real backend semantics: total_cards counts every card in
@@ -34,9 +34,7 @@ test("picking Bracket 5 — cEDH sends bracket 5", async ({ page }) => {
   await page.goto("/");
   await waitForAppReady(page);
   await dismissColdStart(page);
-  await openNewDeck(page);
-  await page.locator(".empty-action", { hasText: "Guided build" }).click();
-  await page.locator(".gen-door", { hasText: "I know my commander" }).click();
+  await pickNewDeckCommander(page);
 
   const labels = await page.getByLabel("Target bracket").locator("option").allTextContents();
   expect(labels).toEqual([
@@ -50,8 +48,7 @@ test("picking Bracket 5 — cEDH sends bracket 5", async ({ page }) => {
   await page.getByLabel("Target bracket").selectOption({ label: "Bracket 5 — cEDH" });
 
   const skeleton = page.waitForRequest((r) => r.url().includes("/api/deck/wizard/skeleton"));
-  await page.locator("#gen-cmd").fill("atraxa");
-  await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
+  await page.getByRole("button", { name: /^Build the 99/ }).click();
   expect((await skeleton).postDataJSON().bracket).toBe(5);
 });
 

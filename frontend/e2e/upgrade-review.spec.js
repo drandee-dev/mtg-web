@@ -3,7 +3,7 @@
 // Changes queue for swaps. Runs against the hermetic mock backend.
 
 import { test, expect } from "./fixtures/test-base.js";
-import { waitForAppReady, dismissColdStart, navigateToTab, openNewDeck, loadSharedDeck } from "./fixtures/helpers.js";
+import { waitForAppReady, dismissColdStart, navigateToTab, pasteNewDeck, importNewDeck, loadSharedDeck } from "./fixtures/helpers.js";
 import { TEST_COMMANDER, TEST_DECK_TEXT } from "./fixtures/test-data.js";
 
 const PASTE_TEXT = `Commander\n1 ${TEST_COMMANDER}\n\nDeck\n${TEST_DECK_TEXT}`;
@@ -20,10 +20,7 @@ async function pasteIntoEmptyDeck(page) {
   await page.goto("/");
   await waitForAppReady(page);
   await dismissColdStart(page);
-  await openNewDeck(page);
-  await page.locator(".empty-action", { hasText: "Paste a decklist" }).click();
-  await page.locator(".icm-panel textarea").fill(PASTE_TEXT);
-  await page.locator(".icm-foot button", { hasText: "Import" }).click();
+  await pasteNewDeck(page, PASTE_TEXT);
 }
 
 // Strip a populated deck back to nothing by hand: clear the 99 via the text
@@ -115,10 +112,7 @@ test.describe("Upgrade review — guided flow", () => {
     await page.goto("/");
     await waitForAppReady(page);
     await dismissColdStart(page);
-    await openNewDeck(page);
-    await page.locator(".empty-action", { hasText: "Paste a decklist" }).click();
-    await page.locator(".icm-panel textarea").fill(`Commander\n1 ${TEST_COMMANDER}\n\nDeck\n${names}`);
-    await page.locator(".icm-foot button", { hasText: "Import" }).click();
+    await pasteNewDeck(page, `Commander\n1 ${TEST_COMMANDER}\n\nDeck\n${names}`);
 
     const modal = page.locator(".upr-panel");
     await modal.locator(".icm-foot button", { hasText: "Continue" }).click();
@@ -143,7 +137,7 @@ test.describe("Upgrade review — guided flow", () => {
     // Empty the same deck and paste an unrelated list B into it — the
     // changeset cached for list A is now stale, not merely absent.
     await emptyDeckByHand(page);
-    await page.locator(".empty-action", { hasText: "Paste a decklist" }).click();
+    await page.locator(".empty-action", { hasText: "Import cards" }).click();
     await page.locator(".icm-panel textarea").fill(
       `Commander\n1 ${TEST_COMMANDER}\n\nDeck\n1 Lightning Bolt\n1 Rhystic Study`,
     );
@@ -163,10 +157,7 @@ test.describe("Upgrade review — guided flow", () => {
     await page.goto("/");
     await waitForAppReady(page);
     await dismissColdStart(page);
-    await openNewDeck(page);
-    await page.locator(".empty-action", { hasText: "Import from URL" }).click();
-    await page.locator(".icm-panel input").fill("https://archidekt.com/decks/12345");
-    await page.locator(".icm-foot button", { hasText: "Import" }).click();
+    await importNewDeck(page);
     await expect(page.locator(".upr-panel")).toBeVisible();
   });
 
@@ -201,7 +192,7 @@ test.describe("Upgrade review — guided flow", () => {
     // reopens with the same signature, so cached ratings should reappear
     // without spending a second AI call.
     await emptyDeckByHand(page);
-    await page.locator(".empty-action", { hasText: "Paste a decklist" }).click();
+    await page.locator(".empty-action", { hasText: "Import cards" }).click();
     await page.locator(".icm-panel textarea").fill(PASTE_TEXT);
     await page.locator(".icm-foot button", { hasText: "Import" }).click();
 

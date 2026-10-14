@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { supabase, supabaseEnabled } from "./lib/supabase";
 import { api, assembleDecklist, assembleForStorage, disassembleDecklist, setAccessToken, warnIfBadAdd } from "./lib/api";
@@ -9,11 +9,12 @@ import { historyTopIsGhost, registerTabHandler, useBackClose } from "./lib/backs
 import { buildPath, parseLocation, resolveDeckRoute } from "./lib/routes";
 import { clearDraft, loadDraft, saveDraft } from "./lib/drafts";
 import { DEFAULT_GOALS, loadGoals, saveGoals } from "./lib/goals";
-import { clearBuildNotes } from "./lib/buildNotes";
+import { clearBuildNotes, setBuildNotes } from "./lib/buildNotes";
 import GlobalToolbar from "./components/layout/GlobalToolbar";
 import BottomNav from "./components/layout/BottomNav";
 import ServerStatusBanner from "./components/ServerStatusBanner";
 import DeckView from "./components/deck/DeckView";
+import NewDeck from "./components/NewDeck";
 import MyDecks from "./components/MyDecks";
 import Rules from "./components/Rules";
 import CardSearch from "./components/CardSearch";
@@ -68,6 +69,10 @@ const PLACES = [
   ["rules", "Rules", "/rules"],
 ];
 
+// The name a blank deck is made with (NewDeck's BLANK). Its first commander
+// replaces it on the next Save.
+const UNTITLED = "Untitled deck";
+
 // Unicode-safe base64. Plain btoa/atob throw on non-ASCII bytes, so share links
 // for decks with accented card names (e.g. "Jötun Grunt") would otherwise break.
 function _b64encode(str) {
@@ -85,11 +90,12 @@ function _loadSharedDeck() {
     const decoded = _b64decode(encoded);
     const fmt = params.get("fmt") || "commander";
     const cmd = params.get("cmd") || "";
-    // The deck auto-saves on arrival and the address becomes /decks/<id>
+    // The deck is saved on arrival and the address becomes /decks/<id>
     // (lib/routes drops the param then). Until that save lands the param stays,
     // so a reload still finds the deck; opening the link again content-dedups
     // onto the saved deck, keeping its goals, session log, and chat history.
-    return { deckText: decoded, format: fmt, commander: cmd };
+    const decklist_text = assembleForStorage(decoded, cmd, "");
+    return decklist_text.trim() ? { format: fmt, decklist_text, commander: cmd } : null;
   } catch { return null; }
 }
 
@@ -106,16 +112,28 @@ export default function App() {
   const [_shared] = useState(_loadSharedDeck);
   // Where the app is: { tab, slug, deckId }, the shape lib/routes reads from
   // the address (/rules, /commanders/<slug>, /decks/<id>, /new), through the
-  // app's one history mechanism, not a second router. A share link always
-  // opens its deck.
+  // app's one history mechanism, not a second router. The deck tab with no id
+  // is the New deck screen, and `seed` there is a commander its address names.
+  // A share link always opens its deck: it waits on that screen's address
+  // until the deck is saved (`shared`, below).
   const [route, setRoute] = useState(() => (
     _shared ? { tab: "deck", slug: null, deckId: null } : parseLocation(window.location)
   ));
   const { tab } = route;
   // Which commander page is open within the Commanders tab (/commanders/<slug>).
   const commanderSlug = route.slug;
-  // The commander the Wizard should pre-seed when "Build with strategy" is clicked.
-  const [wizardInitialCommander, setWizardInitialCommander] = useState("");
+  // A share link's deck on its way in: "saving", "failed" (with Try again), or
+  // null once it is a saved deck like any other, or there was no link.
+  const [shared, setShared] = useState(_shared ? "saving" : null);
+  // How many moves the app has made (`moves`, below), as of the last one. The
+  // New deck screen is keyed by it, so every arrival there is a fresh screen
+  // (pressing "New deck" on that screen included), and a deck it makes carries
+  // the number it was asked under.
+  const [visit, setVisit] = useState(0);
+  // What the deck page shows once for a deck just made: { deckId, review } (the
+  // upgrade guide after a paste or import) or { deckId, buy } (a collection
+  // build's buy list). It belongs to that deck alone.
+  const [arrival, setArrival] = useState(null);
   const [playtesting, setPlaytesting] = useState(false);
   // Cards to seed into the opening hand when Playtest opens ("goldfish this line").
   const [playtestStage, setPlaytestStage] = useState(null);
@@ -137,12 +155,13 @@ export default function App() {
   const [healthRetry, setHealthRetry] = useState(0);
   const [serverAi, setServerAi] = useState(true);
   const [serverWarmed, setServerWarmed] = useState(false);
-  const [deckText, setDeckText] = useState(_shared?.deckText || "");
-  const [format, setFormat] = useState(_shared?.format || "commander");
-  const [commander, setCommander] = useState(_shared?.commander || "");
+  const [deckText, setDeckText] = useState("");
+  const [format, setFormat] = useState("commander");
+  const [commander, setCommander] = useState("");
   const [maybeboard, setMaybeboard] = useState("");
-  // The currently-open saved deck ({ id, name, saved }, see _openDeck), or null
-  // for a new unsaved deck.
+  // The saved deck in the editor ({ id, name, saved }, see _openDeck), or null
+  // when the editor is empty. There is no deck without an id: every way of
+  // starting one saves it first (createDeck).
   const [currentDeck, setCurrentDeck] = useState(null);
   // The editor in storage form. Differing from the saved copy in any part
   // (cards, commander, Considering, format) is what "unsaved" means.
@@ -177,12 +196,6 @@ export default function App() {
     return { cards: t, text: assembleForStorage(t, c, mb) };
   }, []);
 
-  const savedDeckText = useRef(deckText);
-  // Auto-save bookkeeping: a share-link deck saves once on arrival; the busy
-  // flag stops the effect re-firing while a save is in flight.
-  const sharedAutoSave = useRef(Boolean(_shared));
-  const autoSaveBusy = useRef(false);
-
   // Load the deck's saved goals when the open deck changes; persist on edit.
   useEffect(() => {
     setGoalsState(loadGoals(currentDeck?.id || null)); // eslint-disable-line react-hooks/set-state-in-effect
@@ -192,97 +205,71 @@ export default function App() {
     saveGoals(currentDeck?.id || null, g);
   }, [currentDeck?.id]);
 
-  const [startInWizard, setStartInWizard] = useState(false);
-  // Pending import-modal tab ("paste" | "url") to open once the new-deck editor
-  // mounts, set by avatar-menu shortcuts. null = none.
-  const [startImport, setStartImport] = useState(null);
-  // In-app unsaved-changes guard: opening/creating another deck overwrites the
-  // editor, so unsaved edits get the same protection beforeunload already
-  // gives page exits. Refs keep the guard stable (and the callbacks dep-free).
-  const deckTextRef = useRef("");
+  // Refs so the callbacks below read the present without depending on it.
   const openIdRef = useRef(null);
   const userIdRef = useRef(null);
-  // A new deck with no id yet has no draft to fall back on. If Back lands on a
-  // saved deck while one is in the editor it is held here, and put back when
-  // the address returns to /new.
-  const heldNewDeck = useRef(null);
-  // Counts every time a different deck is put in the editor (emptyEditor,
-  // loadDeck). A new deck has no id to be told apart by; its turn stands in.
-  const editorTurn = useRef(0);
+  // Counts every move: a link, a tab, Back, Forward. A new deck comes back
+  // after its build and its save, which can be a minute, and this is how
+  // createDeck tells whether the person is still on the screen that asked.
+  const moves = useRef(0);
+  const moved = useCallback(() => setVisit(++moves.current), []);
+  const routeRef = useRef(route);
   useEffect(() => {
-    deckTextRef.current = deckText;
     openIdRef.current = currentDeck?.id || null;
     userIdRef.current = session?.user?.id || null;
+    routeRef.current = route;
   });
 
   // Every move in the app. A route carries a deck id only on the deck tab, and
   // going to that tab means the deck the editor already holds (/new if none).
-  const goTo = useCallback((next) => setRoute((r) => ({ ...r, deckId: null, ...next })), []);
+  // A commander named for a new deck goes no further than the screen it names.
+  const goTo = useCallback((next) => {
+    moved();
+    setRoute((r) => ({ ...r, deckId: null, seed: null, ...next }));
+  }, [moved]);
   const setTab = useCallback((t) => {
     goTo(t === "deck" ? { tab: t, deckId: openIdRef.current } : { tab: t });
   }, [goTo]);
   const setCommanderSlug = useCallback((slug) => goTo({ tab: "commanders", slug }), [goTo]);
 
-  const confirmDiscardEdits = useCallback(() => {
-    // A saved deck's edits are already kept as its draft: leaving loses nothing.
-    if (openIdRef.current && draftKept.current) return true;
-    const cur = deckTextRef.current;
-    if (cur && cur !== savedDeckText.current) {
-      return window.confirm("You have unsaved deck changes. Discard them?");
-    }
-    return true;
-  }, []);
+  // A deck's edits are kept as its draft, so leaving loses nothing. Only when
+  // that write failed (storage full or blocked) is there something to ask about.
+  const confirmDiscardEdits = useCallback(() => (
+    !openIdRef.current || draftKept.current || window.confirm("You have unsaved deck changes. Discard them?")
+  ), []);
 
   // The generator's per-card notes describe one deck and are keyed by card
   // name alone, so they have to go the moment a different deck is on screen.
-  // emptyEditor and loadDeck are every way that happens; auto-save giving the
-  // just-generated deck an id deliberately isn't one of them.
+  // emptyEditor and loadDeck are every way that happens; createDeck sets them
+  // again after it loads the deck they belong to.
   const emptyEditor = useCallback(() => {
     clearBuildNotes();
-    editorTurn.current++;
     setDeckText("");
     setCommander("");
     setMaybeboard("");
     setFormat("commander");
     setCurrentDeck(null);
-    savedDeckText.current = "";
   }, []);
 
   // Put a saved deck in the editor. Edits left unsaved last time come back on
   // top of the saved copy, and the deck shows as unsaved. Returns whether any did.
   const loadDeck = useCallback((deck) => {
     clearBuildNotes();
-    editorTurn.current++;
     const fmt = deck.format || "commander";
     const shown = showInEditor(fmt, deck.decklist_text);
     setCurrentDeck(_openDeck(deck, shown.text, fmt));
-    savedDeckText.current = shown.cards;
     const draft = loadDraft(deck.id);
     if (draft) showInEditor(draft.format || fmt, draft.decklist_text);
     return Boolean(draft);
   }, [showInEditor]);
 
-  // initialCommander pre-seeds the manual builder — "Build from scratch" from a
-  // commander page (Job 2).
-  const newDeck = useCallback((importTab = null, initialCommander = "") => {
+  // "New deck", from anywhere: the New deck screen, fresh. `seed` is a
+  // commander to start from (a commander page's link); the bars pass none.
+  const startNew = useCallback((seed) => {
     if (!confirmDiscardEdits()) return;
-    emptyEditor();
-    setCommander(initialCommander || "");
-    setStartInWizard(false);
-    setStartImport(typeof importTab === "string" ? importTab : null);
-    goTo({ tab: "deck" });
-  }, [confirmDiscardEdits, emptyEditor, goTo]);
-
-  // initialCommander pre-seeds the Wizard — "Build with strategy" from a
-  // commander page (Job 2).
-  const guidedBuild = useCallback((initialCommander = "") => {
-    if (!confirmDiscardEdits()) return;
-    emptyEditor();
-    setStartInWizard(true);
-    setWizardInitialCommander(initialCommander || "");
-    setStartImport(null);
-    goTo({ tab: "deck" });
-  }, [confirmDiscardEdits, emptyEditor, goTo]);
+    setShared(null);
+    goTo({ tab: "deck", seed: typeof seed === "string" ? seed : null });
+  }, [confirmDiscardEdits, goTo]);
 
   const addToConsidering = useCallback((name) => {
     setMaybeboard((prev) => {
@@ -297,28 +284,36 @@ export default function App() {
   // restores the tab from the URL without pushing again.
   useEffect(() => {
     registerTabHandler((layerClosed) => {
-      const next = parseLocation(window.location);
-      // Back onto /new while the editor holds a saved deck. A deck that got
-      // its id under an open modal (a paste, an import) could not take over
-      // its /new entry then, because the modal's entry was on top; it does
-      // now. Any older /new likewise shows the deck the editor holds instead
-      // of emptying it, unless a new deck was set aside for it.
-      if (next.tab === "deck" && !next.deckId && openIdRef.current && !heldNewDeck.current) {
-        next.deckId = openIdRef.current;
-        const { search, hash } = window.location;
-        window.history.replaceState(window.history.state, "", buildPath(next, search) + hash);
+      if (layerClosed) {
+        // Back closed a layer and the app stays where it is. The entry now on
+        // top was pushed before the layer opened, and the app may have moved
+        // on from its address since (a deck saved while a panel was open over
+        // the New deck screen), so the address is put right.
+        const { pathname, search, hash } = window.location;
+        const want = buildPath(routeRef.current, search) + hash;
+        if (want !== pathname + search + hash) window.history.replaceState(window.history.state, "", want);
+        return;
       }
-      // Back closing a layer never moves the app; only the address needed a look.
-      if (!layerClosed) setRoute(next);
+      const next = parseLocation(window.location);
+      // A pop that changes nothing (the skip link's #main-content) is not a
+      // move: it must not reset the New deck screen or orphan a deck in flight.
+      if (buildPath(next) !== buildPath(routeRef.current)) moved();
+      setRoute(next);
     });
-  }, []);
+  }, [moved]);
 
   const addressSynced = useRef(false);
   const { deckId } = route;
-  useEffect(() => {
+  const seed = (tab === "deck" && !deckId && route.seed) || null;
+  // A layout effect, so the address is settled before any passive effect runs.
+  // A deck can arrive with a layer already open over it (the upgrade guide
+  // after a paste), and a child's effects run before this component's: as a
+  // passive effect this ran after the guide had pushed its history entry, and
+  // replaced that entry, leaving the /new beneath it standing.
+  useLayoutEffect(() => {
     const { pathname, search, hash } = window.location;
     const slug = tab === "commanders" ? commanderSlug : null;
-    const next = buildPath({ tab, slug, deckId }, search) + hash;
+    const next = buildPath({ tab, slug, deckId, seed }, search) + hash;
     if (!addressSynced.current) {
       // On load the address is only being corrected (an old ?tab= link becomes
       // its path), so it replaces.
@@ -330,21 +325,15 @@ export default function App() {
     // it rather than flag the pop: a pop that changes nothing (the skip link's
     // #main-content) never reaches this effect to clear a flag.
     const here = parseLocation(window.location);
-    if (here.tab === tab && here.slug === slug && here.deckId === deckId) return;
-    // A deck taking the place of /new (a new deck just given its id by a first
-    // save or a share link's auto-save, or a saved deck opened from the menu)
-    // keeps that place in history: /new becomes /decks/<id>, so Back doesn't
-    // return to an empty editor.
+    if (here.tab === tab && here.slug === slug && here.deckId === deckId && (here.seed || null) === seed) return;
+    // A deck taking the place of /new (a deck just made there, or a share
+    // link's deck just saved) keeps that place in history: /new becomes
+    // /decks/<id>, so Back doesn't return to the screen it was made on.
     const savedFromNew = here.tab === "deck" && !here.deckId && deckId;
-    // Recycle an abandoned layer entry rather than stacking on top of it. A
-    // layer still open (the deck got its id under a modal) keeps its marker,
-    // so its entry is recycled later like any other; the /new entry beneath it
-    // is put right when Back reaches it (the pop handler above).
-    const top = window.history.state;
-    const ghost = historyTopIsGhost();
-    if (savedFromNew || ghost) window.history.replaceState(top?.mtgwebLayer && !ghost ? top : { tab }, "", next);
+    // Recycle an abandoned layer entry rather than stacking on top of it.
+    if (savedFromNew || historyTopIsGhost()) window.history.replaceState({ tab }, "", next);
     else window.history.pushState({ tab }, "", next);
-  }, [tab, commanderSlug, deckId]);
+  }, [tab, commanderSlug, deckId, seed]);
 
   // Back gesture closes full-screen/system layers before walking tabs.
   useBackClose(playtesting, () => setPlaytesting(false));
@@ -360,17 +349,15 @@ export default function App() {
 
   useEffect(() => {
     function handler(e) {
-      // Only a deck with no draft to fall back on needs the browser's prompt.
-      const kept = currentDeck?.id && draftKept.current;
-      // So does a new deck set aside by Back: it lives only in memory.
-      if ((!kept && deckText && deckText !== savedDeckText.current) || heldNewDeck.current) { e.preventDefault(); }
+      // Only a deck whose draft could not be written needs the browser's prompt.
+      if (currentDeck?.id && !draftKept.current) { e.preventDefault(); }
       if (supabaseEnabled && localStorage.getItem("mtgweb:rememberMe") === "false") {
         supabase.auth.signOut();
       }
     }
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [deckText, currentDeck?.id]);
+  }, [currentDeck?.id]);
 
   const {
     needRefresh: [needRefresh, setNeedRefresh],
@@ -434,8 +421,7 @@ export default function App() {
   // out, another tab doing either) the editor lets go of it, and its address
   // resolves again against the new list: the deck if it is there, "Deck not
   // found" if not. Kept, a Save would copy it into the other store. Its
-  // unsaved edits stay in its draft. A new deck with no id belongs to no
-  // store yet, and stays.
+  // unsaved edits stay in its draft.
   const applySession = useCallback((s) => {
     if ((s?.user?.id || null) !== userIdRef.current && openIdRef.current) emptyEditor();
     setSession(s);
@@ -508,7 +494,9 @@ export default function App() {
   // when the address moved first: a cold load, a second browser tab, Back,
   // Forward. DeckView stays unmounted until the two agree.
   const editorId = currentDeck?.id || null;
-  const deckReady = tab === "deck" && deckId === editorId;
+  const deckReady = tab === "deck" && Boolean(deckId) && deckId === editorId;
+  // The New deck screen (/new): the deck tab with no deck named.
+  const atNew = tab === "deck" && !deckId;
   // The place the bars light: a deck is a page under Decks, /new is no place.
   const place = tab === "deck" ? (deckId ? "decks" : null) : tab;
   const wanted = tab === "deck" && deckId && !deckReady
@@ -520,56 +508,48 @@ export default function App() {
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (tab !== "deck" || deckReady) return;
-    if (!deckId) {
-      // /new, with a saved deck still in the editor (its edits are in its
-      // draft). The pop handler only lets this through for a held new deck.
-      emptyEditor();
-      const held = heldNewDeck.current;
-      if (held) showInEditor(held.format, held.decklist_text);
-      heldNewDeck.current = null;
-    } else if (wantedDeck) {
-      if (!editorId && storageText.trim()) heldNewDeck.current = { format, decklist_text: storageText };
-      loadDeck(wantedDeck);
-    }
-  }, [tab, deckReady, deckId, wantedDeck, editorId, storageText, format, emptyEditor, showInEditor, loadDeck]);
+    // /new with a saved deck still in the editor (its edits are in its draft):
+    // the New deck screen starts from nothing.
+    if (!deckId) { if (editorId) emptyEditor(); } else if (wantedDeck) loadDeck(wantedDeck);
+  }, [tab, deckReady, deckId, wantedDeck, editorId, emptyEditor, loadDeck]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // The browser title names the place, and on a deck address the deck.
   const deckMissing = wanted?.status === "missing";
   useEffect(() => {
     const names = { decks: "My Decks", commanders: "Commanders", rules: "Rules", cards: "Card Search" };
-    const deckTitle = deckMissing ? "Deck not found" : currentDeck?.name || "Deck Builder";
+    const deckTitle = atNew ? "New deck" : deckMissing ? "Deck not found" : currentDeck?.name || "Deck";
     document.title = `${tab === "deck" ? deckTitle : names[tab] || "MTG Workshop"} · MTG Workshop`;
-  }, [tab, deckMissing, currentDeck?.name]);
+  }, [tab, atNew, deckMissing, currentDeck?.name]);
 
   // A save comes back after an await, and the editor may hold another deck by
   // then. Only the deck that was saved takes the saved copy: on any other deck
-  // it would turn that deck's whole text into unsaved edits and a draft. A new
-  // deck gets its id here, and its address with it. Returns whether it applied.
-  // Two new decks both have no id, so a new deck's save also carries the
-  // editor's turn from when it started (`turn`): "New deck" clicked while the
-  // save was out is a different deck, and must not take the saved one's id.
-  const adoptSaved = useCallback((wasId, saved, text, fmt, turn) => {
-    if (openIdRef.current !== (wasId || null)) return false;
-    if (!wasId && turn !== editorTurn.current) return false;
+  // it would turn that deck's whole text into unsaved edits and a draft. A
+  // clone gets its id here, and its address with it. Returns whether it applied.
+  const adoptSaved = useCallback((wasId, saved, text, fmt) => {
+    if (openIdRef.current !== wasId) return false;
     setCurrentDeck(_openDeck(saved, text, fmt));
     if (saved.id !== wasId) setRoute((r) => (r.tab === "deck" ? { ...r, deckId: saved.id } : r));
     return true;
   }, []);
 
-  const shareDeck = useCallback(() => {
-    const full = assembleDecklist(deckText, commander);
+  // `full` is a deck as assembleDecklist gives it.
+  const copyShareLink = useCallback((full, fmt, cmd) => {
     if (!full.trim()) return notify("No deck to share.");
     const encoded = _b64encode(full);
-    const params = new URLSearchParams({ deck: encoded, fmt: format });
-    if (commander) params.set("cmd", commander);
+    const params = new URLSearchParams({ deck: encoded, fmt });
+    if (cmd) params.set("cmd", cmd);
     // From "/", not the current path: the Share toast outlives a tab switch.
     const url = `${window.location.origin}/?${params}`;
     navigator.clipboard.writeText(url).then(
       () => notify("Share link copied to clipboard!"),
       () => notify("Couldn't copy — check browser permissions."),
     );
-  }, [deckText, commander, format, notify]);
+  }, [notify]);
+  const shareDeck = useCallback(
+    () => copyShareLink(assembleDecklist(deckText, commander), format, commander),
+    [copyShareLink, deckText, commander, format],
+  );
 
   const saveDeck = useCallback(async (deck) => {
     const saved = await store.save(deck);
@@ -578,52 +558,83 @@ export default function App() {
     // would write the old one back.
     if (saved.id === openIdRef.current) setCurrentDeck((d) => (d?.id === saved.id ? { ...d, name: saved.name } : d));
     await refresh();
-    savedDeckText.current = deckText;
     // Share-after-save: the moment a deck is saved is the moment sharing it
     // becomes meaningful — offer it right on the toast.
     notify("Saved.", { label: "🔗 Share link", onClick: shareDeck });
     return saved;
-  }, [store, refresh, notify, deckText, shareDeck]);
+  }, [store, refresh, notify, shareDeck]);
 
-  // Auto-save a brand-new deck the moment it has an identity: opened from a
-  // share link, or the first time a commander is chosen. Dedup by content so
-  // revisiting the same share link adopts the existing deck instead of
-  // creating a duplicate on every visit.
-  const autoSaveNewDeck = useCallback(async () => {
-    const decklist_text = assembleForStorage(deckText, commander, maybeboard);
-    if (!assembleDecklist(deckText, commander).trim()) return;
-    const turn = editorTurn.current;
-    const existing = await store.list();
-    const dup = existing.find((d) => d.decklist_text === decklist_text);
-    if (dup) {
-      if (!adoptSaved(null, dup, decklist_text, dup.format || "commander", turn)) return;
-      savedDeckText.current = deckText;
-      // Opening a share link again lands here: edits made since it was saved
-      // are in its draft, and showing the link's own text would wipe them.
-      const draft = loadDraft(dup.id);
-      if (draft) showInEditor(draft.format || dup.format, draft.decklist_text);
-      return;
-    }
-    const name = commander ? commanderDisplay(commander) : "Imported deck";
-    const saved = await store.save({ name, format, decklist_text });
+  // Put a deck that is already saved on screen at its own address, in the
+  // place of the New deck screen (a deck just made, a share link's deck).
+  const showSaved = useCallback((deck) => {
+    loadDeck(deck);
+    setRoute((r) => ({ ...r, tab: "deck", deckId: deck.id, seed: null }));
+  }, [loadDeck]);
+
+  // A deck is saved the moment it is created. Every way of starting one ends
+  // here: the doors of the New deck screen and a share link's arrival. It
+  // saves first, then puts the deck in the editor at /decks/<id>, so nothing
+  // in the app is ever a deck without an id. Throws if the save fails: the
+  // caller still holds what it made.
+  //
+  // `asked` is the move count of the screen that asked for the deck. If the
+  // person has moved on since (any link, Back, "New deck" again), during the
+  // build or the save, or the account has changed, the deck is not opened over
+  // what they are looking at: it is saved, and the toast offers it.
+  const createDeck = useCallback(async (
+    { name, format: fmt = "commander", decklist_text, notes, arrival: onArrival, toast },
+    asked,
+  ) => {
+    const askedBy = userIdRef.current;
+    const saved = await store.save({ name, format: fmt, decklist_text });
     await refresh();
-    if (!adoptSaved(null, saved, decklist_text, format, turn)) return;
-    savedDeckText.current = deckText;
-    notify(`Saved as "${saved.name}".`, { label: "🔗 Share link", onClick: shareDeck });
-  }, [deckText, commander, maybeboard, format, store, refresh, notify, shareDeck, showInEditor, adoptSaved]);
+    const { commander: cmd, deckText: cards } = disassembleDecklist(decklist_text);
+    const share = { label: "🔗 Share link", onClick: () => copyShareLink(assembleDecklist(cards, cmd), fmt, cmd) };
+    if (asked !== moves.current || askedBy !== userIdRef.current) {
+      // Said only to the account that asked for it: that is whose list it is in.
+      if (askedBy === userIdRef.current) {
+        notify(`Saved as "${saved.name}".`, {
+          label: "Open",
+          onClick: () => { if (askedBy === userIdRef.current) { loadDeck(saved); goTo({ tab: "deck", deckId: saved.id }); } },
+        });
+      }
+      return saved;
+    }
+    showSaved(saved);
+    // Set after the load, which clears the notes of whatever deck came before.
+    if (notes) setBuildNotes(notes);
+    setArrival(onArrival ? { ...onArrival, deckId: saved.id } : null);
+    notify(toast || `Saved as "${saved.name}".`, share);
+    return saved;
+  }, [store, refresh, notify, copyShareLink, showSaved, loadDeck, goTo]);
 
+  // A share link's deck is saved on arrival, like any other new deck. Opening
+  // the same link again finds the deck it already made (same contents) and
+  // opens that one, with any edits left in its draft, in place of a duplicate.
+  const openShared = useCallback(async () => {
+    const asked = moves.current;
+    try {
+      const dup = (await store.list()).find((d) => d.decklist_text === _shared.decklist_text);
+      if (!dup) {
+        const name = _shared.commander ? commanderDisplay(_shared.commander) : "Imported deck";
+        await createDeck({ name, format: _shared.format, decklist_text: _shared.decklist_text }, asked);
+      } else if (asked === moves.current) showSaved(dup);
+      setShared(null);
+    } catch (e) {
+      setShared("failed");
+      notify(`Couldn't save this shared deck: ${e.message}`);
+    }
+  }, [_shared, store, createDeck, showSaved, notify]);
+
+  // Wait for the Supabase session check to resolve first — otherwise a
+  // signed-in user's deck silently saves to browser-local storage instead of
+  // their account (userId reads as null until this settles).
+  const sharedStarted = useRef(false);
   useEffect(() => {
-    // Wait for the Supabase session check to resolve first — otherwise a
-    // signed-in user's deck silently saves to browser-local storage instead
-    // of their account (userId reads as null until this settles).
-    if (!authReady || currentDeck || tab !== "deck" || autoSaveBusy.current) return;
-    if (!sharedAutoSave.current && !commander) return;
-    autoSaveBusy.current = true;
-    sharedAutoSave.current = false;
-    autoSaveNewDeck()
-      .catch((e) => notify(`Auto-save failed: ${e.message}`))
-      .finally(() => { autoSaveBusy.current = false; });
-  }, [authReady, commander, currentDeck, tab, autoSaveNewDeck, notify]);
+    if (!_shared || !authReady || sharedStarted.current) return;
+    sharedStarted.current = true;
+    openShared();
+  }, [_shared, authReady, openShared]);
 
   // Delete is destructive — pair it with a toast Undo (guideline: destructive
   // actions need confirmation or undo). Restore re-creates the deck from the
@@ -661,49 +672,37 @@ export default function App() {
     );
   }, [store, refresh, notify, decks, saveDeck, emptyEditor]);
 
-  // Save from the deck view: update the open deck in place if there is one,
-  // otherwise prompt for a name and create a new deck.
+  // Save from the deck view: the open deck, in place. A blank deck is made as
+  // "Untitled deck"; while it still has that name, its first commander names
+  // it, as picking a commander always has. A deck that was renamed keeps its name.
   const saveCurrentDeck = useCallback(async () => {
+    if (!currentDeck?.id) return;
     const decklist_text = assembleForStorage(deckText, commander, maybeboard);
     if (!assembleDecklist(deckText, commander).trim()) return notify("Nothing to save yet.");
-    if (currentDeck?.id) {
-      const saved = await saveDeck({ id: currentDeck.id, name: currentDeck.name, format, decklist_text });
-      adoptSaved(currentDeck.id, saved, decklist_text, format);
-    } else {
-      // A rename before first save already supplied a name — don't re-prompt.
-      const name = currentDeck?.name || prompt("Name this deck:");
-      if (!name) return;
-      const turn = editorTurn.current;
-      const saved = await saveDeck({ name: name.trim(), format, decklist_text });
-      adoptSaved(null, saved, decklist_text, format, turn);
-    }
+    const name = currentDeck.name === UNTITLED && commander ? commanderDisplay(commander) : currentDeck.name;
+    const saved = await saveDeck({ id: currentDeck.id, name, format, decklist_text });
+    adoptSaved(currentDeck.id, saved, decklist_text, format);
   }, [currentDeck, saveDeck, format, deckText, commander, maybeboard, notify, adoptSaved]);
 
-  // Rename the open deck. Saved decks persist immediately; unsaved decks just
-  // carry the name until their first save.
+  // Rename the open deck. It persists immediately.
   const renameCurrentDeck = useCallback(async (name) => {
     const trimmed = (name || "").trim().slice(0, 80);
-    if (!trimmed) return;
-    if (currentDeck?.id) {
-      const decklist_text = assembleForStorage(deckText, commander, maybeboard);
-      const saved = await saveDeck({ id: currentDeck.id, name: trimmed, format, decklist_text });
-      adoptSaved(currentDeck.id, saved, decklist_text, format);
-      notify(`Renamed to "${saved.name}".`);
-    } else {
-      setCurrentDeck((d) => ({ ...d, id: d?.id || null, name: trimmed }));
-    }
+    if (!trimmed || !currentDeck?.id) return;
+    const decklist_text = assembleForStorage(deckText, commander, maybeboard);
+    const saved = await saveDeck({ id: currentDeck.id, name: trimmed, format, decklist_text });
+    adoptSaved(currentDeck.id, saved, decklist_text, format);
+    notify(`Renamed to "${saved.name}".`);
   }, [currentDeck, saveDeck, format, deckText, commander, maybeboard, notify, adoptSaved]);
 
   // Clone: always create a NEW deck (no id), copying the current contents.
   const cloneCurrentDeck = useCallback(async () => {
+    if (!currentDeck?.id) return;
     const decklist_text = assembleForStorage(deckText, commander, maybeboard);
     if (!assembleDecklist(deckText, commander).trim()) return notify("Nothing to clone yet.");
-    const base = currentDeck?.name || "Untitled deck";
-    const name = prompt("Name the copy:", `${base} (copy)`);
+    const name = prompt("Name the copy:", `${currentDeck.name || UNTITLED} (copy)`);
     if (!name) return;
-    const turn = editorTurn.current;
     const saved = await saveDeck({ name: name.trim(), format, decklist_text });
-    adoptSaved(currentDeck?.id, saved, decklist_text, format, turn);
+    adoptSaved(currentDeck.id, saved, decklist_text, format);
   }, [currentDeck, saveDeck, format, deckText, commander, maybeboard, notify, adoptSaved]);
 
   const exportCurrentDeck = useCallback(async () => {
@@ -792,7 +791,7 @@ export default function App() {
         cloud={cloud}
         session={session}
         setSettingsOpen={setSettingsOpen}
-        onNewDeck={newDeck}
+        onNewDeck={startNew}
         onDeck={deckReady}
         onSignOut={() => { supabase.auth.signOut(); notify("Signed out."); }}
         avatarMenuOpen={avatarMenuOpen}
@@ -846,11 +845,8 @@ export default function App() {
             onPlaytest={() => { setPlaytestStage(null); setPlaytesting(true); }}
             onGoldfish={(cards) => { setPlaytestStage(cards); setPlaytesting(true); }}
             onShare={shareDeck}
-            startInWizard={startInWizard}
-            onWizardConsumed={() => setStartInWizard(false)}
-            initialCommander={wizardInitialCommander}
-            startImport={startImport}
-            onImportConsumed={() => setStartImport(null)}
+            arrival={arrival?.deckId === currentDeck?.id ? arrival : null}
+            onArrivalDone={() => setArrival(null)}
             onBack={() => setTab("decks")}
             notify={notify}
             serverWarmed={serverWarmed}
@@ -859,6 +855,27 @@ export default function App() {
             goals={goals}
             setGoals={setGoals}
           />
+        )}
+        {atNew && shared && (
+          <div className="panel">
+            {shared === "failed" ? (
+              <>
+                <h2>This shared deck isn&apos;t saved yet</h2>
+                <p className="muted small">
+                  A shared deck is saved to {cloud ? "your account" : "this browser"} before it opens, and
+                  that save didn&apos;t go through.
+                </p>
+                <button className="primary" onClick={() => { setShared("saving"); openShared(); }}>Try again</button>
+              </>
+            ) : (
+              <p className="muted small" role="status">Opening the shared deck…</p>
+            )}
+          </div>
+        )}
+        {/* Not before the sign-in check settles: until then the app reads as
+            signed out, and a deck made now would be saved to this browser. */}
+        {atNew && !shared && authReady && (
+          <NewDeck key={visit} seed={seed} onCreate={(deck) => createDeck(deck, visit)} notify={notify} />
         )}
         {tab === "decks" && (
           <MyDecks
@@ -869,8 +886,8 @@ export default function App() {
             onDelete={deleteDeck}
             onOpen={openDeck}
             onPlaytest={(deck) => { openDeck(deck); setPlaytesting(true); }}
-            onNewDeck={newDeck}
-            onGuidedBuild={guidedBuild}
+            onNewDeck={startNew}
+            onGuidedBuild={startNew}
             notify={notify}
             refresh={refresh}
             setTab={setTab}
@@ -882,8 +899,7 @@ export default function App() {
           <Commanders
             slug={commanderSlug}
             setSlug={setCommanderSlug}
-            onBuildWithStrategy={(name) => guidedBuild(name)}
-            onBuildFromScratch={(name) => newDeck(null, name)}
+            onBuild={startNew}
             notify={notify}
           />
         )}
@@ -899,7 +915,7 @@ export default function App() {
           <CardSearch
             addCard={addCardFromSearch}
             notify={notify}
-            deckName={currentDeck?.name || (storageText.trim() ? "your new deck" : null)}
+            deckName={currentDeck?.name || null}
             deckHref={buildPath({ tab: "deck", deckId: currentDeck?.id || null })}
             onBackToDeck={() => setTab("deck")}
           />
@@ -944,7 +960,7 @@ export default function App() {
           )}
         </div>
       )}
-      <BottomNav places={PLACES} place={place} setTab={setTab} onNewDeck={newDeck} onNew={tab === "deck" && !deckId} />
+      <BottomNav places={PLACES} place={place} setTab={setTab} onNewDeck={startNew} onNew={atNew} />
       <Planeswalker
         decklist={deckText}
         commander={commander}

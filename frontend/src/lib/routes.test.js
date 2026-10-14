@@ -91,6 +91,27 @@ test("a share link's params ride along until its deck is saved", () => {
   assert.equal(buildPath(at("deck", null, "abc-123"), "?deck=QUJD&ref=x"), "/decks/abc-123?ref=x");
 });
 
+// A commander page links to /new?commander=<name>. Every address is built from
+// the query string the last one had, so the name has to be dropped on the way
+// out or it would follow you around and be picked the next time /new opens.
+test("a commander named for a new deck stays on /new and nowhere else", () => {
+  const seeded = { ...at("deck"), seed: "Atraxa, Praetors' Voice" };
+  assert.deepEqual(parse("/new?commander=Atraxa%2C+Praetors%27+Voice"), seeded);
+  assert.deepEqual(parse(buildPath(seeded)), seeded);
+  // The deck it became, any other place, and a fresh New deck all drop it.
+  const from = "?commander=Atraxa";
+  assert.equal(buildPath(at("deck", null, "abc-123"), from), "/decks/abc-123");
+  assert.equal(buildPath(at("decks"), from), "/");
+  assert.equal(buildPath(at("rules"), from), "/rules");
+  assert.equal(buildPath(at("deck"), from), "/new");
+  assert.equal(buildPath({ ...at("deck"), seed: "Krenko, Mob Boss" }, from), "/new?commander=Krenko%2C+Mob+Boss");
+  // Only /new reads it, and an empty or oversized one is no commander.
+  assert.deepEqual(parse("/rules?commander=Atraxa"), at("rules"));
+  assert.deepEqual(parse("/decks/abc-123?commander=Atraxa"), at("deck", null, "abc-123"));
+  assert.deepEqual(parse("/new?commander="), at("deck"));
+  assert.deepEqual(parse(`/new?commander=${"x".repeat(101)}`), at("deck"));
+});
+
 test("every route survives build then parse", () => {
   const routes = [
     at("decks"),

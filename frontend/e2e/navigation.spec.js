@@ -93,7 +93,7 @@ test.describe("Navigation & Layout", () => {
     await expect(page).toHaveURL(atHome);
   });
 
-  test("New deck opens the empty editor from any place, and a deck lights Decks", async ({ page, isMobile }) => {
+  test("New deck opens the New deck screen from any place, and a deck lights Decks", async ({ page, isMobile }) => {
     await seedLocalDecks(page, [TEST_DECK_STORAGE]);
     await page.reload();
     await waitForAppReady(page);
@@ -101,7 +101,7 @@ test.describe("Navigation & Layout", () => {
     await navigateToTab(page, "Rules");
     await openNewDeck(page);
     await expect(page).toHaveURL((url) => url.pathname === "/new");
-    await expect(page.locator(".empty-deck")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Start a new deck" })).toBeVisible();
     // /new is not one of the places. The phone's bar marks its New deck item.
     await expect(mainNav(page).locator('[aria-current="page"]')).toHaveText(isMobile ? ["New deck"] : []);
 
@@ -135,11 +135,24 @@ test.describe("Navigation & Layout", () => {
     expect(await color(page.locator(".gt-brand"))).toBe("rgb(237, 237, 240)");
   });
 
-  test("New deck over a deck that is not saved yet asks first, and Cancel keeps it", async ({ page }) => {
+  // Every deck has an id now, and its unsaved edits are kept as a draft, so
+  // leaving one never asks. The one case left is a draft that could not be
+  // written (storage full or blocked): then the edit lives only in the editor.
+  test("New deck over a deck whose draft could not be kept asks first, and Cancel keeps it", async ({ page }) => {
     const asked = [];
     page.on("dialog", (d) => { asked.push(d.type()); d.dismiss().catch(() => {}); });
-    await openNewDeck(page);
-    // No commander, so nothing saves it: the card lives only in the editor.
+    await seedLocalDecks(page, [TEST_DECK_STORAGE]);
+    await page.reload();
+    await waitForAppReady(page);
+    await page.evaluate(() => {
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (key, value) {
+        if (key.startsWith("mtgweb:draft:")) throw new Error("storage is full");
+        return setItem.call(this, key, value);
+      };
+    });
+    await page.locator(".deck-card .deck-card-art").first().click();
+    await expect(page).toHaveURL(new RegExp(`/decks/${TEST_DECK_STORAGE.id}$`));
     await navigateToTab(page, "Card Search");
     const name = page.locator('input[placeholder="bolt"]');
     await name.fill("bolt");
@@ -153,7 +166,7 @@ test.describe("Navigation & Layout", () => {
 
     await openNewDeck(page);
     expect(asked).toEqual(["confirm"]);
-    await expect(page).toHaveURL((url) => url.pathname === "/new");
+    await expect(page).toHaveURL(new RegExp(`/decks/${TEST_DECK_STORAGE.id}$`));
     await expect(bolt.first()).toBeAttached();
     // The link's own address was not followed: this is still the same page load.
     expect(await page.evaluate(() => window.__samePage)).toBe(true);

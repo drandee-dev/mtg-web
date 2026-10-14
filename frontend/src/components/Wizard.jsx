@@ -161,7 +161,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
   }
 
   function finishWizard() {
-    onFinish(buildDecklist(), commander);
+    onFinish(buildDecklist(), commander, format);
   }
 
   // --- SETUP PHASE ---
@@ -208,7 +208,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
           <h2>Review: {skeleton?.commander?.name}</h2>
           <p className="muted small">
             {pickedCount + cmdCount} cards (including {cmdCount > 1 ? "commanders" : "commander"}).
-            {remaining > 0 && ` Need ${remaining} more for 100. You can add more from the Build tab after finishing.`}
+            {remaining > 0 && ` Need ${remaining} more for 100. You can add more in the deck after creating it.`}
             {remaining <= 0 && " Deck is at 100 cards!"}
           </p>
         </div>
@@ -230,7 +230,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
         <div className="panel">
           <div className="row">
             <button onClick={() => { setCatIdx(0); setPhase("building"); }}>← Back to suggestions</button>
-            <button className="primary" onClick={finishWizard}>Send to Build tab →</button>
+            <button className="primary" onClick={finishWizard}>Create the deck →</button>
           </div>
         </div>
       </div>

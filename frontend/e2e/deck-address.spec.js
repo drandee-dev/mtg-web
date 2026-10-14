@@ -1,5 +1,5 @@
-// Deck addresses (UX overhaul job 1.4): a saved deck is /decks/<id> and the
-// editor with no saved deck in it is /new. Reload, a bookmark, a second
+// Deck addresses (UX overhaul job 1.4): a saved deck is /decks/<id> and /new
+// is the New deck screen, where a deck is made. Reload, a bookmark, a second
 // browser tab, Back and Forward all land on the deck the address names.
 
 import { test, expect } from "./fixtures/test-base.js";
@@ -9,6 +9,8 @@ import {
   seedLocalDecks,
   navigateToTab,
   openNewDeck,
+  pickNewDeckCommander,
+  pasteNewDeck as pasteList,
   backToDeck,
   loadSharedDeck,
 } from "./fixtures/helpers.js";
@@ -133,21 +135,21 @@ test.describe("Deck addresses", () => {
     expect(await savedDecks(page)).toEqual([DECK_A, DECK_B]);
   });
 
-  test("the empty editor is /new, and an old ?tab=deck link lands there", async ({ page }) => {
+  test("the New deck screen is /new, and an old ?tab=deck link lands there", async ({ page }) => {
+    const screen = page.getByRole("heading", { name: "Start a new deck" });
     await openNewDeck(page);
     await expect(page).toHaveURL(atPath("/new"));
-    await expect(page.locator(".empty-deck")).toBeVisible();
+    await expect(screen).toBeVisible();
 
     await openAddress(page, "/?tab=deck");
     await expect(page).toHaveURL(atPath("/new"));
-    await expect(page.locator(".empty-deck")).toBeVisible();
+    await expect(screen).toBeVisible();
   });
 
-  test("a new deck takes over /new when it is saved, so Back skips the empty editor", async ({ page }) => {
-    await openNewDeck(page);
+  test("a new deck takes over /new the moment it is made, so Back skips that screen", async ({ page }) => {
+    await pickNewDeckCommander(page);
     await expect(page).toHaveURL(atPath("/new"));
-    await page.locator("#cmd-input").fill("atraxa");
-    await page.locator(".autocomplete .ac-item").first().click();
+    await page.getByRole("button", { name: /^Start from scratch/ }).click();
 
     await expect.poll(async () => (await savedDecks(page)).length).toBe(3);
     const created = (await savedDecks(page)).find((d) => d.id !== DECK_A.id && d.id !== DECK_B.id);
@@ -160,14 +162,10 @@ test.describe("Deck addresses", () => {
     await expect(deckTitle(page)).toContainText("Atraxa");
   });
 
-  // A paste gives the deck its id while the upgrade guide is open, so a
-  // modal's history entry is on top of /new when the address changes.
+  // A pasted list is saved, and has its address, before the upgrade guide
+  // opens over it: the guide's history entry sits on /decks/<id>, never on /new.
   async function pasteNewDeck(page) {
-    await openNewDeck(page);
-    await expect(page).toHaveURL(atPath("/new"));
-    await page.locator(".empty-action", { hasText: "Paste a decklist" }).click();
-    await page.locator(".icm-panel textarea").fill(`Commander\n1 ${TEST_COMMANDER}\n\nDeck\n1 Sol Ring\n1 Arcane Signet\n1 Counterspell`);
-    await page.locator(".icm-foot button", { hasText: "Import" }).click();
+    await pasteList(page, `Commander\n1 ${TEST_COMMANDER}\n\nDeck\n1 Sol Ring\n1 Arcane Signet\n1 Counterspell`);
     await expect(page.locator('[aria-label="Upgrade this deck"]')).toBeVisible();
     await expect.poll(async () => (await savedDecks(page)).length).toBe(3);
     const created = (await savedDecks(page)).find((d) => d.id !== DECK_A.id && d.id !== DECK_B.id);
@@ -177,7 +175,7 @@ test.describe("Deck addresses", () => {
   const onPastedDeck = async (page, id) => {
     await expect(page).toHaveURL(atPath(`/decks/${id}`));
     await expect(inDeck(page, "Counterspell").first()).toBeAttached({ timeout: 10000 });
-    await expect(page.locator(".empty-deck")).toHaveCount(0);
+    await expect(page.locator(".nd, .empty-deck")).toHaveCount(0);
   };
 
   test("a deck pasted on /new keeps its address when the guide is closed with its button", async ({ page }) => {
@@ -214,28 +212,37 @@ test.describe("Deck addresses", () => {
     expect((await savedDecks(page)).length).toBe(3);
   });
 
-  test("a new deck not saved yet survives Back onto a saved deck", async ({ page }) => {
+  // From a deck: New deck, Back, Forward, Back. Each press shows what its
+  // address names. (Forward onto /new used to do nothing visible and rewrite
+  // that entry to the deck's address, which left a dead Back press behind it.)
+  test("New deck from a deck with unsaved edits: Back and Forward each show their own address", async ({ page }) => {
     const dialogs = [];
     page.on("dialog", (d) => { dialogs.push(d.type()); d.dismiss().catch(() => {}); });
+    const screen = page.getByRole("heading", { name: "Start a new deck" });
+    const onDeckA = async () => {
+      await expect(page).toHaveURL(atPath(`/decks/${DECK_A.id}`));
+      await expect(deckTitle(page)).toContainText(DECK_A.name);
+      // The edit came back from the deck's draft.
+      await expect(inDeck(page, "Lightning Bolt").first()).toBeAttached({ timeout: 10000 });
+      await expect(unsavedMark(page)).toHaveText("Unsaved");
+      await expect(screen).toHaveCount(0);
+    };
 
     await openFromDecks(page, DECK_A.name);
-    await navigateToTab(page, "My Decks");
-    await page.locator(".deck-card-new").click();
-    await expect(page).toHaveURL(atPath("/new"));
-    // No commander, so nothing auto-saves: the card lives only in the editor.
     await addBolt(page);
+    await openNewDeck(page);
     await expect(page).toHaveURL(atPath("/new"));
-    await expect(inDeck(page, "Lightning Bolt").first()).toBeAttached();
+    await expect(screen).toBeVisible();
+    await expect(grid(page)).toHaveCount(0);
 
-    // /decks/A, /, /new, /cards, /new: four back to the saved deck.
-    await page.evaluate(() => window.history.go(-4));
-    await expect(page).toHaveURL(atPath(`/decks/${DECK_A.id}`));
-    await expect(deckTitle(page)).toContainText(DECK_A.name);
-    await expect(inDeck(page, "Lightning Bolt")).toHaveCount(0);
-
-    await page.evaluate(() => window.history.go(4));
+    await page.goBack();
+    await onDeckA();
+    await page.goForward();
     await expect(page).toHaveURL(atPath("/new"));
-    await expect(inDeck(page, "Lightning Bolt").first()).toBeAttached({ timeout: 10000 });
+    await expect(screen).toBeVisible();
+    await page.goBack();
+    await onDeckA();
+
     expect(await savedDecks(page)).toEqual([DECK_A, DECK_B]);
     expect(dialogs).toEqual([]);
   });

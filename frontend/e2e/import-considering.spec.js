@@ -3,7 +3,7 @@
 // 1-card sideboard that must land in Considering — never the maindeck.
 
 import { test, expect } from "./fixtures/test-base.js";
-import { waitForAppReady, dismissColdStart, openNewDeck, loadSharedDeck } from "./fixtures/helpers.js";
+import { waitForAppReady, dismissColdStart, importNewDeck, loadSharedDeck } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
 test.describe("URL import + Considering + rename", () => {
@@ -13,12 +13,8 @@ test.describe("URL import + Considering + rename", () => {
     await page.goto("/");
     await waitForAppReady(page);
     await dismissColdStart(page);
-    await openNewDeck(page);
-
-    // Empty-state action card opens the modal on the URL tab
-    await page.locator(".empty-action", { hasText: "Import from URL" }).click();
-    await page.locator(".icm-panel input").fill("https://archidekt.com/decks/12345");
-    await page.locator(".icm-foot button", { hasText: "Import" }).click();
+    // The New deck screen's "Paste or import" door, by its link.
+    await importNewDeck(page);
 
     await expect(page.locator(".deck-title")).toContainText("Mock Import");
     // Sideboard card is in Considering, NOT the maindeck (grid/list render it

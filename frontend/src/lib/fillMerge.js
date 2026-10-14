@@ -1,4 +1,4 @@
-// Pure deck assembly for DeckGenerator: turn a wizard skeleton into a legal
+// Pure deck assembly for NewDeck's one-shot build: turn a wizard skeleton into a legal
 // 100-card list, then merge ai/fills suggestions into it without dropping it
 // below the land floor. Every fill is one card in, one card out, so the total
 // never changes: a fill takes a spare basic while lands sit above the floor,

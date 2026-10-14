@@ -1,85 +1,76 @@
 import { useEffect, useRef, useState } from "react";
-import { api, BRACKETS, FORMATS, PRICE_CAPS, getCardImage } from "../lib/api";
+import { api, BRACKETS, FORMATS, PRICE_CAPS, assembleForStorage, disassembleDecklist, getCardImage } from "../lib/api";
 import { searchCommanders as scryfallSearchCommanders } from "../lib/scryfall";
+import { loadDirectory } from "../lib/commanderDirectory";
 import { parseNarration } from "../lib/buildNotes";
 import { parseCollectionCsv, buildOwnedIndex, ownedQuantity } from "../lib/collection";
 import { commanderDisplay, commanderNamesClean } from "../lib/deckParser";
 import { SPELL_CATS, assembleSkeleton, mergeFills } from "../lib/fillMerge";
 import { fmtUsd } from "../lib/format";
-import { BoxIcon, CrownIcon, LayersIcon, ListIcon, SparkleIcon } from "./Icons";
-import CardPreview from "./CardPreview";
+import { useCardImage } from "../lib/hooks";
+import { SearchIcon } from "./Icons";
 import LoadingIndicator from "./LoadingIndicator";
 import Wizard from "./Wizard";
 
-// The entry screen into deck building. Five labelled routes on one page
-// instead of a form that assumes a commander is already chosen. Two of them
-// ("Describe what you like", "I know my commander") run the one-shot
-// generator below and are the two primary doors; "Guide me step by step"
-// hands off to the existing category-fill Wizard; precon and collection are
-// the remaining compact routes.
+// The New deck screen (/new): every way to start a deck, on one page. Two
+// large cards take input right there ("Describe what you like", "I know my
+// commander"); the smaller doors open a step of their own or, for a blank
+// deck, make it at once.
 //
-// Each branch carries a `tone`, which is only ever a CSS suffix
-// (.gen-door-<tone>, .gen-badge-<tone>). Every tone needs a real rule in
-// index.css — "plain" had none for a while, so those doors rendered with no
-// accent at all.
+// Every door ends the same way: one onCreate(deck), which saves the deck and
+// opens it at its own address. Nothing here is a deck until then, so there is
+// no unsaved new deck anywhere in the app. A built deck is created the moment
+// the build returns, not after a review screen it could be lost on.
+//
+// A door's badge says what its code calls, not what the door is for. "Uses AI"
+// means a request behind the server's _check_ai_access: wizard/narrate and
+// ai/fills for every built deck, planeswalker/chat to turn a description into
+// a commander. The skeleton, the precon lookup and the importers call none.
 
+const AI = "Uses AI";
+const NO_AI = "No AI";
+
+// `steps[0]` is this screen. The two large cards have no desc or badge here:
+// their copy is written out on the card.
 const BRANCHES = {
   describe: {
     label: "Describe what you like",
-    desc: "In your own words. “I love vampires”, “goad my opponents”, “steal everything”. The copilot picks a commander and builds the whole deck around it.",
-    wins: [
-      "Plain words, no card names needed",
-      "Suggests commanders that fit the idea",
-      "Builds the full 100 around the one you pick",
-    ],
-    badge: "Uses AI",
-    tone: "accent",
-    icon: <SparkleIcon size={20} />,
-    steps: ["Choose a path", "Describe your deck", "Pick the commander", "Review the deck"],
-  },
-  guided: {
-    label: "Guide me step by step",
-    desc: "One category at a time, with you choosing every card.",
-    badge: "No AI",
-    tone: "warn",
-    icon: <ListIcon size={16} />,
-    steps: ["Choose a path", "Pick a commander", "Fill each category"],
+    steps: ["Choose a path", "Pick the commander", "Build the deck"],
   },
   commander: {
     label: "I know my commander",
-    desc: "Search a legend and get the 99 around it. The fastest route in when you already know who is sitting in the command zone.",
-    wins: [
-      "Search any legend, get the other 99",
-      "Partners and backgrounds pair automatically",
-      "Every pick comes back with a reason",
-    ],
-    badge: "No AI",
-    tone: "sky",
-    icon: <CrownIcon size={20} />,
-    steps: ["Choose a path", "Pick a commander", "Review the deck"],
+    steps: ["Choose a path", "Pick a commander", "Build the deck"],
+  },
+  guided: {
+    label: "Guide me step by step",
+    desc: "Pick a commander, then choose every card, one category at a time.",
+    badge: NO_AI,
+    steps: ["Choose a path", "Pick a commander", "Fill each category"],
   },
   precon: {
     label: "Start from a precon",
     desc: "Name a preconstructed deck and get its real decklist, ready to tune.",
-    badge: "No AI",
-    tone: "plain",
-    icon: <BoxIcon size={16} />,
-    steps: ["Choose a path", "Name the precon", "Review the deck"],
+    badge: NO_AI,
+    steps: ["Choose a path", "Name the precon", "Confirm the deck"],
   },
   collection: {
     label: "Build from my collection",
     desc: "Best deck from cards you already own, with only the gaps priced.",
-    badge: "New",
-    tone: "good",
-    icon: <LayersIcon size={16} />,
-    steps: ["Choose a path", "Load your collection", "Pick a commander", "Review the deck"],
+    badge: AI,
+    steps: ["Choose a path", "Load your collection", "Pick a commander", "Build the deck"],
+  },
+  paste: {
+    label: "Paste or import a list",
+    desc: "From Moxfield, Archidekt, Arena or plain text.",
+    badge: NO_AI,
+    steps: ["Choose a path", "Paste or import"],
   },
 };
 
-// The two headline routes get the large treatment; the rest are compact rows.
-const PRIMARY_DOORS = ["describe", "commander"];
-const SECONDARY_DOORS = ["guided", "precon", "collection"];
-const DOOR_ORDER = [...PRIMARY_DOORS, ...SECONDARY_DOORS];
+// The doors under the two large cards. "Blank deck" follows them and has no
+// step of its own.
+const OTHER_DOORS = ["guided", "precon", "collection", "paste"];
+const BLANK = { name: "Untitled deck", format: "commander", decklist_text: "" };
 
 /** Stably reorder every skeleton category (and land lists) owned-first, so
  *  assembleSkeleton's greedy slice — which just takes the first N candidates
@@ -142,24 +133,36 @@ function toLines(cards, basics) {
   ].join("\n");
 }
 
-export default function DeckGenerator({ onFinish, notify, initialCommander }) {
-  const [branch, setBranch] = useState(null);
-  const [stepIdx, setStepIdx] = useState(0);
+/** `onCreate(deck)` saves `{ name, format, decklist_text }` and opens it. It
+ * also takes what only the door knows: `notes` (why each card is there),
+ * `toast`, and `arrival` (what the deck page shows once when it opens: the
+ * upgrade guide after a paste, the buy list after a collection build). It
+ * rejects when the save fails. `seed` is a commander named by the address. */
+export default function NewDeck({ onCreate, notify, seed }) {
+  // A seed opens on the commander door, looking the name up.
+  const [branch, setBranch] = useState(seed ? "commander" : null);
+  const [stepIdx, setStepIdx] = useState(seed ? 1 : 0);
   const [format, setFormat] = useState("commander");
   const [bracket, setBracket] = useState(null);
   const [maxCardPrice, setMaxCardPrice] = useState(null); // USD per card; null = any price
 
   const [describeText, setDescribeText] = useState("");
+  const [describing, setDescribing] = useState(false);
   const [candidates, setCandidates] = useState(null); // null | [] | [{name,...}]
   const [partnerFor, setPartnerFor] = useState(null); // {name, kind} while choosing a partner
+  const [chosen, setChosen] = useState(null); // [commander] or a pair, picked on the commander door
+  const [looking, setLooking] = useState(Boolean(seed)); // a named commander being looked up
   const [searching, setSearching] = useState(false);
   const [cmdQuery, setCmdQuery] = useState("");
   const searchDebounce = useRef(null);
   const searchSeq = useRef(0);
   const searchAbort = useRef(null);
+  // One-tap picks: the five the commander directory ranks first, the same five
+  // the Commanders page opens with. That rank is a card's EDHREC rank (how
+  // widely it is played at all), not how popular it is as a commander.
+  const [top, setTop] = useState([]);
 
   const [progress, setProgress] = useState(null); // null | {label, pct}
-  const [built, setBuilt] = useState(null); // {commander, cards, basics, notes}
   const [preconQuery, setPreconQuery] = useState("");
   const [precon, setPrecon] = useState(null); // the import-precon payload
 
@@ -167,46 +170,92 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
   const [ownedIndex, setOwnedIndex] = useState(null); // Map(normalizedName -> {name, quantity})
   const [collectionStats, setCollectionStats] = useState(null); // {skipped} | null (unique count reads from ownedIndex.size)
 
+  const [pasteText, setPasteText] = useState("");
+  const [pasteUrl, setPasteUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+
+  // One deck per press: `creating` disables the doors and turns a second press
+  // away (React renders between two clicks, so the second sees it). `failed`
+  // is the deck a save turned down, kept so it can be tried again: a built
+  // deck was paid for.
+  const [creating, setCreating] = useState(false);
+  const [failed, setFailed] = useState(null);
+
   const steps = branch ? BRANCHES[branch].steps : null;
   const stepCount = steps?.length ?? null;
   const pct = stepCount ? Math.round((stepIdx / (stepCount - 1)) * 100) : 0;
 
-  // "Build with strategy" from a commander page (Job 2) already picked a
-  // commander — re-asking the user to type it into the search box would be
-  // pure friction. Skip straight to the known-commander door and start the
-  // one-shot generate. Guarded so it fires exactly once even if the parent
-  // re-renders with the same prop.
-  const seededRef = useRef(false);
+  async function create(deck) {
+    if (creating) return;
+    setCreating(true);
+    setFailed(null);
+    try {
+      await onCreate(deck);
+    } catch (e) {
+      setFailed(deck);
+      notify?.(`Couldn't save the deck: ${e.message}`);
+    } finally {
+      setCreating(false);
+    }
+  }
+
   useEffect(() => {
-    if (!initialCommander || seededRef.current) return;
-    seededRef.current = true;
-    pickBranch("commander");
-    // A partner-capable seed gets the partner step, as a picked candidate does
-    // (and a Background can't build alone). The lookup failing just builds.
-    const names = commanderNamesClean(initialCommander);
-    (async () => {
-      if (names.length === 1) {
-        // Progress covers the picker, so a slow lookup can't race a manual pick.
-        setProgress({ label: "Looking up the commander", pct: 5 });
-        try {
-          const hit = ((await api.commanders(names[0])).results || []).find((c) => c.name === names[0]);
-          if (hit?.partner_kind) {
-            setProgress(null);
-            return setPartnerFor({ name: hit.name, kind: hit.partner_kind });
-          }
-        } catch { /* fall through to a solo build */ }
-      }
-      generate(names);
-    })();
+    let cancelled = false;
+    loadDirectory()
+      .then((r) => {
+        if (cancelled) return;
+        const ranked = (r.commanders || []).filter((c) => c.edhrec_rank != null);
+        setTop(ranked.sort((a, b) => a.edhrec_rank - b.edhrec_rank).slice(0, 5).map((c) => c.name));
+      })
+      .catch(() => { /* the picks are a shortcut; the search still works */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  // A commander on the commander door: straight to the choice, or by way of the
+  // partner step when it can share the command zone (a Background can't lead alone).
+  function pick(c) {
+    setBranch("commander");
+    setStepIdx(1);
+    setCandidates(null);
+    if (c.partner_kind) { setChosen(null); setPartnerFor({ name: c.name, kind: c.partner_kind }); }
+    else { setPartnerFor(null); setChosen([c.name]); }
+  }
+
+  // A commander known only by name: a one-tap pick, or the one a commander
+  // page's link names. The search says whether it can have a partner, and that
+  // it is a real commander: a name in an address is never taken on trust. Only
+  // a lookup that could not be made lets the name through, and building from
+  // it still starts with the skeleton, which refuses a commander it can't find.
+  function found(name, hit) {
+    setLooking(false);
+    if (hit) return pick(hit);
+    setBranch(null);
+    setStepIdx(0);
+    notify?.(`“${name}” isn't a commander this app knows. Search for it here.`);
+  }
+  const lookUp = (name) => api.commanders(name)
+    .then((r) => (r.results || []).find((c) => c.name === name) || null, () => ({ name }));
+  function choose(name) {
+    setLooking(true);
+    lookUp(name).then((hit) => found(name, hit));
+  }
+
+  // The address named a commander (/new?commander=<name>). Looking it up is
+  // all that happens by itself: nothing is built until a button is pressed.
+  useEffect(() => {
+    if (!seed) return;
+    let cancelled = false;
+    lookUp(seed).then((hit) => { if (!cancelled) found(seed, hit); });
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialCommander]);
+  }, [seed]);
 
   function pickBranch(id) {
     setBranch(id);
     setStepIdx(1);
     setCandidates(null);
     setPartnerFor(null);
-    setBuilt(null);
+    setChosen(null);
     setPrecon(null);
     setCollectionText("");
     setOwnedIndex(null);
@@ -216,7 +265,15 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
   function back() {
     setPrecon(null);
     setPartnerFor(null);
-    if (stepIdx <= 1) { setBranch(null); setStepIdx(0); return; }
+    if (stepIdx <= 1) {
+      // Back on this screen: the search and its results belong to the door left.
+      setBranch(null);
+      setStepIdx(0);
+      setChosen(null);
+      setCandidates(null);
+      setCmdQuery("");
+      return;
+    }
     setStepIdx((i) => i - 1);
   }
 
@@ -239,13 +296,50 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
   }
 
   function finishPrecon() {
-    const cmds = (precon.commander || "").split(" && ").filter(Boolean);
-    const decklist = cmds.length
-      ? `Commander\n${cmds.map((c) => `1 ${c}`).join("\n")}\nDeck\n${precon.decklist}`
-      : precon.decklist;
     // No notes: nothing explained these picks, and inventing a reason would be
     // worse than showing none.
-    onFinish(decklist, precon.commander || "", {});
+    create({
+      name: precon.name || commanderDisplay(precon.commander || "") || "Precon",
+      format: "commander",
+      decklist_text: assembleForStorage(precon.decklist, precon.commander || "", ""),
+    });
+  }
+
+  // --- Paste or import -------------------------------------------------------
+  // A list the person already has. Either way it opens with the upgrade guide,
+  // as a paste into an empty deck always has.
+  function createFromText() {
+    const { commander, deckText, maybeboard } = disassembleDecklist(pasteText);
+    if (!deckText.trim() && !commander) return notify?.("Paste a decklist first.");
+    create({
+      name: commander ? commanderDisplay(commander) : "Imported deck",
+      format: "commander",
+      decklist_text: assembleForStorage(deckText, commander, maybeboard),
+      arrival: { review: true },
+    });
+  }
+
+  async function createFromUrl() {
+    const url = pasteUrl.trim();
+    if (!url) return notify?.("Paste a deck link first.");
+    setImporting(true);
+    try {
+      const res = await api.importUrl(url);
+      const { commander, deckText, maybeboard } = disassembleDecklist(res.decklist || "");
+      // The source's sideboard and maybeboard land in Considering, never the deck.
+      const side = [res.sideboard, maybeboard].filter(Boolean).join("\n").trim();
+      if (!deckText.trim() && !commander && !side) throw new Error("no cards found in the import");
+      await create({
+        name: res.name || (commander ? commanderDisplay(commander) : "Imported deck"),
+        format: res.format || "commander",
+        decklist_text: assembleForStorage(deckText, commander, side),
+        arrival: { review: true },
+      });
+    } catch (e) {
+      notify?.(`Import failed: ${e.message}`);
+    } finally {
+      setImporting(false);
+    }
   }
 
   // --- Describe → commander ------------------------------------------------
@@ -255,7 +349,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
   async function resolveFromDescription() {
     const text = describeText.trim();
     if (text.length < 3) return notify?.("Describe the deck in a few words first.");
-    setSearching(true);
+    setDescribing(true);
     try {
       let name = "";
       try {
@@ -268,13 +362,15 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
       } catch { /* fall through to a plain name search */ }
       const r = await api.commanders(name || text.slice(0, 60));
       const results = r.results || [];
+      if (!results.length) return notify?.("No commander matched that — try different words.");
       setCandidates(results);
-      if (!results.length) notify?.("No commander matched that — try different words.");
-      else setStepIdx(2);
+      setPartnerFor(null);
+      setBranch("describe");
+      setStepIdx(1);
     } catch (e) {
       notify?.(`Couldn't find a commander: ${e.message}`);
     } finally {
-      setSearching(false);
+      setDescribing(false);
     }
   }
 
@@ -307,10 +403,23 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
     }, 250);
   }
 
+  // What a finished build hands to onCreate. The toast carries the summary the
+  // review screen used to; the reasons themselves are on each card.
+  function builtDeck(commanderName, cards, basics, notes, decklist_text, arrival) {
+    const total = cards.reduce((n, c) => n + c.qty, 0)
+      + [...basics.values()].reduce((n, q) => n + q, 0) + commanderNamesClean(commanderName).length;
+    const withReason = cards.filter((c) => notes[c.name]).length;
+    return {
+      name: commanderDisplay(commanderName), format, decklist_text, notes, arrival,
+      toast: `Deck built: ${total} cards. ${withReason} of ${cards.length} picks carry a reason.`,
+    };
+  }
+
   // --- One-shot generate ---------------------------------------------------
   // cmdNames: [commander] or a partner pair; the API takes the "A && B" string.
   async function generate(cmdNames) {
     const commanderName = cmdNames.join(" && ");
+    setStepIdx(steps.length - 1);
     setProgress({ label: "Building the skeleton", pct: 15 });
     try {
       const sk = await api.wizardSkeleton(commanderName, format, bracket, maxCardPrice);
@@ -355,27 +464,26 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
 
       const finalCards = [...merged.cards, ...merged.added];
       full = header + toLines(finalCards, merged.basics);
-      setProgress({ label: "Done", pct: 100 });
-      setBuilt({ commander: commanderName, cards: finalCards, basics: merged.basics, notes, decklist: full });
-      setStepIdx(steps.length - 1);
+      // Saved the moment it exists: these calls were paid for.
+      setProgress({ label: "Saving the deck", pct: 95 });
+      await create(builtDeck(commanderName, finalCards, merged.basics, notes, full));
     } catch (e) {
       notify?.(`Build failed: ${e.message}`);
+      setStepIdx(steps.length - 2);
     } finally {
       setProgress(null);
     }
   }
 
-  function finish() {
-    onFinish(built.decklist, built.commander, built.notes);
-  }
-
   // Candidate list, or the partner step once a partner-capable commander is
-  // picked. `build` is generate or generateFromCollection; it takes names.
-  function commanderChoices(build) {
+  // picked. `onNames` takes [commander] or a pair: it builds (describe,
+  // collection) or, on the commander door, only settles who the commander is,
+  // and `go` is what its buttons say so. `onPick` takes over a click there.
+  function commanderChoices(onNames, go = "Build the 99 →", onPick = null) {
     if (partnerFor) {
       return (
-        <PartnerStep first={partnerFor} onCancel={() => setPartnerFor(null)}
-          onBuild={(names) => { setPartnerFor(null); build(names); }} />
+        <PartnerStep first={partnerFor} onCancel={() => setPartnerFor(null)} builds={go !== "Choose →"}
+          onBuild={(names) => { setPartnerFor(null); onNames(names); }} />
       );
     }
     if (!candidates?.length) return null;
@@ -383,12 +491,14 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
       <div className="gen-candidates" role="listbox" aria-label="Commander choices">
         {candidates.slice(0, 8).map((c) => (
           <button key={c.name} role="option" aria-selected="false" className="gen-candidate"
-            onClick={() => (c.partner_kind
-              ? setPartnerFor({ name: c.name, kind: c.partner_kind })
-              : build([c.name]))}>
+            onClick={() => {
+              if (onPick) onPick(c);
+              else if (c.partner_kind) setPartnerFor({ name: c.name, kind: c.partner_kind });
+              else onNames([c.name]);
+            }}>
             <span className="gen-candidate-name">{c.name}</span>
             <span className="muted small">{c.type_line}</span>
-            <span className="gen-candidate-go">{c.partner_kind ? "Add a partner? →" : "Build the 99 →"}</span>
+            <span className="gen-candidate-go">{c.partner_kind ? "Add a partner? →" : go}</span>
           </button>
         ))}
       </div>
@@ -428,6 +538,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
   // get priced via the same per-name lookup CardPreview/CardBottomSheet use.
   async function generateFromCollection(cmdNames) {
     const commanderName = cmdNames.join(" && ");
+    setStepIdx(steps.length - 1);
     setProgress({ label: "Building the skeleton", pct: 15 });
     try {
       const sk = await api.wizardSkeleton(commanderName, format, bracket, maxCardPrice);
@@ -491,94 +602,176 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
         if (price != null) buyTotal += price;
       });
 
-      setProgress({ label: "Done", pct: 100 });
-      setBuilt({
-        commander: commanderName, cards: finalCards, basics: merged.basics, notes, decklist: full,
-        buyList, buyTotal, ownedCount: finalCards.length - buyList.length,
-      });
-      setStepIdx(steps.length - 1);
+      // The buy list is what this door is for. It goes with the deck and shows
+      // once, on the deck page, now that there is no review screen to hold it.
+      setProgress({ label: "Saving the deck", pct: 95 });
+      await create(builtDeck(commanderName, finalCards, merged.basics, notes, full, {
+        buy: {
+          list: buyList.map((c) => ({ name: c.name, price_usd: c.price_usd })),
+          total: buyTotal, owned: finalCards.length - buyList.length, picks: finalCards.length,
+        },
+      }));
     } catch (e) {
       notify?.(`Build failed: ${e.message}`);
+      setStepIdx(steps.length - 2);
     } finally {
       setProgress(null);
     }
   }
 
-  /* ── Guided branch: the existing category-fill wizard, unchanged ───────── */
-  if (branch === "guided") {
+  /* ── A deck the save turned down: nothing else until it is saved or dropped ─ */
+  if (failed) {
     return (
       <div className="gen">
-        <GenHeader steps={steps} stepIdx={1} pct={pct} onBack={back} />
-        <Wizard onFinish={onFinish} notify={notify} />
+        <div className="panel" role="alert">
+          <h2 className="gen-h2" style={{ marginTop: 0 }}>“{failed.name}” isn’t saved yet</h2>
+          <p className="gen-lede">The save didn’t go through. The deck is still here: try again, or start over and lose it.</p>
+          <div className="row" style={{ gap: ".4rem" }}>
+            <button className="primary" onClick={() => create(failed)} disabled={creating}>
+              {creating ? "Saving…" : "Try again"}
+            </button>
+            <button className="ghost" onClick={() => setFailed(null)} disabled={creating}>Start over</button>
+          </div>
+        </div>
       </div>
     );
   }
 
-  /* ── Door selection ───────────────────────────────────────────────────── */
-  if (!branch) {
+  /* ── Guided branch: the existing category-fill wizard ──────────────────── */
+  if (branch === "guided") {
     return (
       <div className="gen">
-        <div className="gen-hero">
-          <h1 className="gen-title">Generate a deck</h1>
-          <p className="gen-sub">
-            Tell it what you like, or name the commander you already have in mind.
-            You get a full deck back with a reason on the cards.
-          </p>
+        <GenHeader steps={steps} stepIdx={1} pct={pct} onBack={back} />
+        <Wizard
+          notify={notify}
+          onFinish={(decklist_text, cmd, fmt) => create({ name: commanderDisplay(cmd) || "Untitled deck", format: fmt, decklist_text })}
+        />
+      </div>
+    );
+  }
+
+  /* ── The screen itself: two cards that take input, then the other doors ── */
+  if (!branch) {
+    return (
+      <div className="nd">
+        <div className="nd-head">
+          <h1 className="nd-title">Start a new deck</h1>
+          <p className="nd-sub">Pick how you want to begin. Everything can be changed afterwards.</p>
         </div>
-        <div className="gen-progress" aria-hidden="true">
-          <div className="gen-progress-row">
-            <span className="gen-step">Step 1</span>
-            <span className="gen-pct">0%</span>
+
+        <div className="nd-cards">
+          <section className="nd-card nd-card-lead" aria-labelledby="nd-describe">
+            <div className="nd-card-head">
+              <h2 id="nd-describe">{BRANCHES.describe.label}</h2>
+              <span className="nd-tag nd-ai">{AI}</span>
+            </div>
+            <p>Say it in a sentence. You get commanders that fit, then a full deck around the one you pick, with a reason on the cards.</p>
+            <textarea
+              id="gen-describe"
+              aria-label="Describe the deck you want"
+              value={describeText}
+              onChange={(e) => setDescribeText(e.target.value.slice(0, 400))}
+              placeholder="Elves that flood the board and win with one huge attack"
+              rows={3}
+            />
+            <div className="nd-card-foot">
+              <label className="nd-field">
+                Most to pay per card, optional
+                <select value={maxCardPrice ?? ""} onChange={(e) => setMaxCardPrice(e.target.value ? Number(e.target.value) : null)}>
+                  <option value="">Any price</option>
+                  {PRICE_CAPS.map((v) => <option key={v} value={v}>Up to {fmtUsd(v)}</option>)}
+                </select>
+              </label>
+              <button className="primary" onClick={resolveFromDescription} disabled={describing || creating}>
+                {describing ? "Finding a commander…" : "Find my commander →"}
+              </button>
+            </div>
+          </section>
+
+          <section className="nd-card" aria-labelledby="nd-commander">
+            <div className="nd-card-head">
+              <h2 id="nd-commander">{BRANCHES.commander.label}</h2>
+            </div>
+            <p>Pick the commander, then have the rest built around it or start from scratch.</p>
+            <label className="nd-search">
+              <SearchIcon size={16} />
+              <input
+                id="gen-cmd"
+                aria-label="Search commanders"
+                value={cmdQuery}
+                onChange={(e) => { setCmdQuery(e.target.value); searchCommanders(e.target.value); }}
+                placeholder="Search commanders"
+                autoComplete="off"
+              />
+            </label>
+            {searching && <p className="muted small">Searching…</p>}
+            {commanderChoices(setChosen, "Choose →", pick)}
+            {candidates?.length === 0 && !searching && (
+              <p className="muted small">No commander matched. Try a different name.</p>
+            )}
+            {!candidates && top.length > 0 && (
+              <div className="nd-chips">
+                {top.map((name) => <CommanderChip key={name} name={name} onPick={choose} disabled={looking} />)}
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className="nd-other">
+          <h2>Other ways to start</h2>
+          <div className="nd-doors">
+            {OTHER_DOORS.map((id) => (
+              <button key={id} type="button" className="nd-door" onClick={() => pickBranch(id)} disabled={creating}>
+                <b>{BRANCHES[id].label}</b>
+                <span>{BRANCHES[id].desc}</span>
+                <i className={BRANCHES[id].badge === AI ? "nd-ai" : undefined}>{BRANCHES[id].badge}</i>
+              </button>
+            ))}
+            <button type="button" className="nd-door" onClick={() => create(BLANK)} disabled={creating}>
+              <b>Blank deck</b>
+              <span>Add cards one at a time.</span>
+              <i>{NO_AI}</i>
+            </button>
           </div>
-          <div className="gen-track"><div className="gen-fill" style={{ width: "2%" }} /></div>
         </div>
+      </div>
+    );
+  }
 
-        <h2 className="gen-h2">How do you want to build?</h2>
-        <p className="gen-lede">{DOOR_ORDER.length} routes into the same deck. Pick the one that matches how much you already know.</p>
-
-        <div className="gen-doors">
-          {PRIMARY_DOORS.map((id) => {
-            const b = BRANCHES[id];
-            return (
-              <button
-                key={id}
-                type="button"
-                className={`gen-door gen-door-lg gen-door-${b.tone}`}
-                onClick={() => pickBranch(id)}
-              >
-                <span className="gen-door-head">
-                  <span className="gen-door-tile">{b.icon}</span>
-                  <span className={`gen-badge gen-badge-${b.tone}`}>{b.badge}</span>
-                </span>
-                <span className="gen-door-txt">
-                  <span className="gen-door-t">{b.label}</span>
-                  <span className="gen-door-d">{b.desc}</span>
-                </span>
-                <span className="gen-door-wins">
-                  {b.wins.map((w) => <span key={w} className="gen-door-win">{w}</span>)}
-                </span>
-              </button>
-            );
-          })}
-          <span className="gen-doors-sep">Other ways in</span>
-          {SECONDARY_DOORS.map((id) => {
-            const b = BRANCHES[id];
-            return (
-              <button
-                key={id}
-                type="button"
-                className={`gen-door gen-door-sm gen-door-${b.tone}`}
-                onClick={() => pickBranch(id)}
-              >
-                <span className="gen-door-tile">{b.icon}</span>
-                <span className="gen-door-txt">
-                  <span className="gen-door-t">{b.label}</span>
-                  <span className="gen-door-d">{b.desc}</span>
-                </span>
-                <span className={`gen-badge gen-badge-${b.tone}`}>{b.badge}</span>
-              </button>
-            );
-          })}
+  /* ── Paste or import: a list the person already has ───────────────────── */
+  if (branch === "paste") {
+    return (
+      <div className="gen">
+        <GenHeader steps={steps} stepIdx={1} pct={pct} onBack={back} />
+        <div className="panel">
+          <label htmlFor="nd-paste">Decklist</label>
+          <textarea
+            id="nd-paste"
+            className="gen-describe"
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            placeholder={"1 Nethroi, Apex of Death\n1 Sol Ring\n1 Birds of Paradise\n…"}
+            rows={8}
+          />
+          <p className="gen-lede">Arena exports, Moxfield or Archidekt text, or plain “1 Card Name” lines.</p>
+          <button className="primary" onClick={createFromText} disabled={creating || !pasteText.trim()}>
+            {creating ? "Saving…" : "Create the deck →"}
+          </button>
+        </div>
+        <div className="panel">
+          <label htmlFor="nd-url">Or a deck link</label>
+          <input
+            id="nd-url"
+            value={pasteUrl}
+            onChange={(e) => setPasteUrl(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") createFromUrl(); }}
+            placeholder="https://archidekt.com/decks/… or https://moxfield.com/decks/…"
+            autoComplete="off"
+          />
+          <p className="gen-lede" style={{ marginTop: ".4rem" }}>The deck must be public. Its name and format come with it.</p>
+          <button className="primary" onClick={createFromUrl} disabled={creating || importing || !pasteUrl.trim()}>
+            {importing ? "Importing…" : "Import the deck →"}
+          </button>
         </div>
       </div>
     );
@@ -589,7 +782,7 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
     const cardCount = precon ? parseDeckLines(precon.decklist) : 0;
     return (
       <div className="gen">
-        <GenHeader steps={steps} stepIdx={stepIdx} pct={pct} onBack={back} />
+        <GenHeader steps={steps} stepIdx={stepIdx} pct={pct} onBack={progress || creating ? null : back} />
         {!precon ? (
           <div className="panel">
             <label htmlFor="gen-precon">Precon name</label>
@@ -618,7 +811,9 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
                 {precon.commander ? ` · led by ${precon.commander.split(" && ").join(" and ")}` : ""}
               </p>
               <div className="row" style={{ gap: ".4rem" }}>
-                <button className="primary" onClick={finishPrecon}>Open in deck view →</button>
+                <button className="primary" onClick={finishPrecon} disabled={creating}>
+                  {creating ? "Saving…" : "Create this deck →"}
+                </button>
                 <button className="ghost" onClick={() => { setPrecon(null); setStepIdx(1); }}>Pick another</button>
               </div>
             </div>
@@ -643,11 +838,11 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
   }
 
   /* ── Collection: load it, then pick a commander to build around ───────── */
-  if (branch === "collection" && !built) {
+  if (branch === "collection") {
     const canContinue = Boolean(ownedIndex && ownedIndex.size > 0);
     return (
       <div className="gen">
-        <GenHeader steps={steps} stepIdx={stepIdx} pct={pct} onBack={back} />
+        <GenHeader steps={steps} stepIdx={stepIdx} pct={pct} onBack={progress || creating ? null : back} />
         {stepIdx === 1 ? (
           <div className="panel">
             <label htmlFor="gen-collection">Collection CSV</label>
@@ -724,91 +919,13 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
     );
   }
 
-  /* ── Review ───────────────────────────────────────────────────────────── */
-  if (built) {
-    const total = built.cards.reduce((n, c) => n + c.qty, 0)
-      + [...built.basics.values()].reduce((n, q) => n + q, 0) + commanderNamesClean(built.commander).length;
-    const groups = new Map();
-    for (const c of built.cards) {
-      if (!groups.has(c.category)) groups.set(c.category, []);
-      groups.get(c.category).push(c);
-    }
-    const withReason = built.cards.filter((c) => built.notes[c.name]).length;
-    return (
-      <div className="gen">
-        <GenHeader steps={steps} stepIdx={steps.length - 1} pct={100} onBack={back} />
-        <div className="panel">
-          <h2 className="gen-h2" style={{ marginTop: 0 }}>{commanderDisplay(built.commander)}</h2>
-          <p className="gen-lede gen-summary">
-            {total} cards. {withReason} of {built.cards.length} non-basic picks carry a reason.
-          </p>
-          <div className="row" style={{ gap: ".4rem" }}>
-            <button className="primary" onClick={finish}>Open in deck view →</button>
-            <button className="ghost" onClick={() => { setBuilt(null); setStepIdx(1); }}>Start over</button>
-          </div>
-        </div>
-        {built.buyList && (
-          <div className="panel">
-            <h3 className="gen-cat">
-              {built.ownedCount} of {built.cards.length} picks already in your collection
-            </h3>
-            {built.buyList.length === 0 ? (
-              <p className="muted small">Nothing left to buy — the whole deck came from your collection.</p>
-            ) : (
-              <>
-                <p className="gen-lede" style={{ marginBottom: ".6rem" }}>
-                  {built.buyList.length} card{built.buyList.length === 1 ? "" : "s"} to buy
-                  {built.buyTotal > 0 ? `, about ${fmtUsd(built.buyTotal)} total` : ""}.
-                </p>
-                {built.buyList.map((c) => (
-                  <div key={c.name} className="gen-card-row">
-                    <span className="gen-card-name">
-                      {c.name}{" "}
-                      <span className="badge warn small">
-                        {c.price_usd != null ? `Buy · ${fmtUsd(c.price_usd)}` : "Buy · price unknown"}
-                      </span>
-                    </span>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        )}
-        {[...groups.entries()].map(([label, list]) => (
-          <div className="panel" key={label}>
-            <h3 className="gen-cat">{label} <span className="muted small">({list.length})</span></h3>
-            {list.map((c) => (
-              <div key={c.name} className="gen-card-row">
-                <span className="gen-card-name">
-                  <CardPreview name={c.name} />
-                  {c.owned === false && <span className="badge warn small">Buy</span>}
-                </span>
-                {built.notes[c.name] && <span className="gen-card-why">{built.notes[c.name]}</span>}
-              </div>
-            ))}
-          </div>
-        ))}
-        {built.basics.size > 0 && (
-          <div className="panel">
-            <h3 className="gen-cat">Basic lands</h3>
-            {[...built.basics.entries()].map(([n, q]) => (
-              <div key={n} className="gen-card-row">
-                <span className="gen-card-name">{q} × {n}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  /* ── Describe / commander input ───────────────────────────────────────── */
+  /* ── Describe (the commanders that fit) and the commander door ─────────── */
   const isDescribe = branch === "describe";
-  const onDescribeStep = isDescribe && stepIdx === 1;
+  const cmdr = chosen ? chosen.join(" && ") : "";
 
   return (
     <div className="gen">
-      <GenHeader steps={steps} stepIdx={stepIdx} pct={pct} onBack={back} />
+      <GenHeader steps={steps} stepIdx={stepIdx} pct={pct} onBack={progress || creating ? null : back} />
 
       {progress ? (
         <div className="panel gen-building">
@@ -836,38 +953,53 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
             </select>
           </div>
 
-          {onDescribeStep ? (
+          {isDescribe ? (
             <>
-              <label htmlFor="gen-describe">What do you want the deck to do?</label>
-              <textarea
-                id="gen-describe"
-                className="gen-describe"
-                value={describeText}
-                onChange={(e) => setDescribeText(e.target.value.slice(0, 400))}
-                placeholder="I want lots of small creatures that all attack at once, and I like sacrificing things."
-                rows={4}
-              />
-              <button className="primary" onClick={resolveFromDescription} disabled={searching}>
-                {searching ? "Finding a commander…" : "Find my commander →"}
-              </button>
+              <p className="gen-lede">Commanders that fit “{describeText.trim()}”. Pick one and the deck is built around it.</p>
+              {commanderChoices(generate)}
             </>
+          ) : looking ? (
+            <p className="muted small" role="status">Looking up the commander…</p>
+          ) : chosen ? (
+            // The choice the door is named for. Each button says what it calls.
+            <div className="nd-chosen">
+              <h2 className="gen-h2" style={{ marginTop: 0 }}>{commanderDisplay(cmdr)}</h2>
+              <div className="nd-choice">
+                <button className="primary nd-choice-btn" onClick={() => generate(chosen)} disabled={creating}>
+                  <b>Build the {100 - chosen.length} →</b>
+                  <i>{AI}</i>
+                </button>
+                <button
+                  className="nd-choice-btn"
+                  disabled={creating}
+                  onClick={() => create({ name: commanderDisplay(cmdr), format, decklist_text: assembleForStorage("", cmdr, "") })}
+                >
+                  <b>Start from scratch</b>
+                  <i>{NO_AI}</i>
+                </button>
+              </div>
+              <button className="ghost small" onClick={() => setChosen(null)} disabled={creating}>Pick another</button>
+            </div>
           ) : (
             <>
-              <label htmlFor="gen-cmd">Commander</label>
-              <input
-                id="gen-cmd"
-                value={cmdQuery}
-                onChange={(e) => { setCmdQuery(e.target.value); setPartnerFor(null); searchCommanders(e.target.value); }}
-                placeholder="Start typing… e.g. nethroi"
-                autoComplete="off"
-              />
-              {searching && <p className="muted small">Searching…</p>}
+              {!partnerFor && (
+                <>
+                  <label htmlFor="gen-cmd">Commander</label>
+                  <input
+                    id="gen-cmd"
+                    value={cmdQuery}
+                    onChange={(e) => { setCmdQuery(e.target.value); searchCommanders(e.target.value); }}
+                    placeholder="Start typing… e.g. nethroi"
+                    autoComplete="off"
+                  />
+                  {searching && <p className="muted small">Searching…</p>}
+                </>
+              )}
+              {commanderChoices(setChosen, "Choose →", pick)}
+              {candidates?.length === 0 && !searching && (
+                <p className="muted small">No commander matched. Try a different name.</p>
+              )}
             </>
-          )}
-
-          {commanderChoices(generate)}
-          {candidates?.length === 0 && !searching && (
-            <p className="muted small">No commander matched. Try a different name.</p>
           )}
         </div>
       )}
@@ -875,11 +1007,23 @@ export default function DeckGenerator({ onFinish, notify, initialCommander }) {
   );
 }
 
+// A one-tap commander pick: its art and short name.
+function CommanderChip({ name, onPick, disabled }) {
+  const data = useCardImage(name);
+  return (
+    <button type="button" className="nd-chip" onClick={() => onPick(name)} disabled={disabled} title={name}>
+      {data?.art_crop ? <img src={data.art_crop} alt="" /> : <span className="nd-chip-blank" />}
+      {name.split(",")[0]}
+    </button>
+  );
+}
+
 // Second commander for a partner-capable pick. The backend search returns only
 // legal partners for `first` (every CR 702.124 kind), same as CommanderInput.
 // A Background can't lead alone, so it gets no solo button, and its pair lists
 // the creature first (the deck's face in MyDecks and the avatar).
-function PartnerStep({ first, onBuild, onCancel }) {
+// `builds` is whether choosing here starts a build, which the buttons say.
+function PartnerStep({ first, onBuild, onCancel, builds = true }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState(null);
   const [error, setError] = useState("");
@@ -910,7 +1054,7 @@ function PartnerStep({ first, onBuild, onCancel }) {
       <p className="gen-lede"><strong>{first.name}</strong> can share the command zone.</p>
       <div className="row" style={{ gap: ".4rem" }}>
         {first.kind !== "background" && (
-          <button className="primary" onClick={() => onBuild([first.name])}>Build solo →</button>
+          <button className="primary" onClick={() => onBuild([first.name])}>{builds ? "Build solo →" : "Go solo →"}</button>
         )}
         <button className="ghost" onClick={onCancel}>Pick another</button>
       </div>
@@ -924,7 +1068,7 @@ function PartnerStep({ first, onBuild, onCancel }) {
               onClick={() => onBuild(first.kind === "background" ? [p.name, first.name] : [first.name, p.name])}>
               <span className="gen-candidate-name">{p.name}</span>
               <span className="muted small">{p.type_line}</span>
-              <span className="gen-candidate-go">Build the 98 →</span>
+              <span className="gen-candidate-go">{builds ? "Build the 98 →" : "Choose →"}</span>
             </button>
           ))}
         </div>
@@ -936,10 +1080,12 @@ function PartnerStep({ first, onBuild, onCancel }) {
   );
 }
 
+// No `onBack` while a build runs: a build can't be called back, and leaving by
+// the bar is what saves its deck without opening it.
 function GenHeader({ steps, stepIdx, pct, onBack }) {
   return (
     <div className="gen-head">
-      <button className="ghost small" onClick={onBack}>← Back</button>
+      {onBack && <button className="ghost small" onClick={onBack}>← Back</button>}
       <div className="gen-progress">
         <div className="gen-progress-row">
           <span className="gen-step">Step {stepIdx + 1} of {steps.length} — {steps[stepIdx]}</span>

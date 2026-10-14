@@ -1,7 +1,7 @@
 // A pasted list with no commander: analyze names the first line as a candidate
 // and the deck view offers it with one click. Nothing moves until that click.
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, waitForAppReady, dismissColdStart, openNewDeck } from "./fixtures/helpers.js";
+import { loadSharedDeck, waitForAppReady, dismissColdStart, pasteNewDeck } from "./fixtures/helpers.js";
 
 // Six lines: after Krenko moves out, the 99 still has the five auto-analyze needs.
 const PASTED = "1 Krenko, Mob Boss\n1 Goblin Guide\n1 Sol Ring\n1 Lightning Bolt\n1 Shock\n29 Mountain";
@@ -70,10 +70,7 @@ test("a paste into an empty deck offers the commander inside the upgrade guide",
   await page.goto("/");
   await waitForAppReady(page);
   await dismissColdStart(page);
-  await openNewDeck(page);
-  await page.locator(".empty-action", { hasText: "Paste a decklist" }).click();
-  await page.locator(".icm-panel textarea").fill(PASTED);
-  await page.locator(".icm-foot button", { hasText: "Import" }).click();
+  await pasteNewDeck(page, PASTED);
 
   const offer = page.locator(".upr-panel").getByRole("button", { name: "Make Krenko, Mob Boss your commander" });
   await expect(offer).toBeVisible({ timeout: 15000 });
