@@ -183,6 +183,27 @@ test.describe("New deck screen", () => {
     expect(deck.decklist_text).toBe(`Commander\n1 ${TEST_COMMANDER}\nDeck\n1 Sol Ring\n1 Counterspell\nMaybeboard\n1 Lightning Bolt`);
   });
 
+  // Enter in the link field imports too, and a held key repeats: the button
+  // being disabled does nothing for the key.
+  test("Enter twice in the deck-link field imports once and makes one deck", async ({ page }) => {
+    let imports = 0;
+    await page.route("**/api/deck/import-url", async (route) => {
+      imports++;
+      await new Promise((r) => setTimeout(r, 600));
+      await route.fallback();
+    });
+    await openNew(page);
+    await door(page, "Paste or import").click();
+    await page.locator("#nd-url").fill("https://archidekt.com/decks/123/mock");
+    await page.locator("#nd-url").press("Enter");
+    await page.locator("#nd-url").press("Enter");
+
+    await expect(page).toHaveURL(onADeck);
+    await page.waitForTimeout(900); // a second import would have landed by now
+    expect(imports).toBe(1);
+    expect((await savedDecks(page)).length).toBe(1);
+  });
+
   test("a precon is confirmed, then saved under its own name", async ({ page }) => {
     const builds = watchBuilds(page);
     await openNew(page);
@@ -246,26 +267,60 @@ test.describe("New deck screen", () => {
     await expect(page).toHaveURL(atPath("/"));
   });
 
-  test("a built deck the save turns down is kept and saved on a second try, without building again", async ({ page }) => {
-    const allow = await refuseSaves(page);
-    const builds = watchBuilds(page);
+  // A built deck was paid for. If its save is turned down it is kept in this
+  // browser and offered again whenever this screen opens: leaving, Back and a
+  // reload all drop what is only on screen.
+  const unsavedYet = (page) => page.getByRole("alert").filter({ hasText: `“${TEST_COMMANDER}” isn’t saved yet` });
+  async function buildWithSavesRefused(page) {
     await openNew(page);
     await pickAtraxa(page);
     await page.getByRole("button", { name: /^Build the 99/ }).click();
-
-    await expect(page.getByRole("alert")).toContainText(`“${TEST_COMMANDER}” isn’t saved yet`, { timeout: 15000 });
+    await expect(unsavedYet(page)).toBeVisible({ timeout: 15000 });
     await expect(page).toHaveURL(atPath("/new"));
     expect(await savedDecks(page)).toEqual([]);
+  }
+
+  test("a built deck the save turns down survives leaving and a reload, and is saved without building again", async ({ page }) => {
+    const allow = await refuseSaves(page);
+    const builds = watchBuilds(page);
+    await buildWithSavesRefused(page);
     const built = builds.length;
     expect(builds.filter((b) => b.endsWith("skeleton")).length).toBe(1);
+
+    // Away by the bar and back by the bar: the deck is offered, not a fresh screen.
+    await navigateToTab(page, "Rules");
+    await openNewDeck(page);
+    await expect(unsavedYet(page)).toBeVisible();
+    await expect(heading(page)).toHaveCount(0);
+    // And after a reload (which refuses saves again until allowed).
+    await page.reload();
+    await waitForAppReady(page);
+    await expect(unsavedYet(page)).toBeVisible();
 
     await allow();
     await page.getByRole("button", { name: "Try again" }).click();
     await expect(page).toHaveURL(onADeck);
     await expect(deckTitle(page)).toContainText("Atraxa");
     expect((await savedDecks(page))[0].decklist_text).toContain("1 Deepglow Skate");
-    // The deck that was paid for is the one saved.
+    // The deck that was paid for is the one saved, and it is no longer held.
     expect(builds.length).toBe(built);
+    expect(await page.evaluate(() => localStorage.getItem("mtgweb:unsavedNewDeck"))).toBeNull();
+    await openNewDeck(page);
+    await expect(heading(page)).toBeVisible();
+  });
+
+  test("Discard lets the unsaved deck go for good", async ({ page }) => {
+    await refuseSaves(page);
+    await buildWithSavesRefused(page);
+    await page.getByRole("button", { name: "Discard" }).click();
+    // Back where the build was started from, with nothing held.
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^Build the 99/ })).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem("mtgweb:unsavedNewDeck"))).toBeNull();
+    await page.reload();
+    await waitForAppReady(page);
+    await expect(heading(page)).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveCount(0);
   });
 });
 
@@ -363,6 +418,22 @@ test.describe("A commander named in the address", () => {
     expect(builds).toEqual([]);
   });
 
+  // A one-tap pick is looked up before it is taken, and its answer opens the
+  // commander door. Another door pressed meanwhile would be pulled out from
+  // under the person, so the doors wait for the answer.
+  test("the doors wait while a one-tap pick is being looked up", async ({ page }) => {
+    await page.route("**/api/commanders/search*", async (route) => {
+      await new Promise((r) => setTimeout(r, 1000));
+      await route.fallback();
+    });
+    await openNew(page);
+    await page.locator(".nd-chip", { hasText: "Atraxa" }).click();
+    await expect(door(page, "Blank deck")).toBeDisabled();
+    await expect(door(page, "Start from a precon")).toBeDisabled();
+    await expect(page.getByRole("button", { name: /^Build the 99/ })).toBeVisible();
+    expect(await savedDecks(page)).toEqual([]);
+  });
+
   test("New deck in the bar clears a commander the address named", async ({ page }) => {
     await page.goto(`/new?commander=${encodeURIComponent(TEST_COMMANDER)}`);
     await waitForAppReady(page);
@@ -381,6 +452,16 @@ test.describe("A commander named in the address", () => {
     await expect(page.locator(".toast")).toContainText("isn't a commander this app knows");
     await expect(page.getByRole("button", { name: /^Build the/ })).toHaveCount(0);
     expect(builds).toEqual([]);
+  });
+
+  test("a lookup that fails is not a yes either", async ({ page }) => {
+    await page.route("**/api/commanders/search*", (route) => route.fulfill({ status: 500, body: "boom" }));
+    await page.goto("/new?commander=Totally%20Not%20A%20Card");
+    await waitForAppReady(page);
+    await expect(heading(page)).toBeVisible();
+    await expect(page.locator(".toast")).toContainText("Couldn't look that commander up");
+    await expect(page.getByRole("button", { name: /^(Build the|Start from scratch)/ })).toHaveCount(0);
+    expect(await savedDecks(page)).toEqual([]);
   });
 });
 

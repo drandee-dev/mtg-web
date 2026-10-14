@@ -585,7 +585,10 @@ export default function App() {
     { name, format: fmt = "commander", decklist_text, notes, arrival: onArrival, toast },
     asked,
   ) => {
-    const askedBy = userIdRef.current;
+    // The account whose `store` this is: the one signed in when the door was
+    // pressed. A build can take a minute, and this function is only entered
+    // after it, so the account "now" would already be the changed one.
+    const askedBy = userId;
     const saved = await store.save({ name, format: fmt, decklist_text });
     await refresh();
     const { commander: cmd, deckText: cards } = disassembleDecklist(decklist_text);
@@ -606,7 +609,7 @@ export default function App() {
     setArrival(onArrival ? { ...onArrival, deckId: saved.id } : null);
     notify(toast || `Saved as "${saved.name}".`, share);
     return saved;
-  }, [store, refresh, notify, copyShareLink, showSaved, loadDeck, goTo]);
+  }, [store, userId, refresh, notify, copyShareLink, showSaved, loadDeck, goTo]);
 
   // A share link's deck is saved on arrival, like any other new deck. Opening
   // the same link again finds the deck it already made (same contents) and
@@ -874,9 +877,11 @@ export default function App() {
         )}
         {/* Not before the sign-in check settles: until then the app reads as
             signed out, and a deck made now would be saved to this browser. */}
-        {atNew && !shared && authReady && (
+        {atNew && !shared && (authReady ? (
           <NewDeck key={visit} seed={seed} onCreate={(deck) => createDeck(deck, visit)} notify={notify} />
-        )}
+        ) : (
+          <div className="panel"><p className="muted small" role="status">Loading…</p></div>
+        ))}
         {tab === "decks" && (
           <MyDecks
             decks={decks}
@@ -913,7 +918,9 @@ export default function App() {
         )}
         {tab === "cards" && (
           <CardSearch
-            addCard={addCardFromSearch}
+            // No deck in the editor, nothing to add to: every deck has an id
+            // now, so there is no new deck in the making to catch the card.
+            addCard={currentDeck ? addCardFromSearch : null}
             notify={notify}
             deckName={currentDeck?.name || null}
             deckHref={buildPath({ tab: "deck", deckId: currentDeck?.id || null })}
@@ -967,8 +974,8 @@ export default function App() {
         format={format}
         aiAvailable={aiAvailable}
         serverStatus={serverStatus}
-        addCard={addCardToDecklist}
-        addToConsidering={addToConsidering}
+        addCard={currentDeck ? addCardToDecklist : null}
+        addToConsidering={currentDeck ? addToConsidering : null}
         notify={notify}
         deckId={currentDeck?.id || null}
         insightsAvailable={deckReady && !playtesting}

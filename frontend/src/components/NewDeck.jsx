@@ -72,6 +72,24 @@ const BRANCHES = {
 const OTHER_DOORS = ["guided", "precon", "collection", "paste"];
 const BLANK = { name: "Untitled deck", format: "commander", decklist_text: "" };
 
+// The one deck a save turned down, kept until it is saved or discarded. It
+// belongs to no account yet: a retry saves it to whoever is signed in then.
+const UNSAVED_KEY = "mtgweb:unsavedNewDeck";
+function loadUnsaved() {
+  try {
+    const deck = JSON.parse(localStorage.getItem(UNSAVED_KEY));
+    return typeof deck?.decklist_text === "string" && typeof deck.name === "string" ? deck : null;
+  } catch { return null; }
+}
+/** Keep `deck`, or clear the slot with null. Best effort: if this browser's
+ * storage is what failed, the deck still lives on the open screen. */
+function keepUnsaved(deck) {
+  try {
+    if (deck) localStorage.setItem(UNSAVED_KEY, JSON.stringify(deck));
+    else localStorage.removeItem(UNSAVED_KEY);
+  } catch { /* storage full or blocked */ }
+}
+
 /** Stably reorder every skeleton category (and land lists) owned-first, so
  *  assembleSkeleton's greedy slice — which just takes the first N candidates
  *  per category — keeps owned cards over unowned ones wherever it has a
@@ -176,10 +194,11 @@ export default function NewDeck({ onCreate, notify, seed }) {
 
   // One deck per press: `creating` disables the doors and turns a second press
   // away (React renders between two clicks, so the second sees it). `failed`
-  // is the deck a save turned down, kept so it can be tried again: a built
-  // deck was paid for.
+  // is the deck a save turned down. It is kept in this browser as well
+  // (keepUnsaved), so it is offered again whenever this screen opens: a built
+  // deck was paid for, and Back, a reload or a bar link would otherwise drop it.
   const [creating, setCreating] = useState(false);
-  const [failed, setFailed] = useState(null);
+  const [failed, setFailed] = useState(loadUnsaved);
 
   const steps = branch ? BRANCHES[branch].steps : null;
   const stepCount = steps?.length ?? null;
@@ -191,9 +210,13 @@ export default function NewDeck({ onCreate, notify, seed }) {
     setFailed(null);
     try {
       await onCreate(deck);
+      keepUnsaved(null);
     } catch (e) {
+      // This can land after the screen is gone (a build that outlasted the
+      // visit): the copy in storage is what the next visit finds.
+      keepUnsaved(deck);
       setFailed(deck);
-      notify?.(`Couldn't save the deck: ${e.message}`);
+      notify?.(`Couldn't save the deck: ${e.message}. It is kept on the New deck screen.`);
     } finally {
       setCreating(false);
     }
@@ -223,18 +246,21 @@ export default function NewDeck({ onCreate, notify, seed }) {
 
   // A commander known only by name: a one-tap pick, or the one a commander
   // page's link names. The search says whether it can have a partner, and that
-  // it is a real commander: a name in an address is never taken on trust. Only
-  // a lookup that could not be made lets the name through, and building from
-  // it still starts with the skeleton, which refuses a commander it can't find.
+  // it is a real commander: a name in an address is never taken on trust, and
+  // a lookup that could not be made counts as a no.
   function found(name, hit) {
     setLooking(false);
     if (hit) return pick(hit);
     setBranch(null);
     setStepIdx(0);
-    notify?.(`“${name}” isn't a commander this app knows. Search for it here.`);
+    notify?.(hit === null
+      ? `“${name}” isn't a commander this app knows. Search for it here.`
+      : "Couldn't look that commander up. Search for it here.");
   }
+  // An exact match, null when there is none, undefined when the lookup failed.
+  // A failed lookup is not a yes.
   const lookUp = (name) => api.commanders(name)
-    .then((r) => (r.results || []).find((c) => c.name === name) || null, () => ({ name }));
+    .then((r) => (r.results || []).find((c) => c.name === name) || null, () => undefined);
   function choose(name) {
     setLooking(true);
     lookUp(name).then((hit) => found(name, hit));
@@ -320,6 +346,8 @@ export default function NewDeck({ onCreate, notify, seed }) {
   }
 
   async function createFromUrl() {
+    // Enter in the field reaches here too, and a held key repeats.
+    if (importing || creating) return;
     const url = pasteUrl.trim();
     if (!url) return notify?.("Paste a deck link first.");
     setImporting(true);
@@ -625,12 +653,12 @@ export default function NewDeck({ onCreate, notify, seed }) {
       <div className="gen">
         <div className="panel" role="alert">
           <h2 className="gen-h2" style={{ marginTop: 0 }}>“{failed.name}” isn’t saved yet</h2>
-          <p className="gen-lede">The save didn’t go through. The deck is still here: try again, or start over and lose it.</p>
+          <p className="gen-lede">The save didn’t go through. The deck is kept in this browser until it is saved: try again, or discard it.</p>
           <div className="row" style={{ gap: ".4rem" }}>
             <button className="primary" onClick={() => create(failed)} disabled={creating}>
               {creating ? "Saving…" : "Try again"}
             </button>
-            <button className="ghost" onClick={() => setFailed(null)} disabled={creating}>Start over</button>
+            <button className="ghost" onClick={() => { keepUnsaved(null); setFailed(null); }} disabled={creating}>Discard</button>
           </div>
         </div>
       </div>
@@ -682,7 +710,7 @@ export default function NewDeck({ onCreate, notify, seed }) {
                   {PRICE_CAPS.map((v) => <option key={v} value={v}>Up to {fmtUsd(v)}</option>)}
                 </select>
               </label>
-              <button className="primary" onClick={resolveFromDescription} disabled={describing || creating}>
+              <button className="primary" onClick={resolveFromDescription} disabled={describing || creating || looking}>
                 {describing ? "Finding a commander…" : "Find my commander →"}
               </button>
             </div>
@@ -721,13 +749,15 @@ export default function NewDeck({ onCreate, notify, seed }) {
           <h2>Other ways to start</h2>
           <div className="nd-doors">
             {OTHER_DOORS.map((id) => (
-              <button key={id} type="button" className="nd-door" onClick={() => pickBranch(id)} disabled={creating}>
+              // Not while a one-tap pick is being looked up: its answer opens
+              // the commander door, over whichever door was pressed meanwhile.
+              <button key={id} type="button" className="nd-door" onClick={() => pickBranch(id)} disabled={creating || looking}>
                 <b>{BRANCHES[id].label}</b>
                 <span>{BRANCHES[id].desc}</span>
                 <i className={BRANCHES[id].badge === AI ? "nd-ai" : undefined}>{BRANCHES[id].badge}</i>
               </button>
             ))}
-            <button type="button" className="nd-door" onClick={() => create(BLANK)} disabled={creating}>
+            <button type="button" className="nd-door" onClick={() => create(BLANK)} disabled={creating || looking}>
               <b>Blank deck</b>
               <span>Add cards one at a time.</span>
               <i>{NO_AI}</i>

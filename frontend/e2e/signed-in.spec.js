@@ -174,6 +174,38 @@ test.describe("Signed in", () => {
     expect(await page.evaluate(() => localStorage.getItem("mtgweb:decks"))).toBeNull();
   });
 
+  // The same, with the account gone during the build, not the save: a build
+  // takes a minute, and the store it saves to is the one from when the door
+  // was pressed. The account has to be taken then too.
+  test("a sign-out during a slow build: the deck is not opened under the other account", async ({ page }) => {
+    await page.clock.install();
+    const cloud = await fakeCloud(page);
+    await page.route("**/api/deck/wizard/skeleton*", async (route) => {
+      await new Promise((r) => setTimeout(r, 2500));
+      await route.fallback();
+    });
+    await page.goto("/");
+    await waitForAppReady(page);
+    await openNewDeck(page);
+    await page.locator("#gen-cmd").fill("atraxa");
+    await page.locator(".gen-candidate", { hasText: "Atraxa" }).click();
+    await page.getByRole("button", { name: /^Build the 99/ }).click();
+    await expect(page.locator(".gen-building")).toBeVisible();
+
+    cloud.auth = "revoked";
+    await page.clock.fastForward("02:00:00");
+    await wake(page);
+    await expect.poll(() => hasSession(page), { timeout: 10000 }).toBe(false);
+    expect(cloud.decks, "the build had already finished; nothing was tested").toEqual([]);
+
+    // It was saved where it was asked for, and opened nowhere.
+    await expect.poll(() => cloud.decks.length, { timeout: 15000 }).toBe(1);
+    await page.waitForTimeout(800); // an open would have happened by now
+    await expect(page).toHaveURL(atPath("/new"));
+    await expect(grid(page)).toHaveCount(0);
+    expect(await page.evaluate(() => localStorage.getItem("mtgweb:decks"))).toBeNull();
+  });
+
   // The one way a deck can still get its id under an open layer: a panel
   // opened while its save was out. Back then closes the panel onto the history
   // entry /new was pushed as, and the address has to say where the app is.

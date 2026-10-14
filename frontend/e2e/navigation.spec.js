@@ -175,6 +175,14 @@ test.describe("Navigation & Layout", () => {
   test("Cards names the deck it adds to and links back to it, only when one is open", async ({ page }) => {
     await navigateToTab(page, "Card Search");
     await expect(page.locator(".cards-deck")).toHaveCount(0);
+    // With no deck open there is nothing to add to, so no button offers to:
+    // every deck has an id now, and no new deck in the making catches the card.
+    const box = page.locator('input[placeholder="bolt"]');
+    await box.fill("bolt");
+    await box.press("Enter");
+    const row = page.locator(".results-table tbody tr", { hasText: "Lightning Bolt" });
+    await expect(row).toBeVisible();
+    await expect(page.getByRole("button", { name: "+ Add" })).toHaveCount(0);
 
     await seedLocalDecks(page, [TEST_DECK_STORAGE]);
     await page.goto("/");
