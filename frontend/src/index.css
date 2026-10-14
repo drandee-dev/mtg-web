@@ -3022,10 +3022,26 @@ a.btn-link:hover { filter: brightness(1.12); text-decoration: none; }
 .edm-hint { margin-top: .5rem; font-size: var(--fs-xs); color: var(--muted); }
 .edm-foot { display: flex; justify-content: flex-end; gap: .5rem; padding: 0 1.1rem .9rem; flex-wrap: wrap; }
 
-/* Card search: which deck + Add goes to, and the way back to it */
+/* Card search: which deck Add goes to, and the way back to it */
 .cards-deck { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; margin: 0 0 .6rem; color: var(--text-secondary); }
 .cards-deck strong { color: var(--text); }
 .cards-deck-back { display: inline-flex; align-items: center; min-height: 44px; font-weight: 500; }
+/* A long deck name is cut short on every row; the title and the line above carry it in full. */
+.cards-add { max-width: 11rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A phone has no room for five columns (at 360 the narrowest table is wider than its box),
+   so each result stacks: name, then type, CMC and price, then Add across the width. */
+@media (max-width: 700px) {
+  .results-table, .results-table tbody { display: block; }
+  .results-table thead { display: none; }
+  .results-table tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .4rem; padding: .6rem 0; border-bottom: 1px solid var(--border); }
+  /* min-width 0: else the cell is as wide as the button's whole unwrapped text. */
+  .results-table td { padding: 0; border: 0; min-width: 0; color: var(--text-secondary); }
+  .results-table td:first-child { flex-basis: 100%; color: var(--text); }
+  .results-table td:nth-child(3)::before { content: "· CMC "; }
+  .results-table td:nth-child(4)::before { content: "· "; }
+  .results-table td:nth-child(5) { flex-basis: 100%; margin-top: .3rem; }
+  .results-table button.cards-add { width: 100%; max-width: none; text-align: left; border-color: var(--border); }
+}
 
 
 /* == Touch ergonomics (visual-standards audit 2026-07-17) ==================

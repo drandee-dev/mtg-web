@@ -962,7 +962,7 @@ export default function App() {
             // now, so there is no new deck in the making to catch the card.
             addCard={currentDeck ? addCardFromSearch : null}
             notify={notify}
-            deckName={currentDeck?.name || null}
+            deckName={currentDeck ? currentDeck.name || UNTITLED : null}
             deckHref={buildPath({ tab: "deck", deckId: currentDeck?.id || null })}
             onBackToDeck={() => setTab("deck")}
           />
