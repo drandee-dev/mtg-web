@@ -14,7 +14,7 @@ const savedDecks = (page) =>
   page.evaluate(() => JSON.parse(localStorage.getItem("mtgweb:decks") || "[]"));
 const atPath = (path) => (url) => url.pathname === path && url.search === "";
 const onADeck = (url) => /^\/decks\/[^/]+$/.test(url.pathname) && url.search === "";
-const deckTitle = (page) => page.locator(".deck-title:visible, .mobile-deck-name:visible").first();
+const deckTitle = (page) => page.locator(".deck-title");
 const grid = (page) => page.locator(".card-grid-container");
 const inDeck = (page, card) => grid(page).locator(`[aria-label*="${card}"]`);
 const heading = (page) => page.getByRole("heading", { name: "Start a new deck" });

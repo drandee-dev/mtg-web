@@ -3,7 +3,7 @@
 // Changes queue for swaps. Runs against the hermetic mock backend.
 
 import { test, expect } from "./fixtures/test-base.js";
-import { waitForAppReady, dismissColdStart, navigateToTab, pasteNewDeck, importNewDeck, loadSharedDeck, openDeckSection } from "./fixtures/helpers.js";
+import { waitForAppReady, dismissColdStart, navigateToTab, pasteNewDeck, importNewDeck, loadSharedDeck, openDeckSection, deckMenuAction } from "./fixtures/helpers.js";
 import { TEST_COMMANDER, TEST_DECK_TEXT } from "./fixtures/test-data.js";
 
 const PASTE_TEXT = `Commander\n1 ${TEST_COMMANDER}\n\nDeck\n${TEST_DECK_TEXT}`;
@@ -51,7 +51,7 @@ test.describe("Upgrade review — guided flow", () => {
 
   test("pasting more cards into a deck already in progress skips the guide", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    await page.locator(".dh-actions button", { hasText: "Import cards" }).click();
+    await deckMenuAction(page, "Import cards");
     await page.locator(".icm-panel textarea").fill("1 Lightning Bolt");
     await page.locator(".icm-foot button", { hasText: "Import" }).click();
     await expect(page.locator(".upr-panel")).toHaveCount(0);
@@ -163,7 +163,7 @@ test.describe("Upgrade review — guided flow", () => {
 
   test("URL import replacing a populated deck (confirmed) does not open the guide", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    await page.locator(".dh-actions button", { hasText: "Import cards" }).click();
+    await deckMenuAction(page, "Import cards");
     await page.locator('.icm-tabs [role="tab"]', { hasText: "From URL" }).click();
     await page.locator(".icm-panel input").fill("https://archidekt.com/decks/12345");
     await page.locator(".icm-foot button", { hasText: "Import" }).click();

@@ -37,7 +37,7 @@ export default function MoreMenu({ items, label = "More actions" }) {
               className={`more-menu-item ${item.danger ? "danger" : ""}`}
               onClick={() => { setOpen(false); item.onClick(); }}
             >
-              {item.icon && <span className="more-menu-icon">{item.icon}</span>}
+              {item.icon && <span className="more-menu-icon" aria-hidden="true">{item.icon}</span>}
               {item.label}
             </button>
           ))}

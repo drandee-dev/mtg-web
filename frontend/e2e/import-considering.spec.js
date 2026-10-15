@@ -3,7 +3,7 @@
 // 1-card sideboard that must land in Considering — never the maindeck.
 
 import { test, expect } from "./fixtures/test-base.js";
-import { waitForAppReady, dismissColdStart, importNewDeck, loadSharedDeck } from "./fixtures/helpers.js";
+import { waitForAppReady, dismissColdStart, importNewDeck, loadSharedDeck, deckMenuAction } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
 test.describe("URL import + Considering + rename", () => {
@@ -24,12 +24,12 @@ test.describe("URL import + Considering + rename", () => {
     await expect(considering).toContainText("Considering");
     await expect(considering.locator('[aria-label*="Lightning Bolt"]').first()).toBeVisible();
     // Maindeck count excludes the sideboard card: commander + 2 = 3/100
-    await expect(page.locator('.deck-toolbar .badge:has-text("/ 100")')).toContainText("3 / 100");
+    await expect(page.locator(".deck-head-count")).toHaveText("3 / 100 cards");
   });
 
   test("populated deck: URL import asks before replacing, then replaces wholesale", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    await page.locator(".dh-actions button", { hasText: "Import cards" }).click();
+    await deckMenuAction(page, "Import cards");
     await page.locator('.icm-tabs [role="tab"]', { hasText: "From URL" }).click();
     await page.locator(".icm-panel input").fill("https://archidekt.com/decks/12345");
     await page.locator(".icm-foot button", { hasText: "Import" }).click();
@@ -42,7 +42,7 @@ test.describe("URL import + Considering + rename", () => {
     await expect(page.locator(".deck-title")).not.toContainText("Mock Import");
 
     // Again, but confirm — deck, name, and Considering all replaced
-    await page.locator(".dh-actions button", { hasText: "Import cards" }).click();
+    await deckMenuAction(page, "Import cards");
     await page.locator('.icm-tabs [role="tab"]', { hasText: "From URL" }).click();
     await page.locator(".icm-panel input").fill("https://archidekt.com/decks/12345");
     await page.locator(".icm-foot button", { hasText: "Import" }).click();

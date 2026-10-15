@@ -162,7 +162,7 @@ test.describe("Activation flows", () => {
     });
 
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    const count = page.locator('.deck-toolbar .badge:has-text("/ 100")');
+    const count = page.locator(".deck-head-count");
     await expect(count).toBeVisible();
     const before = await count.textContent();
     const solRingInDeck = page.locator('.card-grid-container [aria-label*="Sol Ring"]');

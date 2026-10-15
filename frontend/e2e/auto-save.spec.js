@@ -18,9 +18,7 @@ test.describe("Deck auto-save", () => {
     expect(decks[0].name).toBe(TEST_COMMANDER);
     expect(decks[0].decklist_text).toContain("Rhystic Study");
     // The open deck adopts the saved identity — header shows the name
-    await expect(
-      page.locator(".deck-title:visible, .mobile-deck-name:visible").first()
-    ).toContainText("Atraxa");
+    await expect(page.locator(".deck-title")).toContainText("Atraxa");
   });
 
   test("revisiting the same share link does not duplicate", async ({ page }) => {

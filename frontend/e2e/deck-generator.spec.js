@@ -8,7 +8,7 @@
 // as itself. What that screen used to show is checked where it lives now: the
 // saved decklist, the reason on a card's detail, the buy list on the deck page.
 import { test, expect } from "./fixtures/test-base.js";
-import { waitForAppReady, dismissColdStart, navigateToTab, openNewDeck, seedLocalDecks } from "./fixtures/helpers.js";
+import { waitForAppReady, dismissColdStart, navigateToTab, openNewDeck, seedLocalDecks, deckMenuAction } from "./fixtures/helpers.js";
 
 const savedDecks = (page) =>
   page.evaluate(() => JSON.parse(localStorage.getItem("mtgweb:decks") || "[]"));
@@ -369,7 +369,7 @@ test.describe("Generated deck reasons", () => {
     await page.locator(".cdm-close").click();
 
     // Replace it with an imported deck that also runs Sol Ring.
-    await page.locator(".dh-actions button", { hasText: "Import cards" }).click();
+    await deckMenuAction(page, "Import cards");
     await page.locator('.icm-tabs [role="tab"]', { hasText: "From URL" }).click();
     await page.locator(".icm-panel input").fill("https://archidekt.com/decks/12345");
     await page.locator(".icm-foot button", { hasText: "Import" }).click();

@@ -26,7 +26,7 @@ const draftOf = (page, id) =>
 const savedDecks = (page) =>
   page.evaluate(() => JSON.parse(localStorage.getItem("mtgweb:decks") || "[]"));
 const unsavedMark = (page) => page.locator(".deck-unsaved:visible");
-const deckTitle = (page) => page.locator(".deck-title:visible, .mobile-deck-name:visible").first();
+const deckTitle = (page) => page.locator(".deck-title");
 const boltInDeck = (page) => page.locator('.card-grid-container [aria-label*="Lightning Bolt"]');
 
 async function openFromDecks(page, name) {
@@ -133,17 +133,23 @@ test.describe("Deck drafts", () => {
     await expect.poll(async () => (await draftOf(page, TEST_DECK_STORAGE.id))?.decklist_text).toContain("Lightning Bolt");
   });
 
-  test("a format change counts as unsaved, not only card edits", async ({ page, isMobile }) => {
-    test.skip(isMobile, "the format select is in the desktop header");
+  // On both sizes: since job 3.2 the format select is in the header on phones too.
+  test("a format change counts as unsaved, not only card edits", async ({ page }) => {
+    const live = page.locator(".deck-unsaved-live");
     await openFromDecks(page, TEST_DECK_STORAGE.name);
     await expect(unsavedMark(page)).toHaveCount(0);
+    await expect(live).toHaveText("");
 
     await page.locator(".dh-format").selectOption("legacy");
     await expect(unsavedMark(page)).toHaveText("Unsaved");
+    // Announced with what it means, from a region that was already there.
+    await expect(live).toHaveAttribute("role", "status");
+    await expect(live).toHaveText(/kept in this browser until you save or discard/);
     expect((await draftOf(page, TEST_DECK_STORAGE.id)).format).toBe("legacy");
 
     await page.locator(".dh-format").selectOption("commander");
     await expect(unsavedMark(page)).toHaveCount(0);
+    await expect(live).toHaveText("");
     await expect.poll(async () => draftOf(page, TEST_DECK_STORAGE.id)).toBeNull();
   });
 
