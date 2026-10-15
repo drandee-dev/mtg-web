@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useId, useState } from "react";
 import Curve from "../Curve";
 import { fmtUsd } from "../../lib/format";
 import CardPreview from "../CardPreview";
@@ -9,10 +9,10 @@ import { buildChanges, REC_CATEGORIES } from "../../lib/changeset";
 import { ManaIcon } from "./ManaCost";
 
 // Tabbed insights toolbox — replaces the old Accordion/Feed dual modes.
-// One sticky tab strip, one content pane directly beneath it: the active tool
-// is always at the top of the panel instead of expanding somewhere down a
-// stack of accordions. Analytics is the resting tab (no fetch); the other
-// tabs lazy-load through DeckView's onPanelClick state machine.
+// One sticky tab strip, one content pane directly beneath it. Rendered twice
+// by the deck page (`tools`): Changes alone in Improve, the rest in Stats.
+// Analytics is the resting tab (no fetch); Combos lazy-loads through
+// DeckView's onPanelClick state machine.
 //
 // The old Suggest / Cuts / Upgrades tabs are one "Changes" tab now. All three
 // answered the same question and all three resolved to "cut this, add that",
@@ -53,18 +53,9 @@ export default function InsightsPanel({
   combos, onGoldfish,
   optimize, budgetSwaps, upgradeMode, setUpgradeMode,
   onApplyChange, onSkipChange,
-  commander, format,
+  commander, format, tools,
 }) {
-  const active = activePanel || "Analytics";
-  const rootRef = useRef(null);
-  const mounted = useRef(false);
-
-  // Pull the panel to the top of the sidebar scroll whenever the user picks a
-  // tool — results should never open below the fold.
-  useEffect(() => {
-    if (!mounted.current) { mounted.current = true; return; }
-    rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [active]);
+  const paneId = useId();
 
   function select(id) {
     if (id === active) return;
@@ -82,16 +73,20 @@ export default function InsightsPanel({
   });
   const loadedChanges = Boolean(recs || optimize || budgetSwaps);
 
+  // The deck's Improve section shows Changes alone; Stats shows the rest.
+  // With one tool there is no strip, and `activePanel` (the Stats choice)
+  // does not move it.
   const tabs = [
     { id: "Analytics", label: "Analytics" },
     { id: "Changes", label: "Changes", count: loadedChanges ? changes.length : null },
     { id: "Combos", label: "Combos", count: comboCount },
     { id: "DrawOdds", label: "Odds" },
-  ];
+  ].filter((t) => tools.includes(t.id));
+  const active = tabs.some((t) => t.id === activePanel) ? activePanel : tabs[0].id;
 
   return (
-    <div className="sidebar-section insp" ref={rootRef}>
-      <div className="insp-tabs" role="tablist" aria-label="Deck insights tools">
+    <div className="sidebar-section insp">
+      {tabs.length > 1 && <div className="insp-tabs" role="tablist" aria-label="Deck stats">
         {tabs.map((t) => {
           const isActive = active === t.id;
           const isBusy = busy === t.id;
@@ -100,7 +95,7 @@ export default function InsightsPanel({
               key={t.id}
               role="tab"
               aria-selected={isActive}
-              aria-controls="insp-pane"
+              aria-controls={paneId}
               className={`insp-tab${isActive ? " active" : ""}`}
               onClick={() => select(t.id)}
               disabled={isBusy}
@@ -114,9 +109,10 @@ export default function InsightsPanel({
             </button>
           );
         })}
-      </div>
+      </div>}
 
-      <div className="insp-body" id="insp-pane" role="tabpanel" aria-label="Insights tool">
+      <div className="insp-body" id={paneId} role={tabs.length > 1 ? "tabpanel" : undefined}
+        aria-label={tabs.length > 1 ? tabs.find((t) => t.id === active).label : undefined}>
         {busy === active && <LoadingIndicator label="Loading" active />}
         {busy !== active && (
           <>
@@ -369,7 +365,7 @@ function DeckDna({ comp }) {
   return (
     <>
       <h4 className="insp-subhead">Deck DNA — roles</h4>
-      <div className="barlist">
+      <div className="barlist barlist-dna">
         {cats.map((c) => {
           const pct = c.target ? Math.min(100, (c.count / c.target) * 100) : 100;
           const thin = c.status === "thin";

@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { api, assembleDecklist, disassembleDecklist, getCardImage, FORMATS, warnIfBadAdd } from "../../lib/api";
 import CommanderInput from "../CommanderInput";
 import CardGrid from "./CardGrid";
 import CardTypeahead from "./CardTypeahead";
-import DeckSidebar from "./DeckSidebar";
+import DeckTools from "./DeckTools";
 import DeckGoalsAssessment from "./DeckGoalsAssessment";
 import ImportCardsModal from "./ImportCardsModal";
 import MassArtModal from "./MassArtModal";
@@ -25,6 +24,9 @@ import DeckStatsBar from "./DeckStatsBar";
 const OLD_CHANGE_PANELS = new Set(["Recommendations", "Cuts", "Upgrades"]);
 const migratePanel = (p) => (OLD_CHANGE_PANELS.has(p) ? "Changes" : p);
 
+// The deck's sections, as tabs under its header (UX overhaul job 3.1).
+const SECTIONS = [["cards", "Cards"], ["improve", "Improve"], ["stats", "Stats"]];
+
 // Considering-pile text helpers. appendConsidering is written for functional
 // setMaybeboard updates (prev => next), so several adds can't lose each other.
 const consideringNames = (text) =>
@@ -43,8 +45,18 @@ export default function DeckView({
   maybeboard, setMaybeboard,
   deckName, deckId, onSave, unsaved, onDiscard, onClone, onExport, onPlaytest, onGoldfish, onShare, onRenameDeck,
   arrival, onArrivalDone, onBack, notify, serverWarmed,
-  pwInsightsEl, pwStatsEl, goals, setGoals,
+  goals, setGoals,
 }) {
+  // Which section is showing. Screen state only, not in the address: a deck
+  // always opens on Cards (Andres, 2026-10-15).
+  const [section, setSection] = useState("cards");
+  function openSection(id) {
+    setSection(id);
+    // Opened from below the strip (a toast, the + button): bring the strip
+    // back into view so the section starts at its top. Found by id, not a
+    // ref: a ref read here trips the compiler lint on `analyze` (immutability).
+    document.getElementById("deck-sections")?.scrollIntoView({ block: "nearest" });
+  }
   const [textEditOpen, setTextEditOpen] = useState(false);
   // Goals/Assessment collapse state — moved inline out of the rail (Job 6),
   // collapsed by default, persisted the same way Planeswalker's own expand
@@ -163,6 +175,7 @@ export default function DeckView({
   const hydratedFor = useRef(deckId);
   useEffect(() => {
     setOptLog(loadLog(deckId)); // eslint-disable-line react-hooks/set-state-in-effect
+    setSection("cards");
     setOptimize(null);
     setOptDecided({});
     const c = loadInsights(deckId);
@@ -338,7 +351,7 @@ export default function DeckView({
     if (silent) return;
     const payoff = comboUnlockedBy(name);
     if (payoff) {
-      notify?.(`⚡ Combo unlocked! ${name} → ${payoff}`, { label: "View", onClick: () => setActivePanel("Combos") });
+      notify?.(`⚡ Combo unlocked! ${name} → ${payoff}`, { label: "View", onClick: () => { setActivePanel("Combos"); openSection("stats"); } });
     } else {
       notify?.(`Added ${name}`, { label: "Undo", onClick: undo });
     }
@@ -829,13 +842,15 @@ export default function DeckView({
   // fetch the mode the user was on before the click.
   async function loadChanges({ force = false, mode, deep = false } = {}) {
     if (!decklist.trim()) return notify?.("Add some cards first.");
+    openSection("improve");
+    // A load already out owns the busy flag. Reopening Improve used to clear
+    // it, and with it the loader, and offer the paid pass a second time.
+    if (busy === "Changes" && !force) return;
     const wantMode = mode ?? upgradeMode;
     // Refresh means "give me a fresh changeset", so past apply/skip decisions
     // stop hiding proposals. Anything already in the deck comes back marked
     // in_deck by the server, so applied adds still don't reappear.
     if (force) setInsightDecided({});
-    setActivePanel("Changes");
-    setBusy("Changes");
     const sig = currentSig; // capture: the deck may be edited mid-flight
     const full = assembleDecklist(decklist, isCommanderFmt ? commander : "");
     // Cached optimize/budgetSwaps can be non-null but stale: deckId-keyed
@@ -866,20 +881,21 @@ export default function DeckView({
     if (wantMode === "budget" && ((deep && (!budgetSwaps || stale("budgetSwaps"))) || (force && budgetSwaps))) {
       jobs.push(api.budgetSwaps(full, format).then((r) => { setBudgetSwaps(r); markFresh("budgetSwaps", sig); }));
     }
-    if (!jobs.length) { setBusy(""); return; }
+    // Nothing to fetch: leave busy alone, it may belong to another tool's load.
+    if (!jobs.length) return;
+    setBusy("Changes");
     const settled = await Promise.allSettled(jobs);
     setBusy("");
     const failed = settled.filter((s) => s.status === "rejected");
     if (failed.length) notify?.(`${failed.length} of ${jobs.length} change sources failed.`);
   }
 
-  // Flipping budget ⇄ power inside the Changes tab pulls in the other source.
-  // Routed through loadChanges so the "reuse what's cached" rule lives in one
-  // place; recs and cuts are already loaded by the time this can be clicked,
-  // so it costs no extra calls.
+  // Flipping budget ⇄ power inside Changes pulls in the other source. Routed
+  // through loadChanges so the "reuse what's cached" rule lives in one place;
+  // recs and cuts are already loaded by the time this can be clicked, so it
+  // costs no extra calls. The toggle exists only in Improve's Changes.
   function changeUpgradeMode(mode) {
     setUpgradeMode(mode);
-    if (activePanel !== "Changes") return;
     // Having either deep source already means the deeper pass was asked
     // for, so flipping the toggle is allowed to fetch the other one
     // (budgetSwaps, the only thing still mode-gated).
@@ -907,7 +923,7 @@ export default function DeckView({
 
   // Job 3 guided flow — ratings and the hand-off into the existing Changes
   // queue. Kept next to applyInsightChange/skipInsightChange since it feeds
-  // the same sidebar state (activePanel, the Changes deep-load).
+  // the same state (Improve, the Changes deep-load).
   //
   // Ratings persist into the same panel cache every other paid AI result
   // uses (PANEL_KEYS/insightsCache) — a spent AI call is kept on a close, a
@@ -925,7 +941,7 @@ export default function DeckView({
 
   function goToChangesFromReview() {
     closeUpgradeReview();
-    loadChanges({ deep: true }); // sets activePanel("Changes") itself
+    loadChanges({ deep: true }); // opens Improve itself
   }
 
   // Each source owns its own persisted verdict list, so one source's "Show
@@ -942,19 +958,18 @@ export default function DeckView({
     setInsightDecided((d) => ({ ...d, [ch.id]: "skipped" }));
   }
 
-  // One props object for every DeckSidebar render (desktop layout + the
-  // Planeswalker hub's mobile Insights portal) — keep wiring in one place.
-  const sidebarProps = {
+  // One props object for Improve and Stats (Goals, Assessment and both
+  // DeckTools renders) — keep wiring in one place.
+  const toolProps = {
     result,
     isAnalyzing,
     activePanel,
     busy,
+    // The Stats strip. Changes is not on it: it loads when Improve opens.
     onPanelClick: (id) => {
       if (activePanel === id) { setActivePanel(null); return; }
       if (id === "DrawOdds") { setActivePanel("DrawOdds"); return; }
-      // Tab switches reuse loaded data (optimize and budgetSwaps are paid AI
-      // calls — don't refetch just for browsing); the pane's Refresh reloads.
-      if (id === "Changes") { loadChanges(); return; }
+      // Tab switches reuse loaded data; the pane's Refresh reloads.
       if (id === "Combos") {
         if (combos) { setActivePanel("Combos"); return; }
         loadPanel("Combos", api.combos, setCombos, "combos");
@@ -1032,6 +1047,11 @@ export default function DeckView({
       Unsaved
     </span>
   );
+  // The text editor is in Cards, so asking for it from another section goes there.
+  function toggleTextEdit() {
+    if (!textEditOpen) openSection("cards");
+    setTextEditOpen((o) => !o);
+  }
   const discardItem = unsaved && !locked
     ? [{ label: "Discard changes", icon: "↺", danger: true, onClick: onDiscard }]
     : [];
@@ -1062,7 +1082,7 @@ export default function DeckView({
             { label: "Share link", icon: <LinkIcon />, onClick: onShare },
             { label: "Clone deck", icon: "⎘", onClick: onClone },
             { label: "Export .txt", icon: "↓", onClick: onExport },
-            ...(locked ? [] : [{ label: textEditOpen ? "Hide text editor" : "Edit as text", icon: "✎", onClick: () => setTextEditOpen((o) => !o) }]),
+            ...(locked ? [] : [{ label: textEditOpen ? "Hide text editor" : "Edit as text", icon: "✎", onClick: toggleTextEdit }]),
             { label: "Playtest", icon: "▶", onClick: onPlaytest },
             { label: locked ? "Unlock deck" : "Lock deck (view only)", icon: locked ? <UnlockIcon /> : <LockIcon />, onClick: () => setLocked((l) => !l) },
             ...discardItem,
@@ -1140,7 +1160,7 @@ export default function DeckView({
               { label: "Share link", icon: <LinkIcon />, onClick: onShare },
               { label: "Clone deck", icon: "⎘", onClick: onClone },
               { label: "Export .txt", icon: "↓", onClick: onExport },
-              ...(locked ? [] : [{ label: textEditOpen ? "Hide text editor" : "Edit as text", icon: "✎", onClick: () => setTextEditOpen((o) => !o) }]),
+              ...(locked ? [] : [{ label: textEditOpen ? "Hide text editor" : "Edit as text", icon: "✎", onClick: toggleTextEdit }]),
               { label: locked ? "Unlock deck" : "Lock deck (view only)", icon: locked ? <UnlockIcon /> : <LockIcon />, onClick: () => setLocked((l) => !l) },
               ...discardItem,
             ]} />
@@ -1189,10 +1209,31 @@ export default function DeckView({
         </div>
       )}
 
-      {/* Main layout: deck grid + AI sidebar. The commander now renders as a
-          crowned leading column inside the grid (CardGrid), not a side panel. */}
-      <div className="deck-layout">
-        <div className="deck-main">
+      {/* The deck's sections as tabs (job 3.1). Every panel stays mounted and
+          the others are hidden, so the card grid keeps its state and images
+          across a switch. The commander renders as a crowned leading column
+          inside the grid (CardGrid), not a side panel. */}
+      <div>
+        <div className="deck-sections" id="deck-sections" role="tablist" aria-label="Deck sections">
+          {SECTIONS.map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              id={`deck-tab-${id}`}
+              aria-controls={`deck-panel-${id}`}
+              aria-selected={section === id}
+              className="deck-section-tab"
+              // Opening Improve loads its Changes: free EDHREC suggestions,
+              // reused once loaded. The paid passes wait for their own buttons.
+              onClick={() => (id === "improve" && decklist.trim() ? loadChanges() : openSection(id))}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div role="tabpanel" id="deck-panel-cards" aria-labelledby="deck-tab-cards" hidden={section !== "cards"}>
           {/* A collection build's buy list. It comes with the deck from the New
               deck screen and shows until dismissed; it is not saved. */}
           {arrival?.buy && (
@@ -1225,11 +1266,6 @@ export default function DeckView({
               )}
             </div>
           )}
-          {/* Deck Goals + Assessment — inline above the card list, collapsed
-              by default (Job 6: moved out of the rail, which had no collapse
-              control for either and set Assessment's prose at ~40 chars/line). */}
-          {!deckEmpty && <DeckGoalsAssessment {...sidebarProps} />}
-
           {/* Predictive card search — opened by the toolbar "Card search" button,
               the mobile + FAB, and the empty-deck action. */}
           {searchOpen && !locked && (
@@ -1297,28 +1333,22 @@ export default function DeckView({
               suggesting={suggesting}
             />
           )}
-
         </div>
 
-        {/* Right sidebar — copilot spine + tabbed insights toolbox */}
-        <DeckSidebar {...sidebarProps} />
-      </div>
+        {/* Improve: what to change. Goals are the settings, the Assessment the
+            verdict, then the Optimize queue and Changes. */}
+        <div role="tabpanel" id="deck-panel-improve" aria-labelledby="deck-tab-improve"
+          className="deck-section-panel" hidden={section !== "improve"}>
+          {!deckEmpty && <DeckGoalsAssessment {...toolProps} />}
+          <DeckTools {...toolProps} section="improve" />
+        </div>
 
-      {/* Mobile: the Planeswalker hub's Optimize and Stats tabs expose slot
-          elements — portal sections of the same sidebar into them (single
-          source of props, no dup wiring). The hub sheet covers up to 85dvh of
-          the viewport while open, so the inline Goals/Assessment region above
-          the card list is not reliably visible from in there — the Optimize
-          tab gets its own copy, same collapse-state props, so nothing that
-          used to live in this tab disappears (Job 6). */}
-      {pwInsightsEl && createPortal(
-        <>
-          {!deckEmpty && <DeckGoalsAssessment {...sidebarProps} />}
-          <DeckSidebar {...sidebarProps} section="optimize" />
-        </>,
-        pwInsightsEl
-      )}
-      {pwStatsEl && createPortal(<DeckSidebar {...sidebarProps} section="stats" />, pwStatsEl)}
+        {/* Stats: reference, no AI. */}
+        <div role="tabpanel" id="deck-panel-stats" aria-labelledby="deck-tab-stats"
+          className="deck-section-panel" hidden={section !== "stats"}>
+          <DeckTools {...toolProps} section="stats" />
+        </div>
+      </div>
 
       <ImportCardsModal
         open={importOpen}
@@ -1381,6 +1411,7 @@ export default function DeckView({
         <button
           className="deck-fab"
           onClick={() => {
+            setSection("cards");
             setSearchOpen(true);
             setTimeout(() => {
               searchRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });

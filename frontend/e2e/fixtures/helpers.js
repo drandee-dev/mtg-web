@@ -88,6 +88,11 @@ export async function loadSharedDeck(page, deckText, commander = "") {
   await dismissColdStart(page);
 }
 
+// Open one of the deck's sections (Cards, Improve, Stats) by its tab.
+export async function openDeckSection(page, name) {
+  await page.getByRole("tab", { name, exact: true }).click();
+}
+
 // A cold load of an address, as a bookmark or a second browser tab would make.
 export async function openAddress(page, path) {
   await page.goto(path);

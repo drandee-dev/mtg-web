@@ -3,16 +3,14 @@
 // swap and a cut against the shared Atraxa test deck).
 
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck } from "./fixtures/helpers.js";
+import { loadSharedDeck, openDeckSection, deckMenuAction } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
+// The queue is in the deck's Improve section, on desktop and phone alike.
 test.describe("Optimize queue", () => {
-  // Desktop: queue lives in the always-visible deck sidebar. Mobile gets its
-  // own hub test below.
-  test.skip(({ isMobile }) => isMobile, "desktop sidebar flow");
-
   test("run shows assessment and change cards", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openDeckSection(page, "Improve");
     const queue = page.locator(".opt-queue");
     await expect(queue).toBeVisible();
     await expect(queue.locator(".opt-hint")).toContainText("deck goals");
@@ -35,29 +33,35 @@ test.describe("Optimize queue", () => {
     const gridCard = (name) => page.locator(`.card-grid-container [aria-label*="${name}"]`);
     await expect(gridCard("Cultivate").first()).toBeVisible();
 
+    await openDeckSection(page, "Improve");
     await queue.locator(".opt-run").click();
     await queue.locator(".opt-card").first().locator("button", { hasText: "Apply" }).click();
-
-    // Deck mutated: swap removed Cultivate, added Lightning Bolt
-    await expect(gridCard("Cultivate")).toHaveCount(0);
-    await expect(gridCard("Lightning Bolt").first()).toBeVisible();
 
     // Applied change left the queue and landed in the session log
     await expect(queue.locator(".opt-card")).toHaveCount(1);
     const log = queue.locator(".opt-log");
     await expect(log.locator(".opt-log-summary")).toContainText("Session log (1)");
+
+    // Deck mutated: swap removed Cultivate, added Lightning Bolt
+    await openDeckSection(page, "Cards");
+    await expect(gridCard("Cultivate")).toHaveCount(0);
+    await expect(gridCard("Lightning Bolt").first()).toBeVisible();
+
+    await openDeckSection(page, "Improve");
     await log.locator(".opt-log-summary").click();
     await expect(log.locator(".opt-log-row")).toContainText("Cultivate");
 
     // Undo restores the deck and empties the log
     await log.locator(".opt-undo").click();
+    await expect(queue.locator(".opt-log")).toHaveCount(0);
+    await openDeckSection(page, "Cards");
     await expect(gridCard("Cultivate").first()).toBeVisible();
     await expect(gridCard("Lightning Bolt")).toHaveCount(0);
-    await expect(queue.locator(".opt-log")).toHaveCount(0);
   });
 
   test("skip clears the queue without touching the deck", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openDeckSection(page, "Improve");
     const queue = page.locator(".opt-queue");
     await queue.locator(".opt-run").click();
     await expect(queue.locator(".opt-card")).toHaveCount(2);
@@ -67,60 +71,116 @@ test.describe("Optimize queue", () => {
     await expect(queue.locator(".opt-card")).toHaveCount(0);
     await expect(queue.locator(".opt-hint")).toContainText("Queue clear");
     // Deck untouched
+    await openDeckSection(page, "Cards");
     await expect(page.locator('.card-grid-container [aria-label*="Cultivate"]').first()).toBeVisible();
   });
 
   test("session log persists across reload", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openDeckSection(page, "Improve");
     const queue = page.locator(".opt-queue");
     await queue.locator(".opt-run").click();
     await queue.locator(".opt-card").first().locator("button", { hasText: "Apply" }).click();
     await expect(queue.locator(".opt-log-summary")).toContainText("Session log (1)");
 
     await page.reload();
+    await openDeckSection(page, "Improve");
     await expect(page.locator(".opt-queue .opt-log-summary")).toContainText("Session log (1)");
   });
 });
 
-test.describe("Optimize queue — mobile hub", () => {
-  test.skip(({ isMobile }) => !isMobile, "mobile-only flow");
-
-  test("queue renders and runs inside the hub Optimize tab", async ({ page }) => {
+// The sections themselves (job 3.1): one tab strip, Cards on open, and the
+// tools out of the Planeswalker on phones.
+test.describe("Deck sections", () => {
+  test("Cards on open; Improve and Stats each hold their own tools", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    await page.locator(".planeswalker-btn").click();
-    await page.locator('.pw-tabs [role="tab"]', { hasText: "Optimize" }).click();
+    const tab = (name) => page.getByRole("tab", { name, exact: true });
+    await expect(tab("Cards")).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator(".card-grid-container")).toBeVisible();
+    await expect(page.locator(".opt-queue")).toBeHidden();
+    await expect(page.locator(".stat-grid")).toBeHidden();
 
-    const queue = page.locator(".pw-insights-body .opt-queue");
-    await expect(queue).toBeVisible();
-    await queue.locator(".opt-run").click();
-    await expect(queue.locator(".opt-card")).toHaveCount(2);
-    await queue.locator(".opt-card").first().locator("button", { hasText: "Apply" }).click();
-    await expect(queue.locator(".opt-log-summary")).toContainText("Session log (1)");
+    await openDeckSection(page, "Improve");
+    await expect(tab("Improve")).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator(".opt-queue")).toBeVisible();
+    await expect(page.locator(".deck-goals")).toBeVisible();
+    await expect(page.locator(".card-grid-container")).toBeHidden();
+    // Changes has no tab strip of its own in Improve
+    await expect(page.getByRole("tabpanel", { name: "Improve", exact: true }).locator(".insp-tabs")).toHaveCount(0);
+
+    await openDeckSection(page, "Stats");
+    await expect(page.locator(".stat-grid")).toBeVisible();
+    await expect(page.locator(".opt-queue")).toBeHidden();
+    // Changes is not a Stats tool
+    await expect(page.locator(".insp-tab", { hasText: "Changes" })).toHaveCount(0);
   });
 
-  test("Stats tab shows the insights toolbox; Optimize tab does not", async ({ page }) => {
+  test("the Planeswalker on a phone is the chat only", async ({ page, isMobile }) => {
+    test.skip(!isMobile, "the hub's Optimize and Stats tabs were phone-only");
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await page.locator(".planeswalker-btn").click();
+    await expect(page.getByRole("textbox", { name: "Message Planeswalker" })).toBeVisible();
+    await expect(page.locator(".planeswalker-panel [role='tab']")).toHaveCount(0);
+  });
 
-    await page.locator('.pw-tabs [role="tab"]', { hasText: "Stats" }).click();
-    const insp = page.locator(".pw-insights-body .insp");
-    await expect(insp).toBeVisible();
-    // Analytics is the resting tab — stats render immediately, no extra click
-    await expect(insp.locator(".insp-tab.active")).toContainText("Analytics");
-    await expect(insp.locator(".stat-grid")).toBeVisible();
-    await expect(page.locator(".pw-insights-body .opt-queue")).toHaveCount(0);
+  // Every way into a section other than its tab. loadChanges' callers (the
+  // over-budget chip, Upgrade review's hand-off) are in activation-flows and
+  // upgrade-review.
+  test("View in the combo-unlocked toast opens Stats on Combos", async ({ page }) => {
+    // The mock has no near-miss; this deck is one card from one.
+    await page.route("**/api/deck/combos", (route) => route.fulfill({ json: {
+      combos: [],
+      near_misses: [{ cards: ["Sol Ring", "Lightning Bolt"], missing_card: "Lightning Bolt", result: ["Infinite mana"] }],
+    } }));
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openDeckSection(page, "Stats");
+    await page.locator(".insp-tab", { hasText: "Combos" }).click();
+    await page.locator(".combo-add").click();
+    const view = page.locator(".toast-action", { hasText: "View" });
+    await expect(view).toBeVisible();
 
-    await page.locator('.pw-tabs [role="tab"]', { hasText: "Optimize" }).click();
-    await expect(page.locator(".pw-insights-body .opt-queue")).toBeVisible();
-    await expect(page.locator(".pw-insights-body .insp")).toHaveCount(0);
+    // Leave Combos and Stats, so View has both to undo.
+    await page.locator(".insp-tab", { hasText: "Analytics" }).click();
+    await openDeckSection(page, "Cards");
+    await view.click();
+    await expect(page.getByRole("tab", { name: "Stats", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator(".insp-tab", { hasText: "Combos" })).toHaveClass(/active/);
+  });
+
+  // Clone swaps the deck under a page that stays open, so the section has to
+  // be reset by the deck change itself, not by a fresh mount.
+  test("a clone opens on Cards", async ({ page }) => {
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    const before = page.url();
+    await openDeckSection(page, "Improve");
+    page.once("dialog", (d) => d.accept("Clone of the test deck"));
+    await deckMenuAction(page, "Clone deck");
+    await expect(page).not.toHaveURL(before);
+    await expect(page.getByRole("tab", { name: "Cards", exact: true })).toHaveAttribute("aria-selected", "true");
+  });
+
+  test("Edit as text from another section opens Cards with the editor", async ({ page }) => {
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openDeckSection(page, "Stats");
+    await deckMenuAction(page, "Edit as text");
+    await expect(page.getByRole("tab", { name: "Cards", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("textbox", { name: "Edit decklist as text" })).toBeVisible();
+  });
+
+  test("the phone's + button opens Cards with the search", async ({ page, isMobile }) => {
+    test.skip(!isMobile, "the + button shows under 700px");
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openDeckSection(page, "Improve");
+    await page.getByRole("button", { name: "Add cards" }).click();
+    await expect(page.getByRole("tab", { name: "Cards", exact: true })).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator(".deck-search-panel input")).toBeFocused();
   });
 });
 
 test.describe("Assessment", () => {
-  test.skip(({ isMobile }) => isMobile, "desktop sidebar flow");
-
   test("gap chips appear after analysis and run a focused optimize", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openDeckSection(page, "Improve");
     // Composition auto-loads with the (debounced) analysis — the thin
     // card-draw category from the mock becomes a tappable gap chip.
     const chip = page.locator(".asmt-chip", { hasText: "Card draw" });
@@ -140,7 +200,8 @@ test.describe("Assessment", () => {
 
   test("insights toolbox rests on Analytics and swaps panes in place", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    const insp = page.locator(".deck-sidebar .insp");
+    await openDeckSection(page, "Stats");
+    const insp = page.getByRole("tabpanel", { name: "Stats", exact: true }).locator(".insp");
     await expect(insp).toBeVisible();
     // Analytics is the default pane — no click needed to see stats
     await expect(insp.locator(".stat-grid")).toBeVisible();

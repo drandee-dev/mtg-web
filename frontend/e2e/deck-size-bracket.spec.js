@@ -1,7 +1,7 @@
 // Bracket labels match the official WotC brackets (1-5), the stats bar counts
 // the commander once, and the health score drops when legality fails.
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, waitForAppReady, dismissColdStart, pickNewDeckCommander } from "./fixtures/helpers.js";
+import { loadSharedDeck, waitForAppReady, dismissColdStart, pickNewDeckCommander, openDeckSection } from "./fixtures/helpers.js";
 import { TEST_COMMANDER } from "./fixtures/test-data.js";
 
 // Analyze stub with real backend semantics: total_cards counts every card in
@@ -72,12 +72,14 @@ test("an illegal deck scores lower than the same deck when legal", async ({ page
 
   const ring = page.locator(".hr-score").first();
   await loadSharedDeck(page, NINETY_NINE, TEST_COMMANDER);
+  await openDeckSection(page, "Improve"); // the Assessment's ring
   await expect(ring).toBeVisible({ timeout: 15000 });
   const legal = Number(await ring.textContent());
 
   status = "FAIL";
   await page.reload();
   await waitForAppReady(page);
+  await openDeckSection(page, "Improve");
   // Poll: a persisted result may paint first; the re-analyzed one must score lower.
   await expect.poll(async () => Number(await ring.textContent()), { timeout: 15000 }).toBeLessThan(legal);
 });
@@ -89,8 +91,7 @@ test("mobile commander strip reads 100/100 for a 1+99 deck", async ({ page, isMo
   await expect(page.locator(".cmdr-strip-mobile .cmdr-strip-count")).toHaveText("100/100", { timeout: 15000 });
 });
 
-test("a deck_maximum violation is listed under Legality issues", async ({ page, isMobile }) => {
-  test.skip(isMobile, "desktop insights sidebar");
+test("a deck_maximum violation is listed under Legality issues", async ({ page }) => {
   // Real legality_audit shape: a dict of groups, each a list of entries.
   await stubAnalyze(page, () => ({
     overall_status: "FAIL",
@@ -100,6 +101,7 @@ test("a deck_maximum violation is listed under Legality issues", async ({ page, 
     },
   }));
   await loadSharedDeck(page, NINETY_NINE.replace("95 Forest", "96 Forest"), TEST_COMMANDER);
+  await openDeckSection(page, "Stats");
   await expect(page.locator(".insp-subhead", { hasText: "Legality issues" })).toBeVisible({ timeout: 15000 });
   await expect(page.locator(".insp-list li", { hasText: "101/100" })).toHaveText(
     "Deck size: 101/100 cards (over maximum)");

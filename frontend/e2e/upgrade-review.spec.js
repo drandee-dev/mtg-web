@@ -3,7 +3,7 @@
 // Changes queue for swaps. Runs against the hermetic mock backend.
 
 import { test, expect } from "./fixtures/test-base.js";
-import { waitForAppReady, dismissColdStart, navigateToTab, pasteNewDeck, importNewDeck, loadSharedDeck } from "./fixtures/helpers.js";
+import { waitForAppReady, dismissColdStart, navigateToTab, pasteNewDeck, importNewDeck, loadSharedDeck, openDeckSection } from "./fixtures/helpers.js";
 import { TEST_COMMANDER, TEST_DECK_TEXT } from "./fixtures/test-data.js";
 
 const PASTE_TEXT = `Commander\n1 ${TEST_COMMANDER}\n\nDeck\n${TEST_DECK_TEXT}`;
@@ -87,22 +87,22 @@ test.describe("Upgrade review — guided flow", () => {
     await modal.locator(".icm-foot button", { hasText: "See suggested swaps" }).click();
     await expect(modal).toHaveCount(0); // guide closes on hand-off
 
-    // Lands on the Changes tab with the deep pass already running — same
+    // Lands on Improve, from Cards, with the deep pass already running — same
     // apply/skip/undo queue Job 1 built, reached through the new entry point.
-    await expect(page.locator('.insp-tab:has-text("Changes")')).toHaveClass(/active/);
-    const pane = page.locator(".insp-body");
+    await expect(page.getByRole("tab", { name: "Improve", exact: true })).toHaveAttribute("aria-selected", "true");
+    const pane = page.getByRole("tabpanel", { name: "Improve", exact: true }).locator(".insp-body");
     // Mock optimize's plain "cut" action always targets Kodama's Reach (the
     // "swap" item targets Cultivate — see mock-backend.js).
     const cutCard = pane.locator('.opt-card:has(.opt-badge:text-is("Cut"))');
     await expect(cutCard).toHaveCount(1, { timeout: 10000 });
+    await cutCard.locator('button:has-text("Apply")').click();
 
     const gridCard = (name) => page.locator(`.card-grid-container [aria-label*="${name}"]`);
-    await expect(gridCard("Kodama's Reach").first()).toBeVisible();
-    await cutCard.locator('button:has-text("Apply")').click();
-    await expect(gridCard("Kodama's Reach")).toHaveCount(0);
-
     const undo = page.locator(".toast .toast-action");
     await expect(undo).toHaveText("Undo");
+    await openDeckSection(page, "Cards");
+    await expect(gridCard("Sol Ring").first()).toBeVisible();
+    await expect(gridCard("Kodama's Reach")).toHaveCount(0);
     await undo.click();
     await expect(gridCard("Kodama's Reach").first()).toBeVisible();
   });

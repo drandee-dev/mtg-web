@@ -36,7 +36,7 @@ async function pickCommander(page, query = "atraxa", name = "Atraxa") {
 // The deck a build just made: on its own address, and the last one saved.
 async function builtDeck(page) {
   await expect(page).toHaveURL(onADeck, { timeout: 20000 });
-  await expect(page.locator(".deck-layout")).toBeVisible();
+  await expect(page.getByRole("tablist", { name: "Deck sections" })).toBeVisible();
   return (await savedDecks(page)).at(-1);
 }
 

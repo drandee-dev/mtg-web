@@ -71,10 +71,9 @@ function saveHistory(key, messages) {
 export default function Planeswalker({
   decklist, commander, format, bracket, aiAvailable, serverStatus,
   addCard, addToConsidering, notify,
-  deckId, insightsAvailable, onInsightsSlot, onStatsSlot, goals,
+  deckId, insightsAvailable, goals,
 }) {
   const [open, setOpen] = useState(false);
-  const [tabView, setTabView] = useState("chat"); // "chat" | "insights" (Optimize) | "stats"
   const storageKey = historyKey(deckId);
   // Loaded (and re-loaded on deck switch) by the storageKey effect below.
   const [messages, setMessages] = useState([]);
@@ -93,8 +92,6 @@ export default function Planeswalker({
   const dragRef = useRef(null); // { startY, dy }
   const chibiArt = useMemo(() => CHIBI_ART[Math.floor(Math.random() * CHIBI_ART.length)], []);
   const isMobile = useMediaQuery("(max-width: 699px)");
-  // Insights tab: mobile-only (desktop always has the deck sidebar in view).
-  const showInsights = Boolean(insightsAvailable) && isMobile;
   const hasDeck = /^\s*\d+\s+\S/m.test(decklist || "");
   // Mobile: the panel is a full-screen sheet — the back gesture closes it.
   useBackClose(open && isMobile, () => setOpen(false));
@@ -138,11 +135,6 @@ export default function Planeswalker({
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, [open, isMobile]);
-
-  // If the deck tab goes away while Optimize/Stats is showing, fall back to chat.
-  useEffect(() => {
-    if (!showInsights && tabView !== "chat") setTabView("chat"); // eslint-disable-line react-hooks/set-state-in-effect
-  }, [showInsights, tabView]);
 
   // Session log: load on open/deck switch, follow writes from any surface
   // (optimizeLog broadcasts "mtgweb:optlog" on every save).
@@ -385,42 +377,22 @@ export default function Planeswalker({
               </div>
             </div>
             <div className="row" style={{ gap: ".3rem" }}>
-              {tabView === "chat" && (
-                <button className={`ghost small pw-asize${bigText ? " active" : ""}`} onClick={toggleTextSize}
-                  aria-label={bigText ? "Smaller chat text" : "Larger chat text"} title="Text size">
-                  <span aria-hidden="true">A</span><span aria-hidden="true" className="pw-asize-big">A</span>
-                </button>
-              )}
+              <button className={`ghost small pw-asize${bigText ? " active" : ""}`} onClick={toggleTextSize}
+                aria-label={bigText ? "Smaller chat text" : "Larger chat text"} title="Text size">
+                <span aria-hidden="true">A</span><span aria-hidden="true" className="pw-asize-big">A</span>
+              </button>
               <button className="ghost small" onClick={toggleExpand}
                 aria-label={expanded ? "Shrink panel" : "Expand panel"} title={expanded ? "Shrink" : "Expand"}>
                 {expanded ? "⤡" : "⤢"}
               </button>
-              {tabView === "chat" && <button className="ghost small" onClick={clearChat}>Clear</button>}
+              <button className="ghost small" onClick={clearChat}>Clear</button>
               <button className="ghost small" onClick={() => setOpen(false)} aria-label="Close">✕</button>
             </div>
           </div>
 
-          {showInsights && (
-            <div className="pw-tabs" role="tablist" aria-label="Planeswalker panels">
-              <button role="tab" aria-selected={tabView === "chat"}
-                className={tabView === "chat" ? "active" : ""}
-                onClick={() => setTabView("chat")}>Chat</button>
-              <button role="tab" aria-selected={tabView === "insights"}
-                className={tabView === "insights" ? "active" : ""}
-                onClick={() => setTabView("insights")}>Optimize</button>
-              <button role="tab" aria-selected={tabView === "stats"}
-                className={tabView === "stats" ? "active" : ""}
-                onClick={() => setTabView("stats")}>Stats</button>
-            </div>
-          )}
-
-          {tabView === "insights" ? (
-            /* DeckView portals its DeckSidebar (optimize section) here. */
-            <div className="pw-insights-body" ref={onInsightsSlot || undefined} />
-          ) : tabView === "stats" ? (
-            /* DeckView portals its DeckSidebar (stats section) here. */
-            <div className="pw-insights-body" ref={onStatsSlot || undefined} />
-          ) : (
+          {/* The deck's Optimize and Stats were tabs here on phones until job
+              3.1 moved them into the deck's own sections. The chat stays. */}
+          {(
             <>
               <div className="planeswalker-messages" ref={scrollRef} aria-live="polite" aria-relevant="additions">
                 {optLog.length > 0 && (
