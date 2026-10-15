@@ -35,7 +35,7 @@ test.describe("Planeswalker chat", () => {
     await expect(page.locator(".pw-divider")).toContainText("Find combos");
   });
 
-  test("chat card-chip add lands in the pinned session log", async ({ page, isMobile }) => {
+  test("chat card-chip add lands in the pinned session log", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await openChat(page);
     await page.locator(".pw-chip", { hasText: "Fill gaps" }).click();
@@ -49,10 +49,9 @@ test.describe("Planeswalker chat", () => {
     await expect(log.locator(".pw-sessionlog-row")).toContainText("Added Lightning Bolt");
     await expect(log.locator(".pw-sessionlog-src")).toHaveText("chat");
 
-    if (!isMobile) {
-      // Broadcast sync: the sidebar queue's log picked up the chat add too
-      await expect(page.locator(".opt-queue .opt-log-summary")).toContainText("Session log (1)");
-    }
+    // Broadcast sync: Improve's queue log picked up the chat add too (the
+    // section stays mounted while Cards shows, on both viewports since 3.1).
+    await expect(page.locator(".opt-queue .opt-log-summary")).toContainText("Session log (1)");
   });
 
   test("an empty 'done' stream shows an error with Retry, not Thinking… forever", async ({ page }) => {

@@ -4,7 +4,7 @@
 // card modal → Rules prefill.
 
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, seedLocalDecks, waitForAppReady, dismissColdStart } from "./fixtures/helpers.js";
+import { loadSharedDeck, seedLocalDecks, waitForAppReady, dismissColdStart, openDeckSection } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
 test.describe("Activation flows", () => {
@@ -67,6 +67,7 @@ test.describe("Activation flows", () => {
       }));
 
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openDeckSection(page, "Improve");
     // Set a $50 ceiling (mock analyze prices the deck at $68.93)
     await page.locator(".dg-head").click();
     await page.locator('.dg-opts[aria-label="Budget ceiling"]').getByRole("button", { name: "$50", exact: true }).click();
@@ -77,7 +78,8 @@ test.describe("Activation flows", () => {
     await expect(chip).toContainText("$19 over your $50 budget");
 
     await chip.click();
-    await expect(page.locator("#insp-pane")).toContainText("Rhystic Study", { timeout: 10000 });
+    await expect(page.getByRole("tabpanel", { name: "Improve", exact: true }).locator(".insp-body"))
+      .toContainText("Rhystic Study", { timeout: 10000 });
   });
 
   // Regression: the chip sets budget mode and loads in the same handler, so
@@ -108,6 +110,7 @@ test.describe("Activation flows", () => {
     await dismissColdStart(page);
     await page.locator(".deck-card .deck-card-art").first().click();
     await expect(page.locator(".card-grid-container")).toBeVisible({ timeout: 10000 });
+    await openDeckSection(page, "Improve");
 
     // Declare a ceiling the mock deck ($68.93) busts.
     await page.locator(".dg-head").click();
@@ -122,7 +125,8 @@ test.describe("Activation flows", () => {
       new URL(r.url()).pathname.endsWith("/api/deck/budget-swaps"), { timeout: 10000 });
     await chip.click();
     await budgetCall;
-    await expect(page.locator('#insp-pane .opt-cat:has-text("Budget")').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("tabpanel", { name: "Improve", exact: true })
+      .locator('.insp-body .opt-cat:has-text("Budget")').first()).toBeVisible({ timeout: 10000 });
   });
 
   test("empty Considering shows a zero-state CTA", async ({ page }) => {

@@ -1,25 +1,38 @@
-// Insight-panel persistence: results loaded in the right sidebar survive
-// leaving the deck tab (DeckView unmounts), the open tool is remembered, and
-// editing the deck's card list marks cached results stale — refreshed only by
-// the user's explicit Refresh click (never automatically).
+// Insight-panel persistence: results loaded in the deck's Improve and Stats
+// sections survive leaving the deck (DeckView unmounts), the open Stats tool
+// is remembered, and editing the deck's card list marks cached results stale —
+// refreshed only by the user's explicit Refresh click (never automatically).
+// Changes is in Improve, Combos in Stats; the card grid is in Cards, so every
+// check on the deck's cards opens Cards first.
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, navigateToTab } from "./fixtures/helpers.js";
+import { loadSharedDeck, navigateToTab, openDeckSection } from "./fixtures/helpers.js";
 
 const DECK = ["1 Sol Ring", "1 Cultivate", "1 Kodama's Reach", "1 Counterspell", "10 Forest", "10 Plains"].join("\n");
 
+const improve = (page) => page.getByRole("tabpanel", { name: "Improve", exact: true });
+const stats = (page) => page.getByRole("tabpanel", { name: "Stats", exact: true });
+
 test.describe("Insights persistence", () => {
-  test.skip(({ isMobile }) => isMobile, "desktop sidebar flow");
+  test.skip(({ isMobile }) => isMobile, "quick-add, which these use to edit the deck, is desktop-only");
 
   async function openCombos(page) {
-    await page.locator('.insp-tab:has-text("Combos")').click();
-    await expect(page.locator(".insp-body")).toContainText("No combos or near-misses found");
+    await openDeckSection(page, "Stats");
+    await stats(page).locator('.insp-tab:has-text("Combos")').click();
+    await expect(stats(page).locator(".insp-body")).toContainText("No combos or near-misses found");
   }
 
-  // Opening the tab buys only the free EDHREC suggestions. Cuts and upgrades
+  // Opening Improve buys only the free EDHREC suggestions. Cuts and upgrades
   // are metered, so a test that needs them asks for them the way a user does.
   async function openChanges(page, { deep = false } = {}) {
-    await page.locator('.insp-tab:has-text("Changes")').click();
-    if (deep) await page.locator(".insp-deep").click();
+    await openDeckSection(page, "Improve");
+    if (deep) await improve(page).locator(".insp-deep").click();
+  }
+
+  async function quickAdd(page, name) {
+    await openDeckSection(page, "Cards");
+    const input = page.locator('input[placeholder="Card name…"]');
+    await input.fill(name);
+    await input.press("Enter");
   }
 
   function countRequests(page, pathSuffix) {
@@ -39,9 +52,12 @@ test.describe("Insights persistence", () => {
     await navigateToTab(page, "Rules");
     await page.goBack();
 
-    // Cached result renders, same tool still open, and no re-fetch happened.
-    await expect(page.locator('.insp-tab:has-text("Combos")')).toHaveClass(/active/);
-    await expect(page.locator(".insp-body")).toContainText("No combos or near-misses found");
+    // The deck opens on Cards again; Stats still has Combos open, its cached
+    // result renders, and no re-fetch happened.
+    await expect(page.getByRole("tab", { name: "Cards", exact: true })).toHaveAttribute("aria-selected", "true");
+    await openDeckSection(page, "Stats");
+    await expect(stats(page).locator('.insp-tab:has-text("Combos")')).toHaveClass(/active/);
+    await expect(stats(page).locator(".insp-body")).toContainText("No combos or near-misses found");
     expect(combosCalls.n).toBe(1);
   });
 
@@ -51,33 +67,34 @@ test.describe("Insights persistence", () => {
     await openCombos(page);
 
     // Add a new card via quick-add (raw-name Enter before the typeahead opens).
-    const quickAdd = page.locator('input[placeholder="Card name…"]');
-    await quickAdd.fill("Zealous Conscripts");
-    await quickAdd.press("Enter");
+    await quickAdd(page, "Zealous Conscripts");
 
     // Stale affordances appear; the cached result is still shown, not cleared.
-    await expect(page.locator(".insp-stale-badge")).toBeVisible();
-    await expect(page.locator('.insp-tab:has-text("Combos") .insp-tab-stale')).toBeVisible();
-    await expect(page.locator(".insp-body")).toContainText("No combos or near-misses found");
+    await openDeckSection(page, "Stats");
+    const pane = stats(page);
+    await expect(pane.locator(".insp-stale-badge")).toBeVisible();
+    await expect(pane.locator('.insp-tab:has-text("Combos") .insp-tab-stale')).toBeVisible();
+    await expect(pane.locator(".insp-body")).toContainText("No combos or near-misses found");
     expect(combosCalls.n).toBe(1); // nothing re-ran on its own
 
     // User-driven refresh re-fetches and clears the stale mark.
-    await page.locator(".insp-refresh").click();
-    await expect(page.locator(".insp-stale-badge")).toBeHidden();
-    await expect(page.locator('.insp-tab:has-text("Combos") .insp-tab-stale')).toBeHidden();
+    await pane.locator(".insp-refresh").click();
+    await expect(pane.locator(".insp-stale-badge")).toBeHidden();
+    await expect(pane.locator('.insp-tab:has-text("Combos") .insp-tab-stale')).toBeHidden();
     expect(combosCalls.n).toBe(2);
   });
 
-  // Opening a tab must not silently spend metered model calls. Suggestions are
-  // free EDHREC data and load on open; cuts and upgrades wait to be asked for.
-  test("opening Changes buys only the free suggestions until asked for more", async ({ page }) => {
+  // Opening a section must not silently spend metered model calls. Suggestions
+  // are free EDHREC data and load on open; cuts and upgrades wait to be asked for.
+  test("opening Improve buys only the free suggestions until asked for more", async ({ page }) => {
     const recCalls = countRequests(page, "/api/deck/recommend");
     const optimizeCalls = countRequests(page, "/api/deck/optimize");
     const swapCalls = countRequests(page, "/api/deck/budget-swaps");
     await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
+    expect(recCalls.n).toBe(0); // Cards alone buys nothing
 
-    await page.locator('.insp-tab:has-text("Changes")').click();
-    await expect(page.locator(".insp-body")).toContainText("Lightning Bolt");
+    await openChanges(page);
+    await expect(improve(page).locator(".insp-body")).toContainText("Lightning Bolt");
     expect(recCalls.n).toBe(1);
     expect(optimizeCalls.n).toBe(0);
     expect(swapCalls.n).toBe(0);
@@ -88,7 +105,7 @@ test.describe("Insights persistence", () => {
     const deep = page.locator(".insp-deep");
     await expect(deep).toContainText("Uses AI");
     await deep.click();
-    await expect(page.locator('.insp-body .opt-card:has(.opt-badge:text-is("Swap")):has-text("Cultivate")')).toHaveCount(1, { timeout: 10000 });
+    await expect(improve(page).locator('.insp-body .opt-card:has(.opt-badge:text-is("Swap")):has-text("Cultivate")')).toHaveCount(1, { timeout: 10000 });
     expect(optimizeCalls.n).toBe(1);
     expect(swapCalls.n).toBe(1);
     expect(recCalls.n).toBe(1); // the free source was not re-bought
@@ -114,8 +131,8 @@ test.describe("Insights persistence", () => {
     await openChanges(page);
 
     await expect(page.locator(".toast")).toContainText(note);
-    await expect(page.locator(".insp-body .insp-empty")).toBeVisible();
-    await expect(page.locator('.insp-body select[aria-label="Suggestion category"]')).toHaveCount(0);
+    await expect(improve(page).locator(".insp-body .insp-empty")).toBeVisible();
+    await expect(improve(page).locator('.insp-body select[aria-label="Suggestion category"]')).toHaveCount(0);
   });
 
   test("pins and skips persist across screens and survive a refresh", async ({ page }) => {
@@ -124,9 +141,9 @@ test.describe("Insights persistence", () => {
     // Suggest / Cuts / Upgrades are one Changes queue now — the mocked
     // recommend list (Lightning Bolt / Rhystic Study / Smothering Tithe)
     // arrives as "Add" proposals in the same cards the Optimize queue uses.
-    // Suggestions are free, so the plain tab open is enough.
+    // Suggestions are free, so the plain section open is enough.
     await openChanges(page);
-    const pane = page.locator(".insp-body");
+    const pane = improve(page).locator(".insp-body");
     await expect(pane).toContainText("Lightning Bolt");
 
     // Pin one, skip another.
@@ -138,15 +155,16 @@ test.describe("Insights persistence", () => {
     await expect(pane.locator('.opt-card:has-text("Rhystic Study")')).toHaveCount(0);
     await expect(page.locator(".insp-hidden-note")).toContainText("1 skipped");
 
-    // Leave the deck tab and come back — verdicts survive the unmount.
+    // Leave the deck and come back — verdicts survive the unmount.
     await navigateToTab(page, "Rules");
     await page.goBack();
+    await openChanges(page);
     await expect(pane.locator(".opt-card:has-text('Lightning Bolt') .opt-cat")).toContainText("Pinned");
     await expect(pane.locator('.opt-card:has-text("Rhystic Study")')).toHaveCount(0);
 
     // Refresh re-fetches the list; pins and skips are verdicts, not results —
     // they survive the new data.
-    await page.locator(".insp-refresh").click();
+    await improve(page).locator(".insp-refresh").click();
     await expect(pane.locator(".opt-card:has-text('Lightning Bolt') .opt-cat")).toContainText("Pinned");
     await expect(pane.locator('.opt-card:has-text("Rhystic Study")')).toHaveCount(0);
 
@@ -166,7 +184,7 @@ test.describe("Insights persistence", () => {
   test("declining an upgrade is separate from skipping a suggestion", async ({ page }) => {
     await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
     await openChanges(page, { deep: true });
-    const pane = page.locator(".insp-body");
+    const pane = improve(page).locator(".insp-body");
 
     const budgetCard = pane.locator('.opt-card:has(.opt-cat:text-is("Budget"))');
     await expect(budgetCard).toHaveCount(1, { timeout: 10000 });
@@ -198,7 +216,7 @@ test.describe("Insights persistence", () => {
   test("applying an upgrade stops the cut card being re-suggested", async ({ page }) => {
     await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
     await openChanges(page, { deep: true });
-    const pane = page.locator(".insp-body");
+    const pane = improve(page).locator(".insp-body");
 
     // Smothering Tithe is both a budget-swap target and a standing suggestion.
     const suggestion = pane.locator('.opt-card:has(.opt-cat:text-is("High synergy")):has-text("Smothering Tithe")');
@@ -221,7 +239,7 @@ test.describe("Insights persistence", () => {
   test("an applied proposal leaves the queue and cannot be applied twice", async ({ page }) => {
     await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
     await openChanges(page); // a suggestion is enough to exercise this
-    const pane = page.locator(".insp-body");
+    const pane = improve(page).locator(".insp-body");
 
     const bolt = pane.locator('.opt-card:has(.opt-cat:text-is("High synergy")):has-text("Lightning Bolt")');
     // A second copy parses as qty 2, so the thumbnail's own label is the tell.
@@ -231,19 +249,22 @@ test.describe("Insights persistence", () => {
     await expect(bolt).toHaveCount(1, { timeout: 10000 });
     await bolt.locator('button:has-text("Apply")').click();
 
-    // Gone from the queue, one copy in the deck, one log entry.
+    // Gone from the queue, one log entry, one copy in the deck.
     await expect(bolt).toHaveCount(0);
-    await expect(oneCopy).toHaveCount(1);
-    await expect(twoCopies).toHaveCount(0);
     await expect(page.locator(".opt-queue .opt-log-summary")).toContainText("Session log (1)");
+    await openDeckSection(page, "Cards");
+    await expect(oneCopy).toBeVisible();
+    await expect(twoCopies).toHaveCount(0);
 
-    // Leaving the deck tab and returning must not resurrect it — that would
-    // put the second Apply click back within reach.
+    // Leaving the deck and returning must not resurrect it — that would put
+    // the second Apply click back within reach.
     await navigateToTab(page, "Rules");
     await page.goBack();
-    await expect(pane.locator('.opt-card:has(.opt-cat:text-is("High synergy")):has-text("Lightning Bolt")')).toHaveCount(0);
-    await expect(oneCopy).toHaveCount(1);
+    await expect(oneCopy).toBeVisible();
     await expect(twoCopies).toHaveCount(0);
+    await openChanges(page);
+    await expect(pane).toBeVisible();
+    await expect(pane.locator('.opt-card:has(.opt-cat:text-is("High synergy")):has-text("Lightning Bolt")')).toHaveCount(0);
     await expect(page.locator(".opt-queue .opt-log-summary")).toContainText("Session log (1)");
   });
 
@@ -252,20 +273,21 @@ test.describe("Insights persistence", () => {
   test("applying a change offers a one-click Undo on the toast", async ({ page }) => {
     await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
     await openChanges(page, { deep: true });
-    const pane = page.locator(".insp-body");
+    const pane = improve(page).locator(".insp-body");
 
     // Mock optimize's plain "cut" action always targets Kodama's Reach (the
     // "swap" item targets Cultivate — see mock-backend.js).
     const cutCard = pane.locator('.opt-card:has(.opt-badge:text-is("Cut"))');
     await expect(cutCard).toHaveCount(1, { timeout: 10000 });
     const gridCard = (name) => page.locator(`.card-grid-container [aria-label*="${name}"]`);
-    await expect(gridCard("Kodama's Reach").first()).toBeVisible();
 
     await cutCard.locator('button:has-text("Apply")').click();
-    await expect(gridCard("Kodama's Reach")).toHaveCount(0);
-
     const undo = page.locator(".toast .toast-action");
     await expect(undo).toHaveText("Undo");
+    await openDeckSection(page, "Cards");
+    await expect(gridCard("Sol Ring").first()).toBeVisible(); // the grid is drawn
+    await expect(gridCard("Kodama's Reach")).toHaveCount(0);
+
     await undo.click();
     await expect(gridCard("Kodama's Reach").first()).toBeVisible();
     await expect(page.locator(".opt-queue .opt-log")).toHaveCount(0);
@@ -284,9 +306,11 @@ test.describe("Insights persistence", () => {
     await expect(reachQty(4).first()).toBeVisible();
 
     await openChanges(page, { deep: true });
-    const cutCard = page.locator('.insp-body .opt-card:has(.opt-badge:text-is("Cut"))');
+    const cutCard = improve(page).locator('.insp-body .opt-card:has(.opt-badge:text-is("Cut"))');
     await expect(cutCard).toHaveCount(1, { timeout: 10000 });
     await cutCard.locator('button:has-text("Apply")').click();
+    await openDeckSection(page, "Cards");
+    await expect(page.locator('.card-grid-container [aria-label*="Sol Ring"]').first()).toBeVisible();
     await expect(page.locator('.card-grid-container [aria-label*="Kodama\'s Reach"]')).toHaveCount(0);
 
     await page.locator(".toast .toast-action").click();
@@ -305,11 +329,13 @@ test.describe("Insights persistence", () => {
     await expect(thumb("1x Arcane Signet")).toHaveCount(1);
 
     await openChanges(page, { deep: true });
-    const budgetCard = page.locator('.insp-body .opt-card:has(.opt-cat:text-is("Budget"))');
+    const budgetCard = improve(page).locator('.insp-body .opt-card:has(.opt-cat:text-is("Budget"))');
     await expect(budgetCard).toHaveCount(1, { timeout: 10000 });
     await budgetCard.locator('button:has-text("Apply")').click();
 
     // The cut happened; the add did not, because the card was already there.
+    await openDeckSection(page, "Cards");
+    await expect(thumb("1x Sol Ring")).toBeVisible();
     await expect(thumb("1x Smothering Tithe")).toHaveCount(0);
     await expect(thumb("1x Arcane Signet")).toHaveCount(1);
     await expect(thumb("2x Arcane Signet")).toHaveCount(0);
@@ -330,7 +356,7 @@ test.describe("Insights persistence", () => {
   test("an applied optimize-sourced proposal survives an Optimize-widget re-run and a reload", async ({ page }) => {
     await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
     await openChanges(page, { deep: true });
-    const pane = page.locator(".insp-body");
+    const pane = improve(page).locator(".insp-body");
     const cutCard = pane.locator('.opt-card:has(.opt-badge:text-is("Cut"))');
     await expect(cutCard).toHaveCount(1, { timeout: 10000 });
     await cutCard.locator('button:has-text("Apply")').click();
@@ -347,8 +373,7 @@ test.describe("Insights persistence", () => {
     // its declaration comment), so re-buy it and confirm the applied
     // proposal still doesn't resurface even against a freshly-fetched list.
     await page.reload();
-    await page.locator('.insp-tab:has-text("Changes")').click();
-    await page.locator(".insp-deep").click();
+    await openChanges(page, { deep: true });
     await expect(pane.locator('.opt-card:has(.opt-badge:text-is("Swap")):has-text("Cultivate")')).toHaveCount(1, { timeout: 10000 });
     await expect(pane.locator('.opt-card:has(.opt-badge:text-is("Cut"))')).toHaveCount(0);
   });
@@ -362,7 +387,7 @@ test.describe("Insights persistence", () => {
     const NO_TARGET = ["1 Sol Ring", "1 Counterspell", "10 Forest", "10 Plains"].join("\n");
     await loadSharedDeck(page, NO_TARGET, "Atraxa, Praetors' Voice");
     await openChanges(page, { deep: true });
-    const cutCard = page.locator('.insp-body .opt-card:has(.opt-badge:text-is("Cut"))');
+    const cutCard = improve(page).locator('.insp-body .opt-card:has(.opt-badge:text-is("Cut"))');
     await expect(cutCard).toHaveCount(1, { timeout: 10000 });
     await cutCard.locator('button:has-text("Apply")').click();
 
@@ -370,6 +395,8 @@ test.describe("Insights persistence", () => {
     await expect(page.locator(".toast")).toContainText("no longer in the deck");
     await expect(page.locator(".toast .toast-action")).toHaveCount(0);
     await expect(page.locator(".opt-queue .opt-log")).toHaveCount(0);
+    await openDeckSection(page, "Cards");
+    await expect(page.locator('.card-grid-container [aria-label*="Sol Ring"]').first()).toBeVisible();
     await expect(page.locator('.card-grid-container [aria-label*="Kodama\'s Reach"]')).toHaveCount(0);
   });
 
@@ -378,11 +405,10 @@ test.describe("Insights persistence", () => {
     await openCombos(page);
 
     // Bump an existing card's quantity — same card presence, same signature.
-    const quickAdd = page.locator('input[placeholder="Card name…"]');
-    await quickAdd.fill("Sol Ring");
-    await quickAdd.press("Enter");
+    await quickAdd(page, "Sol Ring");
 
-    await expect(page.locator(".insp-body")).toContainText("No combos or near-misses found");
-    await expect(page.locator(".insp-stale-badge")).toBeHidden();
+    await openDeckSection(page, "Stats");
+    await expect(stats(page).locator(".insp-body")).toContainText("No combos or near-misses found");
+    await expect(stats(page).locator(".insp-stale-badge")).toBeHidden();
   });
 });

@@ -3,14 +3,13 @@
 // set. Never silently applied; dismissal persists per deck.
 
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck } from "./fixtures/helpers.js";
+import { loadSharedDeck, openDeckSection } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
 test.describe("Deck goals — suggested from analysis", () => {
-  test.skip(({ isMobile }) => isMobile, "desktop sidebar flow");
-
   test("banner offers detected bracket + price headroom; Use adopts them", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openDeckSection(page, "Improve");
     // Mock analyze: bracket 2, $68.93 → suggested ceiling $100 (15% headroom, $25 steps)
     const bar = page.locator(".dg-suggest-bar");
     await expect(bar).toBeVisible({ timeout: 15000 }); // waits out the 2s analyze debounce
@@ -26,6 +25,7 @@ test.describe("Deck goals — suggested from analysis", () => {
 
   test("dismiss hides the banner and persists across reload", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openDeckSection(page, "Improve");
     const bar = page.locator(".dg-suggest-bar");
     await expect(bar).toBeVisible({ timeout: 15000 });
     await bar.locator(".dg-suggest-x").click();
@@ -33,6 +33,8 @@ test.describe("Deck goals — suggested from analysis", () => {
 
     // Same deck id on reload (share-link dedup) — dismissal must stick
     await page.reload();
+    // A reload opens the deck on Cards.
+    await openDeckSection(page, "Improve");
     await page.waitForSelector(".deck-goals", { timeout: 15000 });
     await page.waitForTimeout(3500); // analyze debounce would re-show it if not persisted
     await expect(page.locator(".dg-suggest-bar")).toHaveCount(0);

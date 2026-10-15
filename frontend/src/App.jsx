@@ -146,10 +146,6 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  // DOM nodes of the Planeswalker hub's Optimize and Stats tabs — DeckView
-  // portals sections of its DeckSidebar into them (set/cleared by ref callbacks).
-  const [pwInsightsEl, setPwInsightsEl] = useState(null);
-  const [pwStatsEl, setPwStatsEl] = useState(null);
   // Deck Goals — user-declared AI optimization intent, persisted per deck.
   const [goals, setGoalsState] = useState(DEFAULT_GOALS);
   const [serverStatus, setServerStatus] = useState("checking");
@@ -953,8 +949,6 @@ export default function App() {
             onBack={() => setTab("decks")}
             notify={notify}
             serverWarmed={serverWarmed}
-            pwInsightsEl={pwInsightsEl}
-            pwStatsEl={pwStatsEl}
             goals={goals}
             setGoals={setGoals}
           />
@@ -1084,8 +1078,6 @@ export default function App() {
         notify={notify}
         deckId={currentDeck?.id || null}
         insightsAvailable={deckReady && !playtesting}
-        onInsightsSlot={setPwInsightsEl}
-        onStatsSlot={setPwStatsEl}
         goals={goals}
       />
       <Feedback open={feedbackOpen} onClose={() => setFeedbackOpen(false)} notify={notify} />
