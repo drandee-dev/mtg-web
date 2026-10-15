@@ -1041,8 +1041,10 @@ export default function DeckView({
 
   // A saved deck with edits not yet saved: marked beside Save in both headers,
   // and the edits can be dropped from either menu (App keeps them as a draft).
+  // The badge is only the mark; the announcement is the live region in the
+  // render, which is always there so a screen reader hears the change.
   const unsavedBadge = unsaved && (
-    <span className="badge warn deck-unsaved" role="status" title="Changes not saved yet. They are kept in this browser until you save or discard them.">
+    <span className="badge warn deck-unsaved" title="Changes not saved yet. They are kept in this browser until you save or discard them.">
       Unsaved
     </span>
   );
@@ -1070,6 +1072,9 @@ export default function DeckView({
 
   return (
     <div>
+      <span className="visually-hidden deck-unsaved-live" role="status">
+        {unsaved ? "Unsaved changes. They are kept in this browser until you save or discard them." : ""}
+      </span>
       {/* Phone top bar: back to Decks, then Save and More. The name and
           facts are in the header below it (job 3.2). */}
       <div className="mobile-deck-nav">
