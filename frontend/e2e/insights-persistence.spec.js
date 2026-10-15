@@ -113,6 +113,30 @@ test.describe("Insights persistence", () => {
     await expect(deep).toHaveCount(0);
   });
 
+  // Regression (Holiday on 3.1): reopening Improve while the paid pass was
+  // still out cleared the loader and offered the paid button again, so a
+  // second click bought a second optimize.
+  test("reopening Improve mid-load keeps the load, and buys nothing twice", async ({ page }) => {
+    const optimizeCalls = countRequests(page, "/api/deck/optimize");
+    const recCalls = countRequests(page, "/api/deck/recommend");
+    let release;
+    const held = new Promise((r) => { release = r; });
+    await page.route("**/api/deck/optimize", async (route) => { await held; await route.fallback(); });
+    await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
+    await openChanges(page, { deep: true });
+    await expect.poll(() => optimizeCalls.n).toBe(1);
+
+    await openDeckSection(page, "Cards");
+    await openDeckSection(page, "Improve");
+    await expect(improve(page).locator(".insp-deep")).toHaveCount(0);
+    await expect(improve(page).getByText("Loading")).toBeVisible();
+
+    release();
+    await expect(improve(page).locator('.insp-body .opt-card:has(.opt-badge:text-is("Cut"))')).toHaveCount(1, { timeout: 10000 });
+    expect(optimizeCalls.n).toBe(1);
+    expect(recCalls.n).toBe(1);
+  });
+
   // A partner pairing EDHREC has no page for comes back with every category
   // key present but empty, plus a note. The note must reach the user and the
   // pane must show its empty state, not a blank category dropdown.

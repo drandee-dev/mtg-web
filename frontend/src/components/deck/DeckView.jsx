@@ -842,13 +842,15 @@ export default function DeckView({
   // fetch the mode the user was on before the click.
   async function loadChanges({ force = false, mode, deep = false } = {}) {
     if (!decklist.trim()) return notify?.("Add some cards first.");
+    openSection("improve");
+    // A load already out owns the busy flag. Reopening Improve used to clear
+    // it, and with it the loader, and offer the paid pass a second time.
+    if (busy === "Changes" && !force) return;
     const wantMode = mode ?? upgradeMode;
     // Refresh means "give me a fresh changeset", so past apply/skip decisions
     // stop hiding proposals. Anything already in the deck comes back marked
     // in_deck by the server, so applied adds still don't reappear.
     if (force) setInsightDecided({});
-    openSection("improve");
-    setBusy("Changes");
     const sig = currentSig; // capture: the deck may be edited mid-flight
     const full = assembleDecklist(decklist, isCommanderFmt ? commander : "");
     // Cached optimize/budgetSwaps can be non-null but stale: deckId-keyed
@@ -879,7 +881,9 @@ export default function DeckView({
     if (wantMode === "budget" && ((deep && (!budgetSwaps || stale("budgetSwaps"))) || (force && budgetSwaps))) {
       jobs.push(api.budgetSwaps(full, format).then((r) => { setBudgetSwaps(r); markFresh("budgetSwaps", sig); }));
     }
-    if (!jobs.length) { setBusy(""); return; }
+    // Nothing to fetch: leave busy alone, it may belong to another tool's load.
+    if (!jobs.length) return;
+    setBusy("Changes");
     const settled = await Promise.allSettled(jobs);
     setBusy("");
     const failed = settled.filter((s) => s.status === "rejected");
