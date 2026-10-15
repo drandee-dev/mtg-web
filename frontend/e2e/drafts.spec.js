@@ -26,7 +26,7 @@ const draftOf = (page, id) =>
 const savedDecks = (page) =>
   page.evaluate(() => JSON.parse(localStorage.getItem("mtgweb:decks") || "[]"));
 const unsavedMark = (page) => page.locator(".deck-unsaved:visible");
-const deckTitle = (page) => page.locator(".deck-title:visible, .mobile-deck-name:visible").first();
+const deckTitle = (page) => page.locator(".deck-title");
 const boltInDeck = (page) => page.locator('.card-grid-container [aria-label*="Lightning Bolt"]');
 
 async function openFromDecks(page, name) {

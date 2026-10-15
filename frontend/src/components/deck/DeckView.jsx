@@ -10,14 +10,13 @@ import MassArtModal from "./MassArtModal";
 import UpgradeReview from "./UpgradeReview";
 import MoreMenu from "./MoreMenu";
 import { PaletteIcon, LinkIcon, LockIcon, UnlockIcon, ListIcon, SearchIcon } from "../Icons";
-import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderDisplay, commanderNamesClean, setCommanderPrinting } from "../../lib/deckParser";
+import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderNamesClean, setCommanderPrinting } from "../../lib/deckParser";
 import { goalsToApi } from "../../lib/goals";
 import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry, isVisibleEntry } from "../../lib/optimizeLog";
 import { deckSignature, loadInsights, saveInsights, PANEL_KEYS } from "../../lib/insightsCache";
 import { clearBuildNotes } from "../../lib/buildNotes";
 import { fmtUsd } from "../../lib/format";
-import { ManaIcon } from "./ManaCost";
-import DeckStatsBar from "./DeckStatsBar";
+import NavLink from "../layout/NavLink";
 
 // Suggest / Cuts / Upgrades collapsed into one "Changes" tab — a cache written
 // before that still names the old tabs, so map it forward on hydrate.
@@ -1052,76 +1051,81 @@ export default function DeckView({
     if (!textEditOpen) openSection("cards");
     setTextEditOpen((o) => !o);
   }
-  const discardItem = unsaved && !locked
-    ? [{ label: "Discard changes", icon: "↺", danger: true, onClick: onDiscard }]
-    : [];
+  // One More menu for both bars; the phone's also holds Playtest, which has
+  // its own button on the desktop header.
+  const moreItems = [
+    ...(locked ? [] : [{ label: "Import cards", icon: "⤓", onClick: () => setImportOpen("paste") }]),
+    ...(!locked && onRenameDeck ? [{ label: "Rename deck", icon: "✎", onClick: renameDeck }] : []),
+    ...(locked ? [] : [{ label: "Mass change art", icon: <PaletteIcon />, onClick: () => setMassArtOpen(true) }]),
+    { label: "Share link", icon: <LinkIcon />, onClick: onShare },
+    { label: "Clone deck", icon: "⎘", onClick: onClone },
+    { label: "Export .txt", icon: "↓", onClick: onExport },
+    ...(locked ? [] : [{ label: textEditOpen ? "Hide text editor" : "Edit as text", icon: "✎", onClick: toggleTextEdit }]),
+    { label: locked ? "Unlock deck" : "Lock deck (view only)", icon: locked ? <UnlockIcon /> : <LockIcon />, onClick: () => setLocked((l) => !l) },
+    ...(unsaved && !locked ? [{ label: "Discard changes", icon: "↺", danger: true, onClick: onDiscard }] : []),
+  ];
+  const saveLabel = saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : "Save";
+  const legality = result?.legality?.overall_status;
+  const art = hasCommander ? cmdrData?.art_crop : null;
 
   return (
     <div>
-      {/* Mobile nav bar — visible only on mobile */}
-      <div className={`mobile-deck-nav${unsaved ? " is-unsaved" : ""}`}>
+      {/* Phone top bar: back to Decks, then Save and More. The name and
+          facts are in the header below it (job 3.2). */}
+      <div className="mobile-deck-nav">
         <button className="mobile-deck-back" onClick={onBack}>&#8249; Decks</button>
-        <span className="mobile-deck-name">{deckName || "Untitled deck"}</span>
         <div className="mobile-deck-actions">
           {unsavedBadge}
           <button
             className={`primary small mobile-deck-save${saveState === "saved" ? " btn-saved" : ""}`}
             disabled={saveState === "saving"}
-            onClick={async () => {
-              setSaveState("saving");
-              try { await onSave(); setSaveState("saved"); setTimeout(() => setSaveState("idle"), 2000); }
-              catch { setSaveState("idle"); }
-            }}
+            onClick={handleSave}
           >
-            {saveState === "saving" ? "…" : saveState === "saved" ? "Saved" : "Save"}
+            {saveLabel}
           </button>
-          <MoreMenu items={[
-            ...(locked ? [] : [{ label: "Import cards", icon: "⤓", onClick: () => setImportOpen("paste") }]),
-            ...(!locked && onRenameDeck ? [{ label: "Rename deck", icon: "✎", onClick: renameDeck }] : []),
-            ...(locked ? [] : [{ label: "Mass change art", icon: <PaletteIcon />, onClick: () => setMassArtOpen(true) }]),
-            { label: "Share link", icon: <LinkIcon />, onClick: onShare },
-            { label: "Clone deck", icon: "⎘", onClick: onClone },
-            { label: "Export .txt", icon: "↓", onClick: onExport },
-            ...(locked ? [] : [{ label: textEditOpen ? "Hide text editor" : "Edit as text", icon: "✎", onClick: toggleTextEdit }]),
-            { label: "Playtest", icon: "▶", onClick: onPlaytest },
-            { label: locked ? "Unlock deck" : "Lock deck (view only)", icon: locked ? <UnlockIcon /> : <LockIcon />, onClick: () => setLocked((l) => !l) },
-            ...discardItem,
-          ]} />
+          <MoreMenu items={[{ label: "Playtest", icon: "▶", onClick: onPlaytest }, ...moreItems]} />
         </div>
       </div>
 
-      {/* Desktop header: title + stats row (left) · actions (right).
-          Completeness/price/bracket live here — NOT in the card-grid toolbar. */}
-      <div className="deck-toolbar">
-        <div className="deck-toolbar-top">
-          <div className="dh-left">
-            {titleEdit == null ? (
-              <h2 className="deck-title" onDoubleClick={locked ? undefined : () => setTitleEdit(deckName || "Untitled deck")}>
-                {deckName || "Untitled deck"}
-                {!locked && onRenameDeck && (
-                  <button className="dh-rename" aria-label="Rename deck" title="Rename deck"
-                    onClick={() => setTitleEdit(deckName || "Untitled deck")}>✎</button>
-                )}
-              </h2>
-            ) : (
-              <input
-                className="dh-title-input"
-                autoFocus
-                value={titleEdit}
-                onChange={(e) => setTitleEdit(e.target.value.slice(0, 80))}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") e.currentTarget.blur();
-                  if (e.key === "Escape") setTitleEdit(null);
-                }}
-                onBlur={() => {
-                  const v = (titleEdit || "").trim();
-                  setTitleEdit(null);
-                  if (v && v !== deckName) onRenameDeck?.(v);
-                }}
-                aria-label="Deck name"
-              />
-            )}
-            <div className="dh-stats">
+      {/* The deck header (job 3.2): the commander's art as a slim strip under
+          a dark wash in either theme, "Decks / name", one line of facts with
+          each fact once, then Playtest, Save, More. The crumb and the actions
+          are the phone top bar's job under 700px. */}
+      <header className={`deck-head${art ? "" : " deck-head-plain"}`}>
+        {art && <img className="deck-head-art" src={art} alt="" />}
+        <div className="deck-head-body">
+          <div className="deck-head-main">
+            <div className="deck-head-title">
+              <NavLink href="/" onNavigate={onBack} className="deck-head-crumb">Decks</NavLink>
+              <span className="deck-head-sep" aria-hidden="true">/</span>
+              {titleEdit == null ? (
+                <h1 className="deck-title" onDoubleClick={locked ? undefined : () => setTitleEdit(deckName || "Untitled deck")}>
+                  {deckName || "Untitled deck"}
+                  {!locked && onRenameDeck && (
+                    <button className="dh-rename" aria-label="Rename deck" title="Rename deck"
+                      onClick={() => setTitleEdit(deckName || "Untitled deck")}>✎</button>
+                  )}
+                </h1>
+              ) : (
+                <input
+                  className="dh-title-input"
+                  autoFocus
+                  value={titleEdit}
+                  onChange={(e) => setTitleEdit(e.target.value.slice(0, 80))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                    if (e.key === "Escape") setTitleEdit(null);
+                  }}
+                  onBlur={() => {
+                    const v = (titleEdit || "").trim();
+                    setTitleEdit(null);
+                    if (v && v !== deckName) onRenameDeck?.(v);
+                  }}
+                  aria-label="Deck name"
+                />
+              )}
+            </div>
+            <div className="deck-head-facts">
               <select
                 className="dh-format"
                 value={format}
@@ -1131,81 +1135,44 @@ export default function DeckView({
               >
                 {FORMATS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
               </select>
-              <span className={`badge ${completeness.status}`} title={completeness.title}>{completeness.label}</span>
+              {/* Counted here as you edit; the analysis catches up later. */}
+              <span className={`deck-head-count is-${completeness.status}`} title={completeness.title}>
+                {completeness.label} cards
+              </span>
               {result?.bracket?.bracket != null && (
-                <span className="dh-stat" title="Estimated bracket">Bracket {result.bracket.bracket}</span>
+                <span title="Estimated bracket">Bracket {result.bracket.bracket}</span>
               )}
               {result?.breakdown?.price_usd != null && (
-                <span className="dh-stat" title="Estimated deck price">Est. ${Math.round(result.breakdown.price_usd)}</span>
+                <span title="Estimated deck price">${Math.round(result.breakdown.price_usd)}</span>
               )}
-              {locked && <span className="dh-stat dh-locked" title="Deck is locked (view only)">🔒 Locked</span>}
+              {result?.stats?.avg_cmc != null && (
+                <span className="deck-head-avg">Average cost {result.stats.avg_cmc}</span>
+              )}
+              {legality === "PASS" && <span className="deck-head-legal">Legal</span>}
+              {legality === "FAIL" && <span className="deck-head-illegal" title="See Legality issues in Stats">Not legal</span>}
+              {locked && <span className="deck-head-locked" title="Deck is locked (view only)">Locked</span>}
             </div>
           </div>
-          <div className="row dh-actions" style={{ gap: ".4rem", alignItems: "center" }}>
-            <button className="ghost small" onClick={() => setImportOpen("paste")} disabled={locked}>
-              ⤓ Import cards
-            </button>
-            <button className="ghost small" onClick={onPlaytest}>▶ Playtest</button>
+          <div className="deck-head-actions dh-actions">
+            <button className="deck-head-ghost" onClick={onPlaytest}>Playtest</button>
             {unsavedBadge}
             <button
-              className={`primary small${saveState === "saved" ? " btn-saved" : ""}`}
+              className={`primary deck-head-save${saveState === "saved" ? " btn-saved" : ""}`}
               disabled={saveState === "saving"}
               onClick={handleSave}
             >
-              {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved!" : "Save"}
+              {saveLabel}
             </button>
-            <MoreMenu items={[
-              ...(!locked && onRenameDeck ? [{ label: "Rename deck", icon: "✎", onClick: renameDeck }] : []),
-              ...(locked ? [] : [{ label: "Mass change art", icon: <PaletteIcon />, onClick: () => setMassArtOpen(true) }]),
-              { label: "Share link", icon: <LinkIcon />, onClick: onShare },
-              { label: "Clone deck", icon: "⎘", onClick: onClone },
-              { label: "Export .txt", icon: "↓", onClick: onExport },
-              ...(locked ? [] : [{ label: textEditOpen ? "Hide text editor" : "Edit as text", icon: "✎", onClick: toggleTextEdit }]),
-              { label: locked ? "Unlock deck" : "Lock deck (view only)", icon: locked ? <UnlockIcon /> : <LockIcon />, onClick: () => setLocked((l) => !l) },
-              ...discardItem,
-            ]} />
+            <MoreMenu items={moreItems} />
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Commander picker — outside the desktop-only toolbar so mobile can set
-          or change a commander too (the toolbar is display:none under 700px). */}
+      {/* Commander picker, for a commander deck that has none yet. */}
       {isCommanderFmt && !commander && (
         <div className="cmdr-input-row">
           <CommanderInput commander={commander} setCommander={setCommander} />
           {commanderOffer}
-        </div>
-      )}
-
-      {/* Mobile commander strip */}
-      {hasCommander && (
-        <div className="cmdr-strip-mobile">
-          <div className="cmdr-strip-art">
-            {cmdrData?.art_crop ? <img src={cmdrData.art_crop} alt="" /> : null}
-          </div>
-          <div className="cmdr-strip-info">
-            <div className="cmdr-strip-name">{commanderDisplay(commander)}</div>
-            <div className="cmdr-strip-meta">
-              <span className="cmdr-strip-label">Commander</span>
-              <span className="cmdr-strip-dot">&middot;</span>
-              {(cmdrData?.color_identity || []).map((c) => (
-                <ManaIcon key={c} symbol={c} size={12} className="cmdr-strip-pip" />
-              ))}
-              {result?.bracket?.bracket != null && (
-                <span className="cmdr-strip-bracket">B{result.bracket.bracket}</span>
-              )}
-            </div>
-          </div>
-          <div className="cmdr-strip-stats">
-            <span className="cmdr-strip-count">
-              {result?.total_cards != null
-                ? `${result.total_cards}/100` // backend count already includes the commander(s)
-                : "—/100"}
-            </span>
-            {result?.breakdown?.price_usd != null && (
-              <span className="cmdr-strip-price">${Math.round(result.breakdown.price_usd)}</span>
-            )}
-          </div>
         </div>
       )}
 
@@ -1423,9 +1390,6 @@ export default function DeckView({
           +
         </button>
       )}
-
-      {!deckEmpty && <DeckStatsBar result={result} format={format} />}
-
     </div>
   );
 }

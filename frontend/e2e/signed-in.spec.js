@@ -16,7 +16,7 @@ const CLOUD_DECK = {
 };
 
 const atPath = (path) => (url) => url.pathname === path && url.search === "";
-const deckTitle = (page) => page.locator(".deck-title:visible, .mobile-deck-name:visible").first();
+const deckTitle = (page) => page.locator(".deck-title");
 const grid = (page) => page.locator(".card-grid-container");
 const boltInDeck = (page) => grid(page).locator('[aria-label*="Lightning Bolt"]');
 const unsavedMark = (page) => page.locator(".deck-unsaved:visible");

@@ -30,7 +30,7 @@ const savedDecks = (page) =>
 const draftOf = (page, id) =>
   page.evaluate((k) => JSON.parse(localStorage.getItem(k)), `mtgweb:draft:${id}`);
 const atPath = (path) => (url) => url.pathname === path && url.search === "";
-const deckTitle = (page) => page.locator(".deck-title:visible, .mobile-deck-name:visible").first();
+const deckTitle = (page) => page.locator(".deck-title");
 const grid = (page) => page.locator(".card-grid-container");
 const inDeck = (page, card) => grid(page).locator(`[aria-label*="${card}"]`);
 const unsavedMark = (page) => page.locator(".deck-unsaved:visible");
@@ -373,13 +373,15 @@ test("a deck that is only a commander reopens with its commander", async ({ page
 
   await openAddress(page, "/decks/cmd-only");
   await expect(deckTitle(page)).toContainText("Just Atraxa");
-  // The commander is set, so the picker that asks for one is not shown.
-  await expect(page.locator(".cmdr-strip-name")).toHaveText(TEST_COMMANDER);
+  // The commander is set (it heads the grid), so the picker that asks for one
+  // is not shown.
+  const commanderCard = page.locator(`.card-grid-container [aria-label*="${TEST_COMMANDER}"]`).first();
+  await expect(commanderCard).toBeVisible();
   await expect(page.locator(".cmdr-input-row")).toHaveCount(0);
   await expect(unsavedMark(page)).toHaveCount(0);
 
   await openAddress(page, "/decks/cmd-considering");
-  await expect(page.locator(".cmdr-strip-name")).toHaveText(TEST_COMMANDER);
+  await expect(commanderCard).toBeVisible();
   await expect(page.locator(".cmdr-input-row")).toHaveCount(0);
   const considering = page.locator(".considering-group, .stack-column-considering");
   await expect(considering.locator('[aria-label*="Lightning Bolt"]').first()).toBeAttached({ timeout: 10000 });

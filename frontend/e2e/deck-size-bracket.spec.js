@@ -1,4 +1,4 @@
-// Bracket labels match the official WotC brackets (1-5), the stats bar counts
+// Bracket labels match the official WotC brackets (1-5), the deck header counts
 // the commander once, and the health score drops when legality fails.
 import { test, expect } from "./fixtures/test-base.js";
 import { loadSharedDeck, waitForAppReady, dismissColdStart, pickNewDeckCommander, openDeckSection } from "./fixtures/helpers.js";
@@ -52,16 +52,34 @@ test("picking Bracket 5 — cEDH sends bracket 5", async ({ page }) => {
   expect((await skeleton).postDataJSON().bracket).toBe(5);
 });
 
-test("a 1+99 commander deck reads 100/100 in the stats bar", async ({ page }) => {
+// The header counts the commander once, on desktop and phone alike (it
+// replaced the stats bar and the phone's commander strip in job 3.2).
+test("a 1+99 commander deck reads 100 / 100 cards in the header", async ({ page }) => {
   const seen = await stubAnalyze(page);
   await loadSharedDeck(page, NINETY_NINE, TEST_COMMANDER);
-  const bar = page.locator(".deck-stats-bar");
-  await expect(bar).toBeVisible({ timeout: 15000 }); // waits out the 2s analyze debounce
+  const facts = page.locator(".deck-head-facts");
+  await expect(facts.getByText("Bracket 2")).toBeVisible({ timeout: 15000 }); // waits out the 2s analyze debounce
   // What the app actually sent: the commander once, plus the 99.
   const sent = seen.at(-1);
   expect(sent.match(/Atraxa/g)).toHaveLength(1);
   expect(sent).toContain("95 Forest");
-  await expect(bar.locator(".dsb-stat", { hasText: "Cards" }).locator(".dsb-val")).toHaveText("100/100");
+  await expect(facts.locator(".deck-head-count")).toHaveText("100 / 100 cards");
+  await expect(facts.locator(".deck-head-count")).not.toHaveClass(/is-warn|is-bad/);
+});
+
+test("the header says Legal or Not legal from the analysis", async ({ page }) => {
+  let status = "PASS";
+  await stubAnalyze(page, () => ({ overall_status: status, violations: {} }));
+  await loadSharedDeck(page, NINETY_NINE, TEST_COMMANDER);
+  const facts = page.locator(".deck-head-facts");
+  await expect(facts.getByText("Legal", { exact: true })).toBeVisible({ timeout: 15000 });
+  await expect(facts.getByText("Not legal")).toHaveCount(0);
+
+  status = "FAIL";
+  await page.reload();
+  await waitForAppReady(page);
+  await expect(facts.getByText("Not legal")).toBeVisible({ timeout: 15000 });
+  await expect(facts.getByText("Legal", { exact: true })).toHaveCount(0);
 });
 
 test("an illegal deck scores lower than the same deck when legal", async ({ page }) => {
@@ -82,13 +100,6 @@ test("an illegal deck scores lower than the same deck when legal", async ({ page
   await openDeckSection(page, "Improve");
   // Poll: a persisted result may paint first; the re-analyzed one must score lower.
   await expect.poll(async () => Number(await ring.textContent()), { timeout: 15000 }).toBeLessThan(legal);
-});
-
-test("mobile commander strip reads 100/100 for a 1+99 deck", async ({ page, isMobile }) => {
-  test.skip(!isMobile, "the strip only shows under 700px");
-  await stubAnalyze(page);
-  await loadSharedDeck(page, NINETY_NINE, TEST_COMMANDER);
-  await expect(page.locator(".cmdr-strip-mobile .cmdr-strip-count")).toHaveText("100/100", { timeout: 15000 });
 });
 
 test("a deck_maximum violation is listed under Legality issues", async ({ page }) => {

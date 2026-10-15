@@ -58,8 +58,9 @@ test("no offer for an unnumbered first line the click couldn't move", async ({ p
   const seen = await stubAnalyze(page);
   await loadSharedDeck(page, PASTED.replace("1 Krenko", "Krenko"));
   // The server did name a candidate; the page must still decline to offer it.
-  // The stats bar proves the analyze result has rendered before we check absence.
-  await expect(page.locator(".deck-stats-bar")).toBeVisible({ timeout: 15000 });
+  // The header's legality fact proves the analyze result has rendered before
+  // we check absence.
+  await expect(page.locator(".deck-head-legal")).toBeVisible({ timeout: 15000 });
   expect(seen[0]).toMatch(/^Krenko, Mob Boss/);
   await expect(page.locator(".cmdr-input-row")).toBeVisible();
   await expect(offerFor(page, "Krenko, Mob Boss")).toHaveCount(0);
