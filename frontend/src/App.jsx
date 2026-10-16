@@ -849,7 +849,7 @@ export default function App() {
   }, []);
 
   // Search tab adds are free choice, so they get the off-color/banned warning.
-  // (Planeswalker adds already passed the gate before they got a button.)
+  // (Ask chip adds already passed the gate before they got a button.)
   const addCardFromSearch = useCallback((name) => {
     addCardToDecklist(name);
     const cmdr = format === "commander" || format === "paupercommander" ? commander : "";

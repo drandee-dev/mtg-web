@@ -1,4 +1,4 @@
-// Shared renderer for AI bot answers (Planeswalker chat + Rules Q&A).
+// Shared renderer for AI bot answers (the Ask drawer + Rules Q&A).
 // The models emit lightweight markdown — paragraphs, bullet/numbered lists,
 // **bold**, `code`, and [[Card Name]] mentions. This turns that into real
 // nodes so multi-step answers (sequences, layer walk-throughs) render with
@@ -99,7 +99,7 @@ function renderInline(text, actions, keyBase, cardStatus) {
 
 // Block-level markdown: headings, horizontal rules, blockquotes, bullet/numbered
 // lists, and paragraphs. `className` lets a caller keep its own scope (defaults
-// to the Planeswalker `pw-text` styling). Consecutive quote/list lines group
+// to the Ask drawer's `pw-text` styling). Consecutive quote/list lines group
 // into one block; everything else is a paragraph.
 export function BotText({ text, actions, className = "pw-text", cardStatus }) {
   const blocks = [];

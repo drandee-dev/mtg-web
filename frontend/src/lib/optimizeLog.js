@@ -1,4 +1,4 @@
-// Session log for the Optimize queue. Every applied change is recorded per
+// Session log for the AI changes (Improve). Every applied change is recorded per
 // deck in localStorage so it survives reloads; each entry carries enough to
 // invert the edit (Undo re-adds the cut / removes the add). Capped so the
 // key can't grow unbounded. Keyed like goals: `mtgweb:optlog:{deckId||"current"}`.

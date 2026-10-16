@@ -16,7 +16,7 @@ import { ManaIcon } from "./ManaCost";
 //
 // The old Suggest / Cuts / Upgrades tabs are one "Changes" tab now. All three
 // answered the same question and all three resolved to "cut this, add that",
-// so they share the Optimize queue's changeset cards: apply or skip each
+// so they share the Suggested changes cards (ChangeCard): apply or skip each
 // proposal, applied ones land in the same per-deck session log with undo.
 // Pins, skips and kept-cuts still persist exactly as they did per source.
 
