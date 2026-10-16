@@ -1598,13 +1598,56 @@ def _cached_deck_messages(payload: str, instruction: str, *, tail: str = "") -> 
 # --------------------------------------------------------------------------- #
 # AI Strategy Summary
 # --------------------------------------------------------------------------- #
-_STRATEGY_INSTRUCTION = """Analyze the deck above and provide two things:
+_STRATEGY_INSTRUCTION = """Analyze the deck above and provide four things:
 
 1. A 2-3 sentence strategy summary: describe the deck's primary strategy, win condition, and play style. Be specific — name the key cards and interactions. Start with the archetype name in bold.
 2. The archetype name (e.g. "Voltron", "Aristocrats", "Spellslinger", "Stax", "Combo", "Midrange value", "Tokens", "Reanimator", etc.)
+3. A game plan: 3-5 short sentences on how a game usually goes, early turns to the finish, naming cards from this deck.
+4. Key synergies: 3-5 groups of 2-4 cards that are IN THIS DECK and work together, each with a one-sentence note on why. Use exact card names from the list above.
 
 IMPORTANT: Your entire response must be ONLY valid JSON. No preamble, no explanation, no markdown. Start with { immediately. Format:
-{"strategy": "**Archetype Name** — 2-3 sentence strategy description.", "archetype": "Archetype Name"}"""
+{"strategy": "**Archetype Name** — 2-3 sentence strategy description.", "archetype": "Archetype Name", "game_plan": "Short paragraph.", "synergies": [{"cards": ["Card A", "Card B"], "note": "Why they work together."}]}"""
+
+_MAX_SYNERGIES = 5
+
+
+def _checked_synergies(raw: Any, text: str, fmt: str) -> list[dict]:
+    """Keep only synergy groups whose cards are real and in this deck.
+
+    Every name goes through validate_adds (exact lookup, canonical spelling);
+    a name it cannot resolve, or one that is not in the decklist, is dropped,
+    and a group left with fewer than two cards goes with it.
+    """
+    if not isinstance(raw, list):
+        return []
+    groups = [g for g in raw[:_MAX_SYNERGIES] if isinstance(g, dict)]
+    names = [
+        str(n).strip()[:100]
+        for g in groups
+        for n in (g.get("cards") if isinstance(g.get("cards"), list) else [])[:6]
+    ]
+    resolved = {
+        r["input"]: r["name"]
+        for r in validate_adds([n for n in names if n], text, fmt)["results"]
+        if r["name"]
+    }
+    idx = _bulk_index()
+    deck = parse_deck_text(text, format=fmt)
+    in_deck = {
+        ((idx.get(e["name"]) or {}).get("name") or e["name"]).lower()
+        for zone in ("commanders", "cards")
+        for e in deck.get(zone, [])
+    }
+    out = []
+    for g in groups:
+        cards = []
+        for n in (g.get("cards") if isinstance(g.get("cards"), list) else [])[:6]:
+            canon = resolved.get(str(n).strip()[:100])
+            if canon and canon.lower() in in_deck and canon not in cards:
+                cards.append(canon)
+        if len(cards) >= 2:
+            out.append({"cards": cards, "note": str(g.get("note") or "").strip()[:300]})
+    return out
 
 
 def ai_strategy(
@@ -1632,7 +1675,7 @@ def ai_strategy(
         _DECKBUILDER_SYSTEM,
         messages=_cached_deck_messages(ctx["summary"], _STRATEGY_INSTRUCTION, tail=tail),
         api_key=api_key,
-        max_tokens=700,
+        max_tokens=1400,
     )
     if resp["error"]:
         return {
@@ -1640,6 +1683,8 @@ def ai_strategy(
             "message": resp["result"],
             "strategy": "",
             "archetype": "",
+            "game_plan": "",
+            "synergies": [],
         }
 
     try:
@@ -1648,6 +1693,8 @@ def ai_strategy(
             "error": False,
             "strategy": data.get("strategy", ""),
             "archetype": data.get("archetype", ""),
+            "game_plan": str(data.get("game_plan") or "").strip(),
+            "synergies": _checked_synergies(data.get("synergies"), text, fmt),
             "model": resp.get("model"),
         }
     except (ValueError, KeyError):
@@ -1656,6 +1703,8 @@ def ai_strategy(
             "error": False,
             "strategy": resp["result"],
             "archetype": "",
+            "game_plan": "",
+            "synergies": [],
             "model": resp.get("model"),
         }
 

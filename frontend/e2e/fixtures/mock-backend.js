@@ -269,6 +269,16 @@ export async function mockBackend(page) {
         }],
       });
     }
+    if (path.endsWith("/api/deck/ai/strategy")) {
+      return json({
+        error: false,
+        model: "mock",
+        strategy: "**Superfriends** — Ramp into planeswalkers and proliferate.",
+        archetype: "Superfriends",
+        game_plan: "Ramp early, land a planeswalker, then proliferate every turn.",
+        synergies: [{ cards: ["Sol Ring", "Arcane Signet"], note: "Fast mana into the first walker." }],
+      });
+    }
     if (path.endsWith("/api/deck/ai/explain")) {
       const body = route.request().postDataJSON() || {};
       const names = body.card_names || [];
