@@ -1,5 +1,5 @@
 // Activation flows — "suggest at the moment of relevance, one-tap adopt,
-// dismissal persists": playtest-on-complete, share-after-save, Planeswalker
+// dismissal persists": playtest-on-complete, share-after-save,
 // first-contact badge, over-budget → Budget swaps, Considering zero-state,
 // (the card modal's Rules question moved in-place: card-questions.spec).
 

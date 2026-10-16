@@ -2,7 +2,7 @@ import CardPreview from "../CardPreview";
 import { describeEntry } from "../../lib/optimizeLog";
 
 // The deck's applied and skipped changes, newest first, each with Undo. It
-// lived at the foot of the Optimize queue; the queue's cards are now the
+// lived at the foot of the Optimize queue (gone in job 3.5); its cards are now the
 // Suggested changes list, and the log stays under it.
 export default function SessionLog({ log, onUndo, onClearLog }) {
   if (!log.length) return null;

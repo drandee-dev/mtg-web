@@ -355,7 +355,7 @@ export default function Ask({
         </div>
       </div>
 
-      <div className="planeswalker-messages" ref={scrollRef} aria-live="polite" aria-relevant="additions">
+      <div className="ask-messages" ref={scrollRef} aria-live="polite" aria-relevant="additions">
         {optLog.length > 0 && (
           <details className="pw-sessionlog">
             <summary>Session changes ({optLog.length})</summary>
@@ -430,7 +430,7 @@ export default function Ask({
         </div>
       )}
 
-      <div className="planeswalker-input">
+      <div className="ask-input">
         {serverStatus === "offline" ? (
           <div className="pw-waking">Server is offline — click the banner above to retry.</div>
         ) : serverStatus === "waking" ? (

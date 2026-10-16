@@ -4,9 +4,9 @@
 // their own EDHREC/algorithmic sources. Cuts (deck/ai/cuts) and power
 // upgrades (deck/ai/upgrades) used to be two more paid completions against
 // the same deck payload; they're now one AI-sourced list read off the same
-// `optimize` result (deck/optimize) the sidebar Optimize widget already
+// `optimize` result (deck/optimize) the AI pass already
 // produces, instead of buying two more completions. They produce one list
-// here, in the shape the Optimize queue's cards already render, so there is a
+// here, in the shape the Suggested changes cards already render, so there is a
 // single apply/skip interaction and a single session log.
 //
 // `source` rides along on every change so a skip lands in the set that source

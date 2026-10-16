@@ -163,7 +163,7 @@ test.describe("Insights persistence", () => {
 
     // Suggest / Cuts / Upgrades are one Changes queue now — the mocked
     // recommend list (Lightning Bolt / Rhystic Study / Smothering Tithe)
-    // arrives as "Add" proposals in the same cards the Optimize queue uses.
+    // arrives as "Add" proposals in the same cards as the AI changes.
     // Suggestions are free, so the plain section open is enough.
     await openChanges(page);
     const pane = improve(page).locator(".insp-body");
@@ -371,12 +371,11 @@ test.describe("Insights persistence", () => {
   });
 
   // Regression: the Changes tab's deep pass now reads its AI-sourced
-  // candidates off the same `optimize` result the sidebar Optimize widget
-  // produces (Job 9 Job 1). Optimize's own decision map (optDecided) is wiped
-  // on every re-run — including from the sidebar widget's own "Re-run"
-  // button — so an applied Changes proposal must stay hidden via the
-  // Changes tab's OWN persisted map (insightDecided), never optDecided.
-  test("an applied optimize-sourced proposal survives an Optimize-widget re-run and a reload", async ({ page }) => {
+  // candidates off the same `optimize` result the AI pass
+  // produces (Job 9 Job 1). The result is replaced on every re-run, so an
+  // applied Changes proposal must stay hidden via the persisted
+  // insightDecided map, not via anything tied to one run.
+  test("an applied optimize-sourced proposal survives a re-run of the AI pass and a reload", async ({ page }) => {
     await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
     await openChanges(page, { deep: true });
     const pane = improve(page).locator(".insp-body");
@@ -385,9 +384,7 @@ test.describe("Insights persistence", () => {
     await cutCard.locator('button:has-text("Apply")').click();
     await expect(cutCard).toHaveCount(0);
 
-    // Re-running the sidebar Optimize widget wipes optDecided (see runOptimize)
-    // — the applied proposal must not come back via that map.
-    // (A gap chip runs the AI pass; the Optimize widget's Run button is gone.)
+    // A re-run of the AI pass (a gap chip runs it) must not bring it back.
     await page.locator(".asmt-chip", { hasText: "Card draw" }).click();
     // One card, the swap: the applied cut stays hidden through the re-run.
     await expect(pane.locator('.opt-card[data-source="optimize"]')).toHaveCount(1, { timeout: 10000 });

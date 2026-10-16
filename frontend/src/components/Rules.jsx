@@ -10,7 +10,7 @@ const CHIPS = [
 ];
 
 // Q&A history persists across tab switches and reloads (same pattern/cap as
-// the Planeswalker chat) — leaving the tab no longer blanks your answers.
+// the Ask drawer) — leaving the tab no longer blanks your answers.
 const HISTORY_KEY = "mtgweb:ruleschat";
 const HISTORY_CAP = 40;
 

@@ -108,7 +108,7 @@ test.describe("Suggested changes: the AI pass", () => {
 });
 
 // The sections themselves (job 3.1): one tab strip, Cards on open, and the
-// tools out of the Planeswalker on phones.
+// tools out of the old Planeswalker panel on phones.
 test.describe("Deck sections", () => {
   test("Cards on open; Improve and Stats each hold their own tools", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);

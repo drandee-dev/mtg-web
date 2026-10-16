@@ -3,7 +3,7 @@ import InsightsPanel from "./InsightsPanel";
 import SessionLog from "./SessionLog";
 
 // The tools in two of the deck's sections (UX overhaul job 3.1; this was the
-// right sidebar, and on phones two tabs of the Planeswalker). Improve: the
+// right sidebar, and on phones two tabs of the old Planeswalker panel). Improve: the
 // Suggested changes list (EDHREC suggestions, the AI pass, budget swaps, all
 // one list of cards with Apply and Skip), then the session log. Stats: the
 // Insights toolbox (Analytics / Combos / Odds). Goals and the Verdict sit

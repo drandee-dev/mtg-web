@@ -471,7 +471,7 @@ export default function DeckView({
     document.querySelector("#deck-add-card input")?.focus();
   }
 
-  // Ask the Planeswalker for 12 cards, validate them server-side (exact name,
+  // Ask the chat endpoint for 12 cards, validate them server-side (exact name,
   // legal, on-color, not already in), keep the first 8 that pass, and add them
   // in ONE state update. Never touches the deck itself.
   async function suggestConsiderations() {
@@ -712,7 +712,7 @@ export default function DeckView({
     notify?.("Goals set — the AI now optimizes toward them.");
   }
 
-  // Optimize queue — one AI pass returns a goal-aware changeset; each change is
+  // The AI pass — one call returns a goal-aware changeset; each change is
   // applied/skipped individually and applied ones land in the session log so
   // they can be undone (inverse edit) later.
   async function runOptimize(focus) {
@@ -865,7 +865,7 @@ export default function DeckView({
     // Metered: bought only when asked for (`deep`), re-bought only when the
     // user refreshes something they already have, or when what's cached no
     // longer matches the deck on screen. This is the same optimize result the
-    // sidebar Optimize widget produces (runOptimize) — sourcing the Changes
+    // AI pass (runOptimize) produces — sourcing the Changes
     // tab's cuts/swaps from it instead of separate ai/cuts + ai/upgrades
     // calls is the whole point of this pass.
     if ((deep && (!optimize || stale("optimize"))) || (force && optimize)) {

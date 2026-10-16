@@ -81,8 +81,8 @@ export default function CardPreview({ name, children }) {
 
       {/* Float + modal are portaled to <body> so their position:fixed geometry is
           always relative to the viewport. Rendered inline, an ancestor with a
-          transform/filter (e.g. the animated Planeswalker panel that hosts the
-          portaled insights sidebar) would become their containing block and shove
+          transform/filter (e.g. the Ask drawer while it is dragged as a phone
+          sheet) would become their containing block and shove
           the preview far off over the deck. */}
       {hover && createPortal(
         <span className="card-float" style={{ left: pos.left, top: pos.top }}>
