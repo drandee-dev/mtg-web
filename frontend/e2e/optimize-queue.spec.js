@@ -73,6 +73,19 @@ test.describe("Suggested changes: the AI pass", () => {
     await expect(page.locator('.card-grid-container [aria-label*="Cultivate"]').first()).toBeVisible();
   });
 
+  // The log hides skips, but they are the AI's memory of what was declined.
+  test("skipping an AI card writes a skip entry to the deck's log", async ({ page }) => {
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openDeckSection(page, "Improve");
+    await findCutsAndUpgrades(page);
+    await aiCards(page).first().locator("button", { hasText: "Skip" }).click();
+    const skips = await page.evaluate(() => Object.keys(localStorage)
+      .filter((k) => k.startsWith("mtgweb:optlog:"))
+      .flatMap((k) => JSON.parse(localStorage.getItem(k)))
+      .filter((e) => e.action === "skip"));
+    expect(skips).toHaveLength(1);
+  });
+
   test("session log persists across reload", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await openDeckSection(page, "Improve");

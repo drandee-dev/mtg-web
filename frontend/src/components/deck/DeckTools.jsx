@@ -39,7 +39,7 @@ export default function DeckTools({
               {stalePanels?.has("Changes") && <span className="insp-stale-badge">Deck changed</span>}
               {/* Looking again re-runs the AI pass too, if it has been run. */}
               <button type="button" className="ghost" onClick={() => onRefreshPanel("Changes")}
-                disabled={busy === "Changes"}
+                disabled={busy === "Changes" || Boolean(optimizing)}
                 title={optimize ? "Fetches fresh suggestions and runs the AI pass again" : "Fetches fresh suggestions"}>
                 Look again
               </button>
