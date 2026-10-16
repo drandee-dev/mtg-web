@@ -75,22 +75,28 @@ export function historyTopIsGhost() {
  * back, unless the app has already moved somewhere else. */
 export function useBackClose(active, onClose, url = null) {
   const closeRef = useRef(onClose);
-  useEffect(() => { closeRef.current = onClose; });
+  // The address is read when the layer opens and then left alone: the app
+  // moving to another place under an open layer must not push a second entry.
+  const urlRef = useRef(url);
+  useEffect(() => { closeRef.current = onClose; urlRef.current = url; });
   useEffect(() => {
     if (!active) return;
     _bind();
     const id = ++_layerSeq;
+    const layerUrl = urlRef.current;
     const layer = { id, onClose: () => closeRef.current(), viaPop: false };
     _layers.push(layer);
     const { pathname, search, hash } = window.location;
     const beneath = pathname + search + hash;
-    window.history.pushState({ mtgwebLayer: id }, "", url || "");
+    // No url: two arguments, which leaves the address (fragment included) alone.
+    if (layerUrl) window.history.pushState({ mtgwebLayer: id }, "", layerUrl);
+    else window.history.pushState({ mtgwebLayer: id }, "");
     return () => {
       if (layer.viaPop) return; // back already consumed the entry
       const i = _layers.indexOf(layer);
       if (i >= 0) _layers.splice(i, 1); // entry becomes a ghost (see header)
       // The ghost should read as the address beneath it, not the layer's.
-      if (url && window.location.pathname === url) window.history.replaceState(window.history.state, "", beneath);
+      if (layerUrl && window.location.pathname === layerUrl) window.history.replaceState(window.history.state, "", beneath);
     };
-  }, [active, url]);
+  }, [active]);
 }
