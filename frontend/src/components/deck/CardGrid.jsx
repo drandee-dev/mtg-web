@@ -427,7 +427,7 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
 
       {totalCards === 0 && (
         <p className="muted" style={{ textAlign: "center", padding: "2rem 0" }}>
-          No cards yet — use Quick add or Card search in the toolbar above to add cards.
+          No cards yet. Add one with "Add a card by name" above, or bring in a list with Import cards in More.
         </p>
       )}
 

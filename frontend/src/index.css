@@ -1914,9 +1914,12 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 .stack-card-wrap[draggable="true"] { cursor: grab; }
 /* Hover releases the negative margin so siblings below slide down, revealing the
    full card; an accent ring + lift marks the active card. */
+/* z-index 1 is enough to rise over the sibling cards (0); their own badges and
+   menus stay inside each card. Higher, it paints over the deck strip's open
+   lists (the strip is 8), whose overlap could then not be clicked. */
 .stack-card-wrap:hover,
 .stack-card-wrap:focus-visible {
-  z-index: 10; margin-bottom: .6rem !important;
+  z-index: 1; margin-bottom: .6rem !important;
   box-shadow: 0 0 0 1.5px var(--accent), var(--shadow-lg);
 }
 .stack-card-wrap img {

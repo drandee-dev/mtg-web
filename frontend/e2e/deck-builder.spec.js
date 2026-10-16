@@ -85,4 +85,59 @@ test.describe("Card toolbar on the strip", () => {
     await expect(page.locator(".card-grid").first()).toBeVisible();
     await expect(page.locator(".ct-view-summary")).toContainText(/^Grid, by type$/);
   });
+
+  // Regression (Holiday on 3.3): a hovered stack card was z-index 10 and
+  // painted over the strip's open lists (the strip is 8), so their overlap
+  // could not be clicked while the pointer rested on a card.
+  test("the strip's open lists stay over a hovered card", async ({ page, isMobile }) => {
+    test.skip(isMobile, "hover");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await setCardView(page, { mode: "Stacks" });
+
+    // Hover a card that runs under the overlay's bottom edge, on its part
+    // below the overlay, then ask what is on top just inside that edge.
+    async function hoverCardUnder(box) {
+      const probeY = box.y + box.height - 8;
+      for (const c of await page.locator(".stack-card-wrap").all()) {
+        const b = await c.boundingBox();
+        const x = Math.max(b?.x ?? 0, box.x) + 10;
+        if (b && x < Math.min(b.x + b.width, box.x + box.width) - 10
+            && b.y < probeY && b.y + b.height > box.y + box.height + 12) {
+          await page.mouse.move(x, box.y + box.height + 6);
+          return { x, y: probeY };
+        }
+      }
+      throw new Error("no stack card runs under the overlay; the check cannot run");
+    }
+    const topAt = ({ x, y }) => page.evaluate(([px, py]) =>
+      document.elementFromPoint(px, py)?.closest(".ct-view-panel, .deck-input-results, .stack-card-wrap")?.className || "",
+    [x, y]);
+
+    await page.locator(".ct-view-btn").click();
+    const panelPoint = await hoverCardUnder(await page.locator("#ct-view-panel").boundingBox());
+    await expect.poll(() => topAt(panelPoint)).toContain("ct-view-panel");
+    await page.keyboard.press("Escape");
+
+    await addCardField(page).fill("Sol");
+    const list = page.locator(".ct-add .deck-input-results");
+    await expect(list).toBeVisible();
+    const listPoint = await hoverCardUnder(await list.boundingBox());
+    await expect.poll(() => topAt(listPoint)).toContain("deck-input-results");
+  });
+
+  test("Escape in View hands focus back to the View button", async ({ page }) => {
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await page.locator(".ct-view-btn").click();
+    await page.locator("#ct-view-panel").getByLabel("Group cards by").focus();
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#ct-view-panel")).toHaveCount(0);
+    await expect(page.locator(".ct-view-btn")).toBeFocused();
+  });
+
+  test("a deck with only a commander points at the field, not removed controls", async ({ page }) => {
+    await loadSharedDeck(page, "", TEST_COMMANDER);
+    await expect(page.getByText(/No cards yet/)).toContainText("Add a card by name");
+    await expect(page.getByText(/Quick add|Card search/)).toHaveCount(0);
+  });
 });

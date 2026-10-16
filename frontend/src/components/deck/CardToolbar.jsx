@@ -75,7 +75,13 @@ export default function CardToolbar({ view, addCard, notify, filter, setFilter, 
   useEffect(() => {
     if (!open) return;
     function onDoc(e) { if (viewRef.current && !viewRef.current.contains(e.target)) setOpen(false); }
-    function onKey(e) { if (e.key === "Escape") setOpen(false); }
+    // Escape closes and hands focus back to the button, so it isn't lost
+    // with the panel that held it.
+    function onKey(e) {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      viewRef.current?.querySelector(".ct-view-btn")?.focus();
+    }
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
     return () => {
