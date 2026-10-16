@@ -1267,6 +1267,8 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
   transition: transform .18s ease-out; /* snap-back after a sheet drag */
 }
 .app-ask-open { width: auto; max-width: 2100px; margin: 0 var(--ask-w) 0 0; }
+/* The update banner sits left of the drawer, not over its question box. */
+.app-ask-open .pwa-update-banner { right: calc(var(--ask-w) + 1rem); }
 .ask-header {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
   padding: 20px 14px 14px 20px;
@@ -1289,7 +1291,7 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
   color: var(--text); font-weight: 500; white-space: nowrap;
 }
 .ask-btn:hover { background: var(--hover); }
-.ask-btn[aria-pressed="true"] { border-color: rgba(124,172,248,.5); background: rgba(124,172,248,.12); }
+.ask-btn[aria-expanded="true"] { border-color: rgba(124,172,248,.5); background: rgba(124,172,248,.12); }
 /* Bottom-sheet grabber — mobile only; the touch target is the full bar */
 .pw-grabber { display: none; }
 /* A/A text size: larger chat type for readability */
@@ -1432,6 +1434,7 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
   .app-ask-open { width: auto; max-width: none; margin: 0; }
+  .app-ask-open .pwa-update-banner { right: 1rem; }
   .pw-grabber {
     display: flex; justify-content: center; flex: none;
     padding: .5rem 0 .3rem; touch-action: none; cursor: grab;

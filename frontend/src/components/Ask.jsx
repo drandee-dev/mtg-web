@@ -73,6 +73,7 @@ export default function Ask({
   const [optLog, setOptLog] = useState([]);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+  const panelRef = useRef(null);
   // Bottom-sheet drag (mobile): live translateY while the grabber is dragged.
   const [dragY, setDragY] = useState(0);
   const dragRef = useRef(null); // { startY, dy }
@@ -97,10 +98,19 @@ export default function Ask({
 
   useEffect(() => {
     if (!open) return;
-    function onKey(e) { if (e.key === "Escape") onClose(); }
+    // Only for an Escape pressed inside the drawer: the docked drawer stays
+    // open while a modal or menu over the page handles its own Escape.
+    function onKey(e) {
+      if (e.key === "Escape" && panelRef.current?.contains(e.target)) onClose();
+    }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  // The box grows with what is typed; an empty box goes back to one line.
+  useEffect(() => {
+    if (!input && inputRef.current) inputRef.current.style.height = "";
+  }, [input]);
 
   // Focus goes to the question box on open and back to the Ask button on close.
   useEffect(() => {
@@ -161,7 +171,6 @@ export default function Ask({
     const base = [...source.filter((m) => m.role !== "system"), ...divider, userMsg];
     setMessages([...base, { role: "assistant", content: "", streaming: true }]);
     setInput("");
-    if (inputRef.current) inputRef.current.style.height = "";
     setBusy(true);
 
     const full = assembleDecklist(decklist || "", commander || "");
@@ -312,6 +321,7 @@ export default function Ask({
   return (
     <aside
       id="ask-panel"
+      ref={panelRef}
       className={`ask-panel${bigText ? " pw-textlg" : ""}`}
       aria-label="Ask"
       style={dragY ? { transform: `translateY(${dragY}px)`, transition: "none" } : undefined}

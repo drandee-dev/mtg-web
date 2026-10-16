@@ -21,10 +21,10 @@ test.describe("Ask drawer", () => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await expect(page.locator(".planeswalker-btn")).toHaveCount(0);
     await expect(page.locator(".ask-panel")).toHaveCount(0);
-    await expect(askButton(page)).toHaveAttribute("aria-pressed", "false");
+    await expect(askButton(page)).toHaveAttribute("aria-expanded", "false");
 
     await openChat(page);
-    await expect(askButton(page)).toHaveAttribute("aria-pressed", "true");
+    await expect(askButton(page)).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByRole("heading", { name: "Ask", exact: true })).toBeVisible();
     await expect(page.locator(".ask-sub")).toContainText("About ");
     // The question box has focus, so typing starts straight away.
@@ -33,6 +33,19 @@ test.describe("Ask drawer", () => {
     await page.keyboard.press("Escape");
     await expect(page.locator(".ask-panel")).toHaveCount(0);
     await expect(askButton(page)).toBeFocused();
+  });
+
+  // Escape closes the top layer only: a menu over the page, not the docked drawer.
+  test("Escape closes a menu over the page and leaves Ask open", async ({ page, isMobile }) => {
+    test.skip(isMobile, "the phone's sheet covers the page");
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openChat(page);
+    const view = page.getByRole("button", { name: /^View/ });
+    await view.click();
+    await expect(page.locator(".ct-view-panel")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".ct-view-panel")).toBeHidden();
+    await expect(page.locator(".ask-panel")).toBeVisible();
   });
 
   test("a starter question sends and gets an answer", async ({ page }) => {
