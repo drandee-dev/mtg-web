@@ -1,4 +1,4 @@
-// Optimize queue — goal-driven changeset with Apply/Skip + session log/undo.
+// Suggested changes — goal-driven changeset with Apply/Skip + session log/undo.
 // Runs against the hermetic mock backend (mock /api/deck/optimize returns a
 // swap and a cut against the shared Atraxa test deck).
 
@@ -6,40 +6,40 @@ import { test, expect } from "./fixtures/test-base.js";
 import { loadSharedDeck, openDeckSection, deckMenuAction } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
-// The queue is in the deck's Improve section, on desktop and phone alike.
-test.describe("Optimize queue", () => {
-  test("run shows assessment and change cards", async ({ page }) => {
+// The AI changes are in the deck's Improve section, on desktop and phone alike,
+// in the one Suggested changes list beside the EDHREC suggestions.
+const aiCards = (page) => page.locator('.opt-card[data-source="optimize"]');
+const findCutsAndUpgrades = (page) => page.locator(".insp-deep").click();
+
+test.describe("Suggested changes: the AI pass", () => {
+  test("the AI button shows the change cards with a price delta", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await openDeckSection(page, "Improve");
-    const queue = page.locator(".opt-queue");
-    await expect(queue).toBeVisible();
-    await expect(queue.locator(".opt-hint")).toContainText("deck goals");
+    await expect(page.getByRole("heading", { name: "Suggested changes" })).toBeVisible();
+    await expect(aiCards(page)).toHaveCount(0); // nothing is bought on open
 
-    await queue.locator(".opt-run").click();
-    await expect(queue.locator(".opt-assess")).toContainText("bracket");
-    await expect(queue.locator(".opt-card")).toHaveCount(2);
-    // First card is the swap: Cultivate → Lightning Bolt with a price delta
-    const first = queue.locator(".opt-card").first();
-    await expect(first.locator(".opt-badge")).toHaveText("Swap");
-    await expect(first).toContainText("Cultivate");
-    await expect(first).toContainText("Lightning Bolt");
+    await findCutsAndUpgrades(page);
+    await expect(aiCards(page)).toHaveCount(2);
+    // First card is the swap: Cultivate -> Lightning Bolt with a price delta
+    const first = aiCards(page).first();
+    await expect(first).toHaveAttribute("data-action", "swap");
+    await expect(first).toContainText("Cut Cultivate, add Lightning Bolt");
     await expect(first.locator(".opt-delta")).toContainText("$2.00");
   });
 
   test("apply mutates the deck and logs; undo reverts", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    const queue = page.locator(".opt-queue");
     // Cards render as images; names live in aria-labels ("1x Cultivate")
     const gridCard = (name) => page.locator(`.card-grid-container [aria-label*="${name}"]`);
     await expect(gridCard("Cultivate").first()).toBeVisible();
 
     await openDeckSection(page, "Improve");
-    await queue.locator(".opt-run").click();
-    await queue.locator(".opt-card").first().locator("button", { hasText: "Apply" }).click();
+    await findCutsAndUpgrades(page);
+    await aiCards(page).first().locator("button", { hasText: "Apply" }).click();
 
-    // Applied change left the queue and landed in the session log
-    await expect(queue.locator(".opt-card")).toHaveCount(1);
-    const log = queue.locator(".opt-log");
+    // Applied change left the list and landed in the session log
+    await expect(aiCards(page)).toHaveCount(1);
+    const log = page.locator(".opt-log");
     await expect(log.locator(".opt-log-summary")).toContainText("Session log (1)");
 
     // Deck mutated: swap removed Cultivate, added Lightning Bolt
@@ -53,39 +53,57 @@ test.describe("Optimize queue", () => {
 
     // Undo restores the deck and empties the log
     await log.locator(".opt-undo").click();
-    await expect(queue.locator(".opt-log")).toHaveCount(0);
+    await expect(page.locator(".opt-log")).toHaveCount(0);
     await openDeckSection(page, "Cards");
     await expect(gridCard("Cultivate").first()).toBeVisible();
     await expect(gridCard("Lightning Bolt")).toHaveCount(0);
   });
 
-  test("skip clears the queue without touching the deck", async ({ page }) => {
+  test("skip clears the AI cards without touching the deck", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await openDeckSection(page, "Improve");
-    const queue = page.locator(".opt-queue");
-    await queue.locator(".opt-run").click();
-    await expect(queue.locator(".opt-card")).toHaveCount(2);
+    await findCutsAndUpgrades(page);
+    await expect(aiCards(page)).toHaveCount(2);
 
-    await queue.locator(".opt-card").first().locator("button", { hasText: "Skip" }).click();
-    await queue.locator(".opt-card").first().locator("button", { hasText: "Skip" }).click();
-    await expect(queue.locator(".opt-card")).toHaveCount(0);
-    await expect(queue.locator(".opt-hint")).toContainText("Queue clear");
+    await aiCards(page).first().locator("button", { hasText: "Skip" }).click();
+    await aiCards(page).first().locator("button", { hasText: "Skip" }).click();
+    await expect(aiCards(page)).toHaveCount(0);
     // Deck untouched
     await openDeckSection(page, "Cards");
     await expect(page.locator('.card-grid-container [aria-label*="Cultivate"]').first()).toBeVisible();
   });
 
+  // The log hides skips, but they are the AI's memory of what was declined.
+  test("skipping an AI card writes a skip entry to the deck's log", async ({ page }) => {
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openDeckSection(page, "Improve");
+    await findCutsAndUpgrades(page);
+    await aiCards(page).first().locator("button", { hasText: "Skip" }).click();
+    const skips = await page.evaluate(() => Object.keys(localStorage)
+      .filter((k) => k.startsWith("mtgweb:optlog:"))
+      .flatMap((k) => JSON.parse(localStorage.getItem(k)))
+      .filter((e) => e.action === "skip"));
+    expect(skips).toHaveLength(1);
+  });
+
   test("session log persists across reload", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await openDeckSection(page, "Improve");
-    const queue = page.locator(".opt-queue");
-    await queue.locator(".opt-run").click();
-    await queue.locator(".opt-card").first().locator("button", { hasText: "Apply" }).click();
-    await expect(queue.locator(".opt-log-summary")).toContainText("Session log (1)");
+    await findCutsAndUpgrades(page);
+    await aiCards(page).first().locator("button", { hasText: "Apply" }).click();
+    await expect(page.locator(".opt-log-summary")).toContainText("Session log (1)");
 
     await page.reload();
     await openDeckSection(page, "Improve");
-    await expect(page.locator(".opt-queue .opt-log-summary")).toContainText("Session log (1)");
+    await expect(page.locator(".opt-log-summary")).toContainText("Session log (1)");
+  });
+
+  test("the Improve tab carries the count and keeps its name", async ({ page }) => {
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openDeckSection(page, "Improve");
+    const tab = page.getByRole("tab", { name: "Improve", exact: true });
+    await expect(tab.locator(".deck-section-count")).toHaveText(/^\d+$/);
+    await expect(tab).toHaveAccessibleDescription(/suggested change/);
   });
 });
 
@@ -97,12 +115,12 @@ test.describe("Deck sections", () => {
     const tab = (name) => page.getByRole("tab", { name, exact: true });
     await expect(tab("Cards")).toHaveAttribute("aria-selected", "true");
     await expect(page.locator(".card-grid-container")).toBeVisible();
-    await expect(page.locator(".opt-queue")).toBeHidden();
+    await expect(page.locator(".improve")).toBeHidden();
     await expect(page.locator(".stat-grid")).toBeHidden();
 
     await openDeckSection(page, "Improve");
     await expect(tab("Improve")).toHaveAttribute("aria-selected", "true");
-    await expect(page.locator(".opt-queue")).toBeVisible();
+    await expect(page.locator(".improve")).toBeVisible();
     await expect(page.locator(".deck-goals")).toBeVisible();
     await expect(page.locator(".card-grid-container")).toBeHidden();
     // Changes has no tab strip of its own in Improve
@@ -110,7 +128,7 @@ test.describe("Deck sections", () => {
 
     await openDeckSection(page, "Stats");
     await expect(page.locator(".stat-grid")).toBeVisible();
-    await expect(page.locator(".opt-queue")).toBeHidden();
+    await expect(page.locator(".improve")).toBeHidden();
     // Changes is not a Stats tool
     await expect(page.locator(".insp-tab", { hasText: "Changes" })).toHaveCount(0);
   });
@@ -176,17 +194,17 @@ test.describe("Assessment", () => {
     // card-draw category from the mock becomes a tappable gap chip.
     const chip = page.locator(".asmt-chip", { hasText: "Card draw" });
     await expect(chip).toBeVisible({ timeout: 10000 });
-    await expect(chip).toContainText("4/10");
+    await expect(chip).toContainText("4 of 10");
     await expect(chip).not.toContainText("light");
     // A category with light-tier cards says so next to its count.
     await expect(page.locator(".asmt-chip", { hasText: "Board wipes" })).toContainText(
-      "1/3 (1 light)");
+      "1 of 3 (1 light)");
 
     const focused = page.waitForRequest((r) =>
       r.url().includes("/api/deck/optimize") && r.postDataJSON()?.focus === "card-draw");
     await chip.click();
     await focused;
-    await expect(page.locator(".opt-queue .opt-card")).toHaveCount(2);
+    await expect(aiCards(page)).toHaveCount(2);
   });
 
   test("insights toolbox rests on Analytics and swaps panes in place", async ({ page }) => {

@@ -213,4 +213,4 @@ list paint art + color pips instantly on return visits.
   Supabase `jsonb` column alongside `decks` is a noted future step.
 - **Not modeled here** (plain UI settings, not domain data): `mtgweb:theme`,
   `mtgweb:rememberedEmail`, `mtgweb:rememberMe`, `mtgweb:pwexpand`, `mtgweb:pwtext`,
-  `mtgweb:pwseen`, `mtgweb:optCollapsed`, `mtgweb:playtestnudge:{deckId}`.
+  `mtgweb:pwseen`, `mtgweb:playtestnudge:{deckId}`.

@@ -93,7 +93,7 @@ test.describe("Upgrade review — guided flow", () => {
     const pane = page.getByRole("tabpanel", { name: "Improve", exact: true }).locator(".insp-body");
     // Mock optimize's plain "cut" action always targets Kodama's Reach (the
     // "swap" item targets Cultivate — see mock-backend.js).
-    const cutCard = pane.locator('.opt-card:has(.opt-badge:text-is("Cut"))');
+    const cutCard = pane.locator('.opt-card[data-action="cut"]');
     await expect(cutCard).toHaveCount(1, { timeout: 10000 });
     await cutCard.locator('button:has-text("Apply")').click();
 
@@ -130,7 +130,7 @@ test.describe("Upgrade review — guided flow", () => {
     const modal = page.locator(".upr-panel");
     await modal.locator(".icm-foot button", { hasText: "Continue" }).click();
     await modal.locator(".icm-foot button", { hasText: "See suggested swaps" }).click();
-    await expect(page.locator('.insp-body .opt-card:has(.opt-badge:text-is("Cut"))')).toHaveCount(1, { timeout: 10000 });
+    await expect(page.locator('.insp-body .opt-card[data-action="cut"]')).toHaveCount(1, { timeout: 10000 });
     expect(optimizeCalls.n).toBe(1);
     expect(swapCalls.n).toBe(1);
 
@@ -147,7 +147,7 @@ test.describe("Upgrade review — guided flow", () => {
     await expect(modal2).toBeVisible();
     await modal2.locator(".icm-foot button", { hasText: "Continue" }).click();
     await modal2.locator(".icm-foot button", { hasText: "See suggested swaps" }).click();
-    await expect(page.locator('.insp-body .opt-card:has(.opt-badge:text-is("Cut"))')).toHaveCount(1, { timeout: 10000 });
+    await expect(page.locator('.insp-body .opt-card[data-action="cut"]')).toHaveCount(1, { timeout: 10000 });
     // Re-bought for the new decklist, not served stale from list A.
     expect(optimizeCalls.n).toBe(2);
     expect(swapCalls.n).toBe(2);

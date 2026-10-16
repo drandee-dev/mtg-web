@@ -51,7 +51,7 @@ test.describe("Planeswalker chat", () => {
 
     // Broadcast sync: Improve's queue log picked up the chat add too (the
     // section stays mounted while Cards shows, on both viewports since 3.1).
-    await expect(page.locator(".opt-queue .opt-log-summary")).toContainText("Session log (1)");
+    await expect(page.locator(".opt-log-summary")).toContainText("Session log (1)");
   });
 
   test("an empty 'done' stream shows an error with Retry, not Thinking… forever", async ({ page }) => {
