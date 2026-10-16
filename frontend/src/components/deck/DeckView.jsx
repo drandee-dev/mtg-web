@@ -15,7 +15,8 @@ import { PaletteIcon, LinkIcon, LockIcon, UnlockIcon, ListIcon, SearchIcon } fro
 import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderNamesClean, setCommanderPrinting } from "../../lib/deckParser";
 import { goalsToApi } from "../../lib/goals";
 import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry, isVisibleEntry } from "../../lib/optimizeLog";
-import { deckSignature, loadInsights, saveInsights, PANEL_KEYS } from "../../lib/insightsCache";
+import { deckSignature } from "../../lib/insightsCache";
+import { useInsightCache } from "../../lib/useInsightCache";
 import { clearBuildNotes } from "../../lib/buildNotes";
 import {
   findDeckLine as findLine, appendLine as appendLineText,
@@ -25,11 +26,6 @@ import { buildChanges } from "../../lib/changeset";
 import { fmtUsd } from "../../lib/format";
 import NavLink from "../layout/NavLink";
 import AskButton from "../layout/AskButton";
-
-// Suggest / Cuts / Upgrades collapsed into one "Changes" tab — a cache written
-// before that still names the old tabs, so map it forward on hydrate.
-const OLD_CHANGE_PANELS = new Set(["Recommendations", "Cuts", "Upgrades"]);
-const migratePanel = (p) => (OLD_CHANGE_PANELS.has(p) ? "Changes" : p);
 
 // The deck's sections, as tabs under its header (UX overhaul job 3.1).
 const SECTIONS = [["cards", "Cards"], ["play", "How to play"], ["improve", "Improve"], ["stats", "Stats"]];
@@ -99,57 +95,25 @@ export default function DeckView({
   const [suggState, setSuggState] = useState(() => ({ deckId, dismissed: readSuggDismissed(deckId) }));
   if (suggState.deckId !== deckId) setSuggState({ deckId, dismissed: readSuggDismissed(deckId) });
 
-  // Insight results persist per-deck (`mtgweb:insights`) so paid AI panels
-  // survive tab switches (DeckView unmounts) and reloads. Hydrate initial
-  // state from the cache; each panel remembers the deck signature it was
-  // generated against so edits mark it stale instead of silently clearing it.
-  const [hydrated] = useState(() => loadInsights(deckId)); // one-time mount snapshot
-  const hp = (k) => hydrated?.panels?.[k]?.data ?? null;
-  const [result, setResult] = useState(() => hp("result"));
+  // The deck's insight results and the verdicts on its suggestions, with their
+  // persistence: lib/useInsightCache.js. Everything below is state of this page.
+  const {
+    result, setResult, comp, setComp, recs, setRecs, combos, setCombos,
+    budgetSwaps, setBudgetSwaps, ratings, setRatings, strategy, setStrategy,
+    upgradeMode, setUpgradeMode, panelSigs, markFresh, activePanel, setActivePanel,
+    skipped, pinned, setPinned, dismissedCuts, declinedUpgrades, insightDecided, setInsightDecided,
+    skip, togglePin, declineUpgrade, clearSkipped, clearDismissedCuts, clearDeclinedUpgrades,
+    hydratedFor,
+  } = useInsightCache(deckId);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [recs, setRecs] = useState(() => hp("recs"));
-  const [combos, setCombos] = useState(() => hp("combos"));
-  const [comp, setComp] = useState(() => hp("comp"));
-  const [budgetSwaps, setBudgetSwaps] = useState(() => hp("budgetSwaps"));
-  // Job 3 card ratings (aiExplain) — persisted the same way as every other
-  // paid AI panel so closing the guide, switching tabs, or reloading doesn't
-  // discard explanations already paid for with an AI call.
-  const [ratings, setRatings] = useState(() => hp("ratings"));
-  const [upgradeMode, setUpgradeMode] = useState(hydrated?.upgradeMode || "budget");
-  const [panelSigs, setPanelSigs] = useState(() => {
-    const sigs = {};
-    for (const k of PANEL_KEYS) {
-      const sig = hydrated?.panels?.[k]?.sig;
-      if (sig) sigs[k] = sig;
-    }
-    return sigs;
-  });
   const [optimize, setOptimize] = useState(null);
   const [optimizing, setOptimizing] = useState(false);
   const [optLog, setOptLog] = useState(() => loadLog(deckId));
-  const [strategy, setStrategy] = useState(() => hp("strategy"));
   const [strategyLoading, setStrategyLoading] = useState(false);
   const [strategyError, setStrategyError] = useState("");
   const [busy, setBusy] = useState("");
   const [cat, setCat] = useState("high_synergy");
-  const [activePanel, setActivePanel] = useState(migratePanel(hydrated?.activePanel ?? null));
   const [deckFilter, setDeckFilter] = useState("");
-  // Per-suggestion user verdicts — persisted with the insight cache and, unlike
-  // panel results, never invalidated by deck edits: a skip stays skipped and a
-  // pin stays pinned until the user says otherwise (or the card enters the deck).
-  const [skipped, setSkipped] = useState(() => new Set(hydrated?.dismissed || []));
-  const [pinned, setPinned] = useState(() => new Set(hydrated?.pinned || []));
-  const [dismissedCuts, setDismissedCuts] = useState(() => new Set(hydrated?.dismissedCuts || []));
-  // Declining an upgrade is its own verdict, kept apart from `skipped`: these
-  // are cards already IN the deck that the user has decided to keep, not
-  // suggestions they passed on. Sharing one Set would make the suggestions'
-  // "Show again" silently revive every upgrade the user turned down.
-  const [declinedUpgrades, setDeclinedUpgrades] = useState(() => new Set(hydrated?.declinedUpgrades || []));
-  // Which Changes proposals have been applied or skipped, by change id. It
-  // persists with the other verdicts so a re-run or a tab switch can't put an
-  // applied proposal back on screen: offered again, it is a duplicate card
-  // waiting to happen.
-  const [insightDecided, setInsightDecided] = useState(() => hydrated?.insightDecided || {});
   const [cmdrData, setCmdrData] = useState(null);
   const [suggesting, setSuggesting] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -165,52 +129,16 @@ export default function DeckView({
     () => deckSignature(decklist, isCommanderFmt ? commander : "", format),
     [decklist, commander, format, isCommanderFmt],
   );
-  const markFresh = (k, sig) => setPanelSigs((s) => ({ ...s, [k]: sig }));
-
-  // Switching decks: reload that deck's session log, drop the stale queue,
-  // and rehydrate the insight panels from the incoming deck's cache.
-  const hydratedFor = useRef(deckId);
+  // Switching decks: reload that deck's session log and drop the stale queue.
+  // The insight results reload themselves (useInsightCache, called above, so
+  // its effect runs first).
   useEffect(() => {
     setOptLog(loadLog(deckId)); // eslint-disable-line react-hooks/set-state-in-effect
     setSection("cards");
     setOptimize(null);
-    const c = loadInsights(deckId);
-    const d = (k) => c?.panels?.[k]?.data ?? null;
-    setResult(d("result")); setComp(d("comp")); setRecs(d("recs"));
-    setCombos(d("combos")); setBudgetSwaps(d("budgetSwaps")); setStrategy(d("strategy"));
     setStrategyError("");
     setStrategyLoading(false);
-    setRatings(d("ratings"));
-    setActivePanel(migratePanel(c?.activePanel ?? null));
-    if (c?.upgradeMode) setUpgradeMode(c.upgradeMode);
-    setSkipped(new Set(c?.dismissed || []));
-    setPinned(new Set(c?.pinned || []));
-    setDismissedCuts(new Set(c?.dismissedCuts || []));
-    setDeclinedUpgrades(new Set(c?.declinedUpgrades || []));
-    setInsightDecided(c?.insightDecided || {});
-    const sigs = {};
-    for (const k of PANEL_KEYS) { const sg = c?.panels?.[k]?.sig; if (sg) sigs[k] = sg; }
-    setPanelSigs(sigs);
-    hydratedFor.current = deckId;
   }, [deckId]);
-
-  // Write-through: persist the insight bundle whenever results, the open
-  // panel, or their sigs change. The hydratedFor guard keeps a deck switch
-  // from writing the outgoing deck's results under the incoming deck's key
-  // during the render where deckId has changed but state hasn't rehydrated.
-  useEffect(() => {
-    if (hydratedFor.current !== deckId) return;
-    const data = { result, comp, recs, combos, budgetSwaps, strategy, ratings };
-    const panels = {};
-    for (const k of PANEL_KEYS) {
-      if (data[k] != null) panels[k] = { data: data[k], sig: panelSigs[k] || null };
-    }
-    saveInsights(deckId, {
-      panels, activePanel, upgradeMode,
-      pinned: [...pinned], dismissed: [...skipped], dismissedCuts: [...dismissedCuts],
-      declinedUpgrades: [...declinedUpgrades], insightDecided,
-    });
-  }, [deckId, result, comp, recs, combos, budgetSwaps, strategy, ratings, activePanel, upgradeMode, panelSigs, pinned, skipped, dismissedCuts, declinedUpgrades, insightDecided]);
 
   // Stay in sync with log writes from other surfaces (chat card-chip adds).
   useEffect(() => {
@@ -228,24 +156,6 @@ export default function DeckView({
     getCardImage(primary.name, primary.printing).then((d) => { if (!cancelled) setCmdrData(d); });
     return () => { cancelled = true; };
   }, [commander]);
-
-  function skip(name) {
-    setSkipped((prev) => new Set(prev).add(name));
-    setPinned((prev) => { if (!prev.has(name)) return prev; const n = new Set(prev); n.delete(name); return n; });
-  }
-  // Pin ⇄ dismiss are mutually exclusive verdicts on the same suggestion.
-  function togglePin(name) {
-    setPinned((prev) => {
-      const n = new Set(prev);
-      if (n.has(name)) n.delete(name); else n.add(name);
-      return n;
-    });
-    setSkipped((prev) => { if (!prev.has(name)) return prev; const n = new Set(prev); n.delete(name); return n; });
-  }
-  function declineUpgrade(name) { setDeclinedUpgrades((prev) => new Set(prev).add(name)); }
-  function clearSkipped() { setSkipped(new Set()); }
-  function clearDismissedCuts() { setDismissedCuts(new Set()); }
-  function clearDeclinedUpgrades() { setDeclinedUpgrades(new Set()); }
 
   // Auto-analyze on decklist change (debounced)
   useEffect(() => {

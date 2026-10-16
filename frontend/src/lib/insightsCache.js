@@ -10,7 +10,7 @@
 // pins do not. A cached panel whose sig no longer matches is shown as
 // "deck changed" (stale) and refreshes only on explicit user action.
 
-import { parseDeckText, commanderNamesClean } from "./deckParser";
+import { parseDeckText, commanderNamesClean } from "./deckParser.js";
 
 const key = (deckId) => `mtgweb:insights:${deckId || "current"}`;
 
