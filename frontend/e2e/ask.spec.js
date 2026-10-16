@@ -1,18 +1,93 @@
-// Planeswalker chat — Phase 4 upgrades: topic dividers per quick action,
-// pinned session log (synced with the Optimize queue via the optlog
-// broadcast), expand + text-size toggles. Runs against the hermetic mock
-// (mock /api/planeswalker/chat/stream replies with a [[Lightning Bolt]] chip).
+// The Ask drawer (UX overhaul job 4.1; it was the Planeswalker chat): opened
+// from the Ask button in the bar, topic dividers per quick action, a pinned
+// session log (synced with Improve's log via the optlog broadcast), a
+// text-size toggle. Runs against the hermetic mock (mock
+// /api/planeswalker/chat/stream replies with a [[Lightning Bolt]] chip).
 
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck } from "./fixtures/helpers.js";
+import { loadSharedDeck, navigateToTab } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
+// The bar's Ask on a desktop, the deck bar's on a phone: one is showing.
+const askButton = (page) => page.getByRole("button", { name: "Ask", exact: true });
+
 async function openChat(page) {
-  await page.locator(".planeswalker-btn").click();
-  await expect(page.locator(".planeswalker-panel")).toBeVisible();
+  await askButton(page).click();
+  await expect(page.locator(".ask-panel")).toBeVisible();
 }
 
-test.describe("Planeswalker chat", () => {
+test.describe("Ask drawer", () => {
+  test("no floating avatar; Ask opens a drawer about the deck and closes again", async ({ page }) => {
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await expect(page.locator(".planeswalker-btn")).toHaveCount(0);
+    await expect(page.locator(".ask-panel")).toHaveCount(0);
+    await expect(askButton(page)).toHaveAttribute("aria-expanded", "false");
+
+    await openChat(page);
+    await expect(askButton(page)).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByRole("heading", { name: "Ask", exact: true })).toBeVisible();
+    await expect(page.locator(".ask-sub")).toContainText("About ");
+    // The question box has focus, so typing starts straight away.
+    await expect(page.getByRole("textbox", { name: "Your question" })).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".ask-panel")).toHaveCount(0);
+    await expect(askButton(page)).toBeFocused();
+  });
+
+  // Escape closes the top layer only: a menu over the page, not the docked drawer.
+  test("Escape closes a menu over the page and leaves Ask open", async ({ page, isMobile }) => {
+    test.skip(isMobile, "the phone's sheet covers the page");
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openChat(page);
+    const view = page.getByRole("button", { name: /^View/ });
+    await view.click();
+    await expect(page.locator(".ct-view-panel")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".ct-view-panel")).toBeHidden();
+    await expect(page.locator(".ask-panel")).toBeVisible();
+  });
+
+  test("a starter question sends and gets an answer", async ({ page }) => {
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openChat(page);
+    await page.locator(".ask-starter").first().click();
+    await expect(page.locator(".pw-msg.pw-user")).toContainText("first three turns");
+    await expect(page.locator(".pw-cardchip-name", { hasText: "Lightning Bolt" })).toBeVisible();
+    await expect(page.locator(".ask-starter")).toHaveCount(0);
+  });
+
+  test("on a desktop the drawer pushes the page instead of covering it", async ({ page, isMobile }) => {
+    test.skip(isMobile, "a sheet on phones");
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    const main = page.locator("main#main-content");
+    const before = (await main.boundingBox()).width;
+    await openChat(page);
+    const panel = await page.locator(".ask-panel").boundingBox();
+    const after = await main.boundingBox();
+    expect(after.width).toBeLessThan(before);
+    expect(after.x + after.width).toBeLessThanOrEqual(panel.x + 1);
+  });
+
+  test("Ask is not offered on the Rules page", async ({ page }) => {
+    await page.goto("/rules");
+    await page.waitForSelector("main#main-content");
+    await expect(askButton(page)).toHaveCount(0);
+    await expect(page.locator(".ask-panel")).toHaveCount(0);
+  });
+
+  test("an open Ask closes on Rules and is open again on the way back", async ({ page, isMobile }) => {
+    test.skip(isMobile, "the phone's sheet covers the bottom bar");
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openChat(page);
+    await navigateToTab(page, "Rules");
+    await expect(page.locator(".ask-panel")).toHaveCount(0);
+    await expect(askButton(page)).toHaveCount(0);
+    await navigateToTab(page, "Decks");
+    await expect(askButton(page)).toBeVisible();
+    await expect(page.locator(".ask-panel")).toBeVisible();
+  });
+
   test("quick action drops a topic divider and streams a reply", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await openChat(page);
@@ -151,20 +226,15 @@ test.describe("Planeswalker chat", () => {
     await expect(reply.locator(".pw-cardchip-btn")).toHaveCount(0);
   });
 
-  test("expand and text-size toggles persist across reload", async ({ page }) => {
+  test("the text-size toggle persists across reload", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await openChat(page);
-    const panel = page.locator(".planeswalker-panel");
-
-    await page.locator('button[aria-label="Expand panel"]').click();
-    await expect(panel).toHaveClass(/pw-expanded/);
     await page.locator('button[aria-label="Larger chat text"]').click();
-    await expect(panel).toHaveClass(/pw-textlg/);
+    await expect(page.locator(".ask-panel")).toHaveClass(/pw-textlg/);
 
     await page.reload();
     await openChat(page);
-    await expect(page.locator(".planeswalker-panel")).toHaveClass(/pw-expanded/);
-    await expect(page.locator(".planeswalker-panel")).toHaveClass(/pw-textlg/);
+    await expect(page.locator(".ask-panel")).toHaveClass(/pw-textlg/);
   });
 
   test("Load into deck adds only cards the gate passes", async ({ page }) => {

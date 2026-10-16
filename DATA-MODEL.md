@@ -22,7 +22,7 @@ is split and, in places, denormalized. Two things make this model unusual:
 | **DeckGoals** | localStorage — `mtgweb:goals:{deckId}` | `frontend/src/lib/goals.js` |
 | **OptimizeLogEntry** | localStorage — `mtgweb:optlog:{deckId}` (cap 60) | `frontend/src/lib/optimizeLog.js` |
 | **InsightsCache** | localStorage — `mtgweb:insights:{deckId}` | `frontend/src/lib/insightsCache.js` |
-| **ChatMessage** | localStorage — `mtgweb:pwchat:{deckId\|\|"global"}` (cap 40) | `frontend/src/components/Planeswalker.jsx` |
+| **ChatMessage** | localStorage — `mtgweb:pwchat:{deckId\|\|"global"}` (cap 40) | `frontend/src/components/Ask.jsx` |
 | **CommanderMeta** | localStorage — `mtgweb:commanderMeta` (cache) | `frontend/src/components/MyDecks.jsx` |
 
 ## Diagram
@@ -212,5 +212,5 @@ list paint art + color pips instantly on return visits.
   between devices only when the parent Deck is exported/re-imported. Folding them into a
   Supabase `jsonb` column alongside `decks` is a noted future step.
 - **Not modeled here** (plain UI settings, not domain data): `mtgweb:theme`,
-  `mtgweb:rememberedEmail`, `mtgweb:rememberMe`, `mtgweb:pwexpand`, `mtgweb:pwtext`,
-  `mtgweb:pwseen`, `mtgweb:playtestnudge:{deckId}`.
+  `mtgweb:rememberedEmail`, `mtgweb:rememberMe`, `mtgweb:pwtext` (the Ask
+  drawer's chat text size), `mtgweb:playtestnudge:{deckId}`.

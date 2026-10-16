@@ -20,6 +20,7 @@ import { clearBuildNotes } from "../../lib/buildNotes";
 import { buildChanges } from "../../lib/changeset";
 import { fmtUsd } from "../../lib/format";
 import NavLink from "../layout/NavLink";
+import AskButton from "../layout/AskButton";
 
 // Suggest / Cuts / Upgrades collapsed into one "Changes" tab — a cache written
 // before that still names the old tabs, so map it forward on hydrate.
@@ -48,7 +49,7 @@ export default function DeckView({
   maybeboard, setMaybeboard,
   deckName, deckId, onSave, unsaved, onDiscard, onClone, onExport, onPlaytest, onGoldfish, onShare, onRenameDeck,
   arrival, onArrivalDone, onBack, notify, serverWarmed,
-  goals, setGoals,
+  goals, setGoals, onAsk, askOpen,
 }) {
   // Which section is showing. Screen state only, not in the address: a deck
   // always opens on Cards (Andres, 2026-10-15).
@@ -61,9 +62,8 @@ export default function DeckView({
     document.getElementById("deck-sections")?.scrollIntoView({ block: "nearest" });
   }
   const [textEditOpen, setTextEditOpen] = useState(false);
-  // Goals' editor open state, collapsed by default, persisted the same way
-  // Planeswalker's own expand toggle does (mtgweb:pwexpand: "1"/"0" behind a
-  // try/catch).
+  // Goals' editor open state, collapsed by default, persisted as "1"/"0"
+  // behind a try/catch.
   const [goalsOpen, setGoalsOpen] = useState(
     () => { try { return localStorage.getItem("mtgweb:goalsOpen") === "1"; } catch { return false; } }
   );
@@ -1079,6 +1079,7 @@ export default function DeckView({
       <div className="mobile-deck-nav">
         <button className="mobile-deck-back" onClick={onBack}>&#8249; Decks</button>
         <div className="mobile-deck-actions">
+          {onAsk && <AskButton className="mobile-deck-ask" onClick={onAsk} pressed={askOpen} />}
           {unsavedBadge}
           <button
             className={`primary small mobile-deck-save${saveState === "saved" ? " btn-saved" : ""}`}

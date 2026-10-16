@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import AvatarPopup from "./AvatarPopup";
 import NavLink from "./NavLink";
+import AskButton from "./AskButton";
 import { loadDirectory } from "../../lib/commanderDirectory";
 
 // Per-place data to warm on hover, keyed by place id. Only Commanders has a
@@ -13,7 +14,7 @@ const PREFETCH = { commanders: loadDirectory };
 // page under Decks), or null on the New deck screen.
 export default function GlobalToolbar({
   places, place, setTab, cloud, session,
-  setSettingsOpen, onNewDeck, onDeck, onSignOut,
+  setSettingsOpen, onNewDeck, onDeck, onAsk, askOpen, onSignOut,
   avatarMenuOpen, setAvatarMenuOpen, onFeedback,
 }) {
   const avatarRef = useRef(null);
@@ -44,6 +45,8 @@ export default function GlobalToolbar({
       </nav>
 
       <div className="gt-right">
+        {/* Ask is an action, not a place: it opens the drawer. Hidden on Rules. */}
+        {onAsk && <AskButton className="gt-ask" onClick={onAsk} pressed={askOpen} />}
         {/* The gold button is the screen's main action: on a deck that is Save. */}
         <NavLink className={`gt-new${onDeck ? " gt-new-quiet" : ""}`} href="/new" onNavigate={onNewDeck}>
           New deck

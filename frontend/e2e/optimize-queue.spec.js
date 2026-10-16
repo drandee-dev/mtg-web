@@ -133,12 +133,12 @@ test.describe("Deck sections", () => {
     await expect(page.locator(".insp-tab", { hasText: "Changes" })).toHaveCount(0);
   });
 
-  test("the Planeswalker on a phone is the chat only", async ({ page, isMobile }) => {
-    test.skip(!isMobile, "the hub's Optimize and Stats tabs were phone-only");
+  test("on a phone, Ask opens as a sheet from the deck bar and has no tabs", async ({ page, isMobile }) => {
+    test.skip(!isMobile, "the deck bar's Ask is phone-only");
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    await page.locator(".planeswalker-btn").click();
-    await expect(page.getByRole("textbox", { name: "Message Planeswalker" })).toBeVisible();
-    await expect(page.locator(".planeswalker-panel [role='tab']")).toHaveCount(0);
+    await page.locator(".mobile-deck-nav").getByRole("button", { name: "Ask", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Your question" })).toBeVisible();
+    await expect(page.locator(".ask-panel [role='tab']")).toHaveCount(0);
   });
 
   // Every way into a section other than its tab. loadChanges' callers (the
