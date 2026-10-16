@@ -865,7 +865,7 @@ export default function DeckView({
     // Metered: bought only when asked for (`deep`), re-bought only when the
     // user refreshes something they already have, or when what's cached no
     // longer matches the deck on screen. This is the same optimize result the
-    // AI pass (runOptimize) produces (runOptimize) — sourcing the Changes
+    // AI pass (runOptimize) produces — sourcing the Changes
     // tab's cuts/swaps from it instead of separate ai/cuts + ai/upgrades
     // calls is the whole point of this pass.
     if ((deep && (!optimize || stale("optimize"))) || (force && optimize)) {
