@@ -76,6 +76,7 @@ test("a reply with no game plan is not asked for again on every visit", async ({
   await expect(play(page)).toContainText("Plain text, not JSON.");
   await openDeckSection(page, "Stats");
   await openDeckSection(page, "How to play");
+  await page.waitForTimeout(500); // a wrongly issued second request needs a moment to show
   expect(calls.n).toBe(1);
 });
 
