@@ -87,6 +87,13 @@ try:
 finally:
     mtg._ai_call = real
 assert old["game_plan"] == "" and old["synergies"] == [], old
+# A strategy or archetype that is not text comes back as text, never a list.
+mtg._ai_call = spy_for({"strategy": ["a"], "archetype": {"x": 1}, "game_plan": 5})
+try:
+    odd = mtg.ai_strategy(DECK, commander=CMD)
+finally:
+    mtg._ai_call = real
+assert all(isinstance(odd[k], str) for k in ("strategy", "archetype", "game_plan")), odd
 print("ok: bad and old-shape replies are safe")
 
 # --- route ------------------------------------------------------------------- #
@@ -99,12 +106,15 @@ try:
     assert r.status_code == 200 and r.json()["synergies"], r.text
     r = client.post(URL, json={"decklist": DECK, "format": None})  # null = commander
     assert r.status_code == 200, r.text
+    pair = "A" * 100 + " && " + "B" * 100  # a partner pair is accepted
+    r = client.post(URL, json={"decklist": DECK, "commander": pair})
+    assert r.status_code == 200, r.text
     for body, want in (
         ({"decklist": "   "}, 400),
         ({"decklist": DECK, "format": "bogus"}, 400),
         ({}, 422),
         ({"decklist": DECK, "bracket": 9}, 422),
-        ({"decklist": DECK, "commander": "x" * 101}, 422),
+        ({"decklist": DECK, "commander": "x" * 205}, 422),
         ({"decklist": "x" * 50_001}, 422),
     ):
         r = client.post(URL, json=body)

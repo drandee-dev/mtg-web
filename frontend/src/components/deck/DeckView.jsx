@@ -185,6 +185,7 @@ export default function DeckView({
     setResult(d("result")); setComp(d("comp")); setRecs(d("recs"));
     setCombos(d("combos")); setBudgetSwaps(d("budgetSwaps")); setStrategy(d("strategy"));
     setStrategyError("");
+    setStrategyLoading(false);
     setRatings(d("ratings"));
     setActivePanel(migratePanel(c?.activePanel ?? null));
     if (c?.upgradeMode) setUpgradeMode(c.upgradeMode);
@@ -1209,7 +1210,8 @@ export default function DeckView({
                 onClick={() => {
                   if (id === "improve" && decklist.trim()) loadChanges();
                   else openSection(id);
-                  if (id === "play" && !strategy?.game_plan) runStrategy();
+                  // Only a deck with no write-up, or one cached before the game plan existed.
+                  if (id === "play" && (!strategy || !("game_plan" in strategy))) runStrategy();
                 }}
               >
                 {label}

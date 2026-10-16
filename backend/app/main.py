@@ -635,7 +635,7 @@ class StrategyPayload(BaseModel):
 
     decklist: str = Field(min_length=1, max_length=_MAX_DECKLIST_LEN)
     format: str | None = Field(default="commander", max_length=30)  # null = commander
-    commander: str | None = Field(default=None, max_length=_MAX_CARD_NAME_LEN)
+    commander: str | None = Field(default=None, max_length=2 * _MAX_CARD_NAME_LEN + 4)  # "A && B"
     bracket: int | None = Field(default=None, ge=1, le=5)
 
 

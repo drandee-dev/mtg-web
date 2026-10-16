@@ -1691,8 +1691,8 @@ def ai_strategy(
         data = _parse_ai_json(resp["result"], expect=dict)
         return {
             "error": False,
-            "strategy": data.get("strategy", ""),
-            "archetype": data.get("archetype", ""),
+            "strategy": str(data.get("strategy") or "").strip(),
+            "archetype": str(data.get("archetype") or "").strip(),
             "game_plan": str(data.get("game_plan") or "").strip(),
             "synergies": _checked_synergies(data.get("synergies"), text, fmt),
             "model": resp.get("model"),

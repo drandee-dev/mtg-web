@@ -67,6 +67,18 @@ test("a deck under 20 cards says so and makes no request", async ({ page }) => {
   expect(calls.n).toBe(0);
 });
 
+test("a reply with no game plan is not asked for again on every visit", async ({ page }) => {
+  const calls = countRequests(page, "/api/deck/ai/strategy");
+  await page.route("**/api/deck/ai/strategy", (route) =>
+    route.fulfill({ json: { error: false, strategy: "Plain text, not JSON.", archetype: "", game_plan: "", synergies: [] } }));
+  await loadSharedDeck(page, BIG_DECK, TEST_COMMANDER);
+  await openDeckSection(page, "How to play");
+  await expect(play(page)).toContainText("Plain text, not JSON.");
+  await openDeckSection(page, "Stats");
+  await openDeckSection(page, "How to play");
+  expect(calls.n).toBe(1);
+});
+
 test("a failed request shows a message and the tab retries on the next open", async ({ page }) => {
   let fail = true;
   await page.route("**/api/deck/ai/strategy", (route) =>
