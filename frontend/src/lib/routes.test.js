@@ -1,7 +1,7 @@
 // Run with: node --test src/lib/routes.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseLocation, buildPath, resolveDeckRoute } from "./routes.js";
+import { parseLocation, buildPath, resolveDeckRoute, playtestPath } from "./routes.js";
 
 const parse = (url) => {
   const [pathname, query] = url.split("?");
@@ -143,4 +143,10 @@ test("a deck address waits for the right deck list before it can be missing", ()
   // The account's list arrived.
   assert.deepEqual(resolveDeckRoute({ ...mine, decksLoadedFor: "u1", userId: "u1" }), { status: "found", deck });
   assert.deepEqual(resolveDeckRoute({ ...mine, deckId: "gone", decksLoadedFor: "u1", userId: "u1" }), { status: "missing" });
+});
+
+test("a deck's playtest address is its path plus /playtest, and parses back as the deck", () => {
+  assert.equal(playtestPath("abc-123"), "/decks/abc-123/playtest");
+  assert.equal(playtestPath("a b"), "/decks/a%20b/playtest");
+  assert.deepEqual(parse(playtestPath("abc-123")), at("deck", null, "abc-123"));
 });

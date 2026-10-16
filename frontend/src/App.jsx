@@ -6,7 +6,7 @@ import { commanderDisplay } from "./lib/deckParser";
 import { copyLocalDecks, localDecksToCopy, makeStore } from "./lib/store";
 import { downloadFile } from "./lib/hooks";
 import { historyTopIsGhost, registerTabHandler, useBackClose } from "./lib/backstack";
-import { buildPath, parseLocation, resolveDeckRoute } from "./lib/routes";
+import { buildPath, parseLocation, playtestPath, resolveDeckRoute } from "./lib/routes";
 import { clearDraft, loadDraft, saveDraft } from "./lib/drafts";
 import { dropKept, keepDeck, readKept } from "./lib/kept";
 import { DEFAULT_GOALS, loadGoals, saveGoals } from "./lib/goals";
@@ -338,7 +338,8 @@ export default function App() {
   }, [tab, commanderSlug, deckId, seed]);
 
   // Back gesture closes full-screen/system layers before walking tabs.
-  useBackClose(playtesting, () => setPlaytesting(false));
+  // Playtest shows its own address over the deck's while it is open.
+  useBackClose(playtesting, () => setPlaytesting(false), playtesting && deckId ? playtestPath(deckId) : null);
   useBackClose(settingsOpen, () => setSettingsOpen(false));
   useBackClose(feedbackOpen, () => setFeedbackOpen(false));
 
