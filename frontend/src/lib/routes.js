@@ -83,3 +83,10 @@ export function resolveDeckRoute({ deckId, decks, decksLoadedFor, authReady, use
   const deck = decks.find((d) => d.id === deckId);
   return deck ? { status: "found", deck } : { status: "missing" };
 }
+
+/** The address shown while a deck's Playtest is open. It is a layer over the
+ * deck, not a route: opened on its own (a reload, a pasted link) it parses as
+ * the deck, and App replaces it with the deck's address. */
+export function playtestPath(deckId) {
+  return `/decks/${encodeURIComponent(deckId)}/playtest`;
+}
