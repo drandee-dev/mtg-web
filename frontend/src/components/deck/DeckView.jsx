@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, assembleDecklist, disassembleDecklist, getCardImage, FORMATS, warnIfBadAdd } from "../../lib/api";
 import CommanderInput from "../CommanderInput";
 import CardGrid from "./CardGrid";
-import CardTypeahead from "./CardTypeahead";
+import CardToolbar from "./CardToolbar";
+import { useCardView } from "../../lib/hooks";
 import DeckTools from "./DeckTools";
 import DeckGoalsAssessment from "./DeckGoalsAssessment";
 import ImportCardsModal from "./ImportCardsModal";
@@ -155,8 +156,7 @@ export default function DeckView({
   const [suggesting, setSuggesting] = useState(false);
   const [locked, setLocked] = useState(false);
   const [saveState, setSaveState] = useState("idle");
-  const [searchOpen, setSearchOpen] = useState(false);
-  const searchRef = useRef(null);
+  const cardView = useCardView();
   const debounceRef = useRef(null);
 
   const isCommanderFmt = format === "commander" || format === "paupercommander";
@@ -465,13 +465,11 @@ export default function DeckView({
     catch { setSaveState("idle"); }
   }
 
-  // Toggle the search/paste panel and focus its input (Frame G "Card search").
-  function toggleSearch() {
-    setSearchOpen((o) => {
-      const next = !o;
-      if (next) setTimeout(() => searchRef.current?.querySelector("input")?.focus(), 60);
-      return next;
-    });
+  // "Add a card by name" is on the strip in Cards (job 3.3); this puts the
+  // cursor in it, for the empty deck's "Search for cards" (which is in Cards,
+  // so the field is there). Found by id, as openSection finds the strip.
+  function focusAddCard() {
+    document.querySelector("#deck-add-card input")?.focus();
   }
 
   // Ask the Planeswalker for 12 cards, validate them server-side (exact name,
@@ -1186,23 +1184,36 @@ export default function DeckView({
           across a switch. The commander renders as a crowned leading column
           inside the grid (CardGrid), not a side panel. */}
       <div>
-        <div className="deck-sections" id="deck-sections" role="tablist" aria-label="Deck sections">
-          {SECTIONS.map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              id={`deck-tab-${id}`}
-              aria-controls={`deck-panel-${id}`}
-              aria-selected={section === id}
-              className="deck-section-tab"
-              // Opening Improve loads its Changes: free EDHREC suggestions,
-              // reused once loaded. The paid passes wait for their own buttons.
-              onClick={() => (id === "improve" && decklist.trim() ? loadChanges() : openSection(id))}
-            >
-              {label}
-            </button>
-          ))}
+        {/* One strip: the tabs, then in Cards its toolbar (job 3.3). */}
+        <div className="deck-strip">
+          <div className="deck-sections" id="deck-sections" role="tablist" aria-label="Deck sections">
+            {SECTIONS.map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                id={`deck-tab-${id}`}
+                aria-controls={`deck-panel-${id}`}
+                aria-selected={section === id}
+                className="deck-section-tab"
+                // Opening Improve loads its Changes: free EDHREC suggestions,
+                // reused once loaded. The paid passes wait for their own buttons.
+                onClick={() => (id === "improve" && decklist.trim() ? loadChanges() : openSection(id))}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {section === "cards" && (
+            <CardToolbar
+              view={cardView}
+              addCard={locked ? null : addCard}
+              notify={notify}
+              filter={deckFilter}
+              setFilter={setDeckFilter}
+              viewControls={!deckEmpty}
+            />
+          )}
         </div>
 
         <div role="tabpanel" id="deck-panel-cards" aria-labelledby="deck-tab-cards" hidden={section !== "cards"}>
@@ -1238,13 +1249,6 @@ export default function DeckView({
               )}
             </div>
           )}
-          {/* Predictive card search — opened by the toolbar "Card search" button,
-              the mobile + FAB, and the empty-deck action. */}
-          {searchOpen && !locked && (
-            <div className="deck-search-panel" ref={searchRef}>
-              <CardTypeahead addCard={addCard} notify={notify} autoFocus placeholder="Search cards to add…" />
-            </div>
-          )}
           {/* Raw decklist editor — "Edit as text" in the deck ⋯ menu */}
           {textEditOpen && !locked && (
             <textarea
@@ -1255,7 +1259,7 @@ export default function DeckView({
               aria-label="Edit decklist as text"
             />
           )}
-          {deckEmpty && !searchOpen ? (
+          {deckEmpty ? (
             <div className="empty-deck">
               <div className="empty-deck-inner">
                 {/* The ways to start a deck are on the New deck screen. This deck
@@ -1263,7 +1267,7 @@ export default function DeckView({
                 <h3>Your deck is empty</h3>
                 <p className="muted">Add cards one at a time, or bring in a list.</p>
                 <div className="empty-actions">
-                  <button className="empty-action" onClick={toggleSearch}>
+                  <button className="empty-action" onClick={focusAddCard} disabled={locked}>
                     <span className="empty-action-ico"><SearchIcon size={18} /></span>
                     <span className="empty-action-txt">
                       <span className="empty-action-t">Search for cards</span>
@@ -1287,12 +1291,12 @@ export default function DeckView({
               format={format}
               deckId={deckId}
               filter={deckFilter}
-              setFilter={setDeckFilter}
+              viewMode={cardView.viewMode}
+              stackMode={cardView.stackMode}
+              sortBy={cardView.sortBy}
+              groupBy={cardView.groupBy}
               onRemove={locked ? null : removeCard}
               onConsider={locked ? null : addToConsidering}
-              addCard={locked ? null : addCard}
-              onCardSearch={locked ? null : toggleSearch}
-              notify={notify}
               onChangeCommander={locked ? null : () => setCommander("")}
               onMakeCommander={locked || !isCommanderFmt ? null : makeCommander}
               setCardQty={locked ? null : setCardQty}
@@ -1378,23 +1382,6 @@ export default function DeckView({
         </div>
       )}
 
-      {/* Mobile FAB — open the search panel, scroll to it, and focus */}
-      {!locked && (
-        <button
-          className="deck-fab"
-          onClick={() => {
-            setSection("cards");
-            setSearchOpen(true);
-            setTimeout(() => {
-              searchRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-              searchRef.current?.querySelector("input")?.focus();
-            }, 60);
-          }}
-          aria-label="Add cards"
-        >
-          +
-        </button>
-      )}
     </div>
   );
 }

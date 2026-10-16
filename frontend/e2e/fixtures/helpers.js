@@ -1,5 +1,6 @@
 // Shared page helpers for E2E tests.
 // Centralizes common actions so individual tests stay focused on assertions.
+import { expect } from "@playwright/test";
 
 export async function waitForAppReady(page) {
   await page.waitForSelector(".app", { timeout: 15000 });
@@ -86,6 +87,32 @@ export async function loadSharedDeck(page, deckText, commander = "") {
   await page.goto(`/?${q.toString()}`);
   await waitForAppReady(page);
   await dismissColdStart(page);
+}
+
+// "Add a card by name" on the deck's strip (job 3.3), on every size.
+export const addCardField = (page) => page.getByPlaceholder("Add a card by name");
+
+// Set how the deck's cards are shown. Stacks/Grid/List is on the strip when
+// it has room and inside the View button when not; Stack as and Group by are
+// always inside View. A click on the strip closes an open View (outside
+// click), so the switch is used before View is opened.
+export async function setCardView(page, { mode, group, stackAs } = {}) {
+  const panel = page.locator("#ct-view-panel");
+  const openView = async () => {
+    if (!(await panel.count())) await page.locator(".ct-view-btn").click();
+  };
+  if (mode) {
+    const onStrip = page.locator(".ct-wide").getByRole("button", { name: mode, exact: true });
+    if (await onStrip.isVisible()) await onStrip.click();
+    else { await openView(); await panel.getByRole("button", { name: mode, exact: true }).click(); }
+  }
+  if (stackAs || group) await openView();
+  if (stackAs) await panel.getByRole("button", { name: stackAs, exact: true }).click();
+  if (group) await panel.getByLabel("Group cards by").selectOption(group);
+  if (await panel.count()) {
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+  }
 }
 
 // Open one of the deck's sections (Cards, Improve, Stats) by its tab.

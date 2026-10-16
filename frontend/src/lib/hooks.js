@@ -3,6 +3,23 @@ import { getCardImage } from "./api";
 
 const HOVER_QUERY = "(hover: hover) and (pointer: fine)";
 
+// How a deck's card list is shown, kept in this browser. DeckView holds it so
+// the toolbar on the tab strip (CardToolbar) and the grid below it (CardGrid)
+// read the same values (UX overhaul job 3.3; it used to live inside CardGrid).
+export function useCardView() {
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem("mtgweb:viewMode") || "stack");
+  const [stackMode, setStackMode] = useState(() => localStorage.getItem("mtgweb:stackMode") || "image");
+  const [sortBy, setSortBy] = useState(() => localStorage.getItem("mtgweb:sortBy") || "name");
+  const [groupBy, setGroupBy] = useState(() => localStorage.getItem("mtgweb:groupBy") || "type");
+  useEffect(() => {
+    localStorage.setItem("mtgweb:viewMode", viewMode);
+    localStorage.setItem("mtgweb:stackMode", stackMode);
+    localStorage.setItem("mtgweb:sortBy", sortBy);
+    localStorage.setItem("mtgweb:groupBy", groupBy);
+  }, [viewMode, stackMode, sortBy, groupBy]);
+  return { viewMode, setViewMode, stackMode, setStackMode, sortBy, setSortBy, groupBy, setGroupBy };
+}
+
 // Live hover-capability hook — re-evaluates when the primary input changes
 // (e.g. iPad trackpad attached/detached), unlike a module-load snapshot.
 export function useCanHover() {

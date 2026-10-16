@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures/test-base.js";
-import { waitForAppReady, dismissColdStart } from "./fixtures/helpers.js";
+import { waitForAppReady, dismissColdStart, setCardView } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
 // Load a deck via the app's share-link mechanism (?deck=<base64>) so the deck view
@@ -11,14 +11,12 @@ async function openStacksRoleMode(page) {
   await page.goto(`/?deck=${encodeURIComponent(encoded)}&fmt=commander&cmd=${encodeURIComponent(TEST_COMMANDER)}`);
   await waitForAppReady(page);
   await dismissColdStart(page);
-  await page.locator('[aria-label="Stacked view"]').click();
-  await page.locator('select[aria-label="Group cards by"]').selectOption("role");
+  await setCardView(page, { mode: "Stacks", group: "role" });
   await page.locator('.stack-column-label:has-text("Ramp")').waitFor({ timeout: 10000 });
 }
 
-function textToggle(page) {
-  return page.locator('.cg-toolbar .ai-panel-toggle button', { hasText: "Text" });
-}
+// Stack as Text lives in the View button (job 3.3).
+const showTextStacks = (page) => setCardView(page, { stackAs: "Text" });
 
 test.describe("Stack View", () => {
   test.beforeEach(async ({ page }) => {
@@ -36,7 +34,7 @@ test.describe("Stack View", () => {
   test("image/text sub-toggle switches stack rendering", async ({ page }) => {
     await openStacksRoleMode(page);
     await expect(page.locator(".stack-card-wrap").first()).toBeVisible();
-    await textToggle(page).click();
+    await showTextStacks(page);
     await expect(page.locator(".ts-row").first()).toBeVisible();
     await expect(page.locator(".ts-mana .ts-pip").first()).toBeVisible(); // mana pips render
   });
@@ -52,7 +50,7 @@ test.describe("Stack View", () => {
     if (isMobile) {
       await expect(page.locator(".stack-column-grip")).toHaveCount(0);
       await expect(page.locator(".stack-drag-hint")).toBeHidden();
-      await textToggle(page).click();
+      await showTextStacks(page);
       await expect(page.locator(".ts-row .more-menu-btn").first()).toBeVisible();
     } else {
       await expect(page.locator(".stack-column-grip").first()).toBeVisible();
@@ -68,7 +66,7 @@ test.describe("Stack View", () => {
 
   test("visual: text stack grouped by role", async ({ page }) => {
     await openStacksRoleMode(page);
-    await textToggle(page).click();
+    await showTextStacks(page);
     await page.waitForTimeout(600);
     await expect(page).toHaveScreenshot("stack-text-role.png", { fullPage: true });
   });

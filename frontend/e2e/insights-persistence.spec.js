@@ -5,7 +5,7 @@
 // Changes is in Improve, Combos in Stats; the card grid is in Cards, so every
 // check on the deck's cards opens Cards first.
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, navigateToTab, openDeckSection } from "./fixtures/helpers.js";
+import { loadSharedDeck, navigateToTab, openDeckSection, addCardField } from "./fixtures/helpers.js";
 
 const DECK = ["1 Sol Ring", "1 Cultivate", "1 Kodama's Reach", "1 Counterspell", "10 Forest", "10 Plains"].join("\n");
 
@@ -13,7 +13,6 @@ const improve = (page) => page.getByRole("tabpanel", { name: "Improve", exact: t
 const stats = (page) => page.getByRole("tabpanel", { name: "Stats", exact: true });
 
 test.describe("Insights persistence", () => {
-  test.skip(({ isMobile }) => isMobile, "quick-add, which these use to edit the deck, is desktop-only");
 
   async function openCombos(page) {
     await openDeckSection(page, "Stats");
@@ -30,7 +29,7 @@ test.describe("Insights persistence", () => {
 
   async function quickAdd(page, name) {
     await openDeckSection(page, "Cards");
-    const input = page.locator('input[placeholder="Card name…"]');
+    const input = addCardField(page);
     await input.fill(name);
     await input.press("Enter");
   }

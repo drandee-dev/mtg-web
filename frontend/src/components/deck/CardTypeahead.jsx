@@ -3,7 +3,9 @@ import { api } from "../../lib/api";
 
 // Predictive card-add input: debounced name search against /api/cards/search
 // with a picker dropdown (name · type · price), keyboard ↑↓/Enter, spinner
-// while fetching. Used by the toolbar Quick add and the deck search panel.
+// while fetching. Used by "Add a card by name" on the deck's strip. Its
+// accessible name is its placeholder, so what it says is what voice control
+// and screen readers call it.
 const CardTypeahead = forwardRef(function CardTypeahead(
   { addCard, notify, placeholder = "Add a card…", compact = false, autoFocus = false },
   outerRef
@@ -88,7 +90,7 @@ const CardTypeahead = forwardRef(function CardTypeahead(
           onKeyDown={onKeyDown}
           onFocus={() => { if (results.length) setOpen(true); }}
           placeholder={placeholder}
-          aria-label="Search cards to add"
+          aria-label={placeholder}
           aria-expanded={open}
           aria-autocomplete="list"
           role="combobox"
