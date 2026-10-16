@@ -41,21 +41,6 @@ test.describe("Activation flows", () => {
     await expect(page.locator(".toast")).toContainText(/copied|browser permissions/, { timeout: 4000 });
   });
 
-  test("Planeswalker FAB pulses with an Ask-why tag until first opened", async ({ page }) => {
-    // The base fixture marks pwseen; clear it to simulate a first-timer.
-    await page.addInitScript(() => localStorage.removeItem("mtgweb:pwseen"));
-    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-
-    const fab = page.locator(".planeswalker-btn");
-    await expect(fab).toHaveClass(/pw-first-contact/);
-    await expect(page.locator(".pw-fc-tag")).toBeVisible();
-
-    await fab.click();
-    await expect(page.locator(".planeswalker-panel")).toBeVisible();
-    await expect(page.locator(".pw-fc-tag")).toHaveCount(0);
-    await expect(fab).not.toHaveClass(/pw-first-contact/);
-  });
-
   test("over-budget goal surfaces a chip that routes to Budget swaps", async ({ page }) => {
     await page.route("**/api/deck/budget-swaps", (r) =>
       r.fulfill({

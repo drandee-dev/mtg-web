@@ -24,7 +24,7 @@ import Feedback from "./components/Feedback";
 
 const FEEDBACK_ENABLED = Boolean(import.meta.env.VITE_FORMSPREE_ID);
 import Playtest from "./components/Playtest";
-import Planeswalker from "./components/Planeswalker";
+import Ask from "./components/Ask";
 import Commanders from "./components/Commanders";
 
 function PasswordResetModal({ onDone, notify }) {
@@ -146,6 +146,11 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  // The Ask drawer (job 4.1). It is hidden on the Rules page, which is its own
+  // AI chat, so "open" there means closed; it is open again on the way back.
+  const [askWanted, setAskWanted] = useState(false);
+  const closeAsk = useCallback(() => setAskWanted(false), []);
+  const toggleAsk = useCallback(() => setAskWanted((v) => !v), []);
   // Deck Goals — user-declared AI optimization intent, persisted per deck.
   const [goals, setGoalsState] = useState(DEFAULT_GOALS);
   const [serverStatus, setServerStatus] = useState("checking");
@@ -538,6 +543,8 @@ export default function App() {
   const atNew = tab === "deck" && !deckId;
   // The place the bars light: a deck is a page under Decks, /new is no place.
   const place = tab === "deck" ? (deckId ? "decks" : null) : tab;
+  const askAvailable = tab !== "rules";
+  const askOpen = askWanted && askAvailable;
   const wanted = tab === "deck" && deckId && !deckReady
     ? resolveDeckRoute({ deckId, decks, decksLoadedFor, authReady, userId })
     : null;
@@ -870,7 +877,7 @@ export default function App() {
   }, [setTab]);
 
   return (
-    <div className={deckReady && !playtesting ? "app app-deckview" : "app"}>
+    <div className={`app${deckReady && !playtesting ? " app-deckview" : ""}${askOpen ? " app-ask-open" : ""}`}>
       <a href="#main-content" className="sr-only" style={{ position: "absolute", left: "-9999px", top: "auto", width: "1px", height: "1px", overflow: "hidden" }}
         onFocus={(e) => { e.target.style.position = "static"; e.target.style.width = "auto"; e.target.style.height = "auto"; e.target.style.left = "0"; }}
         onBlur={(e) => { e.target.style.position = "absolute"; e.target.style.left = "-9999px"; e.target.style.width = "1px"; e.target.style.height = "1px"; }}>
@@ -892,6 +899,8 @@ export default function App() {
         setSettingsOpen={setSettingsOpen}
         onNewDeck={startNew}
         onDeck={deckReady}
+        onAsk={askAvailable ? toggleAsk : null}
+        askOpen={askOpen}
         onSignOut={() => { supabase.auth.signOut(); notify("Signed out."); }}
         avatarMenuOpen={avatarMenuOpen}
         setAvatarMenuOpen={setAvatarMenuOpen}
@@ -951,6 +960,8 @@ export default function App() {
             serverWarmed={serverWarmed}
             goals={goals}
             setGoals={setGoals}
+            onAsk={askAvailable ? toggleAsk : null}
+            askOpen={askOpen}
           />
         )}
         {atNew && shared && (
@@ -1067,7 +1078,9 @@ export default function App() {
         </div>
       )}
       <BottomNav places={PLACES} place={place} setTab={setTab} onNewDeck={startNew} onNew={atNew} />
-      <Planeswalker
+      <Ask
+        open={askOpen}
+        onClose={closeAsk}
         decklist={deckText}
         commander={commander}
         format={format}
@@ -1077,7 +1090,7 @@ export default function App() {
         addToConsidering={currentDeck ? addToConsidering : null}
         notify={notify}
         deckId={currentDeck?.id || null}
-        insightsAvailable={deckReady && !playtesting}
+        deckName={currentDeck ? currentDeck.name || UNTITLED : null}
         goals={goals}
       />
       <Feedback open={feedbackOpen} onClose={() => setFeedbackOpen(false)} notify={notify} />
