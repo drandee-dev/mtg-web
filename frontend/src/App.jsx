@@ -862,20 +862,6 @@ export default function App() {
     warnIfBadAdd({ before: deckText, commander: cmdr, format, name, notify, undo });
   }, [addCardToDecklist, deckText, commander, format, notify]);
 
-  // Card modal "Rules" action → switch to the Rules tab with the card queued
-  // up. `ts` makes repeat asks about the same card re-trigger Rules' effect.
-  const [rulesPrefill, setRulesPrefill] = useState(null);
-  useEffect(() => {
-    const onAsk = (e) => {
-      const name = e.detail?.name;
-      if (!name) return;
-      setRulesPrefill({ name, ts: Date.now() });
-      setTab("rules");
-    };
-    window.addEventListener("mtgweb:askrules", onAsk);
-    return () => window.removeEventListener("mtgweb:askrules", onAsk);
-  }, [setTab]);
-
   return (
     <div className={`app${deckReady && !playtesting ? " app-deckview" : ""}${askOpen ? " app-ask-open" : ""}`}>
       <a href="#main-content" className="sr-only" style={{ position: "absolute", left: "-9999px", top: "auto", width: "1px", height: "1px", overflow: "hidden" }}
@@ -1022,8 +1008,6 @@ export default function App() {
           <Rules
             aiAvailable={aiAvailable}
             notify={notify}
-            prefill={rulesPrefill}
-            onPrefillConsumed={() => setRulesPrefill(null)}
           />
         )}
         {tab === "cards" && (

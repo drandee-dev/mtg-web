@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../../lib/api";
+import { api, assembleDecklist, EMPTY_REPLY } from "../../lib/api";
+import { commanderDisplay } from "../../lib/deckParser";
+import { BotText } from "../BotText";
 import { fmtUsd } from "../../lib/format";
 import { useCardImage, useEscapeKey, useFocusTrap } from "../../lib/hooks";
 import { useBackClose } from "../../lib/backstack";
@@ -29,6 +31,9 @@ export default function CardDetailModal({
   onMove,
   onChangeCommander,
   onMakeCommander,
+  commander = "",
+  decklist = "",
+  format = "commander",
 }) {
   const data = useCardImage(name, printing);
   const buildNote = getBuildNote(name);
@@ -60,12 +65,71 @@ export default function CardDetailModal({
     else setDragY(0);
   }
 
-  // "Ask a rules question" → Rules tab, prefilled with this card. Window event
-  // (same pattern as mtgweb:optlog) — the modal opens from too many surfaces
-  // to prop-drill a tab switch through each one.
-  function askRules() {
-    window.dispatchEvent(new CustomEvent("mtgweb:askrules", { detail: { name } }));
-    onClose();
+  // The two questions the modal can answer in place (job 4.2). Each answer is
+  // for the card that was open when it was asked: `askId` moves on with the
+  // card, so a late reply for the previous card is dropped.
+  const [why, setWhy] = useState(null); // { status: "loading" | "done" | "error", text }
+  const [rules, setRules] = useState(null); // { status, text, citations }
+  const askId = useRef(0);
+  const answersRef = useRef(null);
+  // On a phone the buttons sit below the fold and the answer above them, so
+  // bring a new answer into view when it appears.
+  useEffect(() => {
+    if (why || rules) answersRef.current?.scrollIntoView({ block: "nearest" });
+  }, [why?.status, rules?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // "Why is this here?" for a card with no build note: the explain endpoint,
+  // for this one card, against the deck as it is now.
+  async function askWhy() {
+    const id = askId.current;
+    setWhy({ status: "loading", text: "" });
+    try {
+      const r = await api.aiExplain(assembleDecklist(decklist, commander), format, [name], null, null);
+      const hit = (r.explanations || []).find((e) => e.name === name) || r.explanations?.[0];
+      if (askId.current !== id) return;
+      if (r.error || !hit?.explanation || hit.name === "Parse error") {
+        setWhy({ status: "error", text: "Couldn't get an answer. Try again." });
+      } else {
+        setWhy({ status: "done", text: hit.explanation });
+      }
+    } catch {
+      if (askId.current === id) setWhy({ status: "error", text: "Couldn't get an answer. Try again." });
+    }
+  }
+
+  // "Rules with my commander": the rules answer streams in under the buttons.
+  // The question names both cards, which is how the rules route finds them.
+  async function askRules() {
+    const id = askId.current;
+    const cmdr = isCommander ? "" : commanderDisplay(commander);
+    const question = cmdr
+      ? `How does ${name} work with my commander, ${cmdr}? Cite the rules.`
+      : `How does ${name} work? Cite the rules.`;
+    setRules({ status: "loading", text: "", citations: [] });
+    let text = "";
+    let citations = [];
+    let failed = "";
+    try {
+      await api.rulesAskStream(question, (chunk) => {
+        if (askId.current !== id) return;
+        if (chunk.status === "streaming") {
+          text += chunk.text;
+          setRules({ status: "loading", text, citations: [] });
+        } else if (chunk.status === "done") {
+          text = chunk.text;
+        } else if (chunk.status === "citations") {
+          citations = chunk.citations || [];
+        } else if (chunk.status === "error") {
+          failed = chunk.message || "Couldn't get an answer. Try again.";
+        }
+      });
+    } catch {
+      failed = "Couldn't get an answer. Try again.";
+    }
+    if (askId.current !== id) return;
+    if (failed) setRules({ status: "error", text: failed, citations: [] });
+    else if (!text.trim()) setRules({ status: "error", text: EMPTY_REPLY, citations: [] });
+    else setRules({ status: "done", text, citations });
   }
 
   async function togglePrints() {
@@ -90,6 +154,9 @@ export default function CardDetailModal({
     setShowBack(false); // eslint-disable-line react-hooks/set-state-in-effect
     setPrints(null);
     setDragY(0);
+    askId.current += 1;
+    setWhy(null);
+    setRules(null);
   }, [name]);
 
   if (!name) return null;
@@ -137,6 +204,20 @@ export default function CardDetailModal({
   }
 
   const price = data?.price_usd;
+  // The two questions. "Why" only when the generator left no note: the note is
+  // the answer when there is one. Rules says which commander it is asked with.
+  const cmdrName = isCommander ? "" : commanderDisplay(commander);
+  const rulesButton = (
+    <button className="ghost small" onClick={askRules} disabled={rules?.status === "loading"}>
+      {cmdrName ? `Rules with ${cmdrName}` : "Rules"}
+    </button>
+  );
+  const whyButton = !isCommander && !buildNote && decklist.trim() && (
+    <button className="ghost small" onClick={askWhy} disabled={why?.status === "loading"}
+      title="Asks the AI about this card in this deck">
+      Why is this here?
+    </button>
+  );
   // A card in the 99 can be promoted to the command zone if it's a legendary
   // creature (or explicitly "can be your commander"). type_line loads async, so
   // the action simply appears once the record arrives.
@@ -198,6 +279,31 @@ export default function CardDetailModal({
           {/* Why the generator put this card in the deck, when it did. */}
           {buildNote && <p className="cdm-why">{buildNote}</p>}
 
+          {/* The answers to the two questions, in place (job 4.2). */}
+          <div className="cdm-answers" aria-live="polite" ref={answersRef}>
+            {why && (
+              <div className={`cdm-answer${why.status === "error" ? " is-error" : ""}`}>
+                <div className="cdm-answer-q">Why is this here?</div>
+                {why.status === "loading" ? <span className="muted small">Thinking…</span> : <p>{why.text}</p>}
+              </div>
+            )}
+            {rules && (
+              <div className={`cdm-answer${rules.status === "error" ? " is-error" : ""}`}>
+                <div className="cdm-answer-q">{cmdrName ? `Rules with ${cmdrName}` : "Rules"}</div>
+                {rules.status === "error" ? <p>{rules.text}</p>
+                  : rules.text ? <BotText text={rules.text} />
+                  : <span className="muted small">Thinking…</span>}
+                {rules.status === "done" && rules.citations.length > 0 && (
+                  <div className="cdm-citations">
+                    {rules.citations.map((c) => (
+                      <span key={c.number} className="cdm-citation" title={c.text}>Rule {c.number}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {isCommander ? (
             <>
               {renderPrintingSwitcher()}
@@ -205,7 +311,7 @@ export default function CardDetailModal({
                 {onChangeCommander && (
                   <button className="ghost small" onClick={() => { onChangeCommander(); onClose(); }}>Change commander</button>
                 )}
-                <button className="ghost small" onClick={askRules}>📖 Rules</button>
+                {rulesButton}
                 <a className="ghost small" href={scryfallUrl(name)} target="_blank" rel="noopener noreferrer">Scryfall ↗</a>
               </div>
             </>
@@ -214,7 +320,8 @@ export default function CardDetailModal({
               {onAddToDeck && (
                 <button className="primary small" onClick={() => { onAddToDeck(name); onClose(); }}>+ Add to deck</button>
               )}
-              <button className="ghost small" onClick={askRules}>📖 Rules</button>
+              {whyButton}
+              {rulesButton}
               <a className="ghost small" href={scryfallUrl(name)} target="_blank" rel="noopener noreferrer">Scryfall ↗</a>
               {onRemove && (
                 <button className="ghost small btn-danger" onClick={() => { onRemove(name); onClose(); }}>Remove</button>
@@ -257,7 +364,8 @@ export default function CardDetailModal({
                 {onConsider && (
                   <button className="ghost small" onClick={() => { onConsider(name); onClose(); }}>Considering</button>
                 )}
-                <button className="ghost small" onClick={askRules}>📖 Rules</button>
+                {whyButton}
+                {rulesButton}
                 <a className="ghost small" href={scryfallUrl(name)} target="_blank" rel="noopener noreferrer">Scryfall ↗</a>
                 {onRemove && (
                   <button className="ghost small btn-danger" onClick={() => { onRemove(name); onClose(); }}>Remove</button>

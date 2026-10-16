@@ -469,6 +469,9 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
             onMove={handleCardMove}
             onChangeCommander={isCmdr ? onChangeCommander : null}
             onMakeCommander={!isCmdr && !isConsidering ? onMakeCommander : null}
+            commander={commander}
+            decklist={decklist}
+            format={format}
           />
         );
       })()}

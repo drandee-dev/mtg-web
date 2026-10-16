@@ -1,7 +1,7 @@
 // Activation flows — "suggest at the moment of relevance, one-tap adopt,
 // dismissal persists": playtest-on-complete, share-after-save, Planeswalker
 // first-contact badge, over-budget → Budget swaps, Considering zero-state,
-// card modal → Rules prefill.
+// (the card modal's Rules question moved in-place: card-questions.spec).
 
 import { test, expect } from "./fixtures/test-base.js";
 import { loadSharedDeck, seedLocalDecks, waitForAppReady, dismissColdStart, openDeckSection } from "./fixtures/helpers.js";
@@ -168,14 +168,4 @@ test.describe("Activation flows", () => {
     await expect(count).toHaveText(before);
   });
 
-  test("card modal Rules action lands on the Rules tab prefilled", async ({ page }) => {
-    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    await page.locator('.card-grid-container [aria-label*="Sol Ring"]').first().click();
-    const modal = page.locator(".cdm-panel");
-    await expect(modal).toBeVisible();
-    await modal.locator('button:has-text("Rules")').click();
-
-    await expect(page).toHaveURL((url) => url.pathname === "/rules");
-    await expect(page.locator(".rules-input-row input")).toHaveValue(/How does Sol Ring work/);
-  });
 });

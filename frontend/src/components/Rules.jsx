@@ -30,7 +30,7 @@ function saveRulesHistory(messages) {
   } catch { /* storage full/blocked — history is best-effort */ }
 }
 
-export default function Rules({ notify, prefill, onPrefillConsumed }) {
+export default function Rules({ notify }) {
   const [messages, setMessages] = useState(loadRulesHistory);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -48,16 +48,6 @@ export default function Rules({ notify, prefill, onPrefillConsumed }) {
       threadRef.current.scrollTop = threadRef.current.scrollHeight;
     }
   }, [messages, streamText]);
-
-  // Card-modal handoff: arrive with the card queued in the input (editable,
-  // not auto-submitted — the user finishes the question). Consuming clears it
-  // in App so a later manual visit to this tab doesn't replay a stale card.
-  useEffect(() => {
-    if (!prefill?.name) return;
-    setInput(`How does ${prefill.name} work? `);
-    inputRef.current?.focus();
-    onPrefillConsumed?.();
-  }, [prefill, onPrefillConsumed]);
 
   async function submit(text) {
     const question = (text || input).trim();
