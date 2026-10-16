@@ -3,8 +3,8 @@
 // reload lands on the deck. Runs against the hermetic mock backend.
 
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, deckMenuAction, waitForAppReady } from "./fixtures/helpers.js";
-import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
+import { loadSharedDeck, deckMenuAction, waitForAppReady, dismissColdStart, seedLocalDecks } from "./fixtures/helpers.js";
+import { TEST_DECK_TEXT, TEST_COMMANDER, TEST_DECK_STORAGE } from "./fixtures/test-data.js";
 
 const DECK_URL = /\/decks\/[^/]+$/;
 const PLAYTEST_URL = /\/decks\/[^/]+\/playtest$/;
@@ -61,5 +61,28 @@ test.describe("Playtest address", () => {
     await page.goBack();
     await expect(page).not.toHaveURL(PLAYTEST_URL);
     await expect(page.locator('h2:has-text("Playtest")')).toHaveCount(0);
+  });
+
+  // Opened from a tile on the Decks home, the deck and the layer arrive in one
+  // commit: one entry each, the playtest one carrying the playtest address.
+  test("Playtest from a Decks-home tile: its address, then the deck, then Decks", async ({ page }) => {
+    await page.goto("/");
+    await waitForAppReady(page);
+    await dismissColdStart(page);
+    await seedLocalDecks(page, [TEST_DECK_STORAGE]);
+    await page.reload();
+    await waitForAppReady(page);
+    await dismissColdStart(page);
+
+    await page.getByRole("button", { name: `Actions for ${TEST_DECK_STORAGE.name}` }).click();
+    await page.locator(".deck-card-menu-item", { hasText: "Playtest" }).click();
+    await page.locator('h2:has-text("Playtest")').waitFor({ timeout: 8000 });
+    await expect(page).toHaveURL(`/decks/${TEST_DECK_STORAGE.id}/playtest`);
+
+    await page.goBack();
+    await expect(page.locator('h2:has-text("Playtest")')).toHaveCount(0);
+    await expect(page).toHaveURL(`/decks/${TEST_DECK_STORAGE.id}`);
+    await page.goBack();
+    await expect(page).toHaveURL((u) => u.pathname === "/");
   });
 });

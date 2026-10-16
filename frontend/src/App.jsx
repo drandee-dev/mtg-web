@@ -823,11 +823,13 @@ export default function App() {
     }
   }, [deckText, commander, format, currentDeck, notify]);
 
+  // Returns whether the deck opened: a cancelled discard prompt leaves it shut.
   const openDeck = useCallback((deck) => {
-    if (deck.id !== currentDeck?.id && !confirmDiscardEdits()) return;
+    if (deck.id !== currentDeck?.id && !confirmDiscardEdits()) return false;
     const restored = loadDeck(deck);
     goTo({ tab: "deck", deckId: deck.id });
     notify(restored ? `Opened "${deck.name}" with your unsaved changes.` : `Opened "${deck.name}".`);
+    return true;
   }, [notify, currentDeck, confirmDiscardEdits, loadDeck, goTo]);
 
   // "Discard changes": the editor goes back to the saved copy. Destructive, so
@@ -983,7 +985,7 @@ export default function App() {
             onSave={saveDeck}
             onDelete={deleteDeck}
             onOpen={openDeck}
-            onPlaytest={(deck) => { openDeck(deck); setPlaytesting(true); }}
+            onPlaytest={(deck) => { if (openDeck(deck)) setPlaytesting(true); }}
             onNewDeck={startNew}
             notify={notify}
             setTab={setTab}
