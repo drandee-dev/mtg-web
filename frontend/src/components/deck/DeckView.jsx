@@ -17,6 +17,10 @@ import { goalsToApi } from "../../lib/goals";
 import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry, isVisibleEntry } from "../../lib/optimizeLog";
 import { deckSignature, loadInsights, saveInsights, PANEL_KEYS } from "../../lib/insightsCache";
 import { clearBuildNotes } from "../../lib/buildNotes";
+import {
+  findDeckLine as findLine, appendLine as appendLineText,
+  removeLine as removeLineText, setQty as setQtyText,
+} from "../../lib/decklistEdit";
 import { buildChanges } from "../../lib/changeset";
 import { fmtUsd } from "../../lib/format";
 import NavLink from "../layout/NavLink";
@@ -315,18 +319,11 @@ export default function DeckView({
       .finally(() => setStrategyLoading(false));
   }
 
-  // Deck lines may carry a pinned printing suffix: "1 Sol Ring (C21) 263".
-  const PRINT_SUFFIX_SRC = "(\\s+\\([A-Za-z0-9]{2,6}\\)\\s+[A-Za-z0-9★†-]{1,10})?";
-
   // The exact decklist line for a card (with its qty + printing), so an Undo can
   // restore it verbatim instead of a lossy "1 Name".
-  function findDeckLine(name) {
-    const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const re = new RegExp(`^\\s*\\d+\\s+${esc}${PRINT_SUFFIX_SRC}\\s*$`, "i");
-    return decklist.split("\n").find((l) => re.test(l)) || null;
-  }
+  const findDeckLine = (name) => findLine(decklist, name);
   function appendLine(line) {
-    setDecklist((prev) => `${prev.replace(/\s*$/, "")}\n${line}`);
+    setDecklist((prev) => appendLineText(prev, line));
   }
 
   // Did adding `name` complete a known near-miss combo? near_misses is only loaded
@@ -357,13 +354,7 @@ export default function DeckView({
 
   function removeCard(name, { silent = false } = {}) {
     const removedLine = findDeckLine(name);
-    setDecklist((prev) => {
-      const lines = prev.split("\n");
-      const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const idx = lines.findIndex((l) => new RegExp(`^\\s*\\d+\\s+${esc}${PRINT_SUFFIX_SRC}\\s*$`, "i").test(l));
-      if (idx >= 0) lines.splice(idx, 1);
-      return lines.join("\n");
-    });
+    setDecklist((prev) => removeLineText(prev, name));
     if (!silent) {
       notify?.(`Removed ${name}`, removedLine
         ? { label: "Undo", onClick: () => appendLine(removedLine) }
@@ -389,23 +380,7 @@ export default function DeckView({
   // Set a card's copy count, normalizing it to a single `N Name` line (collapses any
   // duplicate lines parseDeckText would have summed). qty <= 0 removes the card.
   function setCardQty(name, qty) {
-    setDecklist((prev) => {
-      const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const re = new RegExp(`^\\s*\\d+\\s+${esc}${PRINT_SUFFIX_SRC}\\s*$`, "i");
-      const out = [];
-      let placed = false;
-      for (const l of prev.split("\n")) {
-        const m = l.match(re);
-        if (m) {
-          // Preserve any pinned printing suffix through qty changes
-          if (!placed && qty > 0) { out.push(`${qty} ${name}${m[1] || ""}`); placed = true; }
-        } else {
-          out.push(l);
-        }
-      }
-      if (!placed && qty > 0) out.push(`${qty} ${name}`);
-      return out.join("\n");
-    });
+    setDecklist((prev) => setQtyText(prev, name, qty));
   }
 
   // Pin (or clear) a specific printing for a card — persists in the decklist
