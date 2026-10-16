@@ -2814,6 +2814,23 @@ a.btn-link:hover { filter: brightness(1.12); text-decoration: none; }
   font-size: var(--fs-xs); color: var(--text-secondary); line-height: 1.5;
 }
 
+/* The card modal's in-place answers (job 4.2) */
+.cdm-answers { display: flex; flex-direction: column; gap: .5rem; }
+.cdm-answers:not(:empty) { margin-top: .5rem; }
+.cdm-answer {
+  padding: .45rem .6rem; border-left: 2px solid var(--accent-2);
+  background: var(--accent-2-soft); border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: var(--fs-xs); color: var(--text-secondary); line-height: 1.5;
+}
+.cdm-answer.is-error { border-left-color: var(--bad); background: var(--bad-soft); }
+.cdm-answer p { margin: 0; }
+.cdm-answer-q { font-weight: 700; color: var(--text); margin-bottom: .15rem; }
+.cdm-citations { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .4rem; }
+.cdm-citation {
+  font-size: var(--fs-2xs); font-weight: 600; padding: 1px 6px; border-radius: 999px;
+  border: 1px solid var(--border-strong); color: var(--text-secondary); cursor: help;
+}
+
 /* ===== Import cards modal ===== */
 .icm-overlay {
   position: fixed; inset: 0; z-index: 130; background: rgba(0,0,0,.6);
