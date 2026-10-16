@@ -8,6 +8,8 @@
 // path — it needs the deck to be saved first, and a freshly generated deck
 // has no id until auto-save runs.
 
+import { escapeRegExp } from "./decklistEdit.js";
+
 let _notes = new Map();
 
 /** Replace the whole set. `notes` is a plain object of name → reason. */
@@ -34,7 +36,7 @@ export function parseNarration(text, names) {
     const line = raw.replace(/^[\s\-*••]+/, "").replace(/^\d+[.)]\s*/, "").trim();
     if (!line) continue;
     for (const name of names) {
-      const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const esc = escapeRegExp(name);
       const m = line.match(new RegExp(`^\\*{0,2}${esc}\\*{0,2}\\s*[:\\u2014\\u2013-]\\s*(.+)$`, "i"));
       if (m) {
         const reason = m[1].trim();

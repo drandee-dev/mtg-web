@@ -1,3 +1,5 @@
+import { escapeRegExp } from "./decklistEdit.js";
+
 const TYPE_ORDER = [
   "Creature",
   "Planeswalker",
@@ -83,7 +85,7 @@ export function parseDeckText(deckText) {
 /** Rewrite a card's decklist line to pin (or clear) a printing:
  * `1 Sol Ring` ⇄ `1 Sol Ring (C21) 263`. Collapses duplicate lines. */
 export function setPrintingInText(deckText, name, printing) {
-  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const esc = escapeRegExp(name);
   const re = new RegExp(`^\\s*(\\d+)\\s+${esc}(\\s+\\([A-Za-z0-9]{2,6}\\)\\s+[A-Za-z0-9★†-]{1,10})?\\s*$`, "i");
   const suffix = printing ? ` (${printing.set}) ${printing.cn}` : "";
   const out = [];
