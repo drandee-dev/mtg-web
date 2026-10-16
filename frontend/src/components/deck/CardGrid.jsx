@@ -5,44 +5,15 @@ import { parseDeckFilter, cardMatchesFilter } from "../../lib/deckFilter";
 import { useCanHover } from "../../lib/hooks";
 // canHover gates desktop-only drag affordances; touch uses the ⋯ menus instead.
 import CardThumbnail from "./CardThumbnail";
-import CardTypeahead from "./CardTypeahead";
 import StackView from "./StackView";
 import TextStackView from "./TextStackView";
 import CardListRow from "./CardListRow";
 import CardDetailModal from "./CardDetailModal";
-import ViewToggle from "./ViewToggle";
 
-
-const SORTS = [
-  { id: "name", label: "Name" },
-  { id: "cmc", label: "Mana value" },
-  { id: "price", label: "Price" },
-];
-
-const GROUPS = [
-  { id: "type", label: "Type" },
-  { id: "role", label: "Role" },
-  { id: "cmc", label: "Mana value" },
-  { id: "color", label: "Color" },
-  { id: "rarity", label: "Rarity" },
-  { id: "price", label: "Price range" },
-];
-
-export default function CardGrid({ decklist, commander, format, deckId, filter, setFilter, onRemove, onConsider, addCard, onCardSearch, notify, onChangeCommander, onMakeCommander, setCardQty, onSetPrinting, onSetCommanderPrinting, maybeboard, onMoveFromConsidering, onRemoveConsidering, onSuggestConsiderations, suggesting }) {
+// The view settings (viewMode, stackMode, sortBy, groupBy) come from DeckView's
+// useCardView; the toolbar that sets them is on the deck's tab strip (job 3.3).
+export default function CardGrid({ decklist, commander, format, deckId, filter, viewMode, stackMode, sortBy, groupBy, onRemove, onConsider, onChangeCommander, onMakeCommander, setCardQty, onSetPrinting, onSetCommanderPrinting, maybeboard, onMoveFromConsidering, onRemoveConsidering, onSuggestConsiderations, suggesting }) {
   const canHover = useCanHover();
-  const [filterHelpOpen, setFilterHelpOpen] = useState(false);
-  const [viewMode, setViewMode] = useState(
-    () => localStorage.getItem("mtgweb:viewMode") || "stack"
-  );
-  const [stackMode, setStackMode] = useState(
-    () => localStorage.getItem("mtgweb:stackMode") || "image"
-  );
-  const [sortBy, setSortBy] = useState(
-    () => localStorage.getItem("mtgweb:sortBy") || "name"
-  );
-  const [groupBy, setGroupBy] = useState(
-    () => localStorage.getItem("mtgweb:groupBy") || "type"
-  );
   const [metaMap, setMetaMap] = useState({});
   // Per-groupBy column order overrides: { [groupBy]: [label, …] }. Reordering a
   // column persists only for the mode it was reordered in.
@@ -89,24 +60,8 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
     : null;
 
   useEffect(() => {
-    localStorage.setItem("mtgweb:viewMode", viewMode);
-  }, [viewMode]);
-
-  useEffect(() => {
-    localStorage.setItem("mtgweb:stackMode", stackMode);
-  }, [stackMode]);
-
-  useEffect(() => {
     localStorage.setItem("mtgweb:colOrder", JSON.stringify(columnOrder));
   }, [columnOrder]);
-
-  useEffect(() => {
-    localStorage.setItem("mtgweb:sortBy", sortBy);
-  }, [sortBy]);
-
-  useEffect(() => {
-    localStorage.setItem("mtgweb:groupBy", groupBy);
-  }, [groupBy]);
 
   const toggleCollapse = useCallback((type) => {
     setCollapsed((prev) => {
@@ -274,113 +229,6 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
 
   return (
     <div className="card-grid-container">
-      <div className="cg-toolbar">
-        <div className="cg-toolbar-controls">
-          {/* Add card */}
-          {addCard && onCardSearch && (
-            <div className="cg-tb-group cg-tb-addcard">
-              <span className="cg-tb-label">Add card</span>
-              <button className="cg-tb-search-btn" onClick={onCardSearch}>
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
-                Card search
-              </button>
-            </div>
-          )}
-          {/* Quick add — predictive typeahead */}
-          {addCard && (
-            <div className="cg-tb-group cg-tb-quickadd-group">
-              <span className="cg-tb-label">Quick add</span>
-              <CardTypeahead compact addCard={addCard} notify={notify} placeholder="Card name…" />
-            </div>
-          )}
-          {addCard && <div className="cg-tb-divider" />}
-          {/* View as */}
-          <div className="cg-tb-group">
-            <span className="cg-tb-label">View as</span>
-            <ViewToggle mode={viewMode} setMode={setViewMode} />
-          </div>
-          {/* Stack sub-mode: image vs text rows (only when Stacks is active) */}
-          {viewMode === "stack" && (
-            <div className="cg-tb-group">
-              <span className="cg-tb-label">Stack as</span>
-              <div className="ai-panel-toggle" role="group" aria-label="Stack display mode">
-                <button className={stackMode === "image" ? "active" : ""}
-                  aria-pressed={stackMode === "image"} onClick={() => setStackMode("image")}>Image</button>
-                <button className={stackMode === "text" ? "active" : ""}
-                  aria-pressed={stackMode === "text"} onClick={() => setStackMode("text")}>Text</button>
-              </div>
-            </div>
-          )}
-          {/* Group by */}
-          <div className="cg-tb-group">
-            <span className="cg-tb-label">Group by</span>
-            <select
-              className="sort-select"
-              value={groupBy}
-              onChange={(e) => setGroupBy(e.target.value)}
-              aria-label="Group cards by"
-            >
-              {GROUPS.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
-            </select>
-          </div>
-          {/* Sort by */}
-          <div className="cg-tb-group">
-            <span className="cg-tb-label">Sort by</span>
-            <select
-              className="sort-select"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              aria-label="Sort cards"
-            >
-              {SORTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-          </div>
-          {setFilter && <div className="cg-tb-divider" />}
-          {/* Syntax filter */}
-          {setFilter && (
-            <div className="cg-tb-group cg-tb-filter">
-              <span className="cg-tb-label">
-                Filter
-                <button
-                  className="cg-tb-help"
-                  aria-label="Filter syntax help"
-                  aria-expanded={filterHelpOpen}
-                  onClick={() => setFilterHelpOpen((o) => !o)}
-                >?</button>
-                {filterHelpOpen && (
-                  <div className="filter-help-pop" role="tooltip">
-                    <div className="fhp-title">Filter the deck</div>
-                    <table>
-                      <tbody>
-                        <tr><td><code>lightning</code></td><td>name contains</td></tr>
-                        <tr><td><code>t:creature</code></td><td>type line contains</td></tr>
-                        <tr><td><code>mv:3</code> · <code>mv:&gt;=4</code></td><td>mana value</td></tr>
-                        <tr><td><code>c:gw</code> · <code>c:c</code></td><td>color identity within</td></tr>
-                        <tr><td><code>usd:&gt;5</code></td><td>price above $5</td></tr>
-                        <tr><td><code>t:instant mv:&lt;2</code></td><td>terms combine (AND)</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </span>
-              <div className="cg-tb-filter-wrap">
-                <input
-                  className="cg-tb-filter-input"
-                  value={filter || ""}
-                  onChange={(e) => setFilter(e.target.value)}
-                  onFocus={() => setFilterHelpOpen(false)}
-                  placeholder="Filter… t:creature mv:<4"
-                  aria-label="Filter cards in deck"
-                />
-                {filter && (
-                  <button className="cg-tb-filter-clear" onClick={() => setFilter("")} aria-label="Clear filter">✕</button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Deck working area — contained board, visually separated from the toolbar above */}
       <div className="deck-board">
       {/* Stack view: Archidekt-style columns — image (overlapping art) or text rows */}

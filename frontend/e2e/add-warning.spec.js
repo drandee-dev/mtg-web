@@ -1,7 +1,7 @@
 // Adding an off-color card by hand warns with Undo and never blocks (Job E3).
 // Each add path gets its own test: they share a helper, not a call site.
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, waitForAppReady, dismissColdStart, navigateToTab, backToDeck, seedLocalDecks } from "./fixtures/helpers.js";
+import { loadSharedDeck, waitForAppReady, dismissColdStart, navigateToTab, backToDeck, seedLocalDecks, addCardField } from "./fixtures/helpers.js";
 import { TEST_COMMANDER, TEST_DECK_TEXT, TEST_DECK_STORAGE } from "./fixtures/test-data.js";
 
 const REASON = "Outside the deck's color identity (WUBG)";
@@ -23,11 +23,11 @@ async function stubGate(page) {
 const warning = (page) => page.locator(".toast", { hasText: `Lightning Bolt: ${REASON}` });
 const deckHasBolt = (page) => page.locator('.card-grid-container [aria-label*="Lightning Bolt"]');
 
-test("deck quick-add of an off-color card warns, and Undo removes it", async ({ page, isMobile }) => {
-  test.skip(isMobile, "the quick-add field is in the desktop toolbar");
+// The add field is on the deck's strip on every size since job 3.3.
+test("deck quick-add of an off-color card warns, and Undo removes it", async ({ page }) => {
   const seen = await stubGate(page);
   await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-  const quickAdd = page.locator('input[placeholder="Card name…"]');
+  const quickAdd = addCardField(page);
   await quickAdd.fill("Lightning Bolt");
   await quickAdd.press("Enter");
 
@@ -42,11 +42,10 @@ test("deck quick-add of an off-color card warns, and Undo removes it", async ({ 
   await expect(deckHasBolt(page)).toHaveCount(0);
 });
 
-test("an on-color add gets no warning", async ({ page, isMobile }) => {
-  test.skip(isMobile, "the quick-add field is in the desktop toolbar");
+test("an on-color add gets no warning", async ({ page }) => {
   await stubGate(page);
   await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-  const quickAdd = page.locator('input[placeholder="Card name…"]');
+  const quickAdd = addCardField(page);
   await quickAdd.fill("Opt");
   const verdict = page.waitForResponse("**/api/deck/validate-cards");
   await quickAdd.press("Enter");

@@ -166,15 +166,6 @@ test.describe("Deck sections", () => {
     await expect(page.getByRole("tab", { name: "Cards", exact: true })).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("textbox", { name: "Edit decklist as text" })).toBeVisible();
   });
-
-  test("the phone's + button opens Cards with the search", async ({ page, isMobile }) => {
-    test.skip(!isMobile, "the + button shows under 700px");
-    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    await openDeckSection(page, "Improve");
-    await page.getByRole("button", { name: "Add cards" }).click();
-    await expect(page.getByRole("tab", { name: "Cards", exact: true })).toHaveAttribute("aria-selected", "true");
-    await expect(page.locator(".deck-search-panel input")).toBeFocused();
-  });
 });
 
 test.describe("Assessment", () => {

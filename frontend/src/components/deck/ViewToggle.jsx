@@ -1,7 +1,8 @@
+// Stacks / Grid / List, in words as on the Pick-Deck mockup (job 3.3).
 const MODES = [
-  { id: "grid", icon: "▦", label: "Grid view" },
-  { id: "stack", icon: "≡", label: "Stacked view" },
-  { id: "list", icon: "☰", label: "List view" },
+  { id: "stack", label: "Stacks" },
+  { id: "grid", label: "Grid" },
+  { id: "list", label: "List" },
 ];
 
 export default function ViewToggle({ mode, setMode }) {
@@ -12,10 +13,9 @@ export default function ViewToggle({ mode, setMode }) {
           key={m.id}
           className={`view-toggle-btn ${mode === m.id ? "active" : ""}`}
           aria-pressed={mode === m.id}
-          aria-label={m.label}
           onClick={() => setMode(m.id)}
         >
-          {m.icon}
+          {m.label}
         </button>
       ))}
     </div>
