@@ -629,14 +629,27 @@ def deck_ai_combos(request: Request, payload: AiCombosPayload) -> dict:
     )
 
 
+class StrategyPayload(BaseModel):
+    """Body of ai/strategy. Same limits `_validate_decklist` applies; the route
+    checks the format is a real one."""
+
+    decklist: str = Field(min_length=1, max_length=_MAX_DECKLIST_LEN)
+    format: str | None = Field(default="commander", max_length=30)  # null = commander
+    commander: str | None = Field(default=None, max_length=2 * _MAX_CARD_NAME_LEN + 4)  # "A && B"
+    bracket: int | None = Field(default=None, ge=1, le=5)
+
+
 @app.post("/api/deck/ai/strategy")
-def deck_ai_strategy(request: Request, payload: Annotated[dict, Body()]) -> dict:
+def deck_ai_strategy(request: Request, payload: StrategyPayload) -> dict:
     _check_ai_access(request)
-    decklist, fmt = _validate_decklist(payload)
-    commander = (payload.get("commander") or "").strip()[:_MAX_CARD_NAME_LEN] or None
-    return mtg.ai_strategy(
-        decklist, fmt=fmt, commander=commander, bracket=_target_bracket(payload)
-    )
+    decklist = payload.decklist.strip()
+    fmt = payload.format or "commander"
+    if not decklist:
+        raise HTTPException(400, "Body must include a non-empty 'decklist' string.")
+    if fmt not in mtg.FORMAT_CONFIGS and fmt not in ("pauper", "paupercommander"):
+        raise HTTPException(400, f"Unknown format: {fmt}")
+    commander = (payload.commander or "").strip() or None
+    return mtg.ai_strategy(decklist, fmt=fmt, commander=commander, bracket=payload.bracket)
 
 
 @app.post("/api/deck/optimize")

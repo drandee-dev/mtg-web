@@ -6,6 +6,7 @@ import CardToolbar from "./CardToolbar";
 import { useCardView } from "../../lib/hooks";
 import DeckTools from "./DeckTools";
 import DeckGoalsAssessment from "./DeckGoalsAssessment";
+import HowToPlay from "./HowToPlay";
 import ImportCardsModal from "./ImportCardsModal";
 import MassArtModal from "./MassArtModal";
 import UpgradeReview from "./UpgradeReview";
@@ -25,7 +26,8 @@ const OLD_CHANGE_PANELS = new Set(["Recommendations", "Cuts", "Upgrades"]);
 const migratePanel = (p) => (OLD_CHANGE_PANELS.has(p) ? "Changes" : p);
 
 // The deck's sections, as tabs under its header (UX overhaul job 3.1).
-const SECTIONS = [["cards", "Cards"], ["improve", "Improve"], ["stats", "Stats"]];
+const SECTIONS = [["cards", "Cards"], ["play", "How to play"], ["improve", "Improve"], ["stats", "Stats"]];
+const STRATEGY_MIN_CARDS = 20;
 
 // Considering-pile text helpers. appendConsidering is written for functional
 // setMaybeboard updates (prev => next), so several adds can't lose each other.
@@ -130,6 +132,7 @@ export default function DeckView({
   const [optLog, setOptLog] = useState(() => loadLog(deckId));
   const [strategy, setStrategy] = useState(() => hp("strategy"));
   const [strategyLoading, setStrategyLoading] = useState(false);
+  const [strategyError, setStrategyError] = useState("");
   const [busy, setBusy] = useState("");
   const [cat, setCat] = useState("high_synergy");
   const [activePanel, setActivePanel] = useState(migratePanel(hydrated?.activePanel ?? null));
@@ -181,6 +184,8 @@ export default function DeckView({
     const d = (k) => c?.panels?.[k]?.data ?? null;
     setResult(d("result")); setComp(d("comp")); setRecs(d("recs"));
     setCombos(d("combos")); setBudgetSwaps(d("budgetSwaps")); setStrategy(d("strategy"));
+    setStrategyError("");
+    setStrategyLoading(false);
     setRatings(d("ratings"));
     setActivePanel(migratePanel(c?.activePanel ?? null));
     if (c?.upgradeMode) setUpgradeMode(c.upgradeMode);
@@ -298,23 +303,27 @@ export default function DeckView({
     }
   }
 
-  // Auto-load strategy when deck reaches 20+ cards. Strategy has always been
-  // autonomous (no user trigger), so unlike the lazy panels a hydrated-but-
-  // stale strategy re-fetches automatically rather than showing a stale badge.
-  useEffect(() => {
-    const lines = (decklist || "").split("\n").filter((l) => /^\s*\d+\s+\S/.test(l));
-    if (lines.length < 20) return;
-    if (strategy && (!panelSigs.strategy || panelSigs.strategy === currentSig)) return;
-    let cancelled = false;
-    setStrategyLoading(true);
-    const sig = currentSig;
+  // How to play (job 3.4): one paid call per deck, made when the tab is first
+  // opened and again only on "Write it again". Editing the deck never fires it;
+  // the tab says the cards have changed instead.
+  const strategyEnough = (decklist || "").split("\n").filter((l) => /^\s*\d+\s+\S/.test(l)).length >= STRATEGY_MIN_CARDS;
+  function runStrategy() {
+    if (strategyLoading || !strategyEnough) return;
+    const sig = currentSig; // capture: the deck may be edited mid-flight
+    const forDeck = deckId;
     const full = assembleDecklist(decklist, isCommanderFmt ? commander : "");
-    api.aiStrategy?.(full, format, commander)
-      .then((r) => { if (!cancelled) { setStrategy(r); markFresh("strategy", sig); } })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setStrategyLoading(false); });
-    return () => { cancelled = true; };
-  }, [decklist, commander, format]); // eslint-disable-line react-hooks/exhaustive-deps
+    setStrategyLoading(true);
+    setStrategyError("");
+    api.aiStrategy(full, format, commander)
+      .then((r) => {
+        if (hydratedFor.current !== forDeck) return; // switched decks meanwhile
+        if (r?.error) { setStrategyError(r.message || "Could not write how to play."); return; }
+        setStrategy(r);
+        markFresh("strategy", sig);
+      })
+      .catch(() => { if (hydratedFor.current === forDeck) setStrategyError("Could not write how to play. Try again."); })
+      .finally(() => setStrategyLoading(false));
+  }
 
   // Deck lines may carry a pinned printing suffix: "1 Sol Ring (C21) 263".
   const PRINT_SUFFIX_SRC = "(\\s+\\([A-Za-z0-9]{2,6}\\)\\s+[A-Za-z0-9★†-]{1,10})?";
@@ -1198,7 +1207,12 @@ export default function DeckView({
                 className="deck-section-tab"
                 // Opening Improve loads its Changes: free EDHREC suggestions,
                 // reused once loaded. The paid passes wait for their own buttons.
-                onClick={() => (id === "improve" && decklist.trim() ? loadChanges() : openSection(id))}
+                onClick={() => {
+                  if (id === "improve" && decklist.trim()) loadChanges();
+                  else openSection(id);
+                  // Only a deck with no write-up, or one cached before the game plan existed.
+                  if (id === "play" && (!strategy || !("game_plan" in strategy))) runStrategy();
+                }}
               >
                 {label}
               </button>
@@ -1309,6 +1323,23 @@ export default function DeckView({
               suggesting={suggesting}
             />
           )}
+        </div>
+
+        {/* How to play: strategy, game plan, key synergies (one AI call per
+            deck), then the upgrade path from the composition gaps (no AI). */}
+        <div role="tabpanel" id="deck-panel-play" aria-labelledby="deck-tab-play"
+          className="deck-section-panel" hidden={section !== "play"}>
+          <HowToPlay
+            strategy={strategy}
+            loading={strategyLoading}
+            error={strategyError}
+            stale={Boolean(panelSigs.strategy && panelSigs.strategy !== currentSig)}
+            enough={strategyEnough}
+            minCards={STRATEGY_MIN_CARDS}
+            comp={comp}
+            onWriteAgain={runStrategy}
+            onOpenImprove={() => (decklist.trim() ? loadChanges() : openSection("improve"))}
+          />
         </div>
 
         {/* Improve: what to change. Goals are the settings, the Assessment the

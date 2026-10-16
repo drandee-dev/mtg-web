@@ -115,7 +115,7 @@ export async function setCardView(page, { mode, group, stackAs } = {}) {
   }
 }
 
-// Open one of the deck's sections (Cards, Improve, Stats) by its tab.
+// Open one of the deck's sections (Cards, How to play, Improve, Stats) by its tab.
 export async function openDeckSection(page, name) {
   await page.getByRole("tab", { name, exact: true }).click();
 }

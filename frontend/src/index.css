@@ -359,6 +359,16 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
 .deck-section-tab:focus-visible { outline-offset: -3px; }
 /* Improve and Stats are reading width, not the card grid's full width. */
 .deck-section-panel { max-width: 900px; }
+/* How to play (job 3.4) */
+.htp { display: flex; flex-direction: column; gap: .8rem; }
+.htp-sec { margin: 0; }
+.htp-h { margin: 0 0 .4rem; font-size: var(--fs-sm); font-weight: 700; }
+.htp-text { margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.6; max-width: 68ch; }
+.htp-syn { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .45rem; font-size: var(--fs-sm); line-height: 1.5; }
+.htp-cards { font-weight: 600; }
+.htp-note { color: var(--text-secondary); }
+.htp-actions { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.htp-error { margin: 0; color: var(--danger); font-size: var(--fs-sm); }
 .deck-tools-head { margin: .9rem 0 .4rem; font-size: var(--fs-sm); font-weight: 700; }
 /* Sized for the old 20rem rail; given the panel's width, the stat tiles sit in
    one row and Deck DNA's values ("1/3 (1 light) ·thin") stop wrapping. */
