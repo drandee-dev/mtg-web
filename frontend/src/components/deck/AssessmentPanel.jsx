@@ -1,6 +1,3 @@
-import LoadingIndicator from "../LoadingIndicator";
-import { sanitizeHtml } from "../../lib/sanitize";
-
 function statusScore(s) {
   const u = (s || "").toUpperCase();
   if (u === "PASS" || u === "OK") return 1;
@@ -33,116 +30,58 @@ function computeHealth(result, comp) {
   return { score, parts };
 }
 
-function HealthRing({ score, parts }) {
-  const r = 20;
-  const circ = 2 * Math.PI * r;
-  const tone = score >= 80 ? "good" : score >= 55 ? "warn" : "bad";
-  const title = parts.map((p) => `${p.label} ${Math.round(p.v * 100)}%`).join(" · ");
-  return (
-    <div className={`health-ring hr-${tone}`} title={title}
-      role="img" aria-label={`Deck health ${score} of 100 — ${title}`}>
-      <svg viewBox="0 0 48 48" width="46" height="46">
-        <circle className="hr-track" cx="24" cy="24" r={r} fill="none" strokeWidth="4" />
-        <circle className="hr-fill" cx="24" cy="24" r={r} fill="none" strokeWidth="4"
-          strokeLinecap="round" strokeDasharray={circ}
-          strokeDashoffset={circ * (1 - score / 100)} transform="rotate(-90 24 24)" />
-      </svg>
-      <span className="hr-score">{score}</span>
-    </div>
-  );
+function joinNames(list) {
+  const names = list.map((c) => c.label.toLowerCase());
+  if (names.length < 3) return names.join(" and ");
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
-// Deck assessment: bracket meter (detected vs goal target), auto strategy
-// summary, and tappable gap chips. Tapping a chip runs a focused Optimize
-// pass for that category (wired through DeckView's runOptimize).
-//
-// Top-level collapse uses native <details>/<summary> — same element the
-// panel already uses internally for "Category targets" — controlled by
-// DeckView so the choice persists to localStorage (Job 6).
+// Two plain sentences from numbers the page already has, so the Verdict never
+// goes stale the way a written strategy can. The AI pass's own read of the
+// deck replaces it when that pass has run for the cards on screen (`aiNote`).
+function verdictText({ thin, hasCats, detected, target }) {
+  const out = [];
+  if (thin.length) out.push(`${joinNames(thin).replace(/^./, (m) => m.toUpperCase())} ${thin.length === 1 ? "is" : "are"} under target.`);
+  else if (hasCats) out.push("Every role is at its target.");
+  if (detected != null && target != null && detected !== target) {
+    out.push(`The deck reads as bracket ${detected}; your goal is ${target}.`);
+  }
+  return out.join(" ");
+}
+
+// Improve's left column under Goals (UX overhaul job 3.5, `Improve`): the
+// Verdict, a score out of 100 with a sentence, and the Gaps, the roles under
+// target. A gap is a button: it asks the AI for cards that fill it (wired
+// through DeckView's runOptimize). The over-budget line sits beside them as
+// the same kind of one-tap route, to budget swaps.
 export default function AssessmentPanel({
-  result, strategy, strategyLoading, comp, goals, onGapChip, optimizing,
-  onOverBudget, open, onToggle,
+  result, comp, goals, aiNote, onGapChip, optimizing, onOverBudget,
 }) {
   const detected = result?.bracket?.bracket ?? null;
   const target = goals?.bracketTarget ?? null;
   const thin = comp?.categories?.filter((c) => c.status === "thin") || [];
-  const hasMeter = detected != null || target != null;
   // Over budget vs the user's declared ceiling → one-tap route to Budget swaps.
   const price = result?.breakdown?.price_usd ?? null;
   const ceiling = goals?.budgetCeiling ?? null;
   const overBy = price != null && ceiling != null && price > ceiling ? price - ceiling : 0;
   const health = computeHealth(result, comp);
-  if (!health && !hasMeter && !thin.length && !strategy && !strategyLoading && !overBy) return null;
+  const text = aiNote || verdictText({ thin, hasCats: Boolean(comp?.categories?.length), detected, target });
+  if (!health && !text && !thin.length && !overBy) return null;
 
-  // The over-budget chip and gap chips are actionable, not reference material —
-  // they stay outside the <details> so they surface the moment they're relevant
-  // regardless of collapse state, the same reason DeckGoals' suggestion bar
-  // renders outside its own collapsible body. Everything genuinely just-for-
-  // reading (meter, strategy prose, category table) lives inside the collapse.
+  const tone = health ? (health.score >= 80 ? "good" : health.score >= 55 ? "warn" : "bad") : "";
   return (
     <div className="asmt-wrap">
-      <details
-        className="asmt"
-        open={open}
-        onToggle={(e) => onToggle?.(e.target.open)}
-      >
-        <summary className="asmt-head">
-          <div className="asmt-head-text">
-            <span className="asmt-title">Assessment</span>
-            {detected != null && (
-              <span className="asmt-sub">
-                bracket {detected}{target != null ? ` → target ${target}` : ""}
-              </span>
-            )}
-          </div>
-          {health && <HealthRing score={health.score} parts={health.parts} />}
-        </summary>
-
-        {hasMeter && (
-          <div
-            className="asmt-meter"
-            role="img"
-            aria-label={`Power bracket: ${detected != null ? `currently ${detected}` : "not detected"}${target != null ? `, target ${target}` : ""} of 5`}
-          >
-            {[1, 2, 3, 4, 5].map((b) => (
-              <span
-                key={b}
-                className={`asmt-seg${detected != null && b <= detected ? " fill" : ""}${target === b ? " tgt" : ""}`}
-              >
-                {b}
-              </span>
-            ))}
+      <section aria-labelledby="improve-verdict">
+        <h3 id="improve-verdict" className="improve-h">Verdict</h3>
+        {health && (
+          <div className="asmt-score-row"
+            title={health.parts.map((p) => `${p.label} ${Math.round(p.v * 100)}%`).join(" · ")}>
+            <span className={`hr-score hr-${tone}`}>{health.score}</span>
+            <span className="muted">out of 100</span>
           </div>
         )}
-
-        {strategyLoading && <LoadingIndicator label="Reading strategy" active />}
-        {strategy?.strategy && (
-          <p
-            className="asmt-strategy"
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(strategy.strategy) }}
-          />
-        )}
-
-        {/* Full category table (absorbed the old Composition panel) */}
-        {comp?.categories?.length > 0 && (
-          <details className="asmt-comp">
-            <summary>Category targets</summary>
-            <div className="asmt-comp-grid">
-              {comp.categories.map((c) => (
-                <div className="asmt-comp-row" key={c.key}>
-                  <span>{c.label}</span>
-                  <span className="asmt-comp-val">
-                    <strong>{c.count}</strong>
-                    {c.target ? <span className="muted">/{c.target}</span> : null}
-                    {c.light > 0 && <span className="muted"> ({c.light} light)</span>}
-                    {c.status === "thin" && <span className="asmt-comp-thin">thin</span>}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </details>
-        )}
-      </details>
+        {text && <p className="asmt-verdict">{text}</p>}
+      </section>
 
       {overBy > 0 && (
         <button
@@ -151,32 +90,35 @@ export default function AssessmentPanel({
           onClick={() => onOverBudget?.()}
           title="Open Budget swaps to bring the price down"
         >
-          <span className="asmt-chip-label">💸 ${Math.round(overBy)} over your ${Math.round(ceiling)} budget</span>
+          <span className="asmt-chip-label">${Math.round(overBy)} over your ${Math.round(ceiling)} budget</span>
           <span className="asmt-chip-count">swaps →</span>
         </button>
       )}
 
       {thin.length > 0 && (
-        <div className="asmt-gaps">
-          {thin.map((c) => (
-            <button
-              key={c.key}
-              className="asmt-chip"
-              disabled={optimizing || !onGapChip}
-              onClick={() => onGapChip?.(c.key)}
-              title={`Queue ${c.label.toLowerCase()} suggestions`}
-            >
-              <span className="asmt-chip-label">{c.label}</span>
-              <span className="asmt-chip-count">
-                {c.count}{c.target ? `/${c.target}` : ""}{c.light > 0 ? ` (${c.light} light)` : ""}
-              </span>
-              <svg className="asmt-chip-zap" aria-hidden="true" viewBox="0 0 24 24" width="10" height="10"
-                fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
-              </svg>
-            </button>
-          ))}
-        </div>
+        <section aria-labelledby="improve-gaps">
+          <h3 id="improve-gaps" className="improve-h">Gaps</h3>
+          <div className="asmt-gaps">
+            {thin.map((c) => (
+              <button
+                key={c.key}
+                className="asmt-chip"
+                disabled={optimizing || !onGapChip}
+                onClick={() => onGapChip?.(c.key)}
+                title={`Ask the AI for ${c.label.toLowerCase()} suggestions`}
+              >
+                <span className="asmt-chip-label">{c.label}</span>
+                <span className="asmt-chip-count">
+                  {c.count}{c.target ? ` of ${c.target}` : ""}{c.light > 0 ? ` (${c.light} light)` : ""}
+                </span>
+                <svg className="asmt-chip-zap" aria-hidden="true" viewBox="0 0 24 24" width="10" height="10"
+                  fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+                </svg>
+              </button>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );

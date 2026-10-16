@@ -54,14 +54,3 @@ export function goalsToApi(goals) {
     ...(goals.flavorNote.trim() ? { flavor_note: goals.flavorNote.trim().slice(0, 300) } : {}),
   };
 }
-
-// Compact chips for the collapsed summary row.
-export function goalsSummary(goals) {
-  const chips = [];
-  if (goals.bracketTarget) chips.push(`B${goals.bracketTarget} target`);
-  if (goals.budgetCeiling) chips.push(`≤ $${goals.budgetCeiling}`);
-  if (goals.protected.length) chips.push(`${goals.protected.length} protected`);
-  if (goals.pilot && goals.pilot !== "any") chips.push(`pilot: ${goals.pilot}`);
-  if (goals.flavorNote.trim()) chips.push("note");
-  return chips;
-}

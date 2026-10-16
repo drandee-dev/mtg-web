@@ -4,8 +4,8 @@ import { fmtUsd } from "../../lib/format";
 import CardPreview from "../CardPreview";
 import LoadingIndicator from "../LoadingIndicator";
 import DrawProbability from "./DrawProbability";
-import { ChangeCard } from "./OptimizeQueue";
-import { buildChanges, REC_CATEGORIES } from "../../lib/changeset";
+import ChangeCard from "./ChangeCard";
+import { REC_CATEGORIES } from "../../lib/changeset";
 import { ManaIcon } from "./ManaCost";
 
 // Tabbed insights toolbox — replaces the old Accordion/Feed dual modes.
@@ -47,9 +47,9 @@ function statusBadge(status) {
 export default function InsightsPanel({
   result, comp, activePanel, onPanelClick, onRefreshPanel, busy, stalePanels,
   recs, recCat, setRecCat, skipped, onClearSkipped, onAddCard,
-  pinned, onTogglePin,
+  pinned, onTogglePin, changes,
   dismissedCuts, onClearDismissedCuts,
-  declinedUpgrades, onClearDeclinedUpgrades, insightDecided, onLoadDeepChanges,
+  declinedUpgrades, onClearDeclinedUpgrades, onLoadDeepChanges,
   combos, onGoldfish,
   optimize, budgetSwaps, upgradeMode, setUpgradeMode,
   onApplyChange, onSkipChange,
@@ -67,10 +67,6 @@ export default function InsightsPanel({
   }
 
   const comboCount = combos ? (combos.combos?.length || 0) + (combos.near_misses?.length || 0) : null;
-  const changes = buildChanges({
-    recs, recCat, optimize, budgetSwaps, upgradeMode,
-    skipped, declinedUpgrades, pinned, decided: insightDecided,
-  });
   const loadedChanges = Boolean(recs || optimize || budgetSwaps);
 
   // The deck's Improve section shows Changes alone; Stats shows the rest.
@@ -116,7 +112,8 @@ export default function InsightsPanel({
         {busy === active && <LoadingIndicator label="Loading" active />}
         {busy !== active && (
           <>
-            {["Changes", "Combos"].includes(active) && onRefreshPanel && (
+            {/* Changes has its own "Look again" in the Improve header. */}
+            {active === "Combos" && onRefreshPanel && (
               <RefreshBar onRefresh={() => onRefreshPanel(active)} stale={stalePanels?.has(active)} />
             )}
             {active === "Analytics" && <AnalyticsPane result={result} comp={comp} format={format} />}

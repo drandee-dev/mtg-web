@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { goalsSummary, FLAVOR_SUGGESTIONS } from "../../lib/goals";
+import { FLAVOR_SUGGESTIONS } from "../../lib/goals";
 
 const BRACKETS = [1, 2, 3, 4, 5];
 const PILOTS = [["simple", "Simple"], ["moderate", "Moderate"], ["any", "Any"]];
 const BUDGET_PRESETS = [50, 100, 275, 500];
 
-// Deck Goals editor — collapsed summary chips, expandable editor. Every AI
+// Deck Goals editor — collapsed summary rows, expandable editor. Every AI
 // feature (cuts, fills, upgrades, chat) reads these goals. When no goals are
 // set yet, a one-time banner offers the deck's analyzed reality (detected
 // bracket, price + headroom) as a starting goal set — one tap to adopt.
@@ -26,7 +26,15 @@ export default function DeckGoals({
   const [customBudget, setCustomBudget] = useState("");
 
   const set = (patch) => setGoals({ ...goals, ...patch });
-  const chips = goalsSummary(goals);
+  // What the closed card shows (`Improve`): bracket and budget always, the
+  // rest only once set.
+  const rows = [
+    ["Bracket", goals.bracketTarget ? String(goals.bracketTarget) : "Keep current"],
+    ["Budget", goals.budgetCeiling ? `Up to $${goals.budgetCeiling}` : "No limit"],
+  ];
+  if (goals.pilot && goals.pilot !== "any") rows.push(["Pilot", goals.pilot[0].toUpperCase() + goals.pilot.slice(1)]);
+  if (goals.protected.length) rows.push(["Protected", `${goals.protected.length} ${goals.protected.length === 1 ? "card" : "cards"}`]);
+  if (goals.flavorNote.trim()) rows.push(["Note", "Set"]);
 
   const protectMatches = protectQuery.trim().length >= 2
     ? deckCardNames
@@ -48,21 +56,20 @@ export default function DeckGoals({
 
   return (
     <div className="deck-goals">
-      <button
-        className="dg-head"
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-      >
-        <span className="dg-title">Deck goals</span>
-        {!open && (
-          <span className="dg-chips">
-            {chips.length
-              ? chips.map((c) => <span key={c} className="dg-chip on">{c}</span>)
-              : <span className="dg-empty">none set — AI optimizes generically</span>}
-          </span>
-        )}
-        <span className="dg-toggle">{open ? "Done" : "Edit"}</span>
-      </button>
+      <div className="dg-top">
+        <h3 className="dg-title">Goals</h3>
+        <button type="button" className="dg-head" onClick={() => setOpen(!open)} aria-expanded={open}>
+          {open ? "Done" : "Change"}
+        </button>
+      </div>
+
+      {!open && (
+        <dl className="dg-rows">
+          {rows.map(([k, v]) => (
+            <div key={k} className="dg-line"><dt>{k}</dt><dd>{v}</dd></div>
+          ))}
+        </dl>
+      )}
 
       {!open && suggestion && (
         <div className="dg-suggest-bar">

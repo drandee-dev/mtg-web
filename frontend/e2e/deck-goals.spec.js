@@ -18,9 +18,9 @@ test.describe("Deck goals — suggested from analysis", () => {
 
     await bar.locator("button", { hasText: "Use these" }).click();
     await expect(page.locator(".dg-suggest-bar")).toHaveCount(0);
-    const chips = page.locator(".deck-goals .dg-chips");
-    await expect(chips).toContainText("B2 target");
-    await expect(chips).toContainText("≤ $100");
+    const rows = page.locator(".deck-goals .dg-rows");
+    await expect(rows.locator(".dg-line", { hasText: "Bracket" }).locator("dd")).toHaveText("2");
+    await expect(rows.locator(".dg-line", { hasText: "Budget" }).locator("dd")).toHaveText("Up to $100");
   });
 
   test("dismiss hides the banner and persists across reload", async ({ page }) => {

@@ -17,6 +17,7 @@ import { goalsToApi } from "../../lib/goals";
 import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry, isVisibleEntry } from "../../lib/optimizeLog";
 import { deckSignature, loadInsights, saveInsights, PANEL_KEYS } from "../../lib/insightsCache";
 import { clearBuildNotes } from "../../lib/buildNotes";
+import { buildChanges } from "../../lib/changeset";
 import { fmtUsd } from "../../lib/format";
 import NavLink from "../layout/NavLink";
 
@@ -60,22 +61,15 @@ export default function DeckView({
     document.getElementById("deck-sections")?.scrollIntoView({ block: "nearest" });
   }
   const [textEditOpen, setTextEditOpen] = useState(false);
-  // Goals/Assessment collapse state — moved inline out of the rail (Job 6),
-  // collapsed by default, persisted the same way Planeswalker's own expand
-  // toggle does (mtgweb:pwexpand: "1"/"0" behind a try/catch).
+  // Goals' editor open state, collapsed by default, persisted the same way
+  // Planeswalker's own expand toggle does (mtgweb:pwexpand: "1"/"0" behind a
+  // try/catch).
   const [goalsOpen, setGoalsOpen] = useState(
     () => { try { return localStorage.getItem("mtgweb:goalsOpen") === "1"; } catch { return false; } }
-  );
-  const [assessmentOpen, setAssessmentOpen] = useState(
-    () => { try { return localStorage.getItem("mtgweb:assessmentOpen") === "1"; } catch { return false; } }
   );
   function toggleGoalsOpen(next) {
     setGoalsOpen(next);
     try { localStorage.setItem("mtgweb:goalsOpen", next ? "1" : "0"); } catch { /* best-effort */ }
-  }
-  function toggleAssessmentOpen(next) {
-    setAssessmentOpen(next);
-    try { localStorage.setItem("mtgweb:assessmentOpen", next ? "1" : "0"); } catch { /* best-effort */ }
   }
 
   const [importOpen, setImportOpen] = useState(null); // null | "paste" | "url"
@@ -128,7 +122,6 @@ export default function DeckView({
   });
   const [optimize, setOptimize] = useState(null);
   const [optimizing, setOptimizing] = useState(false);
-  const [optDecided, setOptDecided] = useState({});
   const [optLog, setOptLog] = useState(() => loadLog(deckId));
   const [strategy, setStrategy] = useState(() => hp("strategy"));
   const [strategyLoading, setStrategyLoading] = useState(false);
@@ -148,12 +141,10 @@ export default function DeckView({
   // suggestions they passed on. Sharing one Set would make the suggestions'
   // "Show again" silently revive every upgrade the user turned down.
   const [declinedUpgrades, setDeclinedUpgrades] = useState(() => new Set(hydrated?.declinedUpgrades || []));
-  // Which Changes proposals have been APPLIED, by change id. Deliberately NOT
-  // the Optimize queue's `optDecided`: that map is wiped every time the queue
-  // re-runs, which would put already-applied suggestions back on screen. It
-  // persists with the other verdicts so a tab switch can't resurrect them
-  // either — an applied proposal offered again is a duplicate card waiting to
-  // happen.
+  // Which Changes proposals have been applied or skipped, by change id. It
+  // persists with the other verdicts so a re-run or a tab switch can't put an
+  // applied proposal back on screen: offered again, it is a duplicate card
+  // waiting to happen.
   const [insightDecided, setInsightDecided] = useState(() => hydrated?.insightDecided || {});
   const [cmdrData, setCmdrData] = useState(null);
   const [suggesting, setSuggesting] = useState(false);
@@ -179,7 +170,6 @@ export default function DeckView({
     setOptLog(loadLog(deckId)); // eslint-disable-line react-hooks/set-state-in-effect
     setSection("cards");
     setOptimize(null);
-    setOptDecided({});
     const c = loadInsights(deckId);
     const d = (k) => c?.panels?.[k]?.data ?? null;
     setResult(d("result")); setComp(d("comp")); setRecs(d("recs"));
@@ -740,11 +730,10 @@ export default function DeckView({
         typeof focus === "string" ? focus : null, recentChanges);
       r.changes = (r.changes || []).map((c, i) => ({ ...c, id: `${i}:${c.cut || ""}>${c.add || ""}` }));
       setOptimize(r);
-      setOptDecided({});
       // The Changes tab's deep pass reuses this result (loadChanges) and needs
       // to know whether it's stale for the deck on screen, same as recs/cuts —
-      // not persisted (see optDecided's comment above): it resets with the
-      // rest of `panelSigs` on every deck switch.
+      // not persisted: it resets with the rest of `panelSigs` on every deck
+      // switch.
       markFresh("optimize", sig);
     } catch (e) {
       notify?.(`Optimize failed: ${e.message}`);
@@ -769,7 +758,6 @@ export default function DeckView({
     const willAdd = Boolean(ch.add && !findDeckLine(ch.add));
 
     if (!willCut && !willAdd) {
-      setOptDecided((d) => ({ ...d, [ch.id]: "applied" }));
       let msg = "Nothing to change — the deck already matches this.";
       if (ch.add && !ch.cut) msg = `${ch.add} is already in the deck.`;
       else if (ch.cut && !ch.add) msg = `${ch.cut} is no longer in the deck.`;
@@ -779,7 +767,6 @@ export default function DeckView({
 
     if (willCut) removeCard(ch.cut, { silent: true });
     if (willAdd) appendLine(`1 ${ch.add}`);
-    setOptDecided((d) => ({ ...d, [ch.id]: "applied" }));
     // Half a swap is a cut or an add, and the log (which also feeds the AI's
     // session memory) should say so rather than claim a swap.
     const action = willCut && willAdd ? ch.action : willCut ? "cut" : "add";
@@ -796,8 +783,8 @@ export default function DeckView({
     notify?.(describeEntry(entry), { label: "Undo", onClick: () => undoOptChange(entry) });
   }
 
-  function skipOptChange(ch) {
-    setOptDecided((d) => ({ ...d, [ch.id]: "skipped" }));
+  // A skip goes in the session log too, which feeds the AI's session memory.
+  function logOptSkip(ch) {
     const cut = ch.cut || null;
     const add = ch.add || null;
     const dup = optLog.some((e) => e.action === "skip" && e.cut === cut && e.add === add);
@@ -958,13 +945,23 @@ export default function DeckView({
     // Budget swaps: algorithmic, own verdict set with its own "Show again"
     // control — no `insightDecided` write, same as recs above.
     if (ch.source === "upgrade") { declineUpgrade(ch.cut); return; }
-    // Optimize-sourced proposals have no source-owned verdict set (optDecided
-    // is wiped on every runOptimize call — see its declaration comment), so
-    // insightDecided is the only thing that remembers a skip here.
+    // Optimize-sourced proposals have no source-owned verdict set, so
+    // insightDecided is the only thing that remembers a skip here; the log
+    // gets the skip as well, for the AI's session memory.
     setInsightDecided((d) => ({ ...d, [ch.id]: "skipped" }));
+    if (ch.source === "optimize") logOptSkip(ch);
   }
 
-  // One props object for Improve and Stats (Goals, Assessment and both
+  // The Suggested changes list, from every source. Built here, not in the
+  // panel, so the Improve tab can carry its count. Nothing is counted until a
+  // source has loaded.
+  const changes = buildChanges({
+    recs, recCat: cat, optimize, budgetSwaps, upgradeMode,
+    skipped, declinedUpgrades, pinned, decided: insightDecided,
+  });
+  const changeCount = recs || optimize || budgetSwaps ? changes.length : 0;
+
+  // One props object for Improve and Stats (Goals, Verdict and both
   // DeckTools renders) — keep wiring in one place.
   const toolProps = {
     result,
@@ -1009,8 +1006,6 @@ export default function DeckView({
     onSkipInsightChange: skipInsightChange,
     commander,
     format,
-    strategy,
-    strategyLoading,
     serverWarmed,
     goals,
     setGoals,
@@ -1020,15 +1015,12 @@ export default function DeckView({
     onDismissGoalSuggestion: dismissGoalSuggestion,
     goalsOpen,
     onToggleGoals: toggleGoalsOpen,
-    assessmentOpen,
-    onToggleAssessment: toggleAssessmentOpen,
+    changes,
+    // The AI pass's own read of the deck, as the Verdict's sentence, while it
+    // still matches the cards on screen.
+    verdictNote: optimize?.assessment && panelSigs.optimize === currentSig ? optimize.assessment : null,
     optimize,
     optimizing,
-    onRunOptimize: runOptimize,
-    optGapCount: comp?.categories?.filter((c) => c.status === "thin").length || 0,
-    optDecided,
-    onApplyChange: applyOptChange,
-    onSkipChange: skipOptChange,
     optLog: optLog.filter(isVisibleEntry),
     onUndoChange: undoOptChange,
     onClearLog: clearOptLog,
@@ -1204,6 +1196,7 @@ export default function DeckView({
                 id={`deck-tab-${id}`}
                 aria-controls={`deck-panel-${id}`}
                 aria-selected={section === id}
+                aria-describedby={id === "improve" && changeCount > 0 ? "improve-count-note" : undefined}
                 className="deck-section-tab"
                 // Opening Improve loads its Changes: free EDHREC suggestions,
                 // reused once loaded. The paid passes wait for their own buttons.
@@ -1215,9 +1208,19 @@ export default function DeckView({
                 }}
               >
                 {label}
+                {/* The count is aria-hidden so the tab keeps its name; the
+                    note below says it to a screen reader instead. */}
+                {id === "improve" && changeCount > 0 && (
+                  <span className="deck-section-count" aria-hidden="true">{changeCount}</span>
+                )}
               </button>
             ))}
           </div>
+          {changeCount > 0 && (
+            <span id="improve-count-note" className="visually-hidden">
+              {changeCount} suggested {changeCount === 1 ? "change" : "changes"}
+            </span>
+          )}
           {section === "cards" && (
             <CardToolbar
               view={cardView}
@@ -1342,12 +1345,14 @@ export default function DeckView({
           />
         </div>
 
-        {/* Improve: what to change. Goals are the settings, the Assessment the
-            verdict, then the Optimize queue and Changes. */}
+        {/* Improve (`Improve`): Goals, the Verdict and the Gaps in a column
+            beside the Suggested changes. */}
         <div role="tabpanel" id="deck-panel-improve" aria-labelledby="deck-tab-improve"
           className="deck-section-panel" hidden={section !== "improve"}>
-          {!deckEmpty && <DeckGoalsAssessment {...toolProps} />}
-          <DeckTools {...toolProps} section="improve" />
+          <div className={`improve${deckEmpty ? " improve-solo" : ""}`}>
+            {!deckEmpty && <DeckGoalsAssessment {...toolProps} />}
+            <DeckTools {...toolProps} section="improve" />
+          </div>
         </div>
 
         {/* Stats: reference, no AI. */}
