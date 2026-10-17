@@ -166,7 +166,10 @@ function CommanderDetail({ entry, onBack, onBuild }) {
               <span className="muted small">{data?.type_line}</span>
             </div>
             <div className="row muted small" style={{ marginBottom: ".6rem" }}>
-              {entry.edhrec_rank != null && <span>EDHREC #{entry.edhrec_rank}</span>}
+              {/* Scryfall's edhrec_rank ranks the card among all cards, not among commanders. */}
+              {entry.edhrec_rank != null && (
+                <span title="Rank among all cards on EDHREC, not among commanders">EDHREC card rank #{entry.edhrec_rank}</span>
+              )}
               {data?.price_usd != null && <span>{fmtUsd(data.price_usd)}</span>}
             </div>
 
