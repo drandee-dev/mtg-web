@@ -216,9 +216,21 @@ function CommanderDetail({ entry, onBack, onBuild }) {
   );
 }
 
+// The directory could not be loaded (the list, and each commander's page, both
+// wait on it): say so, with a way to ask again.
+function LoadFailed({ error, onRetry }) {
+  return (
+    <div className="panel">
+      <p className="muted small" role="alert">Couldn&apos;t load commanders: {error}</p>
+      <button className="ghost small" onClick={onRetry}>Try again</button>
+    </div>
+  );
+}
+
 export default function Commanders({ slug, setSlug, onBuild, notify }) {
   const [all, setAll] = useState(null); // full directory, loaded once
   const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0); // bumped by Try again
   const [query, setQuery] = useState("");
   const [colors, setColors] = useState(() => new Set());
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -229,7 +241,9 @@ export default function Commanders({ slug, setSlug, onBuild, notify }) {
       .then((r) => { if (!cancelled) setAll(r.commanders || []); })
       .catch((e) => { if (!cancelled) { setError(e.message); notify?.(`Couldn't load commanders: ${e.message}`); } });
     return () => { cancelled = true; };
-  }, [notify]);
+  }, [notify, attempt]);
+  // loadDirectory forgets a failed load, so asking again fetches again.
+  const retry = () => { setError(""); setAttempt((n) => n + 1); };
 
   function toggleColor(c) {
     setColors((prev) => {
@@ -252,7 +266,11 @@ export default function Commanders({ slug, setSlug, onBuild, notify }) {
   const entry = slug && all ? all.find((e) => e.slug === slug) : null;
 
   if (slug) {
-    if (!all) return <div className="panel"><p className="muted small">Loading…</p></div>;
+    if (!all) {
+      return error
+        ? <LoadFailed error={error} onRetry={retry} />
+        : <div className="panel"><p className="muted small" role="status">Loading…</p></div>;
+    }
     if (!entry) {
       return (
         <div className="panel">
@@ -301,7 +319,7 @@ export default function Commanders({ slug, setSlug, onBuild, notify }) {
         </div>
       </div>
 
-      {error && <div className="panel"><p className="muted small">Couldn't load commanders: {error}</p></div>}
+      {error && !all && <LoadFailed error={error} onRetry={retry} />}
 
       {all && (
         <div className="panel">
