@@ -4,9 +4,9 @@
 // sideways at the in-between widths, and (with touch) when an input would make
 // iOS zoom on focus.
 //
-// The bar and 16px cases that today's CSS cannot pass carry test.fail() naming
-// the job that fixes them: Playwright reports an unexpected pass, so the mark
-// must be deleted when the job lands. No fullPage screenshots here: they clear
+// A case that today's CSS cannot pass carries test.fail() naming the job that
+// fixes it (the 16px inputs, job 8): Playwright reports an unexpected pass, so
+// the mark must be deleted when the job lands. No fullPage screenshots here: they clear
 // touch emulation and every number after one is wrong.
 import { test, expect } from "./fixtures/test-base.js";
 import { loadSharedDeck, openAddress, newDeckDoor, addCardField } from "./fixtures/helpers.js";
@@ -14,8 +14,6 @@ import { loadSharedDeck, openAddress, newDeckDoor, addCardField } from "./fixtur
 const WIDTHS = [360, 390, 700, 744, 768, 820, 899, 900, 1024, 1440, 1920];
 const TOUCH_WIDTHS = [744, 768, 820];
 const HEIGHT = 900;
-// Today's bar overflows from 700 up to about 883px. Job 2 fixes it.
-const BAR_BROKEN = [700, 744, 768, 820];
 
 const SCREENS = ["/", "/new", "/commanders", "/cards", "/rules"];
 const DECK = "1 Sol Ring\n1 Arcane Signet\n1 Command Tower";
@@ -38,7 +36,9 @@ async function barProblems(page, selector) {
       if (r.width === 0 || r.height === 0) continue; // not rendered at this width
       count++;
       const name = (el.getAttribute("aria-label") || el.textContent || el.className).trim().slice(0, 24);
-      if (r.left < -0.5 || r.right > window.innerWidth + 0.5) problems.push(`${name}: off screen (${Math.round(r.left)}-${Math.round(r.right)} of ${window.innerWidth})`);
+      // The top bar keeps 8px of room on the right; the bottom bar's items run to the edge.
+      const room = el.closest(".global-toolbar") ? 8 : 0;
+      if (r.left < -0.5 || r.right > window.innerWidth - room + 0.5) problems.push(`${name}: off screen (${Math.round(r.left)}-${Math.round(r.right)} of ${window.innerWidth})`);
       if (el.scrollWidth > el.clientWidth + 1) problems.push(`${name}: clipped (${el.clientWidth} of ${el.scrollWidth})`);
       const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
       if (!hit || !(el === hit || el.contains(hit))) problems.push(`${name}: covered or unreachable`);
@@ -76,13 +76,34 @@ for (const w of WIDTHS) {
 
     test("every control in the bar is on screen, whole and reachable", async ({ page }, testInfo) => {
       desktopOnly(testInfo);
-      test.fail(BAR_BROKEN.includes(w), "visual pass job 2: the 700-899 bar overflows");
       for (const path of SCREENS) {
         await openScreen(page, path);
         await expectBarFits(page, path);
       }
       await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
       await expectBarFits(page, "a deck");
+    });
+  });
+}
+
+// The deck's tabs and its add-a-card field share one row from 700 (job 2): the
+// toolbar used to wrap under the tabs until the strip was about 810px wide.
+for (const w of WIDTHS.filter((x) => x >= 700)) {
+  test.describe(`${w}px deck strip`, () => {
+    test.use({ viewport: { width: w, height: HEIGHT } });
+
+    test("the tabs and the toolbar are on one row", async ({ page }, testInfo) => {
+      desktopOnly(testInfo);
+      await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
+      await expect(addCardField(page)).toBeVisible();
+      const [tab, add, bar] = await Promise.all([
+        page.getByRole("tab", { name: "Cards", exact: true }).boundingBox(),
+        addCardField(page).boundingBox(),
+        page.locator(".card-toolbar").boundingBox(),
+      ]);
+      expect(Math.abs(tab.y + tab.height / 2 - (add.y + add.height / 2)), "the toolbar wrapped under the tabs").toBeLessThan(tab.height);
+      expect(add.width, "the add field was squeezed too far").toBeGreaterThanOrEqual(130);
+      expect(bar.x + bar.width, "the toolbar runs past the edge").toBeLessThanOrEqual(w);
     });
   });
 }
