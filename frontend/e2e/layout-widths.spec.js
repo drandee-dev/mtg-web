@@ -22,23 +22,35 @@ const DECK = "1 Sol Ring\n1 Arcane Signet\n1 Command Tower";
 
 const desktopOnly = (testInfo) => test.skip(testInfo.project.name !== "desktop-chrome", "sizes its own viewport");
 
-// The bar showing at this width: the top bar from 700, the bottom bar below.
-const BAR_CONTROLS = (w) => (w >= 700 ? ".global-toolbar a, .global-toolbar button" : ".bottom-nav a, .bottom-nav button");
+// Every bar there is. The ones not showing at this width (the bottom bar from
+// 700, the top bar on a phone deck) have no size and are skipped, so the same
+// selector serves every width.
+const BAR_CONTROLS = [".global-toolbar", ".bottom-nav", ".mobile-deck-nav"].map((b) => `${b} a, ${b} button`).join(", ");
 
+// Returns how many controls were measured, so a selector that matches nothing
+// cannot pass for the right reason.
 async function barProblems(page, selector) {
   return page.evaluate((sel) => {
     const problems = [];
+    let count = 0;
     for (const el of document.querySelectorAll(sel)) {
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue; // not rendered at this width
+      count++;
       const name = (el.getAttribute("aria-label") || el.textContent || el.className).trim().slice(0, 24);
       if (r.left < -0.5 || r.right > window.innerWidth + 0.5) problems.push(`${name}: off screen (${Math.round(r.left)}-${Math.round(r.right)} of ${window.innerWidth})`);
       if (el.scrollWidth > el.clientWidth + 1) problems.push(`${name}: clipped (${el.clientWidth} of ${el.scrollWidth})`);
       const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
       if (!hit || !(el === hit || el.contains(hit))) problems.push(`${name}: covered or unreachable`);
     }
-    return problems;
+    return { count, problems };
   }, selector);
+}
+
+async function expectBarFits(page, where) {
+  const { count, problems } = await barProblems(page, BAR_CONTROLS);
+  expect(count, `${where}: no bar controls were measured`).toBeGreaterThan(0);
+  expect(problems, where).toEqual([]);
 }
 
 async function openScreen(page, path) {
@@ -67,10 +79,10 @@ for (const w of WIDTHS) {
       test.fail(BAR_BROKEN.includes(w), "visual pass job 2: the 700-899 bar overflows");
       for (const path of SCREENS) {
         await openScreen(page, path);
-        expect(await barProblems(page, BAR_CONTROLS(w)), path).toEqual([]);
+        await expectBarFits(page, path);
       }
       await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
-      expect(await barProblems(page, BAR_CONTROLS(w)), "a deck").toEqual([]);
+      await expectBarFits(page, "a deck");
     });
   });
 }
@@ -84,24 +96,35 @@ for (const w of TOUCH_WIDTHS) {
     test("inputs are 16px or larger", async ({ page }, testInfo) => {
       desktopOnly(testInfo);
       test.fail(true, "visual pass job 8: the 16px rule stops at 699px");
-      const small = async (where) => {
-        const found = await page.evaluate(() => [...document.querySelectorAll("input:not([type=checkbox]):not([type=radio]):not([type=hidden]), textarea, select")]
-          .filter((el) => el.getBoundingClientRect().width > 0)
-          .map((el) => [el.id || el.name || el.placeholder || el.tagName, parseFloat(getComputedStyle(el).fontSize)])
-          .filter(([, px]) => px < 16));
-        expect(found, where).toEqual([]);
+      // Every screen is measured before the one assertion, so a failing screen
+      // does not hide the ones after it.
+      const small = [];
+      const measure = async (where) => {
+        const { total, under } = await page.evaluate(() => {
+          const fields = [...document.querySelectorAll("input:not([type=checkbox]):not([type=radio]):not([type=hidden]), textarea, select")]
+            .filter((el) => el.getBoundingClientRect().width > 0 && getComputedStyle(el).visibility !== "hidden");
+          return {
+            total: fields.length,
+            under: fields
+              .map((el) => [el.id || el.name || el.placeholder || el.tagName, parseFloat(getComputedStyle(el).fontSize)])
+              .filter(([, px]) => px < 16),
+          };
+        });
+        expect(total, `${where}: no fields were measured`).toBeGreaterThan(0);
+        small.push(...under.map(([name, px]) => `${where}: ${name} is ${px}px`));
       };
 
       for (const path of ["/commanders", "/cards", "/rules"]) {
         await openScreen(page, path);
-        await small(path);
+        await measure(path);
       }
       await openScreen(page, "/new");
       await newDeckDoor(page, "Paste or import").click();
-      await small("/new, paste door");
+      await measure("/new, paste door");
       await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
       await expect(addCardField(page)).toBeVisible();
-      await small("a deck");
+      await measure("a deck");
+      expect(small).toEqual([]);
     });
   });
 }
