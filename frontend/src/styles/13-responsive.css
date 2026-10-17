@@ -95,6 +95,10 @@
   }
 }
 @media (min-width: 700px) and (max-width: 819px) {
+  /* The add field sits left of centre here and its results list is 380px wide,
+     so the list opens leftwards from the field's right edge, not off the
+     viewport's. */
+  .ct-add .deck-input-results { left: auto; right: 0; }
   .ct-view-summary {
     position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
     overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;

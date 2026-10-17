@@ -104,6 +104,15 @@ for (const w of WIDTHS.filter((x) => x >= 700)) {
       expect(Math.abs(tab.y + tab.height / 2 - (add.y + add.height / 2)), "the toolbar wrapped under the tabs").toBeLessThan(tab.height);
       expect(add.width, "the add field was squeezed too far").toBeGreaterThanOrEqual(130);
       expect(bar.x + bar.width, "the toolbar runs past the edge").toBeLessThanOrEqual(w);
+
+      // The results list is 380px wide and hangs off the field: it has to stay
+      // on screen (an overflow here is clipped, so the sideways-scroll case misses it).
+      await addCardField(page).fill("sol");
+      const results = page.locator(".ct-add .deck-input-results");
+      await expect(results).toBeVisible();
+      const list = await results.boundingBox();
+      expect(list.x, "the add results run off the left edge").toBeGreaterThanOrEqual(0);
+      expect(list.x + list.width, "the add results run off the right edge").toBeLessThanOrEqual(w);
     });
   });
 }
