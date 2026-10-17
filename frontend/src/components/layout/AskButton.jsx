@@ -6,7 +6,7 @@ export default function AskButton({ onClick, pressed, className = "" }) {
       aria-expanded={Boolean(pressed)}>
       <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
         strokeWidth="1.5" strokeLinejoin="round"><path d="M2.5 3h11v8h-6l-3 2.5V11h-2z" /></svg>
-      Ask
+      <span className="ask-btn-label">Ask</span>
     </button>
   );
 }
