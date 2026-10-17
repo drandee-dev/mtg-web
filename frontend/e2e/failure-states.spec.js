@@ -5,7 +5,7 @@
 // requests (a read is tried once more, an AI call never), then restores the call
 // and presses Try again.
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, openDeckSection, waitForAppReady } from "./fixtures/helpers.js";
+import { loadSharedDeck, openDeckSection, setCardView, waitForAppReady } from "./fixtures/helpers.js";
 import { fakeCloud, cloudOrigin } from "./fixtures/fake-cloud.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER, TEST_DECK_STORAGE } from "./fixtures/test-data.js";
 
@@ -65,6 +65,22 @@ test.describe("Failure is not loading", () => {
     await openDeckSection(page, "Stats");
     await expect(page.locator(".toast").filter({ hasText: "Analyze failed" })).toBeVisible({ timeout: WITHIN });
     await expect(page.getByText("Analyzing deck")).toHaveCount(0);
+  });
+
+  test("a card picture that failed to load is asked for again, not remembered as missing", async ({ page }) => {
+    // The lookup is cached for the session; a failure used to be cached with it, so
+    // after a network blip a card stayed pictureless until the page was reloaded.
+    const images = await breakable(page, /\/api\/cards\/image/);
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await expect.poll(() => images.hits, { timeout: 10000 }).toBeGreaterThan(1); // each card: a try and a retry
+    await page.waitForTimeout(2000); // the retries have run out
+    const pictures = page.locator('.card-grid-container img[src^="data:image"]');
+    await expect(pictures).toHaveCount(0);
+
+    images.down = false;
+    await setCardView(page, { mode: "List" });
+    await setCardView(page, { mode: "Stacks" });
+    await expect(pictures.first()).toBeVisible({ timeout: WITHIN });
   });
 
   test("Ask falls back from a broken stream, and with both down reports it at once, sending nothing twice", async ({ page }) => {

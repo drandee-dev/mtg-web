@@ -15,9 +15,11 @@ function _headers() {
 // A read that cannot reach the server is tried once more after a second, then
 // reported: the old four tries with eight-second waits kept a dead server
 // looking like "Loading…" for 24s (it was a cold-start allowance from the Render
-// days). A read that reaches the server and hangs is cut off at 15s. Writes and
-// AI calls are never retried: a dropped connection can come after the server has
-// started (and billed) the work, so sending it again could buy it twice.
+// days). A read that reaches the server and hangs is cut off at 15s. This client
+// never retries a write or an AI call: a dropped connection can come after the
+// server has started (and billed) the work, so sending it again could buy it
+// twice. (Ask's own fallback, from a failed stream to the plain chat endpoint, is
+// a separate and older decision: it does send a second call.)
 const GET_TIMEOUT_MS = 15000;
 const HEALTH_TIMEOUT_MS = 8000;
 const _isNetworkError = (e) => e.message === "Failed to fetch" || e.name === "TypeError";
@@ -193,9 +195,11 @@ export function getCardImage(name, printing = null) {
         key,
         Promise.all([
           getCardImage(name),
-          api.cardPrinting(printing.set, printing.cn).catch(() => ({ found: false })),
-        ]).then(([base, pr]) =>
-          pr?.found
+          api.cardPrinting(printing.set, printing.cn).catch(() => ({ found: false, failed: true })),
+        ]).then(([base, pr]) => {
+          // A lookup that failed is not an answer: forget it so the next ask retries.
+          if (base?.failed || pr?.failed) _imageCache.delete(key);
+          return pr?.found
             ? _deriveArtCrop({
                 ...base,
                 image: pr.image || base.image,
@@ -205,15 +209,22 @@ export function getCardImage(name, printing = null) {
                 back_image: pr.back_image || base.back_image,
                 price_usd: pr.price_usd ?? base.price_usd,
               })
-            : base,
-        ),
+            : base;
+        }),
       );
     } else {
       _imageCache.set(
         key,
         api.cardImage(name)
           .then(_deriveArtCrop)
-          .catch(() => ({ found: false, image: null, thumb: null })),
+          .catch(() => {
+            // The server answers an unknown card with found:false, so a rejection
+            // is the network (or a timeout, or a 5xx), not "no such card". It is
+            // not remembered for the session: a blip must not leave a card
+            // without its picture until the page is reloaded.
+            _imageCache.delete(key);
+            return { found: false, image: null, thumb: null, failed: true };
+          }),
       );
     }
   }

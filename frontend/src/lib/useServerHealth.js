@@ -3,7 +3,8 @@ import { api } from "./api";
 
 /** The backend's health, checked on mount and again on `retry()`: `status` is
  * "checking", "waking" (the first check failed), "ready" or "offline" (three
- * failed checks, about 10 seconds). `ai` is whether the server has AI set up
+ * failed checks: about 10 seconds when the server refuses, up to about 34 if it
+ * hangs, as each check gives up at 8s). `ai` is whether the server has AI set up
  * and `warmed` whether its caches are warm; both come from the health reply. */
 export function useServerHealth() {
   const [status, setStatus] = useState("checking");
@@ -23,7 +24,7 @@ export function useServerHealth() {
         if (cancelled) return;
         if (n === 0) setStatus("waking");
         // Serverless backend: no cold-start wake to wait out — a failing health
-        // check means a real outage, so give up after three tries (~10s).
+        // check means a real outage, so give up after three tries.
         if (n < 2) {
           setTimeout(() => check(n + 1), 5000);
         } else {
