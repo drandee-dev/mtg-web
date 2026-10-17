@@ -314,7 +314,7 @@ above re-triggers the Vercel build, which re-downloads bulk data.
 ```
 mtg-web/
   backend/   FastAPI app (app/main.py, app/mtg.py, app/config.py, app/usage.py)
-  frontend/  Vite React app (src/lib, src/components, src/index.css, e2e/)
+  frontend/  Vite React app (src/lib, src/components, src/index.css (imports src/styles/), e2e/)
   design/    Claude Design ↔ Claude Code handoff (.dc.html prototypes, HANDOFF.md, STATUS.md)
   .claude/   Project-specific Claude Code rules (.claude/rules/*.md)
   README.md  (this file)

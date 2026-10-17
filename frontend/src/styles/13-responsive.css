@@ -1,0 +1,69 @@
+/* Responsive: mobile (<700px) — bottom nav, single column */
+@media (max-width: 699px) {
+  /* The phone's top bar is the slim one: brand and account menu only. The
+     places and New deck are in the bottom bar. */
+  :root { --topbar-h: 52px; }
+  .global-toolbar { padding-left: 16px; padding-right: 8px; }
+  .gt-new { display: none; }
+  .app { padding: 3.2rem .75rem calc(var(--tabbar-total) + 2rem); padding-top: calc(var(--topbar-h) + .2rem + var(--safe-top)); }
+  /* iOS Safari auto-zooms focused form controls whose text is under 16px —
+     !important intentionally beats per-component font-size overrides. */
+  input, textarea, select { font-size: 16px !important; }
+  .gt-nav { display: none; }
+  .bottom-nav { display: flex; }
+  .toast { bottom: calc(var(--tabbar-total) + 1rem); }
+  .pwa-update-banner { bottom: calc(var(--tabbar-total) + 1rem); }
+  /* The slim bar keeps the brand and Ask: its Ask is an icon with its name. */
+  .global-toolbar { gap: 12px; }
+  .gt-right { gap: 6px; }
+  .deck-section-tab { min-height: 48px; padding: 0 10px; }
+  .card-grid-container .view-toggle[aria-label="Stack column size"] { display: none; }
+  /* The toolbar takes its own row under the tabs: the add field across the
+     width, then View (`C-Phone`). */
+  .card-toolbar { width: 100%; margin-left: 0; padding: 8px 0 10px; }
+  .ct-add { flex: 1; width: auto; min-width: 0; }
+  .ct-add .deck-input-results { min-width: 0; }
+  .ct-view-summary { display: none; }
+  .ct-view-panel { width: min(300px, calc(100vw - 32px)); }
+  .card-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .card-thumb { aspect-ratio: 488 / 680; border-radius: 4.8% / 3.4%; }
+  .card-thumb img { border-radius: 4.8% / 3.4%; object-fit: cover; }
+  .stack-card-qty, .qty-badge { width: 1.9rem; height: 1.9rem; font-size: var(--fs-xs); padding: .15rem .24rem 0 0; }
+  /* One full-width stack per category (masonry.js clamps to 1 column <700px):
+     cards ~2.4× larger than the old 10rem columns, categories flow vertically.
+     Percentage margins resolve against container WIDTH, so the overlap sliver
+     stays proportional: card height = width × 680/488 ≈ 139.34%. */
+  .stack-masonry-col { flex: 1 1 100%; min-width: 0; max-width: 100%; }
+  .stack-card-wrap { width: 100%; height: auto; aspect-ratio: 488 / 680; }
+  .stack-card-wrap:not(:last-child) { margin-bottom: calc(3rem - 139.34%); }
+  .card-list-row { grid-template-columns: 24px 28px 1fr auto auto; }
+  .card-list-type { display: none; }
+  .hero-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .deck-card-body { padding: 10px 12px 12px; }
+  /* Rules Q&A mobile */
+  .rules-chips {
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+  }
+  .rules-chips::-webkit-scrollbar { display: none; }
+  .rules-chips button { white-space: nowrap; flex: none; }
+  /* The question box is the bottom of this column, so the column has to end
+     above the bottom bar: a taller bar would otherwise sit on top of it. */
+  .rules-chat { height: calc(100dvh - var(--topbar-h) - .2rem - var(--safe-top) - var(--tabbar-total) - 1rem); }
+  .rules-input-row input { border-color: rgba(201,138,58,.4); border-radius: 20px; }
+  .rules-ask-label { display: none; }
+  .rules-ask-icon { display: inline; }
+  .rules-ask-btn { border-radius: 50%; width: 44px; height: 44px; padding: 0; font-size: 17px;
+    display: flex; align-items: center; justify-content: center; }
+  .card-modal img { width: min(85vw, calc(75vh * 63 / 88)); max-width: 85vw; max-height: 75vh; }
+}
+
+/* Responsive: general desktop (700px+) */
+@media (min-width: 700px) {
+  h1 { font-size: 1.5rem; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .wizard-split { display: grid; grid-template-columns: 1fr 320px; gap: .8rem; align-items: start; }
+  .wizard-left, .wizard-right { display: block !important; }
+}
+

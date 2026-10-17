@@ -1,0 +1,224 @@
+/* ── Top bar: the four places, then New deck and the account menu ── */
+.global-toolbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: var(--z-nav);
+  height: calc(var(--topbar-h) + var(--safe-top));
+  display: flex; align-items: center;
+  background: rgba(12,13,17,.92); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 28px; padding-top: var(--safe-top);
+  gap: 32px;
+}
+
+/* Brand: a link home */
+.gt-brand {
+  display: flex; align-items: center; gap: 10px; flex: none;
+  min-height: 44px; color: var(--text);
+  font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
+  font-weight: 600; font-size: 18px; white-space: nowrap;
+}
+.gt-brand:hover { text-decoration: none; }
+.gt-logo-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent);
+  flex: none; transition: box-shadow .15s;
+}
+.gt-brand:hover .gt-logo-dot { box-shadow: 0 0 0 4px var(--accent-soft); }
+
+/* The places. The current one is told apart by weight and tint, plus a rule. */
+.gt-nav { display: flex; align-self: stretch; gap: 4px; }
+.gt-link {
+  display: flex; align-items: center; padding: 0 14px;
+  color: var(--text-secondary); font-weight: 500; white-space: nowrap;
+  transition: color .15s;
+}
+.gt-link:hover { color: var(--text); text-decoration: none; }
+.gt-link[aria-current="page"] { color: var(--text); font-weight: 700; box-shadow: inset 0 -2px 0 var(--accent); }
+.gt-link:focus-visible { outline-offset: -3px; }
+
+/* Right: New deck, then the account menu */
+.gt-right { display: flex; align-items: center; gap: 10px; flex: none; margin-left: auto; }
+.gt-new {
+  display: flex; align-items: center; height: 44px; padding: 0 18px;
+  border-radius: 10px; border: 1px solid transparent;
+  background: var(--accent); color: #1a1206; font-weight: 700; white-space: nowrap;
+  transition: filter .15s, border-color .15s, background .15s;
+}
+.gt-new:hover { filter: brightness(1.12); text-decoration: none; }
+/* On a deck the gold button is Save, so New deck steps back to an outline. */
+.gt-new-quiet { background: transparent; border-color: var(--border-strong); color: var(--text); font-weight: 500; }
+.gt-new-quiet:hover { filter: none; background: var(--hover); }
+.gt-user-wrap { position: relative; }
+.gt-avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--panel-2); border: 1px solid var(--border-strong);
+  color: var(--text); font-size: var(--fs-sm); font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; min-height: auto; min-width: auto; cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.gt-avatar:hover { border-color: var(--accent); background: var(--accent-soft); }
+.gt-avatar.active { border-color: var(--accent); background: var(--accent-soft); }
+
+/* Avatar popup (Archidekt-inspired) */
+.avatar-popup {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 200;
+  width: 240px; background: var(--panel-2); border: 1px solid var(--border-strong);
+  border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,.5);
+  animation: fadeSlideIn .12s ease-out;
+}
+.avp-section { padding: 6px 4px; }
+.avp-email {
+  padding: 6px 12px 8px; font-size: var(--fs-xs); color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.avp-row {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; font-size: var(--fs-sm); color: var(--text);
+  background: transparent; border: none; border-radius: 8px;
+  cursor: pointer; text-align: left; font-family: inherit; min-height: 44px;
+  transition: background .1s;
+}
+.avp-row:hover { background: var(--hover); }
+.avp-row-danger { color: var(--bad); }
+
+
+/* The deck's sections (job 3.1): Cards, Improve, Stats as tabs under the
+   header, told apart the way the bar's places are, by weight and a gold rule.
+   The scroll margin clears the fixed bar when a section is opened from below. */
+.deck-sections {
+  display: flex; gap: 4px; min-width: 0; max-width: 100%;
+  overflow-x: auto; scrollbar-width: none;
+  scroll-margin-top: calc(var(--topbar-h) + var(--safe-top) + 8px);
+}
+.deck-section-tab {
+  flex: none; min-height: 56px; padding: 0 12px;
+  background: none; border: 0; border-radius: 0;
+  color: var(--text-secondary); font-weight: 500; white-space: nowrap;
+}
+.deck-section-tab:hover { background: none; color: var(--text); }
+.deck-section-tab:active:not(:disabled) { transform: none; }
+.deck-section-tab[aria-selected="true"] { color: var(--text); font-weight: 700; box-shadow: inset 0 -2px 0 var(--accent); }
+.deck-section-tab:focus-visible { outline-offset: -3px; }
+/* Improve and Stats are reading width, not the card grid's full width. */
+.deck-section-panel { max-width: 900px; }
+/* How to play (job 3.4) */
+.htp { display: flex; flex-direction: column; gap: .8rem; }
+.htp-sec { margin: 0; }
+.htp-h { margin: 0 0 .4rem; font-size: var(--fs-sm); font-weight: 700; }
+.htp-text { margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.6; max-width: 68ch; }
+.htp-syn { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .45rem; font-size: var(--fs-sm); line-height: 1.5; }
+.htp-cards { font-weight: 600; }
+.htp-note { color: var(--text-secondary); }
+.htp-actions { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.htp-error { margin: 0; color: var(--danger); font-size: var(--fs-sm); }
+/* Sized for the old 20rem rail; given the panel's width, the stat tiles sit in
+   one row and Deck DNA's values ("1/3 (1 light) ·thin") stop wrapping. */
+@media (min-width: 700px) {
+  .deck-section-panel .stat-grid { grid-template-columns: repeat(4, 1fr); }
+  .deck-section-panel .barlist-dna .barrow { grid-template-columns: 96px 1fr 8.5rem; }
+}
+.deck-goals-assessment {
+  display: flex; flex-direction: column; gap: .6rem; margin-bottom: .8rem;
+}
+/* Read by screen readers, not shown. (Not `.sr-only`: App.jsx's skip link
+   uses that name and shows itself on focus, which a clip would undo.) */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+/* The deck header (job 3.2, `Pick-Deck`): the commander's art under a dark
+   wash, "Decks / name", one line of facts, Playtest, Save, More. Sizes in px
+   to match the mockup (the root font is 14px). Above the tabs and the
+   commander picker, so its More menu opens over them. */
+.deck-head {
+  position: relative; z-index: 10; margin-bottom: 4px; border-radius: 14px;
+  background: #16181f; color-scheme: dark;
+}
+.deck-head-art {
+  position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit;
+  object-fit: cover; object-position: 50% 24%;
+}
+.deck-head::before {
+  content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit;
+  background: linear-gradient(90deg, rgba(12,13,17,.96) 0%, rgba(12,13,17,.82) 50%, rgba(12,13,17,.3) 100%);
+}
+.deck-head-plain::before { display: none; }
+.deck-head-body {
+  position: relative; z-index: 2; min-height: 80px; padding: 20px 28px;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;
+}
+.deck-head-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.deck-head-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; min-width: 0; }
+.deck-head-crumb { color: var(--text-secondary); font-weight: 500; font-size: 15px; }
+.deck-head-crumb:hover { color: var(--text); }
+.deck-head-sep { color: #8b909a; }
+.deck-title {
+  margin: 0; min-width: 0; overflow-wrap: anywhere;
+  font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
+  font-weight: 600; font-size: 30px; line-height: 1.1;
+}
+.deck-head .dh-rename { color: var(--text-secondary); font-size: 15px; }
+.deck-head-facts {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 2px 20px;
+  color: #d6d8de; font-size: 15px;
+}
+/* The format reads as the first fact; its box shows on hover and focus. */
+.deck-head .dh-format {
+  width: auto; min-height: 32px; padding: 2px 4px; margin-left: -4px; font-size: 15px;
+  color: var(--text); background: transparent;
+  border: 1px solid transparent; border-radius: 8px; cursor: pointer;
+}
+.deck-head .dh-format:hover, .deck-head .dh-format:focus-visible { border-color: rgba(255,255,255,.22); }
+.deck-head .dh-format option { background: #16181f; color: #ededf0; }
+.deck-head-count.is-warn { color: var(--warn); }
+.deck-head-count.is-bad, .deck-head-illegal { color: var(--bad); }
+.deck-head-legal { color: var(--good); }
+.deck-head-locked { color: var(--warn); }
+.deck-head-actions { display: flex; align-items: center; gap: 10px; }
+.deck-head-ghost, .deck-head .more-menu-btn {
+  min-height: 44px; padding: 0 16px; border-radius: 10px; font-weight: 500;
+  border: 1px solid rgba(255,255,255,.22); background: rgba(12,13,17,.5); color: var(--text);
+}
+.deck-head .more-menu-btn { min-width: 44px; padding: 0 12px; }
+.deck-head-ghost:hover, .deck-head .more-menu-btn:hover { border-color: rgba(255,255,255,.4); background: rgba(12,13,17,.5); }
+.deck-head-save { min-height: 44px; padding: 0 20px; border-radius: 10px; font-weight: 700; }
+/* Commander picker row, under the header on both sizes. */
+.cmdr-input-row { position: relative; z-index: 9; margin-bottom: .55rem; }
+.cmdr-suggest { margin: .4rem 0 0; }
+
+/* More (⋯) dropdown menu */
+.more-menu { position: relative; }
+.more-menu-btn {
+  min-height: 36px; min-width: 36px; padding: 0 .5rem; font-size: 1.2rem;
+  line-height: 1; background: var(--panel-2);
+}
+.more-menu-list {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 30;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow-md); min-width: 170px; padding: .25rem; overflow: hidden;
+  animation: fadeSlideIn .12s ease-out;
+}
+.more-menu-item {
+  display: flex; align-items: center; gap: .5rem; width: 100%; text-align: left;
+  background: transparent; border: none; border-radius: 6px; padding: .5rem .6rem;
+  min-height: auto; font-size: var(--fs-sm); color: var(--text); transition: background .12s;
+}
+.more-menu-item:hover { background: var(--hover); }
+.more-menu-item.danger { color: var(--bad); }
+.more-menu-icon { width: 1.1em; text-align: center; opacity: .8; }
+
+.sidebar-warming-pill {
+  margin: .3rem .5rem; padding: 4px 8px;
+  background: rgba(var(--warn-rgb, 229,184,76), .11);
+  color: var(--warn, #e5b84c); font-size: var(--fs-xs); border-radius: 4px;
+}
+.sidebar-section { margin-bottom: .4rem; }
+.sidebar-section summary {
+  cursor: pointer; user-select: none; list-style: none;
+  padding: .35rem .5rem; border-radius: var(--radius);
+  transition: background .15s;
+}
+.sidebar-section summary:hover { background: var(--hover); }
+.sidebar-section summary::-webkit-details-marker { display: none; }
+.sidebar-section summary::before { content: "▸ "; color: var(--muted); font-size: var(--fs-xs); }
+.sidebar-section[open] summary::before { content: "▾ "; }

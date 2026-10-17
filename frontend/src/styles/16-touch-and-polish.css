@@ -1,0 +1,34 @@
+/* == Touch ergonomics (visual-standards audit 2026-07-17) ==================
+   On coarse pointers every control owns the 44px Apple/Material/WCAG hit
+   target. !important is deliberate: it must beat component-level
+   min-heights (including .mobile-deck-save's own !important) without
+   enumerating ~30 rules. Fine pointers (desktop) are untouched.
+   Controls whose VISUAL size can't grow -- adjacent icon pairs, corner
+   close buttons -- are exempted and get an invisible ::after hit extender;
+   tight stacks extend less so neighboring zones don't overlap. */
+@media (pointer: coarse) {
+  button:not(.card-rail-btn):not(.cdm-close):not(.cdm-flip):not(.pw-cardchip-btn):not(.deck-card-menu-btn):not(.dg-suggest-x):not(.color-filter-pip),
+  input, select {
+    min-height: 44px !important;
+  }
+  .cdm-stepper button { min-height: auto !important; }
+  .card-rail-btn, .cdm-close, .cdm-flip, .cdm-stepper button,
+  .pw-cardchip-btn, .deck-card-menu-btn, .dg-suggest-x { position: relative; }
+  .cdm-close::after, .cdm-flip::after, .deck-card-menu-btn::after, .dg-suggest-x::after {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    width: 44px; height: 44px; transform: translate(-50%, -50%);
+  }
+  .card-rail-btn::after, .cdm-stepper button::after, .pw-cardchip-btn::after,
+  .color-filter-pip::after {
+    content: ""; position: absolute; inset: -5px;
+  }
+}
+
+/* == Interaction & typography polish (visual-standards audit 2026-07-17) ==
+   tap-highlight: our controls paint their own pressed states -- the UA grey
+   flash on Android/iOS reads as jank. touch-action: removes double-tap-zoom
+   ambiguity on controls. text-wrap: keeps multi-line headings from
+   orphaning their last word. */
+html { -webkit-tap-highlight-color: transparent; }
+button, a, select, [role="button"] { touch-action: manipulation; }
+h1, h2, h3 { text-wrap: balance; }

@@ -1,0 +1,160 @@
+/* ── Touch fallbacks (drag-and-drop / hover don't exist on touch) ── */
+/* ⋯ "move to category" menu on image cards — pointer devices use drag instead. */
+.stack-card-movemenu { position: absolute; top: 3px; right: 3px; z-index: 5; }
+.stack-card-movemenu .more-menu-btn {
+  background: rgba(0,0,0,.72); color: var(--text); border-radius: 4px; width: 22px; height: 22px;
+}
+/* On touch (.stack-touch, set from the same canHover signal the JS uses) row actions
+   can't be hover-revealed, so keep them always visible — and grow rows/buttons
+   toward the 44px touch-target guideline (desktop keeps its dense 26px rows). */
+.stack-touch .ts-row-actions { display: flex; }
+.stack-touch .ts-row { height: 40px; }
+.stack-touch .ts-row-btn { width: 32px; height: 32px; }
+.stack-touch .stack-card-movemenu .more-menu-btn { width: 32px; height: 32px; }
+@media (max-width: 500px) {
+  .text-stack-view .stack-masonry-col { min-width: 11rem; max-width: 100%; }
+}
+
+/* ── AI panel toggle ── */
+.ai-panel-toggle {
+  display: flex; background: rgba(255,255,255,.05);
+  border-radius: 5px; padding: 2px; gap: 1px;
+}
+.ai-panel-toggle button {
+  font-size: var(--fs-2xs); font-weight: 500; padding: .2rem .5rem;
+  border: none; border-radius: 4px; cursor: pointer; min-height: auto;
+  background: transparent; color: var(--muted);
+  transition: background .15s, color .15s;
+}
+.ai-panel-toggle button.active {
+  background: var(--accent); color: #1a1206; font-weight: 700;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+/* Deck tiles: the whole tile but its ⋯ button is one link to the deck. */
+.hero-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 20px; }
+.deck-card {
+  position: relative; background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  transition: border-color .15s;
+}
+.deck-card:hover { border-color: var(--border-strong); }
+/* Above the next row's ⋯ buttons, which its menu can drop over. */
+.deck-card-menu-open { z-index: 3; }
+.deck-card-link { display: flex; flex-direction: column; color: var(--text); border-radius: 12px; }
+.deck-card-link:hover { text-decoration: none; }
+.deck-card-art { display: block; aspect-ratio: 16 / 10; overflow: hidden; border-radius: 11px 11px 0 0; }
+.deck-card-art img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; display: block; }
+.deck-card-art-ph { display: block; width: 100%; height: 100%; background: linear-gradient(135deg, var(--panel-2), var(--panel)); }
+/* The commander's colour identity, one equal segment per colour. */
+.deck-card-colorbar { display: flex; height: 4px; }
+.deck-card-colorseg { flex: 1; }
+.colorseg-W { background: var(--mtg-w); } .colorseg-U { background: var(--mtg-u); }
+.colorseg-B { background: var(--mtg-b); } .colorseg-R { background: var(--mtg-r); }
+.colorseg-G { background: var(--mtg-g); } .colorseg-C { background: var(--mtg-c); }
+.deck-card-body { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px 16px; }
+.deck-card-name {
+  font-size: 15px; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.deck-card-facts { font-size: 14px; color: var(--text-secondary); }
+.deck-card-time { font-size: 13px; color: var(--text-secondary); }
+.deck-card-menu-wrap { position: absolute; top: 8px; right: 8px; z-index: 2; }
+.deck-card-menu-btn {
+  display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; min-height: 0;
+  padding: 0; border: 0; border-radius: 8px; cursor: pointer;
+  background: rgba(12,13,17,.72); color: #ededf0;
+}
+.deck-card-menu-btn:hover { background: rgba(12,13,17,.9); }
+.deck-card-menu {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 50;
+  background: var(--panel-2); border: 1px solid var(--border-strong); border-radius: 8px;
+  box-shadow: var(--shadow-md); padding: 4px; min-width: 140px;
+  animation: fadeSlideIn .12s ease-out;
+}
+.deck-card-menu-item {
+  width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+  padding: 7px 10px; font-size: var(--fs-xs); color: var(--text); border-radius: 6px;
+  font-family: inherit; min-height: auto;
+}
+.deck-card-menu-item:hover { background: var(--hover); }
+.deck-card-menu-danger { color: var(--bad); }
+.deck-card-menu-divider { height: 1px; background: var(--border); margin: 4px 8px; }
+
+/* Wizard split view */
+.wizard-split { display: block; }
+.wizard-left, .wizard-right { display: none; }
+
+/* ── Deck header rename ── */
+.dh-rename {
+  background: none; border: none; padding: 0 .3rem; min-height: auto;
+  font-size: var(--fs-xs); color: var(--muted); cursor: pointer; vertical-align: middle;
+  opacity: 0; transition: opacity .12s, color .12s;
+}
+.deck-title:hover .dh-rename, .dh-rename:focus-visible { opacity: 1; }
+.dh-rename:hover { color: var(--accent); background: none; border: none; }
+.dh-title-input {
+  font-size: 22px; font-weight: 700; letter-spacing: -.02em; color: var(--text);
+  padding: .1rem .45rem; min-height: 40px; width: min(420px, 70vw);
+  background: rgba(12,13,17,.6); border: 1px solid var(--accent); border-radius: 6px;
+}
+
+/* ── URL import replace-confirm (reuses .icm modal shell) ── */
+.icm-confirm-text { font-size: var(--fs-xs); line-height: 1.6; color: var(--text-secondary); margin: .2rem 0; }
+.icm-confirm-text strong { color: var(--text); }
+
+/* ── Considering column / group — pinned, never part of the maindeck ── */
+.stack-column-considering { border-style: dashed; border-color: var(--border-strong); }
+.considering-group .group-header { cursor: default; }
+.considering-star { color: var(--warn); font-size: var(--fs-sm); }
+.considering-note {
+  font-size: var(--fs-2xs); font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--muted); background: var(--panel-2); border-radius: 3px; padding: 1px 5px;
+}
+.mdfc-hint { color: var(--accent-2); font-size: var(--fs-xs); white-space: nowrap; }
+/* Considering zero-state — slim dashed CTA where the column would appear */
+.considering-zero {
+  display: flex; align-items: center; gap: .55rem; flex-wrap: wrap;
+  margin-top: 1rem; padding: .55rem .8rem;
+  border: 1px dashed var(--border-strong); border-radius: var(--radius-lg);
+  color: var(--text-secondary); font-size: var(--fs-xs);
+}
+.considering-zero .considering-star { color: var(--muted); }
+.considering-zero-text { flex: 1; min-width: 14rem; }
+.considering-zero button { flex: none; }
+
+.cdm-consider-tag { color: var(--warn); background: rgba(229,184,76,.12); }
+
+/* Printing/art switcher (card detail modal) */
+.cdm-print-toggle {
+  padding: .2rem .6rem; min-height: 30px; font-size: var(--fs-xs); font-weight: 600;
+  background: var(--bg-raised); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text-secondary); cursor: pointer;
+}
+.cdm-print-toggle:hover { border-color: var(--accent); color: var(--text); }
+.cdm-prints {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: .45rem; margin-top: .5rem; max-height: 240px; overflow-y: auto;
+  overscroll-behavior: contain; padding: 2px;
+}
+.cdm-print {
+  display: flex; flex-direction: column; gap: 2px; padding: 3px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+  cursor: pointer; min-height: auto;
+}
+.cdm-print:hover { border-color: var(--accent); }
+.cdm-print.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.cdm-print img { width: 100%; border-radius: 4.8% / 3.4%; display: block; }
+.cdm-print-noimg {
+  display: flex; align-items: center; justify-content: center; aspect-ratio: 488/680;
+  font-size: var(--fs-xs); font-weight: 700; color: var(--muted);
+}
+.cdm-print-set {
+  font-size: var(--fs-2xs); font-weight: 600; color: var(--muted); text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cdm-print.on .cdm-print-set { color: var(--accent); }
+

@@ -1,0 +1,137 @@
+/* ===== Import cards modal ===== */
+.icm-overlay {
+  position: fixed; inset: 0; z-index: 130; background: rgba(0,0,0,.6);
+  display: grid; place-items: center; padding: 1rem;
+}
+.icm-panel {
+  width: min(540px, 100%); background: var(--panel);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.icm-head { display: flex; align-items: center; justify-content: space-between; padding: .8rem 1.1rem; border-bottom: 1px solid var(--border); }
+.icm-head h3 { margin: 0; font-size: var(--fs-base); }
+.icm-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: var(--fs-base); padding: .2rem .4rem; }
+.icm-close:hover { color: var(--text); }
+.icm-tabs { display: flex; gap: 2px; padding: .6rem 1.1rem 0; }
+.icm-tabs button {
+  background: none; border: none; cursor: pointer; color: var(--text-secondary);
+  font-size: var(--fs-xs); font-weight: 500; padding: .45rem .8rem;
+  border-bottom: 2px solid transparent; border-radius: var(--radius) var(--radius) 0 0;
+}
+.icm-tabs button.on { color: var(--accent); border-bottom-color: var(--accent); background: var(--accent-soft); }
+.icm-body { padding: .9rem 1.1rem; }
+.icm-body textarea {
+  width: 100%; height: 180px; resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-xs);
+  background: var(--bg-raised); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: .6rem .7rem;
+}
+.icm-body textarea:focus, .icm-body input:focus { outline: none; border-color: var(--accent); }
+.icm-body input { width: 100%; }
+.icm-hint { margin-top: .5rem; font-size: var(--fs-xs); color: var(--muted); }
+.icm-srcs { display: flex; gap: .4rem; margin-top: .6rem; }
+.icm-src { font-size: var(--fs-xs); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 999px; padding: .15rem .55rem; }
+.icm-foot { display: flex; justify-content: flex-end; gap: .5rem; padding: 0 1.1rem .9rem; }
+
+/* ── Upgrade-review guide (Job 3) — the icm shell, gen-* progress bar and
+   gen-card-row rating rows are all reused as-is; only the content is new. */
+.upr-panel { width: min(560px, 100%); }
+.upr-progress { padding: 0 1.1rem; margin-top: .6rem; }
+.upr-body { display: flex; flex-direction: column; gap: .6rem; max-height: 60vh; overflow-y: auto; }
+.upr-lede { margin: 0; font-size: var(--fs-xs); color: var(--text-secondary); line-height: 1.5; }
+.upr-bracket { display: flex; flex-direction: column; gap: .3rem; align-items: flex-start; }
+.upr-error { color: var(--bad); }
+
+/* ── Mass art modal — set chips + preview grid on the .icm shell ── */
+.mam-panel { max-width: 34rem; }
+.mam-panel label { display: block; font-size: var(--fs-xs); font-weight: 600; margin: .6rem 0 .25rem; }
+.mam-search { position: relative; }
+.mam-search input { width: 100%; }
+.mam-ac { max-height: 14rem; overflow-y: auto; }
+.mam-chips { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .35rem; }
+.mam-chip {
+  display: inline-flex; align-items: center; gap: .3rem;
+  font-size: var(--fs-xs); padding: .2rem .3rem .2rem .5rem;
+  border: 1px solid var(--border-strong); border-radius: 999px; background: var(--panel-2);
+}
+.mam-chip-rank {
+  font-size: var(--fs-2xs); font-weight: 700; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 999px;
+  width: 1.1rem; height: 1.1rem; display: inline-flex; align-items: center; justify-content: center;
+}
+.mam-chip-code { color: var(--muted); font-weight: 600; }
+.mam-chip-x {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  padding: .1rem .3rem; font-size: var(--fs-2xs); border-radius: 999px; min-height: 0;
+}
+.mam-chip-x:hover { color: var(--text); background: var(--hover); }
+.mam-rarity { width: auto; min-width: 10rem; }
+.mam-preview { margin-top: .7rem; }
+.mam-preview-head { font-size: var(--fs-xs); }
+.mam-matches {
+  display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .5rem;
+  max-height: 13rem; overflow-y: auto;
+}
+.mam-match { position: relative; width: 3.4rem; }
+.mam-match img, .mam-thumb-ph {
+  width: 100%; aspect-ratio: 488 / 680; border-radius: 6% / 4.5%;
+  background: var(--panel-2); display: block;
+}
+.mam-match-set {
+  position: absolute; bottom: .15rem; left: 50%; transform: translateX(-50%);
+  font-size: var(--fs-2xs); font-weight: 700; letter-spacing: .02em;
+  background: rgba(0,0,0,.75); color: #fff; border-radius: 3px; padding: .05rem .25rem;
+}
+.mam-unmatched { margin-top: .5rem; }
+.mam-unmatched summary { cursor: pointer; }
+.mam-unmatched p { margin: .3rem 0 0; line-height: 1.5; }
+.mam-foot { align-items: center; }
+.mam-clear { margin-right: auto; }
+
+/* ===== Export deck modal (Archidekt-style copy/paste) ===== */
+.edm-overlay {
+  position: fixed; inset: 0; z-index: 130; background: rgba(0,0,0,.6);
+  display: grid; place-items: center; padding: 1rem;
+}
+.edm-panel {
+  width: min(540px, 100%); background: var(--panel);
+  border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.edm-head { display: flex; align-items: center; justify-content: space-between; padding: .8rem 1.1rem; border-bottom: 1px solid var(--border); }
+.edm-head h3 { margin: 0; font-size: var(--fs-base); }
+.edm-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: var(--fs-base); padding: .2rem .4rem; }
+.edm-close:hover { color: var(--text); }
+.edm-body { padding: .9rem 1.1rem; }
+.edm-body textarea {
+  width: 100%; height: 220px; resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-xs);
+  background: var(--bg-raised); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: .6rem .7rem;
+}
+.edm-body textarea:focus { outline: none; border-color: var(--accent); }
+.edm-hint { margin-top: .5rem; font-size: var(--fs-xs); color: var(--muted); }
+.edm-foot { display: flex; justify-content: flex-end; gap: .5rem; padding: 0 1.1rem .9rem; flex-wrap: wrap; }
+
+/* Card search: which deck Add goes to, and the way back to it */
+.cards-deck { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; margin: 0 0 .6rem; color: var(--text-secondary); }
+.cards-deck strong { color: var(--text); }
+.cards-deck-back { display: inline-flex; align-items: center; min-height: 44px; font-weight: 500; }
+/* A long deck name is cut short on every row; the title and the line above carry it in full. */
+.cards-add { max-width: 11rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A phone has no room for five columns (at 360 the narrowest table is wider than its box),
+   so each result stacks: name, then type, CMC and price, then Add across the width. */
+@media (max-width: 700px) {
+  .results-table, .results-table tbody { display: block; }
+  .results-table thead { display: none; }
+  .results-table tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .4rem; padding: .6rem 0; border-bottom: 1px solid var(--border); }
+  /* min-width 0: else the cell is as wide as the button's whole unwrapped text. */
+  .results-table td { padding: 0; border: 0; min-width: 0; color: var(--text-secondary); }
+  .results-table td:first-child { flex-basis: 100%; color: var(--text); }
+  .results-table td:nth-child(3)::before { content: "· CMC "; }
+  .results-table td:nth-child(4)::before { content: "· "; }
+  .results-table td:nth-child(5) { flex-basis: 100%; margin-top: .3rem; }
+  .results-table button.cards-add { width: 100%; max-width: none; text-align: left; border-color: var(--border); }
+}
+
+

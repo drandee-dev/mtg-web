@@ -1,0 +1,365 @@
+/* ── Insights toolbox — sticky tab strip + single content pane ── */
+.insp {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); scroll-margin-top: .25rem;
+}
+.insp-tabs {
+  position: sticky; top: calc(var(--topbar-h) + var(--safe-top)); z-index: 5;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+  padding: 6px; background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.insp-tab {
+  position: relative; display: flex; flex-direction: column; align-items: center;
+  gap: 2px; padding: 6px 2px 5px; min-height: 44px;
+  background: transparent; border: 1px solid transparent; border-radius: var(--radius);
+  color: var(--muted); cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.insp-tab:hover { background: var(--hover); color: var(--text-secondary); border-color: transparent; }
+.insp-tab.active { background: var(--accent-soft); color: var(--accent); border-color: rgba(201,138,58,.35); }
+.insp-tab:disabled { cursor: wait; opacity: .85; }
+.insp-tab-icon { display: flex; height: 14px; align-items: center; }
+.insp-tab-label { font-size: var(--fs-2xs); font-weight: 600; letter-spacing: .02em; }
+.insp-tab-count {
+  position: absolute; top: 3px; right: 5px;
+  font-size: var(--fs-2xs); font-weight: 700; font-variant-numeric: tabular-nums;
+  background: var(--accent); color: #1a1206; border-radius: 999px;
+  padding: 0 4px; line-height: 1.5;
+}
+.insp-spinner {
+  width: 12px; height: 12px; border-radius: 50%; display: inline-block;
+  border: 2px solid var(--border-strong); border-top-color: var(--accent);
+  animation: inspSpin .7s linear infinite;
+}
+@keyframes inspSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .insp-spinner { animation-duration: 1.6s; } }
+
+.insp-body { padding: .55rem .6rem .7rem; min-height: 120px; }
+.insp-subhead {
+  margin: .8rem 0 .35rem; font-size: var(--fs-2xs); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+}
+.insp-badges { display: flex; gap: .3rem; flex-wrap: wrap; margin-top: .4rem; }
+.insp-empty { margin: .3rem 0; }
+.insp-note { margin: 0 0 .3rem; font-size: var(--fs-xs); color: var(--muted); }
+.insp-list { margin: .2rem 0; padding-left: 1rem; }
+.insp-select { width: 100%; margin-bottom: .4rem; min-height: 34px; padding: .3rem .5rem; font-size: var(--fs-xs); }
+.insp-act {
+  padding: .15rem .5rem; min-height: 26px; font-size: var(--fs-xs); font-weight: 600;
+  background: transparent; border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text-secondary); cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.insp-act:hover { background: var(--hover); border-color: var(--border-strong); }
+.insp-act-good { color: var(--good); border-color: rgba(61,206,138,.3); }
+.insp-act-good:hover { background: rgba(61,206,138,.12); border-color: rgba(61,206,138,.5); }
+
+/* ── Combos — rich combo cards (result + steps + mana), not bare name rows ── */
+.badge.gold { color: var(--accent); background: rgba(201,138,58,.14); }
+.combo-list { display: flex; flex-direction: column; gap: .5rem; }
+.combo-card {
+  position: relative; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--panel-2, var(--hover)); padding: .55rem .6rem .55rem .7rem; overflow: hidden;
+}
+.combo-card::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--accent); opacity: .8;
+}
+.combo-win::before { background: var(--bad); }
+.combo-value::before { background: var(--good); }
+.combo-miss::before { background: var(--warn); }
+.combo-top { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin-bottom: .3rem; }
+.combo-chip {
+  font-size: var(--fs-2xs); color: var(--text-secondary); border: 1px solid var(--border);
+  border-radius: 5px; padding: .05rem .35rem; font-variant-numeric: tabular-nums;
+}
+.combo-mana { font-family: var(--mono, ui-monospace, monospace); color: var(--accent-2); }
+.combo-add { margin-left: auto; }
+.combo-cards { font-size: var(--fs-xs); font-weight: 600; line-height: 1.4; }
+.combo-plus { color: var(--muted); font-weight: 400; }
+.combo-missing { color: var(--warn); }
+.combo-result {
+  font-size: var(--fs-xs); font-weight: 600; color: var(--accent);
+  margin-top: .2rem; display: flex; gap: .3rem;
+}
+.combo-arrow { color: var(--muted); }
+.combo-desc { font-size: var(--fs-2xs); color: var(--text-secondary); line-height: 1.5; margin: .35rem 0 0; }
+.combo-foot { display: flex; align-items: center; gap: .5rem; margin-top: .35rem; }
+.combo-fold {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  font-size: var(--fs-2xs); font-weight: 600; color: var(--accent-2); padding: 0;
+}
+.combo-fold:hover { text-decoration: underline; }
+.combo-goldfish {
+  background: none; border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+  font-size: var(--fs-2xs); font-weight: 600; color: var(--text-secondary); padding: .12rem .45rem;
+}
+.combo-goldfish:hover { background: var(--hover); border-color: var(--border-strong); color: var(--accent); }
+/* When the fold button is absent, the goldfish button owns the right edge. */
+.combo-foot > .combo-goldfish:last-child { margin-left: auto; }
+.insp-mode-toggle { margin-bottom: .45rem; }
+.insp-pane-bar { display: flex; justify-content: flex-end; align-items: center; gap: .45rem; margin-bottom: .35rem; }
+.insp-refresh { display: inline-flex; align-items: center; gap: .3rem; }
+/* Cached results predate the current card list — badge + emphasized Refresh */
+.insp-stale-badge {
+  font-size: var(--fs-2xs); font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--warn); background: rgba(229,184,76,.12);
+  border: 1px solid rgba(229,184,76,.35); border-radius: 999px; padding: .1rem .45rem;
+}
+.insp-refresh-hot { color: var(--warn); border-color: rgba(229,184,76,.5); }
+.insp-tab-stale {
+  position: absolute; top: 3px; right: 5px; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--warn);
+}
+/* When a count badge occupies the corner, sit the stale dot in the other one */
+.insp-tab-count ~ .insp-tab-stale { right: auto; left: 5px; }
+/* Pinned suggestions — user-kept rows above the fetched list */
+.insp-pin { display: inline-flex; align-items: center; }
+.insp-pin.on { color: var(--accent); border-color: rgba(201,138,58,.5); }
+.insp-hidden-note {
+  display: flex; align-items: center; gap: .45rem; justify-content: flex-end;
+  font-size: var(--fs-xs); color: var(--muted); margin: .4rem 0 0;
+}
+.insp-linklike { min-height: auto; padding: .1rem .4rem; }
+
+/* Compact draw odds (sidebar) */
+.draw-odds-grid.compact { grid-template-columns: 1fr 1fr; gap: .3rem; }
+.draw-odds-grid.compact label { font-size: var(--fs-xs); }
+.draw-odds-grid.compact input { min-height: 30px; padding: .3rem .4rem; font-size: var(--fs-xs); }
+
+/* Card group headers — clickable to collapse */
+.card-group { margin-bottom: 1rem; }
+.group-header {
+  display: flex; align-items: baseline; gap: .4rem; padding: .35rem .4rem;
+  border-bottom: 1px solid var(--border); margin-bottom: .5rem;
+  background: none; border-left: none; border-right: none; border-top: none;
+  border-radius: var(--radius); color: var(--text); cursor: pointer; width: 100%;
+  text-align: left; min-height: auto; font: inherit;
+  transition: background .15s;
+}
+.group-header:hover { background: var(--hover); border-color: transparent; }
+.group-header h3 { margin: 0; font-size: var(--fs-sm); font-weight: 600; }
+.group-header .count { color: var(--muted); font-size: var(--fs-xs); }
+.group-chevron {
+  font-size: var(--fs-xs); color: var(--muted); transition: transform .15s;
+  display: inline-block; width: 1em; text-align: center;
+}
+.group-chevron.closed { transform: rotate(-90deg); }
+
+/* Card grid — thumbnail images. Radius is percentage-based to match MTG card
+   corner geometry (~4.8% / 3.4%), clipping the white image corners cleanly. */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 16rem)); gap: .7rem; }
+/* Swipe-to-remove wrapper */
+.card-thumb-swipe-wrap { position: relative; overflow: hidden; border-radius: 4.8% / 3.4%; }
+.swipe-remove-action {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 80px;
+  background: var(--bad); color: #fff; border: none; border-radius: 0;
+  font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; min-height: auto; padding: 0;
+}
+
+.card-thumb {
+  position: relative; border-radius: 4.8% / 3.4%; overflow: hidden; cursor: pointer;
+  aspect-ratio: 488 / 680; background: var(--panel-2);
+  transition: box-shadow .15s, transform .25s ease-out;
+}
+.card-thumb:hover { box-shadow: var(--shadow-md); }
+.card-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 4.8% / 3.4%; }
+.card-thumb-placeholder {
+  display: flex; align-items: center; justify-content: center; height: 100%;
+  font-size: var(--fs-xs); color: var(--muted); text-align: center; padding: .3rem;
+}
+/* .qty-badge (grid) shares the corner-triangle styling with .stack-card-qty — see
+   the combined rule in the stack section. */
+/* Card action rail — Archidekt-style vertical controls on the right edge, revealed
+   on hover/focus: quantity stepper (+ / −, − removes the card at 0) then Considering
+   and Scryfall icon buttons. Replaces the old top-right ✕ + bottom gradient overlay. */
+.card-rail {
+  position: absolute; top: 50%; right: .4rem; transform: translateY(-50%); z-index: 6;
+  display: flex; flex-direction: column; align-items: center; gap: .4rem;
+  opacity: 0; transition: opacity .14s; pointer-events: none;
+}
+.card-thumb:hover .card-rail,
+.card-thumb:focus-within .card-rail,
+.stack-card-wrap:hover .card-rail,
+.stack-card-wrap:focus-within .card-rail { opacity: 1; pointer-events: auto; }
+.card-rail-qty {
+  display: flex; flex-direction: column; border-radius: 8px; overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,.55);
+}
+.card-rail-qty .card-rail-btn + .card-rail-btn { border-top: 1px solid rgba(255,255,255,.14); }
+.card-rail-btn {
+  /* padding: 0 — the global button padding leaves no content box at 28px, crushing the icon */
+  width: 28px; height: 28px; min-height: auto; padding: 0; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(12,13,17,.88); color: #fff;
+  backdrop-filter: blur(2px); transition: background .12s, color .12s;
+}
+.card-rail-btn:hover { background: var(--accent); color: #15110a; }
+.card-rail-action { border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.55); }
+
+
+/* Card list — compact text rows */
+.card-list-row {
+  display: grid; grid-template-columns: 28px 36px 1fr auto auto auto;
+  gap: .4rem; align-items: center; padding: .3rem .5rem;
+  border-bottom: 1px solid var(--border); min-height: 40px;
+}
+.card-list-qty { font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
+.card-list-thumb { border-radius: 3px; }
+.card-list-thumb-empty { width: 32px; height: 45px; background: var(--panel-2); border-radius: 3px; }
+.card-list-name { background: none; border: none; color: var(--accent-2); cursor: pointer; text-align: left; padding: 0; font: inherit; min-height: auto; }
+.card-list-name:hover { text-decoration: underline; }
+.card-list-type { max-width: 120px; }
+.card-list-price { font-variant-numeric: tabular-nums; }
+.mdfc-tag {
+  display: inline-block; margin-left: .3rem; padding: 0 .25rem;
+  font-size: var(--fs-2xs); font-weight: 700; letter-spacing: .03em;
+  background: rgba(122,172,248,.15); color: var(--accent-2);
+  border-radius: 3px; vertical-align: middle; line-height: 1.5;
+}
+.card-list-remove { min-height: auto; padding: .2rem .4rem; }
+
+/* Draw probability calculator */
+.draw-odds-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; margin-top: .5rem; }
+.draw-odds-grid label { margin: 0; display: flex; flex-direction: column; gap: .2rem; text-transform: none; letter-spacing: 0; }
+.draw-odds-grid input { min-height: 36px; }
+.draw-odds-result {
+  display: flex; align-items: baseline; gap: .6rem; margin-top: .8rem;
+  padding-top: .8rem; border-top: 1px solid var(--border);
+}
+.draw-odds-pct { font-size: 1.8rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+@media (min-width: 700px) { .draw-odds-grid { grid-template-columns: repeat(4, 1fr); } }
+
+/* Sort dropdown */
+.sort-select {
+  width: auto; min-height: 30px; padding: .25rem .5rem; font-size: var(--fs-xs);
+  background: var(--bg-raised); color: var(--text); border: 1px solid var(--border);
+  border-radius: 7px; font-family: inherit; cursor: pointer;
+}
+.sort-select:hover { border-color: var(--border-strong); }
+
+/* The deck's strip (job 3.3, decision 7): the tabs, then in Cards its
+   toolbar on the same line. Filter and the Stacks/Grid/List switch fold into
+   the View button when the strip runs out of room. The container query
+   measures the strip itself, so anything that narrows it (a wrapping tab
+   list today, an Ask drawer in stage 4) folds them too. Sizes in px to match
+   `Pick-Deck`. Stacked above the board, so the add field's results list is
+   not covered, and below the commander picker above it (z-index 9), whose
+   suggestions open over the strip; the header is 10. */
+.deck-strip {
+  container: deck-strip / inline-size;
+  position: relative; z-index: 8;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px;
+  margin-bottom: .8rem; border-bottom: 1px solid var(--border);
+}
+.card-toolbar {
+  margin-left: auto; padding: 6px 0;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+}
+.ct-add { width: 250px; }
+.card-toolbar .card-typeahead.compact .cta-input-wrap input {
+  width: 100%; min-height: 44px; padding: 0 1.8rem 0 14px; font-size: 15px;
+  background: var(--panel); border: 1px solid var(--border-strong); border-radius: 10px;
+}
+.ct-add .deck-input-results { min-width: 380px; margin-top: 4px; border-radius: var(--radius); }
+.ct-filter {
+  position: relative; display: flex; align-items: center; gap: 4px; width: 180px;
+  padding-right: 8px; background: var(--bg-raised);
+  border: 1px solid var(--border); border-radius: 10px;
+}
+.ct-filter .cg-tb-filter-input { min-height: 42px; padding: 0 12px; font-size: 15px; }
+.ct-filter .cg-tb-filter-clear { border-left: none; padding: 0 4px; }
+.ct-filter .filter-help-pop { right: 0; }
+.card-toolbar .view-toggle-btn, .ct-view-panel .view-toggle-btn { min-height: 44px; padding: 0 13px; font-size: 15px; color: var(--text-secondary); }
+.card-toolbar .view-toggle-btn.active, .ct-view-panel .view-toggle-btn.active { color: var(--text); font-weight: 700; }
+.ct-view { position: relative; }
+.ct-view-btn {
+  min-height: 44px; padding: 0 14px; border-radius: 10px;
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--border-strong); background: transparent; color: var(--text);
+}
+.ct-view-label { font-weight: 700; }
+.ct-view-summary { color: var(--text-secondary); white-space: nowrap; }
+.ct-view-panel {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
+  width: 300px; padding: 14px; display: flex; flex-direction: column; gap: 14px;
+  background: var(--panel); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+}
+.ct-narrow { display: flex; flex-direction: column; gap: 14px; }
+.ct-narrow .ct-filter { width: 100%; }
+/* Rows are <label>s for the selects; undo the global label's caps and margin. */
+.ct-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 0; text-transform: none; letter-spacing: normal; font-weight: 400;
+}
+.ct-row-label { font-size: var(--fs-sm); color: var(--text-secondary); }
+.ct-row .sort-select { min-height: 36px; min-width: 130px; }
+.ct-narrow-inline { display: none; }
+@container deck-strip (max-width: 1100px) {
+  .ct-wide { display: none; }
+  .ct-narrow-inline { display: inline; }
+}
+@container deck-strip (min-width: 1101px) {
+  .ct-narrow { display: none; }
+}
+/* Deck working area: a contained board, visually separated from the strip
+   above it (Archidekt-style). */
+.deck-board {
+  border: 1px solid var(--border); border-radius: 10px;
+  background: rgba(255,255,255,.018); padding: .85rem .85rem .4rem;
+}
+.cg-tb-help {
+  width: 15px; height: 15px; border-radius: 50%; background: var(--panel-2);
+  border: 1px solid var(--border); display: inline-flex; align-items: center;
+  justify-content: center; font-size: 8px; font-weight: 700; color: var(--muted);
+  cursor: pointer; text-transform: none; letter-spacing: 0; padding: 0; min-height: auto;
+}
+.cg-tb-help:hover, .cg-tb-help[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+/* Filter syntax popover — documents what the deck filter matches */
+.filter-help-pop {
+  position: absolute; top: calc(100% + 6px); right: -8px; z-index: 30;
+  width: 250px; padding: .6rem .7rem; text-transform: none; letter-spacing: 0;
+  background: var(--panel); border: 1px solid var(--border-strong);
+  border-radius: var(--radius); box-shadow: var(--shadow-lg);
+}
+.filter-help-pop .fhp-title {
+  font-size: var(--fs-xs); font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em; margin-bottom: .35rem;
+}
+.filter-help-pop table { width: 100%; border-collapse: collapse; }
+.filter-help-pop td { padding: .18rem 0; font-size: var(--fs-xs); color: var(--text-secondary); font-weight: 400; vertical-align: top; }
+.filter-help-pop td:first-child { width: 108px; padding-right: .4rem; }
+.filter-help-pop tr + tr td { border-top: 1px solid var(--border); }
+.filter-help-pop code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: var(--fs-xs);
+  background: rgba(255,255,255,.06); padding: .02rem .22rem; border-radius: 3px;
+}
+.cg-tb-filter-input {
+  flex: 1; background: none; border: none; padding: 7px 10px;
+  font-size: var(--fs-xs); color: var(--text); font-family: inherit; min-width: 0;
+}
+.cg-tb-filter-input::placeholder { color: var(--muted); }
+.cg-tb-filter-clear {
+  background: none; border: none; border-left: 1px solid var(--border);
+  padding: 7px 9px; cursor: pointer; color: var(--muted); font-size: var(--fs-xs); min-height: auto;
+}
+.cg-tb-filter-clear:hover { color: var(--text); }
+
+/* View toggle */
+.view-toggle { display: flex; gap: 0; }
+.view-toggle-btn {
+  padding: .3rem .5rem; min-height: 30px; font-size: var(--fs-sm);
+  border: 1px solid var(--border); background: transparent; color: var(--muted);
+  border-radius: 0; cursor: pointer; transition: background .15s, color .15s;
+}
+.view-toggle-btn:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.view-toggle-btn:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+.view-toggle-btn + .view-toggle-btn { border-left: none; }
+.view-toggle-btn:hover { background: var(--hover); }
+.view-toggle-btn.active { color: var(--accent); background: var(--accent-soft); border-color: rgba(201,138,58,.3); }
+
