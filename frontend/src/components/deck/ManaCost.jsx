@@ -17,7 +17,7 @@ const PIP_CLASS = {
 };
 
 // Self-hosted Scryfall card-symbol SVG (100x100, self-contained circle).
-// size defaults to match the CSS-circle pips it replaces (see .ts-pip in index.css).
+// size defaults to match the CSS-circle pips it replaces (see .ts-pip in src/styles).
 export function ManaIcon({ symbol, size = 15, className = "" }) {
   return (
     <img
