@@ -17,7 +17,7 @@ const OLD_TABS = new Map([
   ["decks", "decks"], ["deck", "deck"], ["commanders", "commanders"],
   ["rules", "rules"], ["cards", "cards"], ["analyze", "deck"], ["build", "deck"],
 ]);
-// What a share link carries (see App's _loadSharedDeck).
+// What a share link carries (see lib/sharedDeck.js).
 const SHARE_PARAMS = ["deck", "fmt", "cmd"];
 // /new?commander=<name>: the commander a new deck starts from.
 const SEED_PARAM = "commander";

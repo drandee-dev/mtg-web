@@ -11,6 +11,11 @@ import { clearDraft, loadDraft, saveDraft } from "./lib/drafts";
 import { dropKept, keepDeck, readKept } from "./lib/kept";
 import { DEFAULT_GOALS, loadGoals, saveGoals } from "./lib/goals";
 import { clearBuildNotes, setBuildNotes } from "./lib/buildNotes";
+import { b64encode } from "./lib/b64";
+import { loadSharedDeck } from "./lib/sharedDeck";
+import { useServerHealth } from "./lib/useServerHealth";
+import { useToast } from "./lib/useToast";
+import PasswordResetModal from "./components/PasswordResetModal";
 import GlobalToolbar from "./components/layout/GlobalToolbar";
 import BottomNav from "./components/layout/BottomNav";
 import ServerStatusBanner from "./components/ServerStatusBanner";
@@ -27,40 +32,6 @@ import Playtest from "./components/Playtest";
 import Ask from "./components/Ask";
 import Commanders from "./components/Commanders";
 
-function PasswordResetModal({ onDone, notify }) {
-  const [pw, setPw] = useState("");
-  const [busy, setBusy] = useState(false);
-  async function submit() {
-    if (pw.length < 6) return notify("Password must be at least 6 characters.");
-    setBusy(true);
-    try {
-      const { error } = await supabase.auth.updateUser({ password: pw });
-      if (error) throw error;
-      notify("Password updated!");
-      onDone();
-    } catch (e) {
-      notify(`Update failed: ${e.message}`);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <div className="account-overlay" onClick={(e) => { if (e.target === e.currentTarget) onDone(); }}>
-      <div className="account-panel">
-        <div className="account-body">
-          <div className="account-section-title">Set New Password</div>
-          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)}
-            placeholder="New password (min 6 characters)" className="account-email-input"
-            onKeyDown={(e) => e.key === "Enter" && submit()} autoFocus />
-          <button onClick={submit} disabled={busy} className="account-magic-link-btn">
-            {busy ? "Updating…" : "Update Password"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // The four places the bars name: id, label, address. A deck is a page under
 // Decks, and the New deck screen is an action beside them, not a place.
 const PLACES = [
@@ -74,32 +45,6 @@ const PLACES = [
 // replaces it on the next Save.
 const UNTITLED = "Untitled deck";
 
-// Unicode-safe base64. Plain btoa/atob throw on non-ASCII bytes, so share links
-// for decks with accented card names (e.g. "Jötun Grunt") would otherwise break.
-function _b64encode(str) {
-  return btoa(String.fromCharCode(...new TextEncoder().encode(str)));
-}
-function _b64decode(b64) {
-  return new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
-}
-
-function _loadSharedDeck() {
-  try {
-    const params = new URLSearchParams(window.location.search);
-    const encoded = params.get("deck");
-    if (!encoded) return null;
-    const decoded = _b64decode(encoded);
-    const fmt = params.get("fmt") || "commander";
-    const cmd = params.get("cmd") || "";
-    // The deck is saved on arrival and the address becomes /decks/<id>
-    // (lib/routes drops the param then). Until that save lands the param stays,
-    // so a reload still finds the deck; opening the link again content-dedups
-    // onto the saved deck, keeping its goals, session log, and chat history.
-    const decklist_text = assembleForStorage(decoded, cmd, "");
-    return decklist_text.trim() ? { format: fmt, decklist_text, commander: cmd } : null;
-  } catch { return null; }
-}
-
 // The open saved deck. `saved` is its copy in storage ({ text, format }), kept
 // in the same object as the id so the two can never be out of step: "unsaved"
 // compares the editor against it.
@@ -110,7 +55,7 @@ function _openDeck(deck, text, format) {
 export default function App() {
   // Parsed once per page load (lazy init): the address moves on once the deck
   // is saved, and what the link carried is still needed after that.
-  const [_shared] = useState(_loadSharedDeck);
+  const [_shared] = useState(loadSharedDeck);
   // Where the app is: { tab, slug, deckId }, the shape lib/routes reads from
   // the address (/rules, /commanders/<slug>, /decks/<id>, /new), through the
   // app's one history mechanism, not a second router. The deck tab with no id
@@ -142,7 +87,7 @@ export default function App() {
   const tabScroll = useRef({});
   const [session, setSession] = useState(null);
   const [decks, setDecks] = useState([]);
-  const [toast, setToast] = useState("");
+  const { toast, notify, dismiss: dismissToast } = useToast();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -153,10 +98,7 @@ export default function App() {
   const toggleAsk = useCallback(() => setAskWanted((v) => !v), []);
   // Deck Goals — user-declared AI optimization intent, persisted per deck.
   const [goals, setGoalsState] = useState(DEFAULT_GOALS);
-  const [serverStatus, setServerStatus] = useState("checking");
-  const [healthRetry, setHealthRetry] = useState(0);
-  const [serverAi, setServerAi] = useState(true);
-  const [serverWarmed, setServerWarmed] = useState(false);
+  const { status: serverStatus, ai: serverAi, warmed: serverWarmed, retry: retryHealth } = useServerHealth();
   const [deckText, setDeckText] = useState("");
   const [format, setFormat] = useState("commander");
   const [commander, setCommander] = useState("");
@@ -379,38 +321,6 @@ export default function App() {
   }, []);
   const aiAvailable = serverAi;
 
-  // Toasts optionally carry one action ("Saved. [Share]"). Action toasts stay
-  // up longer; a new toast replaces the pending dismiss timer.
-  const toastTimer = useRef(null);
-  const notify = useCallback((msg, action) => {
-    setToast(msg ? { text: msg, action: action || null } : "");
-    clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(""), action ? 6500 : 3500);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    setServerStatus("checking");
-    async function check(attempt) {
-      try {
-        const h = await api.health();
-        if (!cancelled) { setServerStatus("ready"); setServerAi(Boolean(h?.ai_available)); setServerWarmed(Boolean(h?.warmed)); }
-      } catch {
-        if (cancelled) return;
-        if (attempt === 0) setServerStatus("waking");
-        // Serverless backend: no cold-start wake to wait out — a failing health
-        // check means a real outage, so give up after ~25s instead of 150s.
-        if (attempt < 5) {
-          setTimeout(() => check(attempt + 1), 5000);
-        } else {
-          setServerStatus("offline");
-        }
-      }
-    }
-    check(0);
-    return () => { cancelled = true; };
-  }, [healthRetry]);
-
   const [showPasswordReset, setShowPasswordReset] = useState(false);
 
   // Whether the initial Supabase session check has resolved. Until it has,
@@ -583,7 +493,7 @@ export default function App() {
   // `full` is a deck as assembleDecklist gives it.
   const copyShareLink = useCallback((full, fmt, cmd) => {
     if (!full.trim()) return notify("No deck to share.");
-    const encoded = _b64encode(full);
+    const encoded = b64encode(full);
     const params = new URLSearchParams({ deck: encoded, fmt });
     if (cmd) params.set("cmd", cmd);
     // From "/", not the current path: the Share toast outlives a tab switch.
@@ -876,7 +786,7 @@ export default function App() {
       {/* Non-blocking: the app renders immediately; the banner only appears if the
           first health check fails ("waking") or all retries are exhausted ("offline"). */}
       {(serverStatus === "waking" || serverStatus === "offline") && (
-        <ServerStatusBanner status={serverStatus} onRetry={() => setHealthRetry((n) => n + 1)} />
+        <ServerStatusBanner status={serverStatus} onRetry={retryHealth} />
       )}
 
       <GlobalToolbar
@@ -1057,7 +967,7 @@ export default function App() {
           {toast.action && (
             <button
               className="toast-action"
-              onClick={() => { clearTimeout(toastTimer.current); setToast(""); toast.action.onClick(); }}
+              onClick={() => { dismissToast(); toast.action.onClick(); }}
             >
               {toast.action.label}
             </button>
