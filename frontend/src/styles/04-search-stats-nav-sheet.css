@@ -90,7 +90,7 @@
 .pwa-return-banner {
   position: fixed; bottom: 1rem; left: 1rem; right: 1rem; z-index: 25;
   display: flex; align-items: center; justify-content: space-between; gap: .6rem;
-  background: var(--good); color: #0c0d11;
+  background: var(--good-fill); color: #0c0d11;
   padding: .6rem .85rem; border-radius: var(--radius);
   box-shadow: var(--shadow-lg); font-size: var(--fs-sm); font-weight: 600;
 }
@@ -101,8 +101,8 @@
 
 /* A Save button once it has saved. */
 .btn-saved {
-  background: var(--good) !important; border-color: var(--good) !important;
-  color: #fff !important; transition: background .3s, border-color .3s;
+  background: var(--good-fill) !important; border-color: var(--good-fill) !important;
+  color: #0c0d11 !important; transition: background .3s, border-color .3s;
 }
 
 /* ── Bottom nav (mobile) ── */
@@ -199,8 +199,8 @@
 
 /* Analytics: type composition, deck-DNA roles, signal chips */
 .type-swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; }
-.bfill-good { background: var(--good) !important; }
-.bfill-warn { background: var(--warn) !important; }
+.bfill-good { background: var(--good-fill) !important; }
+.bfill-warn { background: var(--warn-fill) !important; }
 .bval.role-thin { color: var(--warn); }
 .signal-chips { display: flex; flex-wrap: wrap; gap: .35rem; margin: .3rem 0 .2rem; }
 .signal-chip {

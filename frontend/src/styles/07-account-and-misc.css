@@ -170,11 +170,13 @@
 
 .server-banner.offline {
   background: rgba(58,22,22,.96); border-bottom-color: rgba(239,83,80,.4);
+  /* Dark red in either theme, so what it reads is pinned to the dark values. */
+  --text: #ededf0; --border-strong: rgba(255,255,255,.14); --panel: #16181f;
   color: var(--text);
 }
 .server-banner-dot {
   width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%;
-  background: var(--bad);
+  background: var(--bad-fill);
 }
 .server-banner-retry {
   background: transparent; color: var(--text); border: 1px solid var(--border-strong);

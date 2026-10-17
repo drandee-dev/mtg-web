@@ -25,7 +25,7 @@
 /* The band is art under a dark wash in either theme, so its text reads the
    dark values (as the bars do). */
 .dh-band {
-  --text: #ededf0; --text-secondary: #d6d8de;
+  --text: #ededf0; --text-secondary: #d6d8de; --muted: #868b95; --accent: #c98a3a;
   position: relative; overflow: hidden; border-radius: 16px; min-height: 220px;
   display: flex; align-items: flex-end; background: #16181f; color: var(--text);
 }

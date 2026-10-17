@@ -100,8 +100,13 @@ for (const theme of THEMES) {
         const seen = new Map();
         const skippedAll = [];
         let measured = 0;
-        const audit = async (screen) => {
-          await page.waitForTimeout(150); // let transitions settle
+        // `ready`: something that only exists once the screen has its content, so a
+        // screen is never measured while it still says "loading". The pause after
+        // it is longer than the 150ms button transitions, so no colour is caught
+        // half way.
+        const audit = async (screen, ready) => {
+          if (ready) await ready.first().waitFor({ state: "visible", timeout: 15000 });
+          await page.waitForTimeout(350);
           const { failures, checked, skippedSel } = await page.evaluate(auditPage);
           measured += checked;
           skippedAll.push(...skippedSel.map((s) => `${s} (${screen})`));
@@ -128,8 +133,12 @@ for (const theme of THEMES) {
         await audit("deck, list");
         for (const tab of ["How to play", "Improve", "Stats"]) {
           await openDeckSection(page, tab);
-          await audit(`deck, ${tab}`);
+          // Stats says "Add cards" for about 2.5s before its tiles and roles arrive.
+          await audit(`deck, ${tab}`, tab === "Stats" ? page.getByRole("heading", { name: /Deck DNA/ }) : undefined);
         }
+
+        await page.getByRole("button", { name: "Ask", exact: true }).click();
+        await audit("deck, Ask drawer open", page.locator(".ask-panel"));
 
         await openAddress(page, "/commanders");
         await audit("commanders");
@@ -142,6 +151,18 @@ for (const theme of THEMES) {
         await audit("account menu");
         await openAddress(page, "/nowhere-at-all");
         await audit("unknown address");
+
+        // Three things that only show in rare states, with the app's own classes
+        // (App.jsx, ServerStatusBanner.jsx, StackCard): the sign-in return banner is
+        // a bright green fill, the offline banner is always dark red, and the
+        // synergy badge is a near-black chip over card art, in either theme.
+        await page.evaluate(() => {
+          document.body.insertAdjacentHTML("beforeend",
+            `<div class="pwa-return-banner" role="alert"><span>Signed in! You can return to the MTG Workshop app now.</span><button aria-label="Dismiss">✕</button></div>
+             <div class="server-banner offline" role="alert"><span class="server-banner-dot"></span><span>Server unreachable — deck tools may not work.</span><button class="server-banner-retry">Retry</button></div>
+             <span class="stack-card-synergy" style="position:fixed;top:120px;left:40px">★ 3 synergies</span>`);
+        });
+        await audit("the return and offline banners, a synergy badge", page.locator(".pwa-return-banner"));
 
         const rows = [...seen.values()].sort((a, b) => a.ratio - b.ratio);
         if (process.env.CONTRAST_REPORT) {

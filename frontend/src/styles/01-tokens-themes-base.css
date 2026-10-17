@@ -52,6 +52,9 @@
   /* The gold for FILLS (buttons, bars, dots). Light darkens --accent, which text
      and borders read, so a fill that must stay this gold reads --accent-fill. */
   --accent-fill: #c98a3a;
+  /* Likewise the bright green, amber and red: for fills, dots and bars, and for
+     text on an always-dark surface (a badge over card art). Same in both themes. */
+  --good-fill: #3dce8a; --warn-fill: #e5b84c; --bad-fill: #ef5350;
   --accent-soft: rgba(201,138,58,.12);
   --accent-2: #7cacf8;
   --accent-2-soft: rgba(124,172,248,.12);
@@ -93,7 +96,7 @@
   --border-strong: rgba(0,0,0,.16);
   --text: #1a1a1e;
   --text-secondary: #4a4a52;
-  --muted: #64646e;   /* 4.8:1 on --panel-2 (the dark theme's #72727c was 4.1) */
+  --muted: #64646e;   /* 4.8:1 on --panel-2 (the old #72727c was 4.1) */
   /* The dark theme's gold, blue, green, amber and red are about 2:1 on white as
      text. These are the darker siblings; fills keep the gold via --accent-fill. */
   --accent: #7f5b0e; --accent-2: #1f58b0; --good: #1d7a4d; --warn: #8a5c00; --bad: #b3261e; --danger: #b3261e;

@@ -67,9 +67,9 @@
   content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
   background: var(--accent-fill); opacity: .8;
 }
-.combo-win::before { background: var(--bad); }
-.combo-value::before { background: var(--good); }
-.combo-miss::before { background: var(--warn); }
+.combo-win::before { background: var(--bad-fill); }
+.combo-value::before { background: var(--good-fill); }
+.combo-miss::before { background: var(--warn-fill); }
 .combo-top { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin-bottom: .3rem; }
 .combo-chip {
   font-size: var(--fs-2xs); color: var(--text-secondary); border: 1px solid var(--border);
@@ -111,7 +111,7 @@
 .insp-refresh-hot { color: var(--warn); border-color: rgba(229,184,76,.5); }
 .insp-tab-stale {
   position: absolute; top: 3px; right: 5px; width: 6px; height: 6px;
-  border-radius: 50%; background: var(--warn);
+  border-radius: 50%; background: var(--warn-fill);
 }
 /* When a count badge occupies the corner, sit the stale dot in the other one */
 .insp-tab-count ~ .insp-tab-stale { right: auto; left: 5px; }
