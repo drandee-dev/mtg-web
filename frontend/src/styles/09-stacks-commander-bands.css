@@ -134,7 +134,7 @@
 }
 .stack-card-synergy {
   position: absolute; top: 4px; left: 4px;
-  background: rgba(0,0,0,.78); color: var(--good); border-radius: 3px;
+  background: rgba(0,0,0,.78); color: var(--good-fill); border-radius: 3px;
   padding: 0 4px; font-size: var(--fs-2xs); font-weight: 700; line-height: 1.7;
 }
 

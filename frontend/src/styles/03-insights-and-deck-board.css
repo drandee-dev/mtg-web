@@ -25,7 +25,7 @@
 .insp-tab-count {
   position: absolute; top: 3px; right: 5px;
   font-size: var(--fs-2xs); font-weight: 700; font-variant-numeric: tabular-nums;
-  background: var(--accent); color: #1a1206; border-radius: 999px;
+  background: var(--accent-fill); color: #1a1206; border-radius: 999px;
   padding: 0 4px; line-height: 1.5;
 }
 .insp-spinner {
@@ -65,11 +65,11 @@
 }
 .combo-card::before {
   content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-  background: var(--accent); opacity: .8;
+  background: var(--accent-fill); opacity: .8;
 }
-.combo-win::before { background: var(--bad); }
-.combo-value::before { background: var(--good); }
-.combo-miss::before { background: var(--warn); }
+.combo-win::before { background: var(--bad-fill); }
+.combo-value::before { background: var(--good-fill); }
+.combo-miss::before { background: var(--warn-fill); }
 .combo-top { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin-bottom: .3rem; }
 .combo-chip {
   font-size: var(--fs-2xs); color: var(--text-secondary); border: 1px solid var(--border);
@@ -111,7 +111,7 @@
 .insp-refresh-hot { color: var(--warn); border-color: rgba(229,184,76,.5); }
 .insp-tab-stale {
   position: absolute; top: 3px; right: 5px; width: 6px; height: 6px;
-  border-radius: 50%; background: var(--warn);
+  border-radius: 50%; background: var(--warn-fill);
 }
 /* When a count badge occupies the corner, sit the stale dot in the other one */
 .insp-tab-count ~ .insp-tab-stale { right: auto; left: 5px; }
@@ -198,7 +198,7 @@
   background: rgba(12,13,17,.88); color: #fff;
   backdrop-filter: blur(2px); transition: background .12s, color .12s;
 }
-.card-rail-btn:hover { background: var(--accent); color: #15110a; }
+.card-rail-btn:hover { background: var(--accent-fill); color: #15110a; }
 .card-rail-action { border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.55); }
 
 

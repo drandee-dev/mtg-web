@@ -126,7 +126,7 @@
 /* A link that is its page's main action (the commander page's way to /new). */
 a.btn-link {
   display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px;
-  border-radius: var(--radius); background: var(--accent); color: #1a1206; font-weight: 600;
+  border-radius: var(--radius); background: var(--accent-fill); color: #1a1206; font-weight: 600;
 }
 a.btn-link:hover { filter: brightness(1.12); text-decoration: none; }
 
@@ -141,7 +141,7 @@ a.btn-link:hover { filter: brightness(1.12); text-decoration: none; }
 }
 .gen-pct { font-size: var(--fs-2xs); letter-spacing: .12em; color: var(--muted); font-variant-numeric: tabular-nums; }
 .gen-track { height: 3px; border-radius: 2px; background: var(--hover-strong); overflow: hidden; }
-.gen-fill { height: 3px; border-radius: 2px; background: var(--accent); transition: width .25s ease; }
+.gen-fill { height: 3px; border-radius: 2px; background: var(--accent-fill); transition: width .25s ease; }
 .gen-h2 {
   font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
   font-weight: 600; font-size: var(--fs-lg); margin: 1.4rem 0 .3rem; text-wrap: balance;

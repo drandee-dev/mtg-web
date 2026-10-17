@@ -47,7 +47,7 @@
 /* Mana curve */
 .curve { display: flex; align-items: flex-end; gap: .35rem; height: 120px; }
 .curve .bar { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; text-align: center; }
-.curve .bar .fill { background: var(--accent); border-radius: 4px 4px 0 0; min-height: 2px; }
+.curve .bar .fill { background: var(--accent-fill); border-radius: 4px 4px 0 0; min-height: 2px; }
 .curve .bar .lbl { font-size: var(--fs-xs); color: var(--muted); margin-top: .2rem; }
 .curve .bar .cnt { font-size: var(--fs-xs); }
 
@@ -63,7 +63,7 @@
   box-shadow: var(--shadow-lg); backdrop-filter: blur(8px); font-size: var(--fs-sm); font-weight: 500;
   display: flex; align-items: center; gap: .7rem; }
 .toast-action {
-  flex: none; background: var(--accent); color: #fff; border: none; cursor: pointer;
+  flex: none; background: var(--accent-fill); color: #1a1206; border: none; cursor: pointer;
   font-size: var(--fs-xs); font-weight: 700; padding: .3rem .7rem; border-radius: 999px;
   min-height: 30px; transition: filter .15s;
 }
@@ -78,7 +78,7 @@
   font-size: var(--fs-sm); font-weight: 500;
 }
 .pwa-update-banner button:first-of-type {
-  background: var(--accent); color: #fff; border: none;
+  background: var(--accent-fill); color: #1a1206; border: none;
   padding: .3rem .7rem; border-radius: var(--radius);
   cursor: pointer; font-size: var(--fs-xs); font-weight: 600;
 }
@@ -90,7 +90,7 @@
 .pwa-return-banner {
   position: fixed; bottom: 1rem; left: 1rem; right: 1rem; z-index: 25;
   display: flex; align-items: center; justify-content: space-between; gap: .6rem;
-  background: var(--good); color: #0c0d11;
+  background: var(--good-fill); color: #0c0d11;
   padding: .6rem .85rem; border-radius: var(--radius);
   box-shadow: var(--shadow-lg); font-size: var(--fs-sm); font-weight: 600;
 }
@@ -101,8 +101,8 @@
 
 /* A Save button once it has saved. */
 .btn-saved {
-  background: var(--good) !important; border-color: var(--good) !important;
-  color: #fff !important; transition: background .3s, border-color .3s;
+  background: var(--good-fill) !important; border-color: var(--good-fill) !important;
+  color: #0c0d11 !important; transition: background .3s, border-color .3s;
 }
 
 /* ── Bottom nav (mobile) ── */
@@ -128,7 +128,7 @@
   /* Taller than the 20px icons beside it; the margin gives the height back so
      all five labels sit on one line. */
   width: 34px; height: 26px; border-radius: 8px; margin: -3px 0;
-  background: var(--accent); color: #1a1206;
+  background: var(--accent-fill); color: #1a1206;
   display: flex; align-items: center; justify-content: center;
 }
 
@@ -191,7 +191,7 @@
 .barrow { display: grid; grid-template-columns: 96px 1fr 46px; align-items: center; gap: .5rem; }
 .barrow .blabel { font-size: var(--fs-sm); color: var(--muted); display: flex; align-items: center; gap: .4rem; }
 .barrow .btrack { display: block; height: 10px; background: rgba(255,255,255,.06); border-radius: 5px; overflow: hidden; }
-.barrow .bfill { display: block; height: 100%; background: var(--accent); border-radius: 6px; min-width: 2px; }
+.barrow .bfill { display: block; height: 100%; background: var(--accent-fill); border-radius: 6px; min-width: 2px; }
 .barrow .bval { font-size: var(--fs-sm); text-align: right; font-variant-numeric: tabular-nums; }
 .bfill.fW { background: var(--mtg-w); } .bfill.fU { background: var(--mtg-u); }
 .bfill.fB { background: var(--mtg-b); } .bfill.fR { background: var(--mtg-r); }
@@ -199,8 +199,8 @@
 
 /* Analytics: type composition, deck-DNA roles, signal chips */
 .type-swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; }
-.bfill-good { background: var(--good) !important; }
-.bfill-warn { background: var(--warn) !important; }
+.bfill-good { background: var(--good-fill) !important; }
+.bfill-warn { background: var(--warn-fill) !important; }
 .bval.role-thin { color: var(--warn); }
 .signal-chips { display: flex; flex-wrap: wrap; gap: .35rem; margin: .3rem 0 .2rem; }
 .signal-chip {

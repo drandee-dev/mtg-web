@@ -25,7 +25,7 @@
 /* The band is art under a dark wash in either theme, so its text reads the
    dark values (as the bars do). */
 .dh-band {
-  --text: #ededf0; --text-secondary: #d6d8de;
+  --text: #ededf0; --text-secondary: #d6d8de; --muted: #868b95; --accent: #c98a3a;
   position: relative; overflow: hidden; border-radius: 16px; min-height: 220px;
   display: flex; align-items: flex-end; background: #16181f; color: var(--text);
 }
@@ -58,16 +58,6 @@
    elsewhere. */
 .dh-off { color: var(--warn); }
 .dh-band .dh-off { color: #e5b84c; }
-/* --warn and --accent keep their dark values in Light (about 2:1 on white),
-   so this page's two warm texts take a darker amber there (5.4:1). */
-[data-theme="light"] .dh .dh-off, [data-theme="light"] .dh-more { color: #8a5a12; }
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) .dh .dh-off, :root:not([data-theme="dark"]) .dh-more { color: #8a5a12; }
-}
-[data-theme="light"] .dh .dh-band .dh-off { color: #e5b84c; }
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) .dh .dh-band .dh-off { color: #e5b84c; }
-}
 .dh-section { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .dh-head { display: flex; align-items: baseline; gap: 12px; }
 .dh-head-spread { justify-content: space-between; }

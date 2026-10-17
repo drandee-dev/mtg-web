@@ -5,10 +5,11 @@
   position: fixed; top: calc(var(--topbar-h) + var(--safe-top)); right: 0; bottom: 0;
   z-index: var(--z-sticky); width: var(--ask-w);
   background: #111318; color-scheme: dark;
-  --text: #ededf0; --text-secondary: #b0b4be; --muted: #71767f;
+  --text: #ededf0; --text-secondary: #b0b4be; --muted: #868b95;
   --panel: #16181f; --panel-2: #1c1f28; --bg: #0c0d11; --bg-raised: #111318;
   --hover: rgba(255,255,255,.05); --hover-strong: rgba(255,255,255,.09);
-  --accent-2: #7cacf8; --accent-soft: rgba(201,138,58,.12);
+  --accent: #c98a3a; --accent-2: #7cacf8; --accent-soft: rgba(201,138,58,.12);
+  --good: #3dce8a; --warn: #e5b84c; --bad: #ef5350; --danger: #ef5350;
   --border: rgba(255,255,255,.08); --border-strong: rgba(255,255,255,.14);
   color: var(--text);
   border-left: 1px solid var(--border);

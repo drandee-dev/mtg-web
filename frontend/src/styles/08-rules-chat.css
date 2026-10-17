@@ -29,7 +29,7 @@
   display: flex; align-items: center; gap: .4rem;
 }
 .rules-msg-ai-dot {
-  width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  width: 8px; height: 8px; border-radius: 50%; background: var(--accent-fill);
   box-shadow: 0 0 5px rgba(201,138,58,.4); flex: none;
 }
 .rules-msg-ai-name {
@@ -69,7 +69,7 @@
 }
 .rules-ask-icon { display: none; }
 .rules-ask-btn {
-  background: var(--accent); color: #1a1206; border: none; border-radius: 10px;
+  background: var(--accent-fill); color: #1a1206; border: none; border-radius: 10px;
   padding: .6rem 1.1rem; font-size: var(--fs-xs); font-weight: 700; cursor: pointer;
   min-height: auto; white-space: nowrap; flex: none;
 }

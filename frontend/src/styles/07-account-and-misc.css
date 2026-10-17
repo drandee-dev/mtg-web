@@ -34,7 +34,7 @@
 }
 .account-magic-link-btn {
   width: 100%; padding: 8px 0; font-size: var(--fs-sm);
-  background: var(--accent); color: #1a1206; border: none;
+  background: var(--accent-fill); color: #1a1206; border: none;
   border-radius: 7px; font-weight: 700;
 }
 .account-magic-link-btn:hover { filter: brightness(1.12); }
@@ -52,7 +52,7 @@
   display: flex; align-items: center; gap: 10px;
   padding: 16px 18px 14px; border-bottom: 1px solid var(--border);
 }
-.account-avatar-active { background: var(--accent); color: #14100a; }
+.account-avatar-active { background: var(--accent-fill); color: #14100a; }
 .account-synced-dot { font-size: var(--fs-2xs); color: var(--good); }
 .account-brand-name { font-size: 14px; font-weight: 700; color: var(--text); }
 .account-close {
@@ -170,11 +170,13 @@
 
 .server-banner.offline {
   background: rgba(58,22,22,.96); border-bottom-color: rgba(239,83,80,.4);
+  /* Dark red in either theme, so what it reads is pinned to the dark values. */
+  --text: #ededf0; --border-strong: rgba(255,255,255,.14); --panel: #16181f;
   color: var(--text);
 }
 .server-banner-dot {
   width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%;
-  background: var(--bad);
+  background: var(--bad-fill);
 }
 .server-banner-retry {
   background: transparent; color: var(--text); border: 1px solid var(--border-strong);

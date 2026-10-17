@@ -47,8 +47,14 @@
   --border-strong: rgba(255,255,255,.14);
   --text: #ededf0;
   --text-secondary: #b0b4be;
-  --muted: #71767f;
+  --muted: #868b95;   /* 4.8:1 on --panel-2, the lightest dark surface */
   --accent: #c98a3a;
+  /* The gold for FILLS (buttons, bars, dots). Light darkens --accent, which text
+     and borders read, so a fill that must stay this gold reads --accent-fill. */
+  --accent-fill: #c98a3a;
+  /* Likewise the bright green, amber and red: for fills, dots and bars, and for
+     text on an always-dark surface (a badge over card art). Same in both themes. */
+  --good-fill: #3dce8a; --warn-fill: #e5b84c; --bad-fill: #ef5350;
   --accent-soft: rgba(201,138,58,.12);
   --accent-2: #7cacf8;
   --accent-2-soft: rgba(124,172,248,.12);
@@ -90,7 +96,10 @@
   --border-strong: rgba(0,0,0,.16);
   --text: #1a1a1e;
   --text-secondary: #4a4a52;
-  --muted: #72727c;
+  --muted: #64646e;   /* 4.8:1 on --panel-2 (the old #72727c was 4.1) */
+  /* The dark theme's gold, blue, green, amber and red are about 2:1 on white as
+     text. These are the darker siblings; fills keep the gold via --accent-fill. */
+  --accent: #7f5b0e; --accent-2: #1f58b0; --good: #1d7a4d; --warn: #8a5c00; --bad: #b3261e; --danger: #b3261e;
   --hover: rgba(0,0,0,.04);
   --hover-strong: rgba(0,0,0,.07);
   --accent-soft: rgba(201,138,58,.14);
@@ -113,7 +122,8 @@
     --border-strong: rgba(0,0,0,.16);
     --text: #1a1a1e;
     --text-secondary: #4a4a52;
-    --muted: #72727c;
+    --muted: #64646e;
+    --accent: #7f5b0e; --accent-2: #1f58b0; --good: #1d7a4d; --warn: #8a5c00; --bad: #b3261e; --danger: #b3261e;
     --hover: rgba(0,0,0,.04);
     --hover-strong: rgba(0,0,0,.07);
     --accent-soft: rgba(201,138,58,.14);
@@ -181,7 +191,7 @@ button {
 button:hover { border-color: var(--border-strong); background: var(--hover); }
 button:active:not(:disabled) { transform: scale(.97); }
 button.primary {
-  background: var(--accent); color: #1a1206; border-color: transparent;
+  background: var(--accent-fill); color: #1a1206; border-color: transparent;
   font-weight: 600; box-shadow: var(--shadow-sm);
 }
 button.primary:hover { filter: brightness(1.12); box-shadow: var(--shadow-md); }
@@ -239,10 +249,11 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
    here. Left to the theme, Light puts its dark text on their dark background.
    The menus that hang off them take the same values. */
 .global-toolbar, .bottom-nav, .mobile-deck-nav, .deck-head {
-  --text: #ededf0; --text-secondary: #b0b4be; --muted: #71767f;
+  --text: #ededf0; --text-secondary: #b0b4be; --muted: #868b95;
   --border: rgba(255,255,255,.08); --border-strong: rgba(255,255,255,.14);
   --panel: #16181f; --panel-2: #1c1f28;
   --hover: rgba(255,255,255,.05); --accent-soft: rgba(201,138,58,.12);
+  --accent: #c98a3a; --accent-2: #7cacf8; --good: #3dce8a; --warn: #e5b84c; --bad: #ef5350; --danger: #ef5350;
   color: var(--text);
 }
 
