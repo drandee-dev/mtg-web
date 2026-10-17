@@ -1,0 +1,157 @@
+/* ===== Decks home (/) =====
+   The Main artboard: an art band (the deck to pick up, or a welcome when there
+   is none), the deck grid, then commanders to start from. Sizes are in px for
+   the same reason as the New deck screen: the root font is 14px. */
+.dh {
+  max-width: 1160px; margin: 0 auto; padding: 16px 0 32px;
+  display: flex; flex-direction: column; gap: 32px;
+}
+.dh-notice {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 18px; border-radius: 12px; background: var(--panel);
+  border: 1px solid rgba(201,138,58,.45); font-size: 15px;
+}
+.dh-notice-text { flex: 1 1 260px; }
+.dh-notice-actions { display: flex; align-items: center; gap: 6px; }
+.dh-notice .primary { min-height: 44px; padding: 0 18px; border-radius: 10px; font-weight: 700; }
+.dh-notice-x {
+  display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; min-height: 0;
+  padding: 0; border: 0; border-radius: 10px; background: transparent; color: var(--text-secondary);
+}
+.dh-notice-x:hover { background: var(--hover); color: var(--text); }
+/* Decks whose save failed (KeptDecks), on Decks home and above the New deck steps. */
+.kept-decks { display: flex; flex-direction: column; gap: 8px; }
+.nd-kept { max-width: 720px; margin: 24px auto 0; padding: 0 16px; }
+/* The band is art under a dark wash in either theme, so its text reads the
+   dark values (as the bars do). */
+.dh-band {
+  --text: #ededf0; --text-secondary: #d6d8de;
+  position: relative; overflow: hidden; border-radius: 16px; min-height: 220px;
+  display: flex; align-items: flex-end; background: #16181f; color: var(--text);
+}
+.dh-band-art {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: 50% 22%;
+}
+.dh-band::before {
+  content: ""; position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(90deg, rgba(12,13,17,.96) 0%, rgba(12,13,17,.78) 40%, rgba(12,13,17,.08) 100%);
+}
+.dh-band-body {
+  position: relative; z-index: 2; max-width: 580px; padding: 26px 36px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.dh-band-when { margin: 0; color: #b0b4be; font-size: 14px; }
+.dh-band-title {
+  margin: 0; font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
+  font-weight: 600; font-size: 40px; line-height: 1.05; overflow-wrap: anywhere; text-wrap: balance;
+}
+.dh-band-facts { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 22px; color: var(--text-secondary); font-size: 15px; }
+.dh-band-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.dh-band-actions .btn-link { padding: 0 20px; border-radius: 10px; font-weight: 700; }
+.dh-band-ghost {
+  min-height: 44px; padding: 0 18px; border-radius: 10px; font-weight: 500;
+  border: 1px solid rgba(255,255,255,.22); background: rgba(12,13,17,.5); color: var(--text);
+}
+.dh-band-ghost:hover { border-color: rgba(255,255,255,.4); }
+/* A deck off its size. Warm on the dark band, the theme's warning colour
+   elsewhere. */
+.dh-off { color: var(--warn); }
+.dh-band .dh-off { color: #e5b84c; }
+/* --warn and --accent keep their dark values in Light (about 2:1 on white),
+   so this page's two warm texts take a darker amber there (5.4:1). */
+[data-theme="light"] .dh .dh-off, [data-theme="light"] .dh-more { color: #8a5a12; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .dh .dh-off, :root:not([data-theme="dark"]) .dh-more { color: #8a5a12; }
+}
+[data-theme="light"] .dh .dh-band .dh-off { color: #e5b84c; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .dh .dh-band .dh-off { color: #e5b84c; }
+}
+.dh-section { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.dh-head { display: flex; align-items: baseline; gap: 12px; }
+.dh-head-spread { justify-content: space-between; }
+.dh-title {
+  margin: 0; font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
+  font-weight: 600; font-size: 24px; line-height: 1.2;
+}
+.dh-count { color: var(--text-secondary); font-size: 15px; }
+.dh-more { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; font-size: 15px; color: var(--accent); }
+@media (max-width: 699px) {
+  .dh { padding-top: 4px; gap: 28px; }
+  .dh-band { min-height: 200px; }
+  .dh-band::before { background: linear-gradient(180deg, rgba(12,13,17,.45) 0%, rgba(12,13,17,.92) 70%); }
+  .dh-band-body { padding: 20px; }
+  .dh-band-title { font-size: 28px; }
+  .dh-title { font-size: 21px; }
+  .mydecks-filter-group.mydecks-filter-search { flex-basis: 100%; }
+}
+
+/* Commanders to start from: a scrollable row on phones, with the third tile
+   showing at the edge so the row reads as one that scrolls; five across from
+   tablet up. */
+.teaser-row {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 38vw;
+  gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
+}
+.teaser-row::-webkit-scrollbar { display: none; }
+@media (min-width: 700px) {
+  .teaser-row {
+    grid-auto-flow: row; grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-auto-columns: auto; overflow-x: visible; gap: 16px;
+  }
+}
+.teaser-tile {
+  display: flex; flex-direction: column; gap: 10px; scroll-snap-align: start;
+  color: var(--text); min-width: 0; text-decoration: none;
+}
+.teaser-tile:hover { text-decoration: none; }
+.teaser-tile-art {
+  display: block; aspect-ratio: 3 / 2; border-radius: 10px;
+  background: var(--panel-2); overflow: hidden; outline: 2px solid transparent; outline-offset: 2px;
+  transition: outline-color .15s;
+}
+.teaser-tile-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.teaser-tile:hover .teaser-tile-art { outline-color: var(--border-strong); }
+.teaser-tile-name {
+  font-size: 15px; font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.teaser-tile-tag { margin-top: -8px; font-size: 13px; color: var(--text-secondary); }
+
+/* Signature cards: rank, name, play rate, synergy badge. */
+.cmdr-sig-list { list-style: none; margin: 0; padding: 0; }
+.cmdr-sig-row {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .5rem .1rem; border-bottom: 1px solid var(--border);
+}
+.cmdr-sig-row:last-child { border-bottom: 0; }
+.cmdr-sig-rank {
+  flex: none; width: 1.5rem; height: 1.5rem; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: var(--fs-2xs); font-weight: 700;
+  color: var(--accent); background: var(--accent-soft);
+}
+.cmdr-sig-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.cmdr-sig-pct { flex: none; font-variant-numeric: tabular-nums; }
+.cmdr-sig-syn { flex: none; font-variant-numeric: tabular-nums; }
+
+/* Printing tiles carry their set and price under the art, so they deliberately do
+   NOT reuse .card-thumb: that class pins a card aspect-ratio on the tile and gives
+   its image height:100%, which sizes the tile to the art alone and leaves the meta
+   row overlapping the grid row below. */
+/* A grid item is never narrower than its longest unbroken line unless told so,
+   and a set name is one line: without this a long one holds its column open
+   and the page scrolls sideways on a phone. */
+.cmdr-print { min-width: 0; }
+.cmdr-print img {
+  display: block; width: 100%; aspect-ratio: 488 / 680; object-fit: cover;
+  border-radius: 4.8% / 3.4%; background: var(--panel-2);
+}
+.cmdr-print-meta { padding: .35rem .1rem 0; }
+.cmdr-print-set {
+  font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: .04em;
+  color: var(--text-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+

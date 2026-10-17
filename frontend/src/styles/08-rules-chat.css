@@ -1,0 +1,79 @@
+/* ── Rules chat Q&A ── */
+.rules-chat {
+  max-width: 720px; margin: 0 auto;
+  /* The page's top padding (the bar plus .2rem) and 1.8rem of slack below. */
+  display: flex; flex-direction: column;
+  height: calc(100vh - var(--topbar-h) - 2rem);
+  height: calc(100dvh - var(--topbar-h) - 2rem - var(--safe-top));
+}
+.rules-header { margin-bottom: .9rem; }
+.rules-header h2 {
+  margin: 0 0 .25rem; font-size: 1.1rem; font-weight: 700; letter-spacing: -.02em;
+}
+.rules-header p { margin: 0; font-size: var(--fs-xs); color: var(--muted); }
+.rules-chips { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.rules-chip {
+  font-size: var(--fs-xs); background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
+  border-radius: 20px; padding: .3rem .75rem; color: var(--text-secondary);
+  cursor: pointer; min-height: auto; transition: background .15s;
+}
+.rules-chip:hover { background: var(--hover-strong); }
+.rules-thread { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 1.25rem; padding-bottom: 1rem; }
+.rules-msg-user { display: flex; justify-content: flex-end; }
+.rules-msg-user-bubble {
+  max-width: 72%; background: var(--panel-2); border: 1px solid rgba(255,255,255,.1);
+  border-radius: 14px 14px 4px 14px; padding: .6rem .9rem; font-size: var(--fs-xs); color: var(--text); line-height: 1.5;
+}
+.rules-msg-ai { display: flex; flex-direction: column; gap: .6rem; }
+.rules-msg-ai-label {
+  display: flex; align-items: center; gap: .4rem;
+}
+.rules-msg-ai-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 5px rgba(201,138,58,.4); flex: none;
+}
+.rules-msg-ai-name {
+  font-size: var(--fs-2xs); font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.rules-msg-ai-text {
+  font-size: var(--fs-xs); color: var(--text); line-height: 1.75; max-width: 680px;
+}
+.rules-msg-ai-text p { margin: 0 0 .6rem; }
+.rules-msg-ai-text p:last-child { margin-bottom: 0; }
+.rules-citations { display: flex; gap: .4rem; flex-wrap: wrap; }
+.rules-citation {
+  font-size: var(--fs-2xs); font-weight: 600;
+  background: rgba(201,138,58,.08); color: var(--accent);
+  border: 1px solid rgba(201,138,58,.2); border-radius: 4px;
+  padding: 2px 8px; cursor: pointer; min-height: auto;
+  transition: background .15s;
+}
+.rules-citation:hover { background: rgba(201,138,58,.15); }
+.rules-streaming {
+  display: flex; align-items: center; gap: .5rem;
+}
+.rules-streaming-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--muted);
+  display: inline-block; animation: pulse 1.2s ease-in-out infinite;
+}
+.rules-streaming-dot:nth-child(3) { animation-delay: .3s; }
+.rules-streaming-dot:nth-child(4) { animation-delay: .6s; }
+.rules-input-bar {
+  flex: none; border-top: 1px solid var(--border); padding-top: .9rem;
+}
+.rules-input-row { display: flex; gap: .5rem; align-items: center; }
+.rules-input-row input {
+  flex: 1; background: var(--bg-raised); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text); font-size: var(--fs-xs); padding: .6rem .9rem; min-height: auto;
+}
+.rules-ask-icon { display: none; }
+.rules-ask-btn {
+  background: var(--accent); color: #1a1206; border: none; border-radius: 10px;
+  padding: .6rem 1.1rem; font-size: var(--fs-xs); font-weight: 700; cursor: pointer;
+  min-height: auto; white-space: nowrap; flex: none;
+}
+.rules-footer {
+  margin-top: .45rem; font-size: var(--fs-2xs); color: var(--muted); text-align: center;
+}
+
