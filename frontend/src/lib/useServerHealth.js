@@ -13,6 +13,7 @@ export function useServerHealth() {
 
   useEffect(() => {
     let cancelled = false;
+    // A re-check (Retry) puts the banner back to "Connecting" before the request.
     setStatus("checking"); // eslint-disable-line react-hooks/set-state-in-effect
     async function check(n) {
       try {

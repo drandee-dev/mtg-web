@@ -1,5 +1,5 @@
-// Unicode-safe base64. Plain btoa/atob throw on non-ASCII bytes, so share links
-// for decks with accented card names (e.g. "Jötun Grunt") would otherwise break.
+// Unicode-safe base64. Plain btoa throws on any character past Latin-1 (curly
+// quotes, "Ū"), so a share link for a deck with such a card name would break.
 export function b64encode(str) {
   return btoa(String.fromCharCode(...new TextEncoder().encode(str)));
 }
