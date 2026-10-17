@@ -12,13 +12,20 @@ function _headers() {
   return h;
 }
 
+// A read that cannot reach the server is tried once more after a second, then
+// reported: the old four tries with eight-second waits kept a dead server
+// looking like "Loading…" for 24s (it was a cold-start allowance from the Render
+// days). A read that reaches the server and hangs is cut off at 15s. Writes and
+// AI calls are never retried: a dropped connection can come after the server has
+// started (and billed) the work, so sending it again could buy it twice.
+const GET_TIMEOUT_MS = 15000;
+const HEALTH_TIMEOUT_MS = 8000;
+const _isNetworkError = (e) => e.message === "Failed to fetch" || e.name === "TypeError";
+
 // JSON.stringify throws a plain TypeError on a circular/non-serializable body
 // (e.g. a DOM/Window reference passed by mistake). Done once, up front, so a
-// bad body fails clean and immediately instead of leaking that raw TypeError
-// into the retry loop below, which only knows to retry on `e.name ===
-// "TypeError"` (a real network failure) and would otherwise burn through all
-// 4 attempts re-throwing the same unserializable body before finally
-// surfacing the native "circular structure" error uncaught, ~24s later.
+// bad body fails clean and immediately with a message that says what is wrong,
+// instead of a bare TypeError that reads like a network failure.
 function _serialize(body) {
   try {
     return JSON.stringify(body);
@@ -32,14 +39,18 @@ async function get(path, params) {
   Object.entries(params || {}).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
   });
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const res = await fetch(url, { headers: _accessToken ? { "Authorization": `Bearer ${_accessToken}` } : {} });
+      const res = await fetch(url, {
+        headers: _accessToken ? { "Authorization": `Bearer ${_accessToken}` } : {},
+        signal: AbortSignal.timeout(GET_TIMEOUT_MS),
+      });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
       return res.json();
     } catch (e) {
-      if (attempt < 3 && (e.message === "Failed to fetch" || e.name === "TypeError")) {
-        await new Promise((r) => setTimeout(r, 8000));
+      if (e.name === "TimeoutError") throw new Error("The server took too long to answer.", { cause: e });
+      if (attempt === 0 && _isNetworkError(e)) {
+        await new Promise((r) => setTimeout(r, 1000));
         continue;
       }
       throw e;
@@ -48,24 +59,13 @@ async function get(path, params) {
 }
 
 async function post(path, body) {
-  const payload = _serialize(body);
-  for (let attempt = 0; attempt < 4; attempt++) {
-    try {
-      const res = await fetch(BASE + path, {
-        method: "POST",
-        headers: _headers(),
-        body: payload,
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
-      return res.json();
-    } catch (e) {
-      if (attempt < 3 && (e.message === "Failed to fetch" || e.name === "TypeError")) {
-        await new Promise((r) => setTimeout(r, 8000));
-        continue;
-      }
-      throw e;
-    }
-  }
+  const res = await fetch(BASE + path, {
+    method: "POST",
+    headers: _headers(),
+    body: _serialize(body),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+  return res.json();
 }
 
 // Same wording the backend sends when a stream ends with no text.
@@ -99,7 +99,10 @@ export async function postStream(path, body, onChunk) {
 }
 
 async function quickGet(path) {
-  const res = await fetch(BASE + path, { headers: _accessToken ? { "Authorization": `Bearer ${_accessToken}` } : {} });
+  const res = await fetch(BASE + path, {
+    headers: _accessToken ? { "Authorization": `Bearer ${_accessToken}` } : {},
+    signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
+  });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
   return res.json();
 }

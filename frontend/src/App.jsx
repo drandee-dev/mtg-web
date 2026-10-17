@@ -300,6 +300,9 @@ export default function App() {
   // browser's own decks), undefined until a list arrives. A deck address can
   // only be "not found" against the right list (resolveDeckRoute).
   const [decksLoadedFor, setDecksLoadedFor] = useState(undefined);
+  // Whose list failed to load (undefined: none has). A deck address reads it so
+  // it can say so, with a Try again, instead of "Loading deck…" for good.
+  const [decksFailedFor, setDecksFailedFor] = useState(undefined);
   const refresh = useCallback(async () => {
     try {
       const list = await store.list();
@@ -307,7 +310,11 @@ export default function App() {
       if (userIdRef.current !== userId) return;
       setDecks(list);
       setDecksLoadedFor(userId);
-    } catch (e) { notify(`Could not load decks: ${e.message}`); }
+      setDecksFailedFor(undefined);
+    } catch (e) {
+      notify(`Could not load decks: ${e.message}`);
+      if (userIdRef.current === userId) setDecksFailedFor(userId);
+    }
   }, [store, notify, userId]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -736,6 +743,14 @@ export default function App() {
                   deleted, or saved in another browser or account.
                 </p>
                 <button className="ghost small" onClick={() => setTab("decks")}>← Back to decks</button>
+              </>
+            ) : decksFailedFor === userId && decksLoadedFor !== userId ? (
+              <>
+                <h2>Couldn&apos;t load your decks</h2>
+                <p className="muted small" role="alert">
+                  The deck list didn&apos;t load, so this deck can&apos;t be opened yet.
+                </p>
+                <button className="primary" onClick={refresh}>Try again</button>
               </>
             ) : (
               <p className="muted small" role="status">Loading deck…</p>
