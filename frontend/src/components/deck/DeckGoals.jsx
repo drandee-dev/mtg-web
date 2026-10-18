@@ -191,7 +191,7 @@ export default function DeckGoals({
                 className="dg-note"
                 value={goals.flavorNote}
                 onChange={(e) => set({ flavorNote: e.target.value.slice(0, 300) })}
-                placeholder='Deck identity the AI must respect — e.g. "Mutate tribal, flavor over power."'
+                placeholder='What the AI must respect, e.g. "Mutate tribal, flavor over power."'
                 rows={2}
                 aria-label="Deck identity note"
               />

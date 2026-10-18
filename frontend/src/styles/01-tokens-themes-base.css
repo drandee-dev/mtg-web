@@ -214,7 +214,19 @@ input:focus, textarea:focus, select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
-textarea { min-height: 160px; resize: vertical; font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace; font-size: .9em; }
+/* A text box is as tall as what is in it, between a floor and a ceiling counted in
+   lines (--ta-min, --ta-max) that each role sets (visual pass job 8). field-sizing
+   needs Chrome 123, Safari 26.2 or Firefox 152; elsewhere the box keeps its rows,
+   which is what it did before. */
+textarea {
+  --ta-min: 3; --ta-max: 10;
+  field-sizing: content; resize: vertical;
+  min-height: calc(var(--ta-min) * 1lh + 1.1rem + 2px);
+  max-height: calc(var(--ta-max) * 1lh + 1.1rem + 2px);
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace; font-size: var(--fs-base);
+}
+/* An empty box is sized to its placeholder too, which can run long: hold it at its floor. */
+textarea:placeholder-shown { max-height: calc(var(--ta-min) * 1lh + 1.1rem + 2px); }
 label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6rem 0 .25rem; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
 
 .panel {

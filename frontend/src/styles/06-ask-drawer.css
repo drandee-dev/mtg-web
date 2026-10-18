@@ -166,6 +166,7 @@
    Overrides the global textarea rules (160px monospace block). */
 .ask-input textarea {
   flex: 1; min-height: 40px; max-height: 104px; resize: none;
+  field-sizing: fixed; /* its height is set in Ask.jsx; unchanged by job 8 */
   font-family: inherit; font-size: var(--fs-base); line-height: 1.35;
   overflow-y: auto;
 }
