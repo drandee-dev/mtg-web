@@ -50,6 +50,28 @@ test("the bottom bar is allowed for in focus scrolling on a phone", async ({ pag
   expect(parseFloat(pad)).toBeGreaterThanOrEqual(64);
 });
 
+// button:hover's tint outranks a one-class background, so a gold button with dark
+// ink went dark-on-tint on hover. Each must keep its gold fill and ink when hovered.
+test("gold buttons keep their fill and ink on hover", async ({ page }) => {
+  await page.goto("/");
+  await waitForAppReady(page);
+  for (const cls of ["dg-suggest-use", "account-magic-link-btn", "toast-action"]) {
+    await page.evaluate((c) => {
+      const b = document.createElement("button");
+      b.className = c; b.id = `probe-${c}`; b.textContent = "Probe";
+      b.style.cssText = "position:fixed;top:80px;left:20px;z-index:9999";
+      document.body.appendChild(b);
+    }, cls);
+    const btn = page.locator(`#probe-${cls}`);
+    const read = () => btn.evaluate((el) => { const s = getComputedStyle(el); return [s.backgroundColor, s.color]; });
+    await page.mouse.move(0, 0);
+    const rest = await read();
+    await btn.hover();
+    await page.waitForTimeout(400); // buttons transition colour; read after it settles
+    expect(await read(), cls).toEqual(rest);
+  }
+});
+
 test("reduced motion keeps spinners turning, slower", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");

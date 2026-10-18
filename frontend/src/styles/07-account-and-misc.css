@@ -37,7 +37,7 @@
   background: var(--accent-fill); color: #1a1206; border: none;
   border-radius: 7px; font-weight: 700;
 }
-.account-magic-link-btn:hover { filter: brightness(1.12); }
+.account-magic-link-btn:hover { background: var(--accent-fill); color: #1a1206; filter: brightness(1.12); }
 .account-magic-link-btn:disabled { cursor: wait; }
 .account-signout-btn {
   width: 100%; padding: 7px 0; font-size: var(--fs-sm);
