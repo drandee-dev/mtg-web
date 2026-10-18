@@ -4,7 +4,7 @@
 // fails for a control that is narrower than 44, and for one whose extender is
 // covered by the next control along. A selector that matches nothing fails too.
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, openDeckSection, setCardView, deckMenuAction } from "./fixtures/helpers.js";
+import { loadSharedDeck, openDeckSection, setCardView, deckMenuAction, openAddress } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
 async function misses(page, sel) {
@@ -53,6 +53,8 @@ for (const w of [390, 768]) {
       await setCardView(page, { mode: "Stacks" });
       // The ⋯ on a card's corner is left at 36 wide: 44 would cover its quantity badge.
       await expectHitAreas(page, [".more-menu-btn:not(.stack-card-movemenu .more-menu-btn)"]);
+      // The column header's two: "Commander options" and "Reorder <column> column".
+      await expectHitAreas(page, ['.more-menu-btn[aria-label$=" options"]', '.more-menu-btn[aria-label^="Reorder "]']);
     });
 
     // Commander has no quantity row; walk down the stack until a modal has a stepper.
@@ -88,6 +90,14 @@ for (const w of [390, 768]) {
       expect(row.columns).toBe(2);
       expect(row.count).toBeGreaterThan(2);
       expect(row.red).toEqual(["Remove"]);
+    });
+
+    test("the account panel's close", async ({ page }) => {
+      // Only built with a cloud (frontend/.env); without it there is no account panel to open.
+      await openAddress(page, "/rules"); // the phone's deck bar has no account button
+      await page.locator('[aria-label="Account menu"]').click();
+      await page.locator(".avp-row", { hasText: /settings/i }).click();
+      await expectHitAreas(page, [".account-close"]);
     });
 
     test("goals chips and Edit, import close, Playtest life", async ({ page }) => {

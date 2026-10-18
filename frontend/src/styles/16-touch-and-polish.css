@@ -14,7 +14,6 @@
   /* iOS zooms the page when a field under 16px is focused. The phone rule (13) stops at
      699px, and a tablet is wider, so this one follows the pointer, not the width. */
   input, textarea, select { font-size: 16px !important; }
-  .cdm-stepper button { min-height: auto !important; }
   .card-rail-btn, .cdm-close, .cdm-flip,
   .pw-cardchip-btn, .deck-card-menu-btn, .dg-suggest-x, .icm-close, .account-close { position: relative; }
   .cdm-close::after, .cdm-flip::after, .deck-card-menu-btn::after, .dg-suggest-x::after,
