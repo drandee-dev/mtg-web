@@ -5,9 +5,9 @@
 // iOS zoom on focus.
 //
 // A case that today's CSS cannot pass carries test.fail() naming the job that
-// fixes it (the 16px inputs, job 8): Playwright reports an unexpected pass, so
-// the mark must be deleted when the job lands. No fullPage screenshots here: they clear
-// touch emulation and every number after one is wrong.
+// fixes it: Playwright reports an unexpected pass, so the mark must be deleted when
+// the job lands. None are left (the 16px inputs went with job 8). No fullPage
+// screenshots here: they clear touch emulation and every number after one is wrong.
 import { test, expect } from "./fixtures/test-base.js";
 import { loadSharedDeck, openAddress, newDeckDoor, addCardField } from "./fixtures/helpers.js";
 
@@ -125,7 +125,6 @@ for (const w of TOUCH_WIDTHS) {
 
     test("inputs are 16px or larger", async ({ page }, testInfo) => {
       desktopOnly(testInfo);
-      test.fail(true, "visual pass job 8: the 16px rule stops at 699px");
       // Every screen is measured before the one assertion, so a failing screen
       // does not hide the ones after it.
       const small = [];

@@ -1,7 +1,10 @@
 /* ── Predictive card search (CardTypeahead) ──
    "Add a card by name" on the deck's strip (compact). Dropdown reuses
    .deck-input-result*. */
-.deck-text-editor { width: 100%; margin-bottom: .5rem; }
+.deck-text-editor {
+  --ta-min: 8; /* the deck as text: 8 lines at least, up to 40 or 60% of the screen */
+  width: 100%; margin-bottom: .5rem; max-height: min(60dvh, calc(40 * 1lh + 1.1rem + 2px));
+}
 .card-typeahead { position: relative; }
 .cta-input-wrap { position: relative; display: flex; align-items: center; }
 .cta-input-wrap input { width: 100%; padding-right: 1.8rem; }

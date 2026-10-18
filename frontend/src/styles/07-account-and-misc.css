@@ -144,6 +144,7 @@
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
   padding: 1.2rem; width: min(400px, 90vw); box-shadow: var(--shadow-lg);
 }
+.feedback-panel textarea { --ta-min: 4; --ta-max: 12; font-family: inherit; } /* prose, not a list */
 
 /* Utility classes */
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

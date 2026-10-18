@@ -75,7 +75,7 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 }
 .dg-prot-match:last-child { border-bottom: none; }
 .dg-prot-match:hover { background: var(--hover); }
-.dg-note { min-height: 54px; font-size: var(--fs-xs); font-family: inherit; resize: vertical; }
+.dg-note { --ta-min: 2; --ta-max: 6; font-size: var(--fs-base); font-family: inherit; resize: vertical; }
 
 /* Optimize queue — goal-aware changeset, Apply/Skip cards + session log */
 .opt-error { font-size: var(--fs-xs); color: var(--bad); margin: .4rem 0 0; }
