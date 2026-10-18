@@ -82,7 +82,7 @@
   font-size: var(--fs-xs); font-weight: 700; padding: .3rem .7rem; border-radius: 999px;
   min-height: 30px; transition: filter .15s;
 }
-.toast-action:hover { filter: brightness(1.15); }
+.toast-action:hover { background: var(--accent-fill); color: #1a1206; filter: brightness(1.15); }
 
 .pwa-update-banner {
   position: fixed; bottom: 1rem; right: 1rem; z-index: 25;

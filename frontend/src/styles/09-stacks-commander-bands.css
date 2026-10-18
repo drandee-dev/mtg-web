@@ -105,7 +105,7 @@
 .stack-card-wrap {
   position: relative; width: 15rem; height: 20.9rem; border-radius: 4.8% / 3.4%;
   overflow: hidden; cursor: pointer; z-index: 0;
-  transition: margin-bottom .18s ease-out, box-shadow .18s ease-out;
+  transition: box-shadow .18s ease-out;
 }
 .stack-card-wrap:not(:last-child) { margin-bottom: -18rem; }
 .stack-card-wrap[draggable="true"] { cursor: grab; }
@@ -115,7 +115,8 @@
    menus stay inside each card. Higher, it paints over the deck strip's open
    lists (the strip is 8), whose overlap could then not be clicked. */
 .stack-card-wrap:hover,
-.stack-card-wrap:focus-visible {
+.stack-card-wrap:focus-visible,
+.stack-card-wrap:has(:focus-visible) {
   z-index: 1; margin-bottom: .6rem !important;
   box-shadow: 0 0 0 1.5px var(--accent), var(--shadow-lg);
 }

@@ -34,7 +34,6 @@
   animation: inspSpin .7s linear infinite;
 }
 @keyframes inspSpin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .insp-spinner { animation-duration: 1.6s; } }
 
 .insp-body { padding: .55rem .6rem .7rem; min-height: 120px; }
 .insp-subhead {
@@ -196,7 +195,7 @@
   width: 28px; height: 28px; min-height: auto; padding: 0; border: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   background: rgba(12,13,17,.88); color: #fff;
-  backdrop-filter: blur(2px); transition: background .12s, color .12s;
+  transition: background .12s, color .12s;
 }
 .card-rail-btn:hover { background: var(--accent-fill); color: #15110a; }
 .card-rail-action { border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.55); }

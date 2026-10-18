@@ -11,6 +11,8 @@
   input, textarea, select { font-size: 16px !important; }
   .gt-nav { display: none; }
   .bottom-nav { display: flex; }
+  /* Keyboard focus scrolls a control clear of the fixed bottom bar. */
+  html { scroll-padding-bottom: var(--tabbar-total); }
   .toast { bottom: calc(var(--tabbar-total) + 1rem); }
   .pwa-update-banner { bottom: calc(var(--tabbar-total) + 1rem); }
   /* The slim bar keeps the brand and Ask: its Ask is an icon with its name. */
