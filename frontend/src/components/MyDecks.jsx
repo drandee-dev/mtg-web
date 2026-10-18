@@ -119,7 +119,7 @@ function DeckTile({ deck, meta, onOpen, onPlaytest, onDelete, onRename, onClone,
           </span>
         )}
         <span className="deck-card-body">
-          <span className="deck-card-name">{deck.name || "Untitled deck"}</span>
+          <span className="deck-card-name" title={deck.name || "Untitled deck"}>{deck.name || "Untitled deck"}</span>
           <span className="deck-card-facts">
             {formatLabel(deck)}, <span className={cards.off ? "dh-off" : undefined}>{cards.text}</span>
           </span>
@@ -153,7 +153,7 @@ function TeaserTile({ entry, onOpen }) {
   return (
     <NavLink href={buildPath({ tab: "commanders", slug: entry.slug })} onNavigate={() => onOpen(entry.slug)} className="teaser-tile">
       <span className="teaser-tile-art">{img && <img src={img} alt="" loading="lazy" />}</span>
-      <span className="teaser-tile-name">{entry.name.split(",")[0]}</span>
+      <span className="teaser-tile-name" title={entry.name}>{entry.name.split(",")[0]}</span>
       <span className="teaser-tile-tag">{entry.tag}</span>
     </NavLink>
   );

@@ -32,7 +32,7 @@ export default function AvatarPopup({ session, triggerRef, onAccountSettings, on
   return (
     <div ref={ref} id="account-menu" className="avatar-popup" role="group" aria-label="Account">
       <div className="avp-section">
-        {session && <div className="avp-email">{session.user.email}</div>}
+        {session && <div className="avp-email" title={session.user.email}>{session.user.email}</div>}
         <button className="avp-row" onClick={() => { onAccountSettings?.(); onClose(); }}>
           <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M3.2 12.8l1.4-1.4M11.4 4.6l1.4-1.4"/></svg>
           {/* One panel holds both, and signed out it is the only way to the theme switch. */}

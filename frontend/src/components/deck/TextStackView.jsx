@@ -235,7 +235,7 @@ function TextRow({ name, qty, manaCost, columnLabel, onCardClick, onRemove, onCo
       aria-label={`${qty}x ${name}`}
     >
       <span className="ts-qty">{qty}</span>
-      <span className="ts-name">{name}</span>
+      <span className="ts-name" title={name}>{name}</span>
       <ManaCost cost={manaCost} />
       <span className="ts-row-actions" onPointerDown={(e) => e.stopPropagation()}>
         {showMoveMenu && (

@@ -129,7 +129,7 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
             <>
               <div className="account-avatar account-avatar-active">{avatarLetter}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="account-email">{session.user.email}</div>
+                <div className="account-email" title={session.user.email}>{session.user.email}</div>
                 <div className="account-synced-dot">● Synced</div>
               </div>
             </>
