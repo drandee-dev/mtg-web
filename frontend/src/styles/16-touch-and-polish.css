@@ -35,6 +35,13 @@
   .cg-tb-help { width: 44px; height: 44px; font-size: var(--fs-md); }
 }
 
+/* I7: every :hover rule is built into a (hover: hover) and (pointer: fine) block (the
+   hover-only plugin in vite.config.js). Two controls rest at opacity 0 and are shown by
+   a hover, so without one they show always. */
+@media (hover: none), (pointer: coarse) {
+  .deck-input-result-add, .dh-rename { opacity: 1; }
+}
+
 /* == Interaction & typography polish (visual-standards audit 2026-07-17) ==
    tap-highlight: our controls paint their own pressed states -- the UA grey
    flash on Android/iOS reads as jank. touch-action: removes double-tap-zoom

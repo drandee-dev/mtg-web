@@ -109,7 +109,7 @@ const CardTypeahead = forwardRef(function CardTypeahead(
               onClick={() => pick(c.name)}
             >
               <span className="deck-input-result-name">{c.name}</span>
-              <span className="muted small">{c.type_line}</span>
+              <span className="muted small deck-input-result-type">{c.type_line}</span>
               {c.prices?.usd && <span className="muted small">${c.prices.usd}</span>}
               <span className="deck-input-result-add">+ Add</span>
             </button>
