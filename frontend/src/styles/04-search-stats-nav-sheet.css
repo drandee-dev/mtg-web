@@ -23,7 +23,7 @@
 .cta-empty { padding: .45rem .6rem; font-size: var(--fs-xs); color: var(--muted); }
 
 .deck-input-results {
-  position: absolute; left: 0; right: 0; top: 100%; z-index: 18;
+  position: absolute; left: 0; right: 0; top: 100%; z-index: var(--z-popover);
   background: var(--panel); border: 1px solid var(--border); border-radius: 0 0 var(--radius) var(--radius);
   max-height: 320px; overflow-y: auto; box-shadow: var(--shadow-md);
 }
@@ -80,6 +80,12 @@
   border-radius: var(--radius); z-index: var(--z-toast); max-width: 90vw;
   box-shadow: var(--shadow-lg); backdrop-filter: blur(8px); font-size: var(--fs-sm); font-weight: 500;
   display: flex; align-items: center; gap: .7rem; }
+/* A toast sits over the page, so over a dialog it would cover the dialog's own buttons
+   (the upgrade guide's Skip and Continue, an import's Import). With a dialog open it
+   moves to the top, under the bar, where nothing a person has to press is. */
+body:has([aria-modal="true"]) .toast {
+  bottom: auto; top: calc(var(--topbar-h) + var(--safe-top) + .5rem);
+}
 .toast-action {
   flex: none; background: var(--accent-fill); color: #1a1206; border: none; cursor: pointer;
   font-size: var(--fs-xs); font-weight: 700; padding: .3rem .7rem; border-radius: 999px;
@@ -88,7 +94,7 @@
 .toast-action:hover { background: var(--accent-fill); color: #1a1206; filter: brightness(1.15); }
 
 .pwa-update-banner {
-  position: fixed; bottom: 1rem; right: 1rem; z-index: 25;
+  position: fixed; bottom: 1rem; right: 1rem; z-index: var(--z-fab);
   display: flex; align-items: center; gap: .6rem;
   background: var(--panel); border: 1px solid var(--accent);
   padding: .5rem .75rem; border-radius: var(--radius);
@@ -106,7 +112,7 @@
 }
 
 .pwa-return-banner {
-  position: fixed; bottom: 1rem; left: 1rem; right: 1rem; z-index: 25;
+  position: fixed; bottom: 1rem; left: 1rem; right: 1rem; z-index: var(--z-fab);
   display: flex; align-items: center; justify-content: space-between; gap: .6rem;
   background: var(--good-fill); color: #0c0d11;
   padding: .6rem .85rem; border-radius: var(--radius);
@@ -153,10 +159,11 @@
 /* ── Bottom sheet (mobile card detail) ── */
 .bs-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,.5);
-  backdrop-filter: blur(4px); z-index: 200;
+  backdrop-filter: blur(4px); z-index: var(--z-modal);
 }
+/* Same tier as its overlay; it comes after it in the page, so it paints over it. */
 .bs-sheet {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 201;
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: var(--z-modal);
   background: var(--panel); border-top: 1px solid var(--border);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   max-height: 70vh; overflow-y: auto;
@@ -240,7 +247,7 @@
 .cardname:hover, .cardname:focus { color: var(--accent-2); }
 /* Portaled to <body>; z sits above the Planeswalker sheet/panel (--z-sheet) so the
    hover preview is never occluded by it, but below toasts. */
-.card-float { position: fixed; z-index: 1500; pointer-events: none;
+.card-float { position: fixed; z-index: var(--z-preview); pointer-events: none;
   border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
 .card-float img { display: block; border-radius: 12px; }
 .card-float-empty { display: inline-block; background: var(--panel-2); border: 1px solid var(--border);

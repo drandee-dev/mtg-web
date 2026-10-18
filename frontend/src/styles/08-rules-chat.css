@@ -65,11 +65,11 @@
 .rules-input-row { display: flex; gap: .5rem; align-items: center; }
 .rules-input-row input {
   flex: 1; background: var(--bg-raised); border: 1px solid var(--border);
-  border-radius: 10px; color: var(--text); font-size: var(--fs-xs); padding: .6rem .9rem; min-height: auto;
+  border-radius: var(--radius-md); color: var(--text); font-size: var(--fs-xs); padding: .6rem .9rem; min-height: auto;
 }
 .rules-ask-icon { display: none; }
 .rules-ask-btn {
-  background: var(--accent-fill); color: #1a1206; border: none; border-radius: 10px;
+  background: var(--accent-fill); color: #1a1206; border: none; border-radius: var(--radius-md);
   padding: .6rem 1.1rem; font-size: var(--fs-xs); font-weight: 700; cursor: pointer;
   min-height: auto; white-space: nowrap; flex: none;
 }

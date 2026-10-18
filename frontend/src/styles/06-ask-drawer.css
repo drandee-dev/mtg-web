@@ -30,14 +30,14 @@
 .ask-intro { display: flex; flex-direction: column; gap: 10px; padding: 4px 8px 14px; }
 .ask-intro p { margin: 0 0 6px; color: var(--text-secondary); }
 .ask-starter {
-  text-align: left; padding: 12px 14px; border-radius: 10px; font-weight: 400;
+  text-align: left; padding: 12px 14px; border-radius: var(--radius-md); font-weight: 400;
   border: 1px solid var(--border); background: var(--panel); color: var(--text);
 }
 .ask-starter:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
 /* Ask, the labelled button in the bar and in the phone's deck bar. */
 .ask-btn {
   display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px;
-  border-radius: 10px; border: 1px solid var(--border-strong); background: transparent;
+  border-radius: var(--radius-md); border: 1px solid var(--border-strong); background: transparent;
   color: var(--text); font-weight: 500; white-space: nowrap;
 }
 .ask-btn:hover { background: var(--hover); }

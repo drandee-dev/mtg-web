@@ -258,13 +258,13 @@
 .ct-add { width: 250px; }
 .card-toolbar .card-typeahead.compact .cta-input-wrap input {
   width: 100%; min-height: 44px; padding: 0 1.8rem 0 14px; font-size: 15px;
-  background: var(--panel); border: 1px solid var(--border-strong); border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--border-strong); border-radius: var(--radius-md);
 }
 .ct-add .deck-input-results { min-width: 380px; margin-top: 4px; border-radius: var(--radius); }
 .ct-filter {
   position: relative; display: flex; align-items: center; gap: 4px; width: 180px;
   padding-right: 8px; background: var(--bg-raised);
-  border: 1px solid var(--border); border-radius: 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
 }
 .ct-filter .cg-tb-filter-input { min-height: 42px; padding: 0 12px; font-size: 15px; }
 .ct-filter .cg-tb-filter-clear { border-left: none; padding: 0 4px; }
@@ -273,14 +273,14 @@
 .card-toolbar .view-toggle-btn.active, .ct-view-panel .view-toggle-btn.active { color: var(--text); font-weight: 700; }
 .ct-view { position: relative; }
 .ct-view-btn {
-  min-height: 44px; padding: 0 14px; border-radius: 10px;
+  min-height: 44px; padding: 0 14px; border-radius: var(--radius-md);
   display: flex; align-items: center; gap: 8px;
   border: 1px solid var(--border-strong); background: transparent; color: var(--text);
 }
 .ct-view-label { font-weight: 700; }
 .ct-view-summary { color: var(--text-secondary); white-space: nowrap; }
 .ct-view-panel {
-  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: var(--z-popover);
   width: 300px; padding: 14px; display: flex; flex-direction: column; gap: 14px;
   background: var(--panel); border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
@@ -305,7 +305,7 @@
 /* Deck working area: a contained board, visually separated from the strip
    above it (Archidekt-style). */
 .deck-board {
-  border: 1px solid var(--border); border-radius: 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
   background: rgba(255,255,255,.018); padding: .85rem .85rem .4rem;
 }
 .cg-tb-help {
@@ -317,7 +317,7 @@
 .cg-tb-help:hover, .cg-tb-help[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
 /* Filter syntax popover — documents what the deck filter matches */
 .filter-help-pop {
-  position: absolute; top: calc(100% + 6px); right: -8px; z-index: 30;
+  position: absolute; top: calc(100% + 6px); right: -8px; z-index: var(--z-popover);
   width: 250px; padding: .6rem .7rem; text-transform: none; letter-spacing: 0;
   background: var(--panel); border: 1px solid var(--border-strong);
   border-radius: var(--radius); box-shadow: var(--shadow-lg);

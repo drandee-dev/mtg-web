@@ -1,6 +1,6 @@
 /* ===== Import cards modal ===== */
 .icm-overlay {
-  position: fixed; inset: 0; z-index: 130; background: rgba(0,0,0,.6);
+  position: fixed; inset: 0; z-index: var(--z-modal); background: rgba(0,0,0,.6);
   display: grid; place-items: center; padding: 1rem;
 }
 .icm-panel {
@@ -96,7 +96,7 @@
 
 /* ===== Export deck modal (Archidekt-style copy/paste) ===== */
 .edm-overlay {
-  position: fixed; inset: 0; z-index: 130; background: rgba(0,0,0,.6);
+  position: fixed; inset: 0; z-index: var(--z-modal); background: rgba(0,0,0,.6);
   display: grid; place-items: center; padding: 1rem;
 }
 .edm-panel {

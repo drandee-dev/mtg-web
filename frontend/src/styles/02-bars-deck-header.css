@@ -39,7 +39,7 @@
 .gt-right { display: flex; align-items: center; gap: 10px; flex: none; margin-left: auto; }
 .gt-new {
   display: flex; align-items: center; height: 44px; padding: 0 18px;
-  border-radius: 10px; border: 1px solid transparent;
+  border-radius: var(--radius-md); border: 1px solid transparent;
   background: var(--accent-fill); color: #1a1206; font-weight: 700; white-space: nowrap;
   transition: filter .15s, border-color .15s, background .15s;
 }
@@ -61,7 +61,7 @@
 
 /* Avatar popup (Archidekt-inspired) */
 .avatar-popup {
-  position: absolute; right: 0; top: calc(100% + 6px); z-index: 200;
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: var(--z-popover);
   width: 240px; background: var(--panel-2); border: 1px solid var(--border-strong);
   border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,.5);
   animation: fadeSlideIn .12s ease-out;
@@ -131,7 +131,7 @@
    to match the mockup (the root font is 14px). Above the tabs and the
    commander picker, so its More menu opens over them. */
 .deck-head {
-  position: relative; z-index: 10; margin-bottom: 4px; border-radius: 14px;
+  position: relative; z-index: var(--z-sticky); margin-bottom: 4px; border-radius: 14px;
   background: #16181f; color-scheme: dark;
 }
 .deck-head-art {
@@ -176,12 +176,12 @@
 .deck-head-locked { color: var(--warn); }
 .deck-head-actions { display: flex; align-items: center; gap: 10px; }
 .deck-head-ghost, .deck-head .more-menu-btn {
-  min-height: 44px; padding: 0 16px; border-radius: 10px; font-weight: 500;
+  min-height: 44px; padding: 0 16px; border-radius: var(--radius-md); font-weight: 500;
   border: 1px solid rgba(255,255,255,.22); background: rgba(12,13,17,.5); color: var(--text);
 }
 .deck-head .more-menu-btn { min-width: 44px; padding: 0 12px; }
 .deck-head-ghost:hover, .deck-head .more-menu-btn:hover { border-color: rgba(255,255,255,.4); background: rgba(12,13,17,.5); }
-.deck-head-save { min-height: 44px; padding: 0 20px; border-radius: 10px; font-weight: 700; }
+.deck-head-save { min-height: 44px; padding: 0 20px; border-radius: var(--radius-md); font-weight: 700; }
 /* Commander picker row, under the header on both sizes. */
 .cmdr-input-row { position: relative; z-index: 9; margin-bottom: .55rem; }
 .cmdr-suggest { margin: .4rem 0 0; }
@@ -193,7 +193,7 @@
   line-height: 1; background: var(--panel-2);
 }
 .more-menu-list {
-  position: absolute; right: 0; top: calc(100% + 4px); z-index: 30;
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: var(--z-popover);
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
   box-shadow: var(--shadow-md); min-width: 170px; padding: .25rem; overflow: hidden;
   animation: fadeSlideIn .12s ease-out;
