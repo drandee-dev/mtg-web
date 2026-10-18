@@ -66,7 +66,7 @@ export default function StackColumn({
           : icon
             ? <span className="stack-column-crown" aria-hidden="true">{icon}</span>
             : canHover && <span className="stack-column-grip" aria-hidden="true">⠿</span>}
-        <span className="stack-column-label">{label}</span>
+        <span className="stack-column-label" title={label}>{label}</span>
         <span className="stack-column-meta">
           <span className="stack-column-count">{count}</span>
           {countSuffix && <span className="stack-column-count mdfc-hint" title="Cards whose back face is a land">{countSuffix}</span>}

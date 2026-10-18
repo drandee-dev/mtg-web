@@ -28,6 +28,9 @@
   .ct-view-summary { display: none; }
   .ct-view-panel { width: min(300px, calc(100vw - 32px)); }
   .card-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  /* The commander directory: names are legible at two across (3-up made 98px tiles).
+     The deck's Grid view and art variants share .card-grid and stay 3-up. */
+  .card-grid.card-grid-2up { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .card-thumb { aspect-ratio: 488 / 680; border-radius: 4.8% / 3.4%; }
   .card-thumb img { border-radius: 4.8% / 3.4%; object-fit: cover; }
   .stack-card-qty, .qty-badge { width: 1.9rem; height: 1.9rem; font-size: var(--fs-xs); padding: .15rem .24rem 0 0; }

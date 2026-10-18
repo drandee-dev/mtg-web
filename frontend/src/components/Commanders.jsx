@@ -150,7 +150,7 @@ function ArtVariants({ name }) {
           <div key={`${p.set}-${p.cn}`} className="cmdr-print" role="listitem">
             <img src={p.thumb || p.image} alt={`${name} — ${p.set_name}`} loading="lazy" />
             <div className="cmdr-print-meta">
-              <div className="cmdr-print-set">{p.set_name}</div>
+              <div className="cmdr-print-set" title={p.set_name}>{p.set_name}</div>
               {p.price_usd != null && <div className="muted small">{fmtUsd(p.price_usd)}</div>}
             </div>
           </div>
@@ -373,7 +373,7 @@ export default function Commanders({ slug, setSlug, onBuild, notify }) {
       {all && (
         <div className="panel">
           <p className="muted small">{filtered.length} commander{filtered.length === 1 ? "" : "s"}</p>
-          <div className="card-grid" role="list">
+          <div className="card-grid card-grid-2up" role="list">
             {filtered.slice(0, visibleCount).map((e) => (
               <CommanderTile key={e.slug} entry={e} onOpen={setSlug} />
             ))}
@@ -389,7 +389,7 @@ export default function Commanders({ slug, setSlug, onBuild, notify }) {
       {!all && !error && (
         <div className="panel" aria-busy="true">
           <span className="visually-hidden" role="status">Loading commanders…</span>
-          <div className="card-grid" aria-hidden="true">
+          <div className="card-grid card-grid-2up" aria-hidden="true">
             {Array.from({ length: 12 }, (_, i) => <div key={i} className="card-thumb"><CardPlaceholder /></div>)}
           </div>
         </div>

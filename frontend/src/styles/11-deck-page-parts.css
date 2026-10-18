@@ -58,9 +58,11 @@
 .colorseg-B { background: var(--mtg-b); } .colorseg-R { background: var(--mtg-r); }
 .colorseg-G { background: var(--mtg-g); } .colorseg-C { background: var(--mtg-c); }
 .deck-card-body { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px 16px; }
+/* A tile's name wraps to two lines, then ends in an ellipsis; the full name is in its title. */
 .deck-card-name {
-  font-size: 15px; font-weight: 700;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 15px; font-weight: 700; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow: hidden;
 }
 .deck-card-facts { font-size: 14px; color: var(--text-secondary); }
 .deck-card-time { font-size: 13px; color: var(--text-secondary); }

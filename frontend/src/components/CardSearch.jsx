@@ -52,7 +52,7 @@ export default function CardSearch({ addCard, notify, deckName, deckHref, onBack
           <div><label>Name</label><input value={f.name} onChange={(e) => up("name", e.target.value)} placeholder="bolt" /></div>
           <div><label>Type</label><input value={f.type} onChange={(e) => up("type", e.target.value)} placeholder="instant" /></div>
           <div><label>Oracle text (regex)</label><input value={f.oracle} onChange={(e) => up("oracle", e.target.value)} placeholder="draw a card" /></div>
-          <div><label>Color identity</label><input value={f.color_identity} onChange={(e) => up("color_identity", e.target.value)} placeholder="WUG (C=colorless)" /></div>
+          <div><label>Color identity</label><input value={f.color_identity} onChange={(e) => up("color_identity", e.target.value)} placeholder="WUG, or C" /></div>
           <div><label>Max CMC</label><input value={f.cmc_max} onChange={(e) => up("cmc_max", e.target.value)} placeholder="3" inputMode="numeric" /></div>
         </div>
         <div className="row" style={{ marginTop: ".6rem" }}>
