@@ -33,6 +33,8 @@
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  /* A spinner that stops reads as a hang: keep it turning, slower. */
+  .insp-spinner, .cta-spinner, .server-banner-spinner { animation-duration: 1.6s !important; animation-iteration-count: infinite !important; }
 }
 
 /* Deck tiles: the whole tile but its ⋯ button is one link to the deck. */

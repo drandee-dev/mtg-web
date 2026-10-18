@@ -26,7 +26,8 @@
   padding: .2rem .55rem; min-height: 28px; font-size: var(--fs-xs); font-weight: 700;
   background: var(--accent-fill); color: #1a1206; border: none; border-radius: 6px; cursor: pointer;
 }
-.dg-suggest-use:hover { filter: brightness(1.12); border: none; }
+/* Own background and ink: button:hover's tint would otherwise win and leave dark ink on it. */
+.dg-suggest-use:hover { background: var(--accent-fill); color: #1a1206; filter: brightness(1.12); border: none; }
 .dg-suggest-edit {
   padding: .2rem .5rem; min-height: 28px; font-size: var(--fs-xs); font-weight: 600;
   background: transparent; border: 1px solid var(--border); border-radius: 6px;

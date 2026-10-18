@@ -33,7 +33,6 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
     // catVersion is an intentional cache-bust: it forces a re-read after a write.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catKey, catVersion]);
-  const [expandedId, setExpandedId] = useState(null);
   const [previewCard, setPreviewCard] = useState(null);
   const [collapsed, setCollapsed] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem("mtgweb:collapsed") || "[]")); }
@@ -205,19 +204,10 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
   const handlePreview = useCallback((name) => setPreviewCard(name), []);
   const closePreview = useCallback(() => setPreviewCard(null), []);
 
-  // Touch: first tap expands, second tap opens preview
-  const handleThumbnailExpand = useCallback((cardName) => {
-    if (canHover) {
-      setPreviewCard(cardName);
-    } else {
-      if (expandedId === cardName) {
-        setPreviewCard(cardName);
-        setExpandedId(null);
-      } else {
-        setExpandedId(cardName);
-      }
-    }
-  }, [expandedId, canHover]);
+  // One tap opens the preview in every view. Image stacks keep their own
+  // tap-to-reveal step (overlapped cards) inside StackView; adding another here
+  // made Stacks take four taps and left Grid with a first tap that did nothing.
+  const handleThumbnailExpand = handlePreview;
 
   const groupTotal = (cards) => cards.reduce((s, c) => s + c.qty, 0);
 
