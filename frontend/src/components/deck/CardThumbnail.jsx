@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useCanHover, useCardImage } from "../../lib/hooks";
 import CardActionRail from "./CardActionRail";
+import CardPlaceholder from "../CardPlaceholder";
 
 export default function CardThumbnail({ name, qty, printing, onRemove, onConsider, onSetQty, expanded, onExpand, useArtCrop }) {
   const canHover = useCanHover();
@@ -87,7 +88,7 @@ export default function CardThumbnail({ name, qty, printing, onRemove, onConside
             onError={(e) => { if (data?.image && e.currentTarget.src !== data.image) e.currentTarget.src = data.image; }}
           />
         ) : (
-          <div className="card-thumb-placeholder">{name}</div>
+          <CardPlaceholder name={name} loading={!data} />
         )}
         <span className="qty-badge" aria-label={`${qty} copies`}>{qty}</span>
         {/* Desktop control rail; touch keeps the swipe-to-remove gesture instead */}

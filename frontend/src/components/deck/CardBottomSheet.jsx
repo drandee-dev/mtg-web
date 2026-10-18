@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useCardImage, useEscapeKey, useFocusTrap } from "../../lib/hooks";
 import { useBackClose } from "../../lib/backstack";
 import { fmtUsd } from "../../lib/format";
+import CardPlaceholder from "../CardPlaceholder";
 
 export default function CardBottomSheet({ name, onClose, onRemove, onAddToConsidering }) {
   const data = useCardImage(name);
@@ -27,7 +28,7 @@ export default function CardBottomSheet({ name, onClose, onRemove, onAddToConsid
           {data?.image ? (
             <img className="bs-card-img" src={data.image} alt={name} />
           ) : (
-            <div className="bs-card-placeholder">Loading…</div>
+            <CardPlaceholder name={name} loading={!data} className="bs-card-placeholder" />
           )}
           <div className="bs-info">
             <h3 className="bs-name">{name}</h3>

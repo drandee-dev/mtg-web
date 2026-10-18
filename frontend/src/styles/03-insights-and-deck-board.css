@@ -167,10 +167,6 @@
 }
 .card-thumb:hover { box-shadow: var(--shadow-md); }
 .card-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 4.8% / 3.4%; }
-.card-thumb-placeholder {
-  display: flex; align-items: center; justify-content: center; height: 100%;
-  font-size: var(--fs-xs); color: var(--muted); text-align: center; padding: .3rem;
-}
 /* .qty-badge (grid) shares the corner-triangle styling with .stack-card-qty — see
    the combined rule in the stack section. */
 /* Card action rail — Archidekt-style vertical controls on the right edge, revealed

@@ -1,0 +1,66 @@
+/* Placeholders (visual pass job 5): one system for "this is loading". A block
+   that holds its final size, fills with --panel-2 and breathes slowly. The global
+   reduced-motion rule (11) stops the pulse, so a reduced-motion reader sees the
+   plain block. Sizes are in em/lh so they follow the type scale. */
+@keyframes phPulse { 50% { opacity: .5; } }
+
+.ph { background: var(--panel-2); border-radius: var(--radius); animation: phPulse 1.6s ease-in-out infinite; }
+.ph-line { display: block; height: 1lh; max-width: 100%; }
+.ph-line + .ph-line { margin-top: .5lh; }
+.ph-w-30 { width: 30%; } .ph-w-60 { width: 60%; } .ph-w-90 { width: 90%; }
+
+/* A card-shaped frame carrying the card's name. The fill is a layer under the
+   name, so the name does not pulse with it. */
+.ph-card {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 100%; aspect-ratio: 488 / 680; padding: .4rem; box-sizing: border-box;
+  border-radius: 4.8% / 3.4%; overflow: hidden; text-align: center;
+  font-size: var(--fs-xs); color: var(--muted);
+}
+.ph-card::before {
+  content: ""; position: absolute; inset: 0; background: var(--panel-2); z-index: 0;
+}
+.ph-busy::before { animation: phPulse 1.6s ease-in-out infinite; }
+.ph-card-name { position: relative; z-index: 1; overflow-wrap: anywhere; }
+/* Inside a tile that already has the card's proportions, fill it. */
+.card-thumb > .ph-card, .stack-card-wrap > .ph-card { height: 100%; aspect-ratio: auto; border-radius: 0; }
+/* Alt text of a card image still loading must not show through. */
+.card-thumb img, .cmdr-print img, .stack-card-wrap img { color: transparent; }
+
+/* The three standalone card frames. */
+.bs-card-placeholder.ph-card { width: 220px; border-radius: var(--radius-lg); }
+.cdm-art-placeholder.ph-card { border-radius: var(--radius-lg); }
+/* The full-size preview: the same width as `.card-modal img` (04, 13), so the swap does not resize it. */
+.card-modal-ph { width: min(92vw, calc(86vh * 63 / 88)); max-width: 92vw; border-radius: var(--radius-lg); }
+@media (max-width: 699px) { .card-modal-ph { width: min(85vw, calc(75vh * 63 / 88)); max-width: 85vw; } }
+
+/* Page shapes. Heights match the real thing so the swap does not move the page. */
+.ph-sig-row { display: flex; align-items: center; gap: .6rem; padding: .5rem .1rem; border-bottom: 1px solid var(--border); }
+.ph-sig-row:last-child { border-bottom: 0; }
+.ph-sig-row .ph-dot { flex: none; width: 1.5rem; height: 1.5rem; border-radius: 50%; }
+.ph-sig-row .ph-line { flex: 1 1 auto; margin: 0; height: 1lh; }
+.ph-sig-row .ph-pill { flex: none; width: 2.6rem; height: 1.3rem; border-radius: 999px; }
+
+/* A commander's page before its directory arrives: the real hero's art block
+   (.commander-detail-art gives its size), a text column of about its height, then
+   the oracle panel's lines. */
+.ph-hero-body { flex: 1 1 14rem; min-width: 0; min-height: 14rem; padding-top: .3rem; }
+.ph-oracle { min-height: 3lh; }
+
+/* The deck address: header, tabs and toolbar strip, then one stack column. Heights
+   are the real page's, measured at 1280, 768 and 390 (header 111 and 92 on a phone,
+   the strip one 56px row from 700 and 110px stacked on a phone, the board 12px
+   below, its first card 63px into it under the column label). The header's height
+   follows the deck's own content (a commander's facts can wrap it to 171px at 768),
+   which is not known before the deck arrives, so this is the common case. */
+.ph-deck-head { height: 111px; }
+.ph-deck-strip { height: 56px; margin-top: 4px; }
+.ph-deck-col { position: relative; display: flex; flex-direction: column; align-items: center; margin-top: 12px; padding-top: 63px; width: 15rem; max-width: 100%; }
+.ph-deck-label { position: absolute; top: 22px; left: 0; width: 6rem; height: 1rem; }
+.ph-deck-col .ph-card + .ph-card { margin-top: -18rem; }
+@media (max-width: 699px) {
+  .ph-deck-head { height: 92px; }
+  .ph-deck-strip { height: 110px; }
+  .ph-deck-col { width: 100%; }
+  .ph-deck-col .ph-card + .ph-card { margin-top: calc(3rem - 139.34%); }
+}

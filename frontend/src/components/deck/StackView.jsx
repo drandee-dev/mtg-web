@@ -6,6 +6,7 @@ import StackColumn from "./StackColumn";
 import StackDndContext from "./StackDndContext";
 import CardActionRail from "./CardActionRail";
 import MoreMenu from "./MoreMenu";
+import CardPlaceholder from "../CardPlaceholder";
 
 function columnTotals(cards, metaMap) {
   let qty = 0;
@@ -217,7 +218,7 @@ function GhostCardImg({ name }) {
   const img = cardImgSrc(data);
   return (
     <div className="stack-card-wrap">
-      {img ? <img src={img} alt="" onError={(e) => fallbackToNormal(e, data)} /> : <div className="card-thumb-placeholder">{name}</div>}
+      {img ? <img src={img} alt="" onError={(e) => fallbackToNormal(e, data)} /> : <CardPlaceholder name={name} loading={!data} />}
     </div>
   );
 }
@@ -288,7 +289,7 @@ function StackCard({ name, qty, printing, synergy, columnLabel, onCardClick, onR
       {img ? (
         <img src={img} alt={`${qty}x ${name}`} loading="lazy" onError={(e) => fallbackToNormal(e, data)} />
       ) : (
-        <div className="card-thumb-placeholder">{name}</div>
+        <CardPlaceholder name={name} loading={!data} />
       )}
       {(qty > 1 || onSetQty) && <span className="stack-card-qty">{qty}</span>}
       {synergy != null && <span className="stack-card-synergy">{Math.round(synergy * 100)}%</span>}

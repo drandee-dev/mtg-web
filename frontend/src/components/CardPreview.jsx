@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { getCardImage } from "../lib/api";
 import { useCanHover, useEscapeKey, useFocusTrap } from "../lib/hooks";
 import { useBackClose } from "../lib/backstack";
+import CardPlaceholder from "./CardPlaceholder";
 
 export default function CardPreview({ name, children }) {
   const canHover = useCanHover();
@@ -88,7 +89,9 @@ export default function CardPreview({ name, children }) {
         <span className="card-float" style={{ left: pos.left, top: pos.top }}>
           {img
             ? <img src={img} alt={name} style={{ width: pos.w, height: pos.h }} loading="lazy" />
-            : <span className="card-float-empty">{data ? "No image" : "Loading…"}</span>}
+            : data
+              ? <span className="card-float-empty">No image</span>
+              : <CardPlaceholder name={name} style={{ width: pos.w, height: pos.h }} />}
         </span>,
         document.body,
       )}
@@ -105,7 +108,9 @@ export default function CardPreview({ name, children }) {
                 alt={name}
                 loading="lazy"
               />
-            : <div className="card-modal-empty">{data ? `No image for ${name}` : "Loading…"}</div>}
+            : data
+              ? <div className="card-modal-empty">{`No image for ${name}`}</div>
+              : <CardPlaceholder name={name} className="card-modal-ph" />}
         </div>,
         document.body,
       )}

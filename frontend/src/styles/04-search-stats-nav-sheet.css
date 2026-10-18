@@ -176,11 +176,6 @@
 .bs-card-img {
   width: 220px; border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
 }
-.bs-card-placeholder {
-  width: 220px; aspect-ratio: 488/680; background: var(--panel-2);
-  border-radius: var(--radius-lg); display: flex; align-items: center;
-  justify-content: center; color: var(--muted);
-}
 .bs-info { text-align: center; }
 .bs-name { margin: 0; font-size: var(--fs-md); font-weight: 700; }
 .bs-type { margin: .1rem 0; }
