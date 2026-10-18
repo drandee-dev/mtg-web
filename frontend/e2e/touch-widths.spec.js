@@ -6,6 +6,7 @@
 import { test, expect } from "./fixtures/test-base.js";
 import { loadSharedDeck, openDeckSection, setCardView, deckMenuAction, openAddress } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
+import { cloudOrigin } from "./fixtures/fake-cloud.js";
 
 async function misses(page, sel) {
   return page.evaluate((s) => {
@@ -93,7 +94,7 @@ for (const w of [390, 768]) {
     });
 
     test("the account panel's close", async ({ page }) => {
-      // Only built with a cloud (frontend/.env); without it there is no account panel to open.
+      test.skip(!cloudOrigin, "no frontend/.env, so this build has no account panel");
       await openAddress(page, "/rules"); // the phone's deck bar has no account button
       await page.locator('[aria-label="Account menu"]').click();
       await page.locator(".avp-row", { hasText: /settings/i }).click();
