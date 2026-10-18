@@ -44,7 +44,7 @@
         var box = document.createElement("div");
         box.className = "panel";
         box.setAttribute("role", "alert");
-        box.style.cssText = "max-width:480px;margin:96px auto 0";
+        box.style.cssText = "width:calc(100% - 32px);max-width:480px;margin:96px auto 0";
         var text = document.createElement("p");
         text.textContent = "This is taking longer than usual. If nothing happens soon, check your connection and reload.";
         var retry = document.createElement("button");
