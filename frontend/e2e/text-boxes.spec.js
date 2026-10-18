@@ -3,8 +3,8 @@
 // while prose is not. Sizes are read in lines (1lh of the box's own font), so the
 // checks do not depend on the font that happened to load.
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, openDeckSection, deckMenuAction, openAddress, newDeckDoor } from "./fixtures/helpers.js";
-import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
+import { loadSharedDeck, openDeckSection, deckMenuAction, openAddress, newDeckDoor, seedLocalDecks, waitForAppReady, dismissColdStart } from "./fixtures/helpers.js";
+import { TEST_DECK_TEXT, TEST_COMMANDER, TEST_DECK_STORAGE } from "./fixtures/test-data.js";
 
 const list = (n) => Array.from({ length: n }, (_, i) => `1 Card Number ${i + 1}`).join("\n");
 
@@ -95,6 +95,41 @@ test.describe("Text boxes", () => {
     expect(long.scrolls).toBe(true);
     expect(long.height).toBeLessThanOrEqual(0.6 * 900 + 1);
   });
+
+  // The 8-line floor must not push a modal's buttons off a short screen: the panel
+  // stays inside the viewport and scrolls, and its footer can be reached.
+  for (const [w, h] of [[844, 390], [390, 400]]) {
+    for (const [name, open, panel, foot] of [
+      ["Import cards", async (page) => {
+        await loadSharedDeck(page, list(100), TEST_COMMANDER);
+        await deckMenuAction(page, "Import cards");
+      }, ".icm-panel", ".icm-foot"],
+      // Export opens from a deck tile's menu on the Decks page.
+      ["Export", async (page) => {
+        await page.goto("/");
+        await waitForAppReady(page);
+        await seedLocalDecks(page, [{ ...TEST_DECK_STORAGE, decklist_text: list(100) }]);
+        await page.reload();
+        await waitForAppReady(page);
+        await dismissColdStart(page);
+        await page.locator(".deck-card-menu-btn").first().click();
+        await page.locator(".deck-card-menu-item", { hasText: "Export" }).click();
+      }, ".edm-panel", ".edm-foot"],
+    ]) {
+      test(`${name} fits a ${w}x${h} screen with a 100-line list`, async ({ page }) => {
+        await page.setViewportSize({ width: w, height: h });
+        await open(page);
+        const box = page.locator(`${panel} textarea`);
+        await expect(box).toBeVisible();
+        if (name === "Import cards") await box.fill(list(100));
+        const p = await page.locator(panel).boundingBox();
+        expect(p.y, `${name} panel top`).toBeGreaterThanOrEqual(0);
+        expect(p.y + p.height, `${name} panel bottom`).toBeLessThanOrEqual(h + 1);
+        await page.locator(`${foot} button`).last().scrollIntoViewIfNeeded();
+        await expect(page.locator(`${foot} button`).last()).toBeInViewport();
+      });
+    }
+  }
 
   test("the goals note is 2 lines when empty", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);

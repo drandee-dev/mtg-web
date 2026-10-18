@@ -6,7 +6,9 @@
 .icm-panel {
   width: min(540px, 100%); background: var(--panel);
   border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg); overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  /* On a short screen the panel scrolls instead of running off both ends (job 8). */
+  max-height: calc(100dvh - 2rem); overflow: auto;
 }
 .icm-head { display: flex; align-items: center; justify-content: space-between; padding: .8rem 1.1rem; border-bottom: 1px solid var(--border); }
 .icm-head h3 { margin: 0; font-size: var(--fs-base); }
@@ -23,6 +25,8 @@
 .icm-body textarea {
   --ta-min: 8; /* a pasted list: 8 lines at least, then as tall as it is, up to 40 or 60% of the screen */
   width: 100%; resize: vertical;
+  /* The floor gives way on a short screen, so the buttons below stay in reach. */
+  min-height: min(calc(var(--ta-min) * 1lh + 1.2rem + 2px), 35dvh);
   max-height: min(60dvh, calc(40 * 1lh + 1.2rem + 2px));
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-base);
   background: var(--bg-raised); color: var(--text);
@@ -98,7 +102,8 @@
 .edm-panel {
   width: min(540px, 100%); background: var(--panel);
   border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg); overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  max-height: calc(100dvh - 2rem); overflow: auto;
 }
 .edm-head { display: flex; align-items: center; justify-content: space-between; padding: .8rem 1.1rem; border-bottom: 1px solid var(--border); }
 .edm-head h3 { margin: 0; font-size: var(--fs-base); }
@@ -108,6 +113,7 @@
 .edm-body textarea {
   --ta-min: 8;
   width: 100%; resize: vertical;
+  min-height: min(calc(var(--ta-min) * 1lh + 1.2rem + 2px), 35dvh);
   max-height: min(60dvh, calc(40 * 1lh + 1.2rem + 2px));
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-base);
   background: var(--bg-raised); color: var(--text);

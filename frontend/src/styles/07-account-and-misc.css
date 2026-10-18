@@ -143,6 +143,7 @@
 .feedback-panel {
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
   padding: 1.2rem; width: min(400px, 90vw); box-shadow: var(--shadow-lg);
+  max-height: calc(100dvh - 2rem); overflow: auto; /* a long message scrolls the panel, not off the screen */
 }
 .feedback-panel textarea { --ta-min: 4; --ta-max: 12; font-family: inherit; } /* prose, not a list */
 

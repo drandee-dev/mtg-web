@@ -73,14 +73,13 @@
   max-height: calc(var(--ta-max) * 1lh + 28px + 2px);
 }
 .nd-card textarea:placeholder-shown { max-height: calc(var(--ta-min) * 1lh + 28px + 2px); }
-/* A pasted list (the paste and collection boxes carry .gen-describe, in a card or
-   not): monospace, 8 lines at least, up to 40 or 60% of the screen. */
+/* A pasted list (the paste and collection boxes carry .gen-describe): monospace,
+   8 lines at least, up to 40 or 60% of the screen. */
 .gen-describe {
   --ta-min: 8;
   font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
   max-height: min(60dvh, calc(40 * 1lh + 1.1rem + 2px));
 }
-.nd-card textarea.gen-describe { max-height: min(60dvh, calc(40 * 1lh + 28px + 2px)); }
 .nd-card-foot { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
 .nd-card-foot .primary { width: 100%; height: 44px; padding: 0 22px; border-radius: 10px; font-weight: 700; }
 /* A sentence above its control, so it sheds the global label's small capitals. */
