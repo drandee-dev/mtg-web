@@ -14,6 +14,9 @@ const hoverOnly = {
     if (parent?.type === 'atrule' && (parent.params === HOVER_ONLY || /keyframes$/.test(parent.name))) return
     const hover = rule.selectors.filter((s) => s.includes(':hover'))
     if (!hover.length) return
+    // Moving ".x:not(:hover)" behind a hover query would turn it off on touch, the
+    // opposite of what it says. Fail the build rather than guess.
+    if (hover.some((s) => /:(not|is|where|has)\([^)]*:hover/.test(s))) throw rule.error(':hover inside :not(), :is(), :where() or :has() is not handled by hover-only')
     const media = new AtRule({ name: 'media', params: HOVER_ONLY })
     media.append(rule.clone({ selectors: hover }))
     rule.after(media)
