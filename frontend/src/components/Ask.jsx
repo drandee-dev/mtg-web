@@ -102,13 +102,14 @@ export default function Ask({
     if (!open) return;
     // The docked drawer (desktop) closes only for an Escape pressed inside it: it stays
     // open while a modal or menu over the page handles its own Escape. The phone's sheet
-    // is the whole task, so Escape closes it from anywhere, unless another dialog is open
-    // over it, which handles its own Escape.
+    // is the whole task, so Escape closes it from anywhere, unless a layer is open over it
+    // (another dialog, or a menu from the bar that stays visible above the sheet), which
+    // handles its own Escape first.
     function onKey(e) {
       if (e.key !== "Escape") return;
       const inside = panelRef.current?.contains(e.target);
-      const otherDialog = document.querySelector('[aria-modal="true"]:not(#ask-panel)');
-      if (inside || (isMobile && !otherDialog)) onClose();
+      const layerOver = document.querySelector('[aria-modal="true"]:not(#ask-panel), [role="menu"]');
+      if (inside || (isMobile && !layerOver)) onClose();
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);

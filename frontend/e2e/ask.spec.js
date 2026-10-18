@@ -308,6 +308,20 @@ test.describe("Ask sheet on a phone", () => {
     await expect(askButton(page)).toBeFocused();
   });
 
+  // The bar stays visible above the phone's sheet, so a menu from it can be open over it:
+  // the first Escape closes the menu, the second the sheet.
+  test("a menu from the bar closes alone on Escape, then the sheet on the next", async ({ page }) => {
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openChat(page);
+    await page.locator(".more-menu-btn:visible").first().click();
+    await expect(page.locator(".more-menu-list")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".more-menu-list")).toHaveCount(0);
+    await expect(page.locator(".ask-panel")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".ask-panel")).toHaveCount(0);
+  });
+
   // A card opened from the chat is a dialog over the sheet: its Escape closes it and not the sheet.
   test("a card opened from the chat closes alone on Escape", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
