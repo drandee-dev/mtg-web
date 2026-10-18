@@ -9,6 +9,7 @@ export function DeckPlaceholder() {
         <div className="ph ph-deck-head" />
         <div className="ph ph-deck-strip" />
         <div className="ph-deck-col">
+          <span className="ph ph-deck-label" />
           <CardPlaceholder /><CardPlaceholder /><CardPlaceholder />
         </div>
       </div>

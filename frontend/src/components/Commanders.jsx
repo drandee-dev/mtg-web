@@ -21,7 +21,8 @@ function colorMatches(identity, allowed) {
 
 function CommanderTile({ entry, onOpen }) {
   const data = useCardImage(entry.name);
-  const img = data?.border_crop || data?.image || null;
+  const [broken, setBroken] = useState(false);
+  const img = broken ? null : data?.border_crop || data?.image || null;
   return (
     <div
       className="card-thumb"
@@ -32,7 +33,7 @@ function CommanderTile({ entry, onOpen }) {
       aria-label={entry.name}
     >
       {img ? (
-        <img src={img} alt={entry.name} width="180" height="251" loading="lazy" />
+        <img src={img} alt={entry.name} width="180" height="251" loading="lazy" onError={() => setBroken(true)} />
       ) : (
         <CardPlaceholder name={entry.name} loading={!data} />
       )}
@@ -86,27 +87,29 @@ function useCommanderExtra(fetcher, name) {
 const SIG_TITLE = "What makes this commander different";
 const SIG_SUB = "Played far more here than across the format. Share of decks, and EDHREC synergy score.";
 
+// Same heading and five rows at the real row height, so the section does not
+// grow when the cards arrive.
+function SignatureLoading() {
+  return (
+    <Section label="Signature cards" title={SIG_TITLE} sub={SIG_SUB} busy>
+      <span className="visually-hidden" role="status">Loading…</span>
+      <div aria-hidden="true">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="ph-sig-row">
+            <span className="ph ph-dot" /><span className="ph ph-line" /><span className="ph ph-pill" />
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
 function SignatureCards({ name }) {
   const { data, error } = useCommanderExtra(api.commanderSynergies, name);
   const cards = data?.cards || [];
 
   if (error) return null; // EDHREC is a third party; a page without this section still works
-  // Same heading and five rows at the real row height, so the section does not
-  // grow when the cards arrive.
-  if (!data) {
-    return (
-      <Section label="Signature cards" title={SIG_TITLE} sub={SIG_SUB} busy>
-        <span className="visually-hidden" role="status">Loading…</span>
-        <div aria-hidden="true">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <div key={i} className="ph-sig-row">
-              <span className="ph ph-dot" /><span className="ph ph-line" /><span className="ph ph-pill" />
-            </div>
-          ))}
-        </div>
-      </Section>
-    );
-  }
+  if (!data) return <SignatureLoading />;
   if (cards.length === 0) return null;
 
   return (
@@ -170,14 +173,14 @@ function CommanderDetail({ entry, onBack, onBuild }) {
       <div className="panel">
         <div className="commander-detail-hero">
           {/* Rendering src="" makes the browser re-request the page itself. */}
-          {(data?.art_crop || data?.image) && (
+          {(data?.art_crop || data?.image) ? (
             <img
               src={data.art_crop || data.image}
               alt={entry.name}
               className="commander-detail-art"
               loading="lazy"
             />
-          )}
+          ) : !data && <div className="ph commander-detail-art" aria-hidden="true" />}
           <div>
             <h2 style={{ marginBottom: ".2rem" }}>{entry.name}</h2>
             <div className="row" style={{ marginBottom: ".4rem" }}>
@@ -244,8 +247,8 @@ function CommanderDetailPlaceholder({ onBack }) {
       </div>
       <div className="panel" aria-busy="true">
         <span className="visually-hidden" role="status">Loading…</span>
-        <div className="ph-hero" aria-hidden="true">
-          <CardPlaceholder />
+        <div className="commander-detail-hero" aria-hidden="true">
+          <div className="ph commander-detail-art" />
           <div className="ph-hero-body">
             <span className="ph ph-line ph-w-60" />
             <span className="ph ph-line ph-w-30" />
@@ -254,6 +257,10 @@ function CommanderDetailPlaceholder({ onBack }) {
           </div>
         </div>
       </div>
+      <div className="panel" aria-hidden="true">
+        <div className="ph-oracle"><span className="ph ph-line ph-w-90" /><span className="ph ph-line ph-w-60" /></div>
+      </div>
+      <SignatureLoading />
     </div>
   );
 }
