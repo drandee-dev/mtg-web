@@ -15,16 +15,25 @@
      699px, and a tablet is wider, so this one follows the pointer, not the width. */
   input, textarea, select { font-size: 16px !important; }
   .cdm-stepper button { min-height: auto !important; }
-  .card-rail-btn, .cdm-close, .cdm-flip, .cdm-stepper button,
-  .pw-cardchip-btn, .deck-card-menu-btn, .dg-suggest-x { position: relative; }
-  .cdm-close::after, .cdm-flip::after, .deck-card-menu-btn::after, .dg-suggest-x::after {
+  .card-rail-btn, .cdm-close, .cdm-flip,
+  .pw-cardchip-btn, .deck-card-menu-btn, .dg-suggest-x, .icm-close, .account-close { position: relative; }
+  .cdm-close::after, .cdm-flip::after, .deck-card-menu-btn::after, .dg-suggest-x::after,
+  .icm-close::after, .account-close::after {
     content: ""; position: absolute; left: 50%; top: 50%;
     width: 44px; height: 44px; transform: translate(-50%, -50%);
   }
-  .card-rail-btn::after, .cdm-stepper button::after, .pw-cardchip-btn::after,
-  .color-filter-pip::after {
+  .card-rail-btn::after, .pw-cardchip-btn::after, .color-filter-pip::after {
     content: ""; position: absolute; inset: -5px;
   }
+  /* Job 12: side by side, so a 44px extender would overlap its neighbour. These grow to
+     44 wide instead (the card-modal stepper is 44 square), and a lone control with only
+     a width short just takes min-width. */
+  .cdm-stepper button { width: 44px; height: 44px; }
+  .dg-chip, .dg-suggest-edit, .dg-suggest-x, .card-list-remove, .more-menu-btn, .pt-life { min-width: 44px; }
+  /* Not a listed control, and 44 wide would cover the quantity badge on the card corner. */
+  .stack-card-movemenu .more-menu-btn { min-width: 36px; }
+  /* A 15px ? is an oval at 44 tall: make it the circle the audit asked for. */
+  .cg-tb-help { width: 44px; height: 44px; font-size: var(--fs-md); }
 }
 
 /* == Interaction & typography polish (visual-standards audit 2026-07-17) ==
