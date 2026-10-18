@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 // CSS multi-column (`column-width`) looks like masonry but rebalances its whole
 // content flow whenever any item's height changes — including a card's hover-reveal
@@ -13,7 +13,9 @@ export function useColumnCount(trackRem, gapRem) {
   const ref = useRef(null);
   const [count, setCount] = useState(1);
 
-  useEffect(() => {
+  // A layout effect: measured before the first paint, so the columns are not
+  // drawn once as a single column and then re-flowed to their real count.
+  useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     const compute = () => {

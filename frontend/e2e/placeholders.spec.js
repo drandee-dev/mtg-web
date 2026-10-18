@@ -172,6 +172,9 @@ test.describe("Placeholders", () => {
           decklist_text: TEST_DECK_STORAGE.decklist_text, updated_at: "2026-01-02T00:00:00.000Z",
         };
         await fakeCloud(page, [deck]);
+        // The analysis is held for good: its result adds a line to the real header, and
+        // this compares the placeholder with the page as it is before that.
+        await held(page, "**/api/deck/analyze");
         const release = await held(page, `${cloudOrigin}/rest/v1/decks**`);
         await page.goto(`/decks/${deck.id}`);
         await waitForAppReady(page);
@@ -182,9 +185,10 @@ test.describe("Placeholders", () => {
         const holding = { head: (await page.locator(".ph-deck-head").boundingBox()).height, col: await colTop(".ph-deck-col .ph-card") };
 
         release();
-        await expect(page.locator(".stack-card-wrap").first()).toBeVisible({ timeout: 15000 });
-        await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
-        const real = { head: (await page.locator(".deck-head").boundingBox()).height, col: await colTop(".stack-card-wrap") };
+        // The cards' own pictures, not the empty columns that stand in for them.
+        await expect(page.locator(".stack-card-wrap img").first()).toBeVisible({ timeout: 15000 });
+        await expect(page.locator('[aria-busy="true"]:visible')).toHaveCount(0);
+        const real ={ head: (await page.locator(".deck-head").boundingBox()).height, col: await colTop(".stack-card-wrap") };
         expect(Math.abs(holding.head - real.head), `header ${holding.head} vs ${real.head}`).toBeLessThanOrEqual(2);
         expect(Math.abs(holding.col - real.col), `first card top ${holding.col} vs ${real.col}`).toBeLessThanOrEqual(8);
       });

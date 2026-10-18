@@ -47,6 +47,23 @@
 .ph-hero-body { flex: 1 1 14rem; min-width: 0; min-height: 14rem; padding-top: .3rem; }
 .ph-oracle { min-height: 3lh; }
 
+/* The deck's cards before their data arrives (DeckSkeleton): the real column,
+   card and row classes, so sizes come from the real CSS. Nothing in it is a control. */
+.deck-skeleton { pointer-events: none; user-select: none; }
+.ph-flush, .ph-flush + .ph-flush { margin: 0; }
+.deck-skeleton .stack-column-header { cursor: default; }
+.deck-skeleton .stack-column-header .ph-line { height: 1rem; }
+.deck-skeleton .group-header { cursor: default; }
+.deck-skeleton .card-list-row .ph-line { height: 1rem; }
+
+/* Change rows and analytics (job 6): the real classes carry the sizes; these are
+   the few pieces that have no real element to borrow from. */
+.ph-btn { width: 5rem; height: 44px; border-radius: 10px; }
+.ph-badge { display: inline-block; width: 6rem; height: 1.4rem; border-radius: 999px; }
+.ph-curve { display: block; width: 100%; height: 5.5rem; }
+.stat .ph-line { margin: 0; }
+.stat .v .ph-line { height: 1.15rem; }
+
 /* The deck address: header, tabs and toolbar strip, then one stack column. Heights
    are the real page's, measured at 1280, 768 and 390 (header 111 and 92 on a phone,
    the strip one 56px row from 700 and 110px stacked on a phone, the board 12px

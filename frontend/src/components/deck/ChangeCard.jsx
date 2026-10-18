@@ -18,6 +18,17 @@ function Thumb({ name }) {
     : <span className="chg-thumb chg-thumb-empty" />;
 }
 
+// A change row's shape while the list loads: same classes, so the same height.
+export function ChangeCardPlaceholder() {
+  return (
+    <div className="opt-card" aria-hidden="true">
+      <div className="chg-swap"><span className="chg-thumb ph" /><span className="chg-thumb ph" /></div>
+      <div className="chg-why"><span className="ph ph-line ph-w-60" /><span className="ph ph-line ph-w-90" /></div>
+      <div className="opt-actions"><span className="ph ph-btn" /><span className="ph ph-btn" /></div>
+    </div>
+  );
+}
+
 // One proposal as drawn on `Improve`: the cards, what to do with them, why,
 // and Apply / Skip. Every source in the Suggested changes list renders through
 // this (EDHREC suggestions, the AI pass, budget swaps), so there is one
