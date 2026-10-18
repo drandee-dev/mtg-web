@@ -35,9 +35,9 @@
   }
   .mobile-deck-save {
     font-size: 15px !important; padding: 0 14px !important;
-    min-height: 44px !important; border-radius: 10px !important;
+    min-height: 44px !important; border-radius: var(--radius-md) !important;
   }
-  .mobile-deck-nav .more-menu-btn { min-height: 44px; min-width: 44px; border-radius: 10px; }
+  .mobile-deck-nav .more-menu-btn { min-height: 44px; min-width: 44px; border-radius: var(--radius-md); }
   .mobile-deck-ask { padding: 0 12px; }
 }
 

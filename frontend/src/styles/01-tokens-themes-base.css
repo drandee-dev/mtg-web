@@ -34,11 +34,15 @@
   --topbar-h: 64px;
   --tabbar-h: 64px;
   --tabbar-total: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
-  /* Layering tiers — new z-indexes should use these (component-local stacking
-     under 10 stays ad-hoc): sticky(10) < nav(50) < popover(200) < fab(900)
-     < sheet(950) < modal(1000) < banner/toast(2000). */
+  /* Layering tiers — every z-index of 10 or more uses one of these (component-local
+     stacking under 10 stays ad-hoc, and the deck page's strip 8, picker 9 and header
+     10 order is tested): sticky(10) < nav(50) < popover(200) < fab(900) < sheet(950)
+     < modal(1000) < preview(1500) < banner/toast(2000).
+     A popover is a menu, a results list or an autocomplete; a fab is a floating banner
+     that must not cover a dialog; a modal is a dialog and the phone card sheet; the
+     preview is the hover picture of a card, above a modal because it is shown from one. */
   --z-sticky: 10; --z-nav: 50; --z-popover: 200;
-  --z-fab: 900; --z-sheet: 950; --z-modal: 1000; --z-toast: 2000;
+  --z-fab: 900; --z-sheet: 950; --z-modal: 1000; --z-preview: 1500; --z-toast: 2000;
   --bg: #0c0d11;
   --bg-raised: #111318;
   --panel: #16181f;
@@ -77,6 +81,7 @@
   --fs-lg: 1.25rem;              /* section headings */
   --fs-xl: 1.6rem;               /* page titles */
   --radius: 8px;
+  --radius-md: 10px; /* buttons and fields of the newer pages (44px controls) */
   --radius-lg: 12px;
   --hover: rgba(255,255,255,.05);
   --hover-strong: rgba(255,255,255,.08);

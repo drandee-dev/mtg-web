@@ -58,7 +58,7 @@
 
 /* Change rows and analytics (job 6): the real classes carry the sizes; these are
    the few pieces that have no real element to borrow from. */
-.ph-btn { width: 5rem; height: 44px; border-radius: 10px; }
+.ph-btn { width: 5rem; height: 44px; border-radius: var(--radius-md); }
 .ph-badge { display: inline-block; width: 6rem; height: 1.4rem; border-radius: 999px; }
 .ph-curve { display: block; width: 100%; height: 5.5rem; }
 .stat .ph-line { margin: 0; }

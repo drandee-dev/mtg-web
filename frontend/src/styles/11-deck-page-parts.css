@@ -74,7 +74,7 @@
 }
 .deck-card-menu-btn:hover { background: rgba(12,13,17,.9); }
 .deck-card-menu {
-  position: absolute; top: calc(100% + 4px); right: 0; z-index: 50;
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: var(--z-popover);
   background: var(--panel-2); border: 1px solid var(--border-strong); border-radius: 8px;
   box-shadow: var(--shadow-md); padding: 4px; min-width: 140px;
   animation: fadeSlideIn .12s ease-out;

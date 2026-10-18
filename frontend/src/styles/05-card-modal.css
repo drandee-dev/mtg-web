@@ -65,7 +65,7 @@
 @keyframes cdmSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
 /* Commander autocomplete dropdown */
-.autocomplete { position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
+.autocomplete { position: absolute; top: 100%; left: 0; right: 0; z-index: var(--z-popover);
   background: var(--panel); border: 1px solid var(--border); border-radius: 0 0 var(--radius) var(--radius);
   max-height: 280px; overflow-y: auto; box-shadow: var(--shadow-md); }
 .autocomplete .ac-item { display: block; width: 100%; text-align: left; border: none;
