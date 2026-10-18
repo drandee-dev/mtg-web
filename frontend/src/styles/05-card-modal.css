@@ -60,7 +60,13 @@
   .cdm-handle { display: block; width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); margin: .15rem auto .2rem; touch-action: none; }
   .cdm-art { width: 56%; max-width: 200px; align-self: center; }
   .cdm-body { padding-right: 0; }
-  .cdm-actions { margin-top: .4rem; }
+  /* Two columns of bordered buttons, not a loose row of text; Remove is the only red one. */
+  .cdm-actions { margin-top: .4rem; display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .cdm-actions > button, .cdm-actions > a { width: 100%; justify-content: center; text-align: center; border: 1px solid var(--border-strong); }
+  /* Scryfall is a link, so it takes the button's shape by hand. */
+  .cdm-actions > a { border-radius: var(--radius); padding: .5rem .85rem; min-height: 44px; font-weight: 500; color: var(--text); }
+  .cdm-actions > .primary { border-color: transparent; }
+  .cdm-actions > .btn-danger { color: var(--bad); border-color: var(--bad); }
 }
 @keyframes cdmSheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
