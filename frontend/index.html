@@ -10,9 +10,52 @@
     <link rel="preload" href="/fonts/Satoshi-Regular.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/Satoshi-Medium.woff2" as="font" type="font/woff2" crossorigin />
     <title>MTG Workshop</title>
+    <script>
+      // The theme, set before the first paint (main.jsx does the same once the app
+      // script runs) so the page shell below is the right colours on a slow load.
+      try { var t = localStorage.getItem("mtgweb:theme") || "dark"; if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) { /* no storage: the default theme */ }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Page shell: the browser paints this as soon as the stylesheet is in, before
+           any script has run, so a slow phone sees the app's frame and a moving
+           line instead of an empty page. It uses the app's own bar classes, in the
+           same place, and React's first render replaces it. -->
+      <div id="shell" aria-hidden="true">
+        <div class="top-progress"><i></i></div>
+        <header class="global-toolbar">
+          <div class="gt-brand"><span class="gt-logo-dot"></span><span class="gt-logo-text">MTG Workshop</span></div>
+          <nav class="gt-nav"><span class="gt-link">Decks</span><span class="gt-link">Commanders</span><span class="gt-link">Cards</span><span class="gt-link">Rules</span></nav>
+        </header>
+      </div>
+    </div>
+    <script>
+      // If the app script never arrives (offline, or a file a new deploy replaced) the
+      // shell's line would move for ever. After 15s, say it is taking long, with a way
+      // to try again. It does not say "failed": a slow phone can take 20s and still get there.
+      // The message goes in #root beside the shell, so React's first render (should the
+      // app turn up late) clears it too.
+      setTimeout(function () {
+        var shell = document.getElementById("shell");
+        if (!shell) return;
+        var line = shell.querySelector(".top-progress");
+        if (line) line.remove();
+        var box = document.createElement("div");
+        box.className = "panel";
+        box.setAttribute("role", "alert");
+        box.style.cssText = "width:calc(100% - 32px);max-width:480px;margin:96px auto 0";
+        var text = document.createElement("p");
+        text.textContent = "This is taking longer than usual. If nothing happens soon, check your connection and reload.";
+        var retry = document.createElement("button");
+        retry.className = "primary";
+        retry.textContent = "Reload";
+        retry.onclick = function () { location.reload(); };
+        box.appendChild(text);
+        box.appendChild(retry);
+        document.getElementById("root").appendChild(box);
+      }, 15000);
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

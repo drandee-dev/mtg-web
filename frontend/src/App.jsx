@@ -18,6 +18,7 @@ import { useToast } from "./lib/useToast";
 import { useAppRoute } from "./lib/useAppRoute";
 import PasswordResetModal from "./components/PasswordResetModal";
 import GlobalToolbar from "./components/layout/GlobalToolbar";
+import TopProgress from "./components/layout/TopProgress";
 import BottomNav from "./components/layout/BottomNav";
 import ServerStatusBanner from "./components/ServerStatusBanner";
 import DeckView from "./components/deck/DeckView";
@@ -700,6 +701,8 @@ export default function App() {
         onBlur={(e) => { e.target.style.position = "absolute"; e.target.style.left = "-9999px"; e.target.style.width = "1px"; e.target.style.height = "1px"; }}>
         Skip to content
       </a>
+
+      <TopProgress />
 
       {/* Non-blocking: the app renders immediately; the banner only appears if the
           first health check fails ("waking") or all retries are exhausted ("offline"). */}

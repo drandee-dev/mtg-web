@@ -57,6 +57,21 @@
 .stat .v { font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
 .stat.stat-danger .v { color: var(--bad); }
 
+/* The top progress line (TopProgress, and the page shell in index.html): 3px across
+   the very top of the page, a stretch of gold sliding left to right. Transform
+   only, so it stays smooth on a busy page. Under reduced motion it holds still. */
+.top-progress {
+  position: fixed; top: 0; left: 0; right: 0; height: 3px; overflow: hidden;
+  z-index: var(--z-toast); pointer-events: none;
+}
+.top-progress i {
+  display: block; width: 40%; height: 100%; background: var(--accent-fill);
+  animation: topProgressSlide 1.1s ease-in-out infinite;
+}
+@keyframes topProgressSlide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+/* Held still, a short bar at the left reads as stuck: use the whole line, dimmed. */
+@media (prefers-reduced-motion: reduce) { .top-progress i { width: 100%; opacity: .55; } }
+
 .toast { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
   background: var(--panel); border: 1px solid var(--border); padding: .6rem 1rem;
   border-radius: var(--radius); z-index: var(--z-toast); max-width: 90vw;
