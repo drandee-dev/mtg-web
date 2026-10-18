@@ -50,12 +50,35 @@ test.describe("Page shell", () => {
     await expect(bar(page)).toBeVisible();
     await expect(page.locator(".app")).toHaveCount(0);
     const shell = await toolbar.boundingBox();
+    const shellPlaces = await page.locator(".gt-nav .gt-link").allTextContents();
 
-    // The app arrives and replaces the shell without the bar moving.
+    // The app arrives and replaces the shell without the bar moving, and the
+    // shell's list of places is the real bar's (it is a second copy of the list).
     await waitForAppReady(page);
     await expect(toolbar).toHaveCount(1);
     expect(await toolbar.boundingBox()).toEqual(shell);
     await expect(bar(page)).toHaveCount(0);
+    expect(await page.locator('nav[aria-label="Main"]:visible').getByRole("link").allTextContents()).toEqual(shellPlaces);
+  });
+
+  test("an app script that never arrives ends in a message and a Reload, not a line that moves for ever", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chrome", "sizes its own viewport");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.clock.install();
+    await page.route("**/assets/index-*.js", (route) => route.abort());
+    await page.goto("/", { waitUntil: "commit" });
+    await expect(bar(page)).toBeVisible();
+
+    await page.clock.fastForward(16000);
+    const message = page.getByRole("alert").filter({ hasText: "The app didn’t load" });
+    await expect(message).toBeVisible();
+    await expect(bar(page)).toHaveCount(0);
+
+    // With the connection back, Reload brings the app up.
+    await page.unroute("**/assets/index-*.js");
+    await message.getByRole("button", { name: "Reload" }).click();
+    await waitForAppReady(page);
+    await expect(message).toHaveCount(0);
   });
 
   test("a slow load has the right theme from the first paint", async ({ page }, testInfo) => {

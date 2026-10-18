@@ -22,7 +22,7 @@
            any script has run, so a slow phone sees the app's frame and a moving
            line instead of an empty page. It uses the app's own bar classes, in the
            same place, and React's first render replaces it. -->
-      <div aria-hidden="true">
+      <div id="shell" aria-hidden="true">
         <div class="top-progress"><i></i></div>
         <header class="global-toolbar">
           <div class="gt-brand"><span class="gt-logo-dot"></span><span class="gt-logo-text">MTG Workshop</span></div>
@@ -30,6 +30,31 @@
         </header>
       </div>
     </div>
+    <script>
+      // If the app script never arrives (offline, or a file a new deploy replaced) the
+      // shell's line would move for ever. After 15s, say so, with a way to try again.
+      // The message goes in #root beside the shell, so React's first render (should the
+      // app turn up late) clears it too.
+      setTimeout(function () {
+        var shell = document.getElementById("shell");
+        if (!shell) return;
+        var line = shell.querySelector(".top-progress");
+        if (line) line.remove();
+        var box = document.createElement("div");
+        box.className = "panel";
+        box.setAttribute("role", "alert");
+        box.style.cssText = "max-width:480px;margin:96px auto 0";
+        var text = document.createElement("p");
+        text.textContent = "The app didn’t load. Check your connection, then try again.";
+        var retry = document.createElement("button");
+        retry.className = "primary";
+        retry.textContent = "Reload";
+        retry.onclick = function () { location.reload(); };
+        box.appendChild(text);
+        box.appendChild(retry);
+        document.getElementById("root").appendChild(box);
+      }, 15000);
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
