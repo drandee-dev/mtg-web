@@ -2,10 +2,31 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Visual pass I7. Every rule with a :hover selector is moved into a media block, so a
+// tap on a phone no longer leaves its control "hovered". The query is the one
+// useCanHover (src/lib/hooks.js) asks, so CSS and JS agree on what can hover. A list
+// that mixes :hover with :focus-visible keeps its focus half outside the block.
+const HOVER_ONLY = '(hover: hover) and (pointer: fine)'
+const hoverOnly = {
+  postcssPlugin: 'hover-only',
+  Rule(rule, { AtRule }) {
+    const parent = rule.parent
+    if (parent?.type === 'atrule' && (parent.params === HOVER_ONLY || /keyframes$/.test(parent.name))) return
+    const hover = rule.selectors.filter((s) => s.includes(':hover'))
+    if (!hover.length) return
+    const media = new AtRule({ name: 'media', params: HOVER_ONLY })
+    media.append(rule.clone({ selectors: hover }))
+    rule.after(media)
+    if (hover.length === rule.selectors.length) rule.remove()
+    else rule.selectors = rule.selectors.filter((s) => !s.includes(':hover'))
+  },
+}
+
 export default defineConfig({
   server: {
     host: '127.0.0.1',
   },
+  css: { postcss: { plugins: [hoverOnly] } },
   plugins: [
     react(),
     VitePWA({

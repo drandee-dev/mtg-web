@@ -35,6 +35,8 @@
 }
 .deck-input-result:hover { background: var(--hover); }
 .deck-input-result-name { font-weight: 600; flex: none; }
+/* Gives way first, so the price and "+ Add" at the right edge are never cut off. */
+.deck-input-result-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .deck-input-result-add {
   margin-left: auto; flex: none; color: var(--accent); font-weight: 600;
   font-size: var(--fs-xs); opacity: 0; transition: opacity .1s;
