@@ -51,7 +51,8 @@ for (const w of [390, 768]) {
       await setCardView(page, { mode: "List" });
       await expectHitAreas(page, [".card-list-remove"]);
       await setCardView(page, { mode: "Stacks" });
-      await expectHitAreas(page, [".more-menu-btn"]);
+      // The ⋯ on a card's corner is left at 36 wide: 44 would cover its quantity badge.
+      await expectHitAreas(page, [".more-menu-btn:not(.stack-card-movemenu .more-menu-btn)"]);
     });
 
     // Commander has no quantity row; walk down the stack until a modal has a stepper.
