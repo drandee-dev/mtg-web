@@ -55,7 +55,7 @@ test("the bottom bar is allowed for in focus scrolling on a phone", async ({ pag
 test("gold buttons keep their fill and ink on hover", async ({ page }) => {
   await page.goto("/");
   await waitForAppReady(page);
-  for (const cls of ["dg-suggest-use", "account-magic-link-btn", "toast-action"]) {
+  for (const cls of ["dg-suggest-use", "account-magic-link-btn", "toast-action", "rules-ask-btn"]) {
     await page.evaluate((c) => {
       const b = document.createElement("button");
       b.className = c; b.id = `probe-${c}`; b.textContent = "Probe";
