@@ -36,7 +36,28 @@ function _serialize(body) {
   }
 }
 
-async function get(path, params) {
+// How many reads and writes are out right now, for the top progress bar. A
+// request counts from the moment it is sent to the moment it settles (retry
+// included). Background lookups pass `quiet` (a card picture per card would keep
+// the bar lit while a deck loads) and the health check is not counted.
+let _inFlight = 0;
+const _busyListeners = new Set();
+/** Calls `fn(count)` whenever the number of requests in flight changes. Returns an unsubscribe. */
+export function subscribeBusy(fn) {
+  _busyListeners.add(fn);
+  return () => _busyListeners.delete(fn);
+}
+function _count(delta) {
+  _inFlight += delta;
+  _busyListeners.forEach((fn) => fn(_inFlight));
+}
+function _tracked(promise, quiet) {
+  if (quiet) return promise;
+  _count(1);
+  return promise.finally(() => _count(-1));
+}
+
+async function _get(path, params) {
   const url = new URL(BASE + path);
   Object.entries(params || {}).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
@@ -60,7 +81,7 @@ async function get(path, params) {
   }
 }
 
-async function post(path, body) {
+async function _post(path, body) {
   const res = await fetch(BASE + path, {
     method: "POST",
     headers: _headers(),
@@ -69,6 +90,9 @@ async function post(path, body) {
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
   return res.json();
 }
+
+const get = (path, params, { quiet = false } = {}) => _tracked(_get(path, params), quiet);
+const post = (path, body) => _tracked(_post(path, body), false);
 
 // Same wording the backend sends when a stream ends with no text.
 export const EMPTY_REPLY = "The assistant returned an empty reply. Try again.";
@@ -122,9 +146,9 @@ export const api = {
   commanders: (q, partnerOf) => get("/api/commanders/search", { q, partner_of: partnerOf }),
   commanderDirectory: () => get("/api/commanders/directory"),
   commanderSynergies: (name) => get("/api/commanders/synergies", { name }),
-  cardImage: (name) => get("/api/cards/image", { name }),
+  cardImage: (name) => get("/api/cards/image", { name }, { quiet: true }),
   cardPrints: (name) => get("/api/cards/prints", { name }),
-  cardPrinting: (set, cn) => get("/api/cards/printing", { set, cn }),
+  cardPrinting: (set, cn) => get("/api/cards/printing", { set, cn }, { quiet: true }),
   setSearch: (q) => get("/api/sets", { q }),
   massPrinting: (names, sets, rarity) =>
     post("/api/cards/mass-printing", { names, sets, ...(rarity ? { rarity } : {}) }),
