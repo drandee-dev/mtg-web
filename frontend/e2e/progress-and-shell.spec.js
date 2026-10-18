@@ -70,7 +70,7 @@ test.describe("Page shell", () => {
     await expect(bar(page)).toBeVisible();
 
     await page.clock.fastForward(16000);
-    const message = page.getByRole("alert").filter({ hasText: "The app didn’t load" });
+    const message = page.getByRole("alert").filter({ hasText: "taking longer than usual" });
     await expect(message).toBeVisible();
     await expect(bar(page)).toHaveCount(0);
 

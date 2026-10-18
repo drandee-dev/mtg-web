@@ -32,7 +32,8 @@
     </div>
     <script>
       // If the app script never arrives (offline, or a file a new deploy replaced) the
-      // shell's line would move for ever. After 15s, say so, with a way to try again.
+      // shell's line would move for ever. After 15s, say it is taking long, with a way
+      // to try again. It does not say "failed": a slow phone can take 20s and still get there.
       // The message goes in #root beside the shell, so React's first render (should the
       // app turn up late) clears it too.
       setTimeout(function () {
@@ -45,7 +46,7 @@
         box.setAttribute("role", "alert");
         box.style.cssText = "max-width:480px;margin:96px auto 0";
         var text = document.createElement("p");
-        text.textContent = "The app didn’t load. Check your connection, then try again.";
+        text.textContent = "This is taking longer than usual. If nothing happens soon, check your connection and reload.";
         var retry = document.createElement("button");
         retry.className = "primary";
         retry.textContent = "Reload";
