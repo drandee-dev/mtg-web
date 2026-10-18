@@ -82,7 +82,8 @@
   display: flex; align-items: center; gap: .7rem; }
 /* A toast sits over the page, so over a dialog it would cover the dialog's own buttons
    (the upgrade guide's Skip and Continue, an import's Import). With a dialog open it
-   moves to the top, under the bar, where nothing a person has to press is. */
+   moves to the top, under the bar, clear of those buttons. It can still cover a
+   dialog's heading for the few seconds it shows (the guide's title at 390). */
 body:has([aria-modal="true"]) .toast {
   bottom: auto; top: calc(var(--topbar-h) + var(--safe-top) + .5rem);
 }
