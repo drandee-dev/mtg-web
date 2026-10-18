@@ -9,7 +9,7 @@ import SessionLog from "./SessionLog";
 // Insights toolbox (Analytics / Combos / Odds). Goals and the Verdict sit
 // beside the list in Improve, rendered by DeckView.
 export default function DeckTools({
-  result, isAnalyzing,
+  result, isAnalyzing, analysisDue,
   activePanel, onPanelClick, onRefreshPanel, busy, stalePanels,
   recs, recCat, setRecCat, skipped, onClearSkipped, onAddCard,
   pinned, onTogglePin, changes,
@@ -90,6 +90,7 @@ export default function DeckTools({
         onSkipChange={onSkipInsightChange}
         commander={commander}
         format={format}
+        analyzing={isAnalyzing || analysisDue}
       />
 
       {improve && <SessionLog log={optLog || []} onUndo={onUndoChange} onClearLog={onClearLog} />}

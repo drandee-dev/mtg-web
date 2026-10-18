@@ -4,7 +4,7 @@ import { fmtUsd } from "../../lib/format";
 import CardPreview from "../CardPreview";
 import LoadingIndicator from "../LoadingIndicator";
 import DrawProbability from "./DrawProbability";
-import ChangeCard from "./ChangeCard";
+import ChangeCard, { ChangeCardPlaceholder } from "./ChangeCard";
 import { REC_CATEGORIES } from "../../lib/changeset";
 import { ManaIcon } from "./ManaCost";
 
@@ -53,7 +53,7 @@ export default function InsightsPanel({
   combos, onGoldfish,
   optimize, budgetSwaps, upgradeMode, setUpgradeMode,
   onApplyChange, onSkipChange,
-  commander, format, tools,
+  commander, format, tools, analyzing,
 }) {
   const paneId = useId();
 
@@ -108,15 +108,18 @@ export default function InsightsPanel({
       </div>}
 
       <div className="insp-body" id={paneId} role={tabs.length > 1 ? "tabpanel" : undefined}
-        aria-label={tabs.length > 1 ? tabs.find((t) => t.id === active).label : undefined}>
+        aria-label={tabs.length > 1 ? tabs.find((t) => t.id === active).label : undefined}
+        aria-busy={busy === active || (active === "Analytics" && analyzing && !result) || undefined}>
         {busy === active && <LoadingIndicator label="Loading" active />}
+        {/* The list's rows, empty, so it holds its height until they arrive. */}
+        {busy === active && active === "Changes" && [0, 1, 2].map((i) => <ChangeCardPlaceholder key={i} />)}
         {busy !== active && (
           <>
             {/* Changes has its own "Look again" in the Improve header. */}
             {active === "Combos" && onRefreshPanel && (
               <RefreshBar onRefresh={() => onRefreshPanel(active)} stale={stalePanels?.has(active)} />
             )}
-            {active === "Analytics" && <AnalyticsPane result={result} comp={comp} format={format} />}
+            {active === "Analytics" && <AnalyticsPane result={result} comp={comp} format={format} analyzing={analyzing} />}
             {active === "Changes" && (
               <ChangesPane changes={changes} loaded={loadedChanges}
                 recs={recs} recCat={recCat} setRecCat={setRecCat}
@@ -182,7 +185,28 @@ function violationText(group, v) {
   }
 }
 
-function AnalyticsPane({ result, comp, format }) {
+// The analytics before the first result: the stat tiles and badges in their real
+// classes, and the top of the mana curve's bars. (The rest of the pane depends on
+// the deck, so it is not drawn: this holds the top of the page, not all of it.)
+function AnalyticsPlaceholder() {
+  return (
+    <div className="insp-analytics">
+      <span className="visually-hidden" role="status">Loading analytics…</span>
+      <div aria-hidden="true">
+        <div className="stat-grid">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="stat"><div className="k"><span className="ph ph-line ph-w-30" /></div><div className="v"><span className="ph ph-line ph-w-60" /></div></div>
+          ))}
+        </div>
+        <div className="insp-badges"><span className="ph ph-badge" /><span className="ph ph-badge" /></div>
+        <h4 className="insp-subhead">Mana curve</h4>
+        <span className="ph ph-curve" />
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsPane({ result, comp, format, analyzing }) {
   const s = result?.stats || {};
   const mana = result?.mana || {};
   const legality = result?.legality || {};
@@ -198,7 +222,9 @@ function AnalyticsPane({ result, comp, format }) {
     ? ((cardCount || 0) > 100 ? "bad" : (cardCount || 0) === 100 ? "good" : "warn")
     : ((cardCount || 0) >= 60 ? "good" : "warn");
 
-  if (!result) return <p className="muted small insp-empty">Add cards — analytics update automatically.</p>;
+  if (!result) return analyzing
+    ? <AnalyticsPlaceholder />
+    : <p className="muted small insp-empty">Add cards — analytics update automatically.</p>;
 
   return (
     <div className="insp-analytics">

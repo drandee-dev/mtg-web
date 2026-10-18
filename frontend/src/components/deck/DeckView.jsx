@@ -107,6 +107,9 @@ export default function DeckView({
     hydratedFor,
   } = insightCache;
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  // Set once an analysis has run, whether or not it worked: a deck with cards and no
+  // result is "waiting for the first analysis" only until then (a failed one ends it).
+  const [analysisTried, setAnalysisTried] = useState(false);
   const [strategyLoading, setStrategyLoading] = useState(false);
   const [strategyError, setStrategyError] = useState("");
   const [busy, setBusy] = useState("");
@@ -194,6 +197,7 @@ export default function DeckView({
       notify?.(`Analyze failed: ${e.message}`);
     } finally {
       setIsAnalyzing(false);
+      setAnalysisTried(true);
     }
   }
 
@@ -625,9 +629,14 @@ export default function DeckView({
 
   // One props object for Improve and Stats (Goals, Verdict and both
   // DeckTools renders) — keep wiring in one place.
+  // The first analysis starts 2s after the deck loads (the debounce above), so for
+  // that long a deck with cards has no result and is not yet "analyzing".
+  const analysisDue = !result && !analysisTried
+    && (decklist || "").split("\n").filter((l) => /^\s*\d+\s+\S/.test(l)).length >= 5;
   const toolProps = {
     result,
     isAnalyzing,
+    analysisDue,
     activePanel,
     busy,
     // The Stats strip. Changes is not on it: it loads when Improve opens.

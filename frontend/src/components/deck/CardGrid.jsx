@@ -7,6 +7,7 @@ import { useCanHover } from "../../lib/hooks";
 import CardThumbnail from "./CardThumbnail";
 import StackView from "./StackView";
 import TextStackView from "./TextStackView";
+import DeckSkeleton from "./DeckSkeleton";
 import CardListRow from "./CardListRow";
 import CardDetailModal from "./CardDetailModal";
 
@@ -119,11 +120,13 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
     ? cards
     : cards.filter((c) => cardMatchesFilter(c.name, metaMap[c.name], filterTerms));
 
-  const rawGroups = Object.keys(metaMap).length > 0
-    ? groupCards(filteredCards, groupBy, metaMap)
-    : filteredCards.length > 0
-      ? { "All Cards": filteredCards }
-      : {};
+  // Until the card data is in, no card can be put in its column. Drawing them all
+  // in one "All Cards" column and moving them later was most of the page's layout
+  // shift on opening a deck, so that wait shows the empty columns instead.
+  const awaitingMeta = Object.keys(metaMap).length === 0 && filteredCards.length > 0;
+  const rawGroups = awaitingMeta
+    ? {}
+    : groupCards(filteredCards, groupBy, metaMap);
 
   // Card moves between columns are only meaningful for Role grouping — Type, Color,
   // CMC, etc. are computed truths, so dragging a card there has nothing to persist.
@@ -227,7 +230,9 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
           {cardDragEnabled && canHover && (
             <p className="stack-drag-hint">Drag cards between columns to recategorize · drag a column header to reorder</p>
           )}
-          {stackMode === "text" ? (
+          {awaitingMeta ? (
+            <DeckSkeleton viewMode="stack" stackMode={stackMode} count={filteredCards.length} commanders={commanderCards} />
+          ) : stackMode === "text" ? (
             <TextStackView
               groups={Object.entries(groups)}
               metaMap={metaMap}
@@ -307,6 +312,9 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
             </div>
           )}
         </div>
+      )}
+      {viewMode !== "stack" && awaitingMeta && (
+        <DeckSkeleton viewMode={viewMode} count={filteredCards.length} />
       )}
       {viewMode !== "stack" && Object.entries(groups).map(([type, groupCards]) => (
         <div key={type} className="card-group">
