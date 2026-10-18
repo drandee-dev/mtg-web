@@ -146,6 +146,12 @@
 * { box-sizing: border-box; }
 *:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 *:focus:not(:focus-visible) { outline: none; }
+/* Over art, and on the deck header's gold end, one gold line vanishes somewhere (1.07 to
+   2.85:1 against 3). Two tones cannot: the shadow fills the 2px gap in dark, so the white
+   outline beside it and the dark inside it each read against whatever is behind. */
+.deck-head :focus-visible, .deck-card-menu-btn:focus-visible {
+  outline-color: #fff; box-shadow: 0 0 0 2px #0c0d11;
+}
 
 /* Fluid root font-size: the whole UI is rem-based, so scaling the root
    scales typography, spacing, and components proportionally with the
