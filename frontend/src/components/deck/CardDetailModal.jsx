@@ -7,6 +7,7 @@ import { useCardImage, useEscapeKey, useFocusTrap } from "../../lib/hooks";
 import { useBackClose } from "../../lib/backstack";
 import { getBuildNote } from "../../lib/buildNotes";
 import ManaCost from "./ManaCost";
+import CardPlaceholder from "../CardPlaceholder";
 
 // Scryfall exact-name search redirects to the card's page (which has a Rulings tab).
 const scryfallUrl = (name) => `https://scryfall.com/search?q=${encodeURIComponent(`!"${name}"`)}`;
@@ -175,7 +176,12 @@ export default function CardDetailModal({
             <span aria-hidden="true"> {Array.isArray(prints) ? "▴" : "▾"}</span>
           </button>
         </div>
-        {prints === "loading" && <p className="muted small">Loading printings…</p>}
+        {prints === "loading" && (
+          <div className="cdm-prints" aria-busy="true">
+            <span className="visually-hidden" role="status">Loading printings…</span>
+            {[0, 1, 2, 3].map((i) => <CardPlaceholder key={i} />)}
+          </div>
+        )}
         {Array.isArray(prints) && (
           <div className="cdm-prints" role="listbox" aria-label="Choose a printing">
             {prints.length === 0 && <p className="muted small">No printings found.</p>}
@@ -253,7 +259,7 @@ export default function CardDetailModal({
         <div className="cdm-art">
           {artSrc
             ? <img src={artSrc} alt={showBack ? `${name} (back face)` : name} />
-            : <div className="cdm-art-placeholder">Loading…</div>}
+            : <CardPlaceholder name={name} loading className="cdm-art-placeholder" />}
           {hasBack && (
             <button
               className="cdm-flip"

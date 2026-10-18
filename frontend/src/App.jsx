@@ -17,6 +17,7 @@ import { useServerHealth } from "./lib/useServerHealth";
 import { useToast } from "./lib/useToast";
 import { useAppRoute } from "./lib/useAppRoute";
 import PasswordResetModal from "./components/PasswordResetModal";
+import { DeckPlaceholder, PanelPlaceholder } from "./components/CardPlaceholder";
 import GlobalToolbar from "./components/layout/GlobalToolbar";
 import TopProgress from "./components/layout/TopProgress";
 import BottomNav from "./components/layout/BottomNav";
@@ -756,7 +757,7 @@ export default function App() {
                 <button className="primary" onClick={refresh}>Try again</button>
               </>
             ) : (
-              <p className="muted small" role="status">Loading deck…</p>
+              <DeckPlaceholder />
             )}
           </div>
         )}
@@ -814,7 +815,7 @@ export default function App() {
           <NewDeck key={visit} seed={seed} onCreate={(deck) => createDeck(deck, visit, { keep: true })} notify={notify}
             kept={kept} onRetryKept={retryKept} onDiscardKept={discardKept} />
         ) : (
-          <div className="panel"><p className="muted small" role="status">Loading…</p></div>
+          <PanelPlaceholder />
         ))}
         {tab === "decks" && (
           <MyDecks

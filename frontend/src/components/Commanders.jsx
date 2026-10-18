@@ -9,6 +9,7 @@ import { loadDirectory } from "../lib/commanderDirectory";
 import { buildPath } from "../lib/routes";
 import NavLink from "./layout/NavLink";
 import ManaCost, { ManaIcon } from "./deck/ManaCost";
+import CardPlaceholder from "./CardPlaceholder";
 
 const COLORS = ["W", "U", "B", "R", "G"];
 const PAGE_SIZE = 60;
@@ -33,7 +34,7 @@ function CommanderTile({ entry, onOpen }) {
       {img ? (
         <img src={img} alt={entry.name} width="180" height="251" loading="lazy" />
       ) : (
-        <div className="card-thumb-placeholder">{entry.name}</div>
+        <CardPlaceholder name={entry.name} loading={!data} />
       )}
     </div>
   );
@@ -54,9 +55,9 @@ function ChipRow({ label, values }) {
 // Section band: a micro uppercase label above the heading, then the content.
 // Tapped Decks uses this rhythm on every page and it is most of why their pages
 // read as composed rather than stacked. Reusable beyond this file on purpose.
-function Section({ label, title, sub, children }) {
+function Section({ label, title, sub, busy, children }) {
   return (
-    <div className="panel">
+    <div className="panel" aria-busy={busy || undefined}>
       <div className="band-eyebrow">{label}</div>
       <h3 className="band-title">{title}</h3>
       {sub && <p className="muted small band-sub">{sub}</p>}
@@ -82,19 +83,37 @@ function useCommanderExtra(fetcher, name) {
   return state.name === name ? state : { data: null, error: "" };
 }
 
+const SIG_TITLE = "What makes this commander different";
+const SIG_SUB = "Played far more here than across the format. Share of decks, and EDHREC synergy score.";
+
 function SignatureCards({ name }) {
   const { data, error } = useCommanderExtra(api.commanderSynergies, name);
   const cards = data?.cards || [];
 
   if (error) return null; // EDHREC is a third party; a page without this section still works
-  if (!data) return <Section label="Signature cards" title="Signature cards"><p className="muted small">Loading…</p></Section>;
+  // Same heading and five rows at the real row height, so the section does not
+  // grow when the cards arrive.
+  if (!data) {
+    return (
+      <Section label="Signature cards" title={SIG_TITLE} sub={SIG_SUB} busy>
+        <span className="visually-hidden" role="status">Loading…</span>
+        <div aria-hidden="true">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="ph-sig-row">
+              <span className="ph ph-dot" /><span className="ph ph-line" /><span className="ph ph-pill" />
+            </div>
+          ))}
+        </div>
+      </Section>
+    );
+  }
   if (cards.length === 0) return null;
 
   return (
     <Section
       label="Signature cards"
-      title="What makes this commander different"
-      sub="Played far more here than across the format. Share of decks, and EDHREC synergy score."
+      title={SIG_TITLE}
+      sub={SIG_SUB}
     >
       <ol className="cmdr-sig-list">
         {cards.map((c, i) => (
@@ -216,6 +235,29 @@ function CommanderDetail({ entry, onBack, onBuild }) {
   );
 }
 
+// A commander's page while the directory loads: the hero panel's shape.
+function CommanderDetailPlaceholder({ onBack }) {
+  return (
+    <div>
+      <div className="panel">
+        <button className="ghost small" onClick={onBack}>← Back to commanders</button>
+      </div>
+      <div className="panel" aria-busy="true">
+        <span className="visually-hidden" role="status">Loading…</span>
+        <div className="ph-hero" aria-hidden="true">
+          <CardPlaceholder />
+          <div className="ph-hero-body">
+            <span className="ph ph-line ph-w-60" />
+            <span className="ph ph-line ph-w-30" />
+            <span className="ph ph-line ph-w-90" />
+            <span className="ph ph-line ph-w-60" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // The directory could not be loaded (the list, and each commander's page, both
 // wait on it): say so, with a way to ask again.
 function LoadFailed({ error, onRetry }) {
@@ -269,7 +311,7 @@ export default function Commanders({ slug, setSlug, onBuild, notify }) {
     if (!all) {
       return error
         ? <LoadFailed error={error} onRetry={retry} />
-        : <div className="panel"><p className="muted small" role="status">Loading…</p></div>;
+        : <CommanderDetailPlaceholder onBack={() => setSlug(null)} />;
     }
     if (!entry) {
       return (
@@ -337,7 +379,14 @@ export default function Commanders({ slug, setSlug, onBuild, notify }) {
         </div>
       )}
 
-      {!all && !error && <div className="panel"><p className="muted small">Loading commanders…</p></div>}
+      {!all && !error && (
+        <div className="panel" aria-busy="true">
+          <span className="visually-hidden" role="status">Loading commanders…</span>
+          <div className="card-grid" aria-hidden="true">
+            {Array.from({ length: 12 }, (_, i) => <div key={i} className="card-thumb"><CardPlaceholder /></div>)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
