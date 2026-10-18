@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, assembleDecklist, getCardImage, EMPTY_REPLY } from "../lib/api";
 import { commanderDisplay } from "../lib/deckParser";
-import { useMediaQuery } from "../lib/hooks";
+import { useMediaQuery, useFocusTrap } from "../lib/hooks";
 import { goalsToApi } from "../lib/goals";
 import { loadLog, appendLog, describeEntry, makeEntry, isVisibleEntry } from "../lib/optimizeLog";
 import { useBackClose } from "../lib/backstack";
@@ -81,6 +81,8 @@ export default function Ask({
   const hasDeck = /^\s*\d+\s+\S/m.test(decklist || "");
   // Mobile: the panel is a full-screen sheet — the back gesture closes it.
   useBackClose(open && isMobile, onClose);
+  // And it is a dialog: Tab stays inside it. (On a desktop it stays an aside beside the page.)
+  const trapRef = useFocusTrap(open && isMobile);
 
   // Swap history when the active deck changes — syncing FROM localStorage.
   useEffect(() => {
@@ -98,14 +100,19 @@ export default function Ask({
 
   useEffect(() => {
     if (!open) return;
-    // Only for an Escape pressed inside the drawer: the docked drawer stays
-    // open while a modal or menu over the page handles its own Escape.
+    // The docked drawer (desktop) closes only for an Escape pressed inside it: it stays
+    // open while a modal or menu over the page handles its own Escape. The phone's sheet
+    // is the whole task, so Escape closes it from anywhere, unless another dialog is open
+    // over it, which handles its own Escape.
     function onKey(e) {
-      if (e.key === "Escape" && panelRef.current?.contains(e.target)) onClose();
+      if (e.key !== "Escape") return;
+      const inside = panelRef.current?.contains(e.target);
+      const otherDialog = document.querySelector('[aria-modal="true"]:not(#ask-panel)');
+      if (inside || (isMobile && !otherDialog)) onClose();
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, isMobile, onClose]);
 
   // The box grows with what is typed; an empty box goes back to one line.
   useEffect(() => {
@@ -321,9 +328,12 @@ export default function Ask({
   return (
     <aside
       id="ask-panel"
-      ref={panelRef}
+      ref={(el) => { panelRef.current = el; trapRef.current = el; }}
       className={`ask-panel${bigText ? " pw-textlg" : ""}`}
       aria-label="Ask"
+      role={isMobile ? "dialog" : undefined}
+      aria-modal={isMobile ? "true" : undefined}
+      tabIndex={isMobile ? -1 : undefined}
       style={dragY ? { transform: `translateY(${dragY}px)`, transition: "none" } : undefined}
     >
       {isMobile && (

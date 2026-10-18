@@ -270,3 +270,53 @@ test.describe("Ask drawer", () => {
     expect(analyzed.at(-1)).not.toContain("Lightning Bolt");
   });
 });
+
+// Visual pass job 11: on a phone the sheet is the whole task, so it is a dialog.
+test.describe("Ask sheet on a phone", () => {
+  test.beforeEach(async ({ page, isMobile }) => {
+    // The touch project is a phone already; the desktop browser is made one.
+    if (!isMobile) await page.setViewportSize({ width: 390, height: 844 });
+  });
+
+  test("the sheet is a modal dialog on a phone and a plain aside on a desktop", async ({ page }) => {
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openChat(page);
+    const panel = page.locator(".ask-panel");
+    await expect(panel).toHaveAttribute("role", "dialog");
+    await expect(panel).toHaveAttribute("aria-modal", "true");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(panel).not.toHaveAttribute("role", "dialog");
+    await expect(panel).not.toHaveAttribute("aria-modal", "true");
+  });
+
+  test("40 Tabs stay inside the sheet", async ({ page }) => {
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openChat(page);
+    for (let i = 0; i < 40; i++) {
+      await page.keyboard.press("Tab");
+      const inside = await page.evaluate(() => Boolean(document.activeElement?.closest("#ask-panel")));
+      expect(inside, `Tab ${i + 1} left the sheet`).toBe(true);
+    }
+  });
+
+  test("Escape from outside the sheet closes it and returns focus to Ask", async ({ page }) => {
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openChat(page);
+    await page.evaluate(() => document.activeElement?.blur()); // focus on <body>, as after a tap on the page
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".ask-panel")).toHaveCount(0);
+    await expect(askButton(page)).toBeFocused();
+  });
+
+  // A card opened from the chat is a dialog over the sheet: its Escape closes it and not the sheet.
+  test("a card opened from the chat closes alone on Escape", async ({ page }) => {
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    await openChat(page);
+    await page.locator(".ask-starter").first().click();
+    await page.locator(".pw-cardchip-name", { hasText: "Lightning Bolt" }).click();
+    await expect(page.locator(".card-modal")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".card-modal")).toHaveCount(0);
+    await expect(page.locator(".ask-panel")).toBeVisible();
+  });
+});
