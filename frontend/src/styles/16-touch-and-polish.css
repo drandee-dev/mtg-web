@@ -29,8 +29,6 @@
      a width short just takes min-width. */
   .cdm-stepper button { width: 44px; height: 44px; }
   .dg-chip, .dg-suggest-edit, .dg-suggest-x, .card-list-remove, .more-menu-btn, .pt-life { min-width: 44px; }
-  /* Not a listed control, and 44 wide would cover the quantity badge on the card corner. */
-  .stack-card-movemenu .more-menu-btn { min-width: 36px; }
   /* A 15px ? is an oval at 44 tall: make it the circle the audit asked for. */
   .cg-tb-help { width: 44px; height: 44px; font-size: var(--fs-md); }
 }

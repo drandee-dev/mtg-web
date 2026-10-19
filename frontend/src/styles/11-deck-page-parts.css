@@ -2,7 +2,7 @@
 /* ⋯ "move to category" menu on image cards — pointer devices use drag instead. */
 .stack-card-movemenu { position: absolute; top: 3px; right: 3px; z-index: 5; }
 .stack-card-movemenu .more-menu-btn {
-  background: rgba(0,0,0,.72); color: var(--text); border-radius: 4px; width: 22px; height: 22px;
+  background: rgba(0,0,0,.72); color: #ededf0; border-radius: 4px; width: 22px; height: 22px;
 }
 /* On touch (.stack-touch, set from the same canHover signal the JS uses) row actions
    can't be hover-revealed, so keep them always visible — and grow rows/buttons
@@ -11,6 +11,8 @@
 .stack-touch .ts-row { height: 40px; }
 .stack-touch .ts-row-btn { width: 32px; height: 32px; }
 .stack-touch .stack-card-movemenu .more-menu-btn { width: 32px; height: 32px; }
+/* The quantity triangle (2.4rem) owns the corner, so the 44px menu button sits beside it. */
+.stack-touch .stack-card-movemenu { right: calc(2.4rem + 3px); }
 @media (max-width: 500px) {
   .text-stack-view .stack-masonry-col { min-width: 11rem; max-width: 100%; }
 }

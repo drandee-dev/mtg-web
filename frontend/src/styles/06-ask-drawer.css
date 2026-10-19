@@ -187,8 +187,8 @@
   .app-ask-open { width: auto; max-width: none; margin: 0; }
   .app-ask-open .pwa-update-banner { right: 1rem; }
   .pw-grabber {
-    display: flex; justify-content: center; flex: none;
-    padding: .5rem 0 .3rem; touch-action: none; cursor: grab;
+    display: flex; justify-content: center; align-items: center; flex: none;
+    height: 44px; touch-action: none; cursor: grab;
   }
   .pw-grabber span {
     width: 40px; height: 4px; border-radius: 999px;
