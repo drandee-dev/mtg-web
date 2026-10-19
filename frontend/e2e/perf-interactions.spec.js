@@ -5,10 +5,14 @@
 // what shows a smaller win. Mock card art is flat SVG, so real decks are somewhat slower.
 //
 // Measured on this machine, same conditions, before and after (4x, medians of three runs):
-//   pickup script   52 to 58 ms  ->  37 to 45 ms   (long frames of 50 to 70 ms in most runs -> none)
-//   drop script     43 to 63 ms  ->  31 to 33 ms
+//   pickup script   50 to 58 ms  ->  38 to 42 ms   (long frames of 50 to 70 ms in most runs -> none)
+//   drop script     43 to 63 ms  ->  34 to 35 ms
 // Timing on a shared machine is noisy, so each figure is the median of three runs and the
-// limits sit between the two columns, not at the audit's targets (40 and 60 ms) alone.
+// limits sit between the two columns (45 and 40 ms), not at the audit's targets alone.
+// What saves the time: the card rail and the move menu are memoised and skip their renders
+// (304 rail renders at pickup, 215 over a hover sweep and 301 at drop, down to 0, 0 and 1). The
+// StackCard itself still re-renders (dnd-kit's useDraggable subscribes it to a context), and a
+// memo with a hand-written comparator on it changed nothing measurable, so it was not kept.
 // Not asserted, because a case would pass without the change: the card modal opens in 80 to
 // 88 ms (the target is 100), and the text stack's pickup is unchanged by memoising its rows.
 // Not met: switching to Grid takes 112 to 128 ms (the target is under 120). It is a mount cost,
@@ -86,6 +90,6 @@ test("picking a card up and dropping it is light with 100 cards at 4x", async ({
   console.log(`PERF card ${JSON.stringify(rounded)}`);
   expect(median(r.pickup), "pickup: longest frame, ms").toBeLessThanOrEqual(40);
   expect(median(r.drop), "drop: longest frame, ms").toBeLessThanOrEqual(60);
-  expect(median(r.pickScript), "pickup: main-thread script time, ms").toBeLessThanOrEqual(48);
+  expect(median(r.pickScript), "pickup: main-thread script time, ms").toBeLessThanOrEqual(45);
   expect(median(r.dropScript), "drop: main-thread script time, ms").toBeLessThanOrEqual(40);
 });

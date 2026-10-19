@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { useCanHover, useCardImage } from "../../lib/hooks";
 import { useColumnCount, packMasonry } from "../../lib/masonry";
@@ -247,21 +247,11 @@ function CardImageGhost({ name }) {
   );
 }
 
-// A card re-renders only for something that changes what it shows. `printing` is a fresh
-// object on every parse and `expandedCard` is one string for the whole stack, so neither can
-// be compared by identity. Picking a card up or dropping it changes dnd context or CardGrid
-// state, not these props, so with this a hundred cards stop re-rendering their rail and menus.
-const sameList = (a, b) => a === b || (a?.length === b?.length && (a || []).every((x, i) => x === b[i]));
-function sameCard(a, b) {
-  if (a.name !== b.name || a.qty !== b.qty || a.synergy !== b.synergy || a.columnLabel !== b.columnLabel || a.cardDragEnabled !== b.cardDragEnabled) return false;
-  if ((a.printing?.set ?? null) !== (b.printing?.set ?? null) || (a.printing?.cn ?? null) !== (b.printing?.cn ?? null)) return false;
-  if (a.onCardClick !== b.onCardClick || a.onRemove !== b.onRemove || a.onConsider !== b.onConsider || a.onSetQty !== b.onSetQty || a.onCardMove !== b.onCardMove || a.setExpandedCard !== b.setExpandedCard) return false;
-  const id = `${b.columnLabel}:${b.name}`;
-  if ((a.expandedCard === id) !== (b.expandedCard === id)) return false;
-  return sameList(a.moveTargets, b.moveTargets);
-}
-
-const StackCard = memo(function StackCard({ name, qty, printing, synergy, columnLabel, onCardClick, onRemove, onConsider, onSetQty, cardDragEnabled, moveTargets, onCardMove, expandedCard, setExpandedCard }) {
+// The card itself cannot skip a render: useDraggable subscribes it to dnd-kit's context, so
+// every card re-renders when a drag starts or ends whatever memo says (counted: 304 renders at
+// pickup, with or without a memo on it). What it can do is hand its rail and its menu props that
+// have not changed, so they skip theirs: both are memoised, and the menu's items are kept below.
+function StackCard({ name, qty, printing, synergy, columnLabel, onCardClick, onRemove, onConsider, onSetQty, cardDragEnabled, moveTargets, onCardMove, expandedCard, setExpandedCard }) {
   const canHover = useCanHover();
   const data = useCardImage(name, printing);
   const img = cardImgSrc(data);
@@ -325,4 +315,4 @@ const StackCard = memo(function StackCard({ name, qty, printing, synergy, column
       )}
     </div>
   );
-}, sameCard);
+}
