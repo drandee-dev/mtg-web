@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { useCanHover, useCardImage } from "../../lib/hooks";
 import { useColumnCount, packMasonry } from "../../lib/masonry";
@@ -247,7 +247,21 @@ function CardImageGhost({ name }) {
   );
 }
 
-function StackCard({ name, qty, printing, synergy, columnLabel, onCardClick, onRemove, onConsider, onSetQty, cardDragEnabled, moveTargets, onCardMove, expandedCard, setExpandedCard }) {
+// A card re-renders only for something that changes what it shows. `printing` is a fresh
+// object on every parse and `expandedCard` is one string for the whole stack, so neither can
+// be compared by identity. Picking a card up or dropping it changes dnd context or CardGrid
+// state, not these props, so with this a hundred cards stop re-rendering their rail and menus.
+const sameList = (a, b) => a === b || (a?.length === b?.length && (a || []).every((x, i) => x === b[i]));
+function sameCard(a, b) {
+  if (a.name !== b.name || a.qty !== b.qty || a.synergy !== b.synergy || a.columnLabel !== b.columnLabel || a.cardDragEnabled !== b.cardDragEnabled) return false;
+  if ((a.printing?.set ?? null) !== (b.printing?.set ?? null) || (a.printing?.cn ?? null) !== (b.printing?.cn ?? null)) return false;
+  if (a.onCardClick !== b.onCardClick || a.onRemove !== b.onRemove || a.onConsider !== b.onConsider || a.onSetQty !== b.onSetQty || a.onCardMove !== b.onCardMove || a.setExpandedCard !== b.setExpandedCard) return false;
+  const id = `${b.columnLabel}:${b.name}`;
+  if ((a.expandedCard === id) !== (b.expandedCard === id)) return false;
+  return sameList(a.moveTargets, b.moveTargets);
+}
+
+const StackCard = memo(function StackCard({ name, qty, printing, synergy, columnLabel, onCardClick, onRemove, onConsider, onSetQty, cardDragEnabled, moveTargets, onCardMove, expandedCard, setExpandedCard }) {
   const canHover = useCanHover();
   const data = useCardImage(name, printing);
   const img = cardImgSrc(data);
@@ -266,9 +280,10 @@ function StackCard({ name, qty, printing, synergy, columnLabel, onCardClick, onR
   // Touch always has it; with a pointer it is the keyboard's way to move a card (drag is
   // the pointer's), and shows while the card has hover or focus.
   const showMoveMenu = moveTargets && moveTargets.length > 0;
-  const moveItems = showMoveMenu
+  // Kept between renders so the menu (and the rail) can skip theirs.
+  const moveItems = useMemo(() => (showMoveMenu
     ? moveTargets.map((t) => ({ label: `Move to ${t}`, onClick: () => onCardMove?.(name, t) }))
-    : [];
+    : []), [showMoveMenu, moveTargets, name, onCardMove]);
 
   function handleClick() {
     if (canHover) { onCardClick?.(name); return; }
@@ -310,4 +325,4 @@ function StackCard({ name, qty, printing, synergy, columnLabel, onCardClick, onR
       )}
     </div>
   );
-}
+}, sameCard);
