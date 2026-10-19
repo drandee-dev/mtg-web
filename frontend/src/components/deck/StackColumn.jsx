@@ -10,7 +10,8 @@ import MoreMenu from "./MoreMenu";
 // routes drops to onColumnReorder / onCardMove.
 //
 // Drag is a pointer-only affordance, so on touch (canHover === false) dnd is
-// disabled and the header shows a ⋯ menu to nudge the column left/right instead.
+// disabled and the header shows a ⋯ menu to nudge the column left/right instead. With a
+// pointer the same menu is there for the keyboard, shown while the header has hover or focus.
 export default function StackColumn({
   label,
   count,
@@ -52,6 +53,7 @@ export default function StackColumn({
   return (
     <div
       ref={setDropRef}
+      data-column={label}
       className={`stack-column ${className} ${isOver ? "stack-column-droptarget" : ""} ${isDragging ? "stack-column-dragging" : ""}`}
     >
       <div
@@ -76,9 +78,16 @@ export default function StackColumn({
               <MoreMenu items={menuItems} label={`${label} options`} />
             </span>
           )}
-          {!fixed && !canHover && nudgeItems.length > 0 && (
+          {!fixed && nudgeItems.length > 0 && (canHover ? (
+            // With a pointer this is for the keyboard (drag is the pointer's way), so it floats
+            // over the header's right end and shows only while the header has hover or focus.
+            // It takes no room in the row, so the headers keep their height.
+            <span className="kb-reveal" onPointerDown={(e) => e.stopPropagation()}>
+              <MoreMenu items={nudgeItems} label={`Reorder ${label} column`} />
+            </span>
+          ) : (
             <MoreMenu items={nudgeItems} label={`Reorder ${label} column`} />
-          )}
+          ))}
         </span>
       </div>
       {children}

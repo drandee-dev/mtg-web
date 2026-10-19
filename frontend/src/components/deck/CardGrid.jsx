@@ -11,6 +11,10 @@ import DeckSkeleton from "./DeckSkeleton";
 import CardListRow from "./CardListRow";
 import CardDetailModal from "./CardDetailModal";
 
+// True when focus is on a stack card, row or column header: a move made from there came from
+// a menu (a mouse drag leaves focus on the page).
+const focusWasInStack = () => Boolean(document.activeElement?.closest?.("[data-card-name], [data-column]"));
+
 // The view settings (viewMode, stackMode, sortBy, groupBy) come from DeckView's
 // useCardView; the toolbar that sets them is on the deck's tab strip (job 3.3).
 export default function CardGrid({ decklist, commander, format, deckId, filter, viewMode, stackMode, sortBy, groupBy, onRemove, onConsider, onChangeCommander, onMakeCommander, setCardQty, onSetPrinting, onSetCommanderPrinting, maybeboard, onMoveFromConsidering, onRemoveConsidering, onSuggestConsiderations, suggesting }) {
@@ -171,13 +175,43 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
   const displayLabelsRef = useRef([]);
   useEffect(() => { displayLabelsRef.current = orderedLabels; });
 
+  // A move made from a menu re-renders the card (or column) somewhere else, and the menu
+  // button that had focus is gone. Say what happened, then put focus back on the same
+  // thing's menu. A drag has no focus to restore, so it only announces.
+  const [announcement, setAnnouncement] = useState("");
+  const [refocus, setRefocus] = useState(null);
+  useEffect(() => {
+    if (!refocus) return undefined;
+    // The masonry re-splits the columns a few frames after the state change, and the node
+    // that held focus is replaced when it does. Keep trying until focus has stuck.
+    let id;
+    let tries = 0;
+    const attempt = () => {
+      const holder = refocus.card
+        ? [...document.querySelectorAll("[data-card-name]")].find((n) => n.dataset.cardName === refocus.card)
+        : [...document.querySelectorAll("[data-column]")].find((n) => n.dataset.column === refocus.column);
+      const btn = holder?.querySelector(refocus.card ? '.more-menu-btn[aria-label^="Move "]' : '.more-menu-btn[aria-label^="Reorder "]');
+      // A text row hides its actions (display: none) until the row itself has focus, and a
+      // hidden button cannot take it: focus the row first, which shows them.
+      if (refocus.card) holder?.focus({ preventScroll: true });
+      btn?.focus();
+      if ((btn && document.activeElement === btn) || ++tries > 30) setRefocus(null);
+      else id = requestAnimationFrame(attempt);
+    };
+    id = requestAnimationFrame(attempt);
+    return () => cancelAnimationFrame(id);
+  }, [refocus, columnOrder, catVersion]);
+
   const handleCardMove = useCallback((cardName, targetBucket) => {
     if (groupBy !== "role") return;
+    const fromMenu = focusWasInStack();
     let next;
     try { next = JSON.parse(localStorage.getItem(catKey) || "{}"); } catch { next = {}; }
     next[cardName] = targetBucket;
     localStorage.setItem(catKey, JSON.stringify(next));
     setCatVersion((v) => v + 1);
+    setAnnouncement(`Moved ${cardName} to ${targetBucket}`);
+    if (fromMenu) setRefocus({ card: cardName });
   }, [groupBy, catKey]);
 
   const handleColumnReorder = useCallback((fromLabel, toLabel) => {
@@ -193,6 +227,12 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
 
   // Touch fallback for column reorder: nudge a column one slot left (-1) or right (+1).
   const handleColumnNudge = useCallback((label, dir) => {
+    const at = displayLabelsRef.current.indexOf(label);
+    const to = at + dir;
+    if (at >= 0 && to >= 0 && to < displayLabelsRef.current.length) {
+      setAnnouncement(`Moved ${label} ${dir < 0 ? "left" : "right"}, now column ${to + 1} of ${displayLabelsRef.current.length}`);
+      setRefocus({ column: label });
+    }
     setColumnOrder((prev) => {
       const base = (prev[groupBy] && prev[groupBy].length) ? [...prev[groupBy]] : [...displayLabelsRef.current];
       for (const l of displayLabelsRef.current) if (!base.includes(l)) base.push(l);
@@ -222,6 +262,7 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
 
   return (
     <div className="card-grid-container">
+      <div className="visually-hidden stack-announce" role="status" aria-live="polite">{announcement}</div>
       {/* Deck working area — contained board, visually separated from the toolbar above */}
       <div className="deck-board">
       {/* Stack view: Archidekt-style columns — image (overlapping art) or text rows */}

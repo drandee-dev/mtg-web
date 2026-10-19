@@ -217,7 +217,9 @@ function TextRow({ name, qty, manaCost, columnLabel, onCardClick, onRemove, onCo
     disabled: dragDisabled,
   });
 
-  const showMoveMenu = !canHover && moveTargets && moveTargets.length > 0;
+  // Touch always has it; with a pointer it is the keyboard's way to move a card, and sits
+  // in the row's actions, which show while the row has hover or focus.
+  const showMoveMenu = moveTargets && moveTargets.length > 0;
   const moveItems = showMoveMenu
     ? moveTargets.map((t) => ({ label: `Move to ${t}`, onClick: () => onCardMove?.(name, t) }))
     : [];
@@ -228,10 +230,12 @@ function TextRow({ name, qty, manaCost, columnLabel, onCardClick, onRemove, onCo
       className={`ts-row ${isDragging ? "stack-card-dragging" : ""}`}
       role="listitem"
       tabIndex={0}
+      data-card-name={name}
       style={dragDisabled ? undefined : { touchAction: "none" }}
       {...(dragDisabled ? {} : listeners)}
       onClick={() => onCardClick?.(name)}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onCardClick?.(name); } }}
+      // Only for the row itself: Enter on a button inside it (consider, remove, the ⋯ menu) is that button's.
+      onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onCardClick?.(name); } }}
       aria-label={`${qty}x ${name}`}
     >
       <span className="ts-qty">{qty}</span>

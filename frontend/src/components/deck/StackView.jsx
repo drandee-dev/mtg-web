@@ -260,7 +260,9 @@ function StackCard({ name, qty, printing, synergy, columnLabel, onCardClick, onR
     disabled: dragDisabled,
   });
 
-  const showMoveMenu = !canHover && moveTargets && moveTargets.length > 0;
+  // Touch always has it; with a pointer it is the keyboard's way to move a card (drag is
+  // the pointer's), and shows while the card has hover or focus.
+  const showMoveMenu = moveTargets && moveTargets.length > 0;
   const moveItems = showMoveMenu
     ? moveTargets.map((t) => ({ label: `Move to ${t}`, onClick: () => onCardMove?.(name, t) }))
     : [];
@@ -277,13 +279,15 @@ function StackCard({ name, qty, printing, synergy, columnLabel, onCardClick, onR
       className={`stack-card-wrap ${isDragging ? "stack-card-dragging" : ""}`}
       role="listitem"
       tabIndex={0}
+      data-card-name={name}
       style={{
         ...(expanded ? { marginBottom: 8, zIndex: 10 } : undefined),
         ...(dragDisabled ? undefined : { touchAction: "none" }),
       }}
       {...(dragDisabled ? {} : listeners)}
       onClick={handleClick}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onCardClick?.(name); } }}
+      // Only for the card itself: Enter on a button inside it (the rail, the ⋯ menu) is that button's.
+      onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onCardClick?.(name); } }}
       aria-label={`${qty}x ${name}`}
     >
       {img ? (
@@ -294,7 +298,7 @@ function StackCard({ name, qty, printing, synergy, columnLabel, onCardClick, onR
       {(qty > 1 || onSetQty) && <span className="stack-card-qty">{qty}</span>}
       {synergy != null && <span className="stack-card-synergy">{Math.round(synergy * 100)}%</span>}
       {showMoveMenu && (
-        <div className="stack-card-movemenu" onClick={(e) => e.stopPropagation()}>
+        <div className={`stack-card-movemenu${canHover ? " kb-reveal" : ""}`} onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
           <MoreMenu items={moveItems} label={`Move ${name} to another category`} />
         </div>
       )}
