@@ -94,4 +94,28 @@ test.describe("pressed state", () => {
     await page.mouse.up();
     expect(t).not.toBe("none");
   });
+
+  // Tiles scale instead of dimming, so the link rule must not reach them.
+  test("a teaser tile scales and a pressed tile link does not dim", async ({ page }) => {
+    await page.goto("/");
+    await waitForAppReady(page);
+    await page.evaluate(() => {
+      for (const cls of ["teaser-tile", "deck-card-link"]) {
+        const a = document.createElement("a");
+        a.id = `probe-${cls}`; a.className = cls; a.href = "#probe"; a.textContent = "Probe";
+        a.style.cssText = `position:fixed;top:${cls === "teaser-tile" ? 80 : 140}px;left:20px;z-index:9999`;
+        document.body.appendChild(a);
+      }
+    });
+    for (const cls of ["teaser-tile", "deck-card-link"]) {
+      const a = page.locator(`#probe-${cls}`);
+      const box = await a.boundingBox();
+      await page.mouse.move(box.x + 4, box.y + 4);
+      await page.mouse.down();
+      const s = await a.evaluate((el) => ({ opacity: getComputedStyle(el).opacity, transform: getComputedStyle(el).transform }));
+      await page.mouse.up();
+      expect(s.opacity, cls).toBe("1");
+      if (cls === "teaser-tile") expect(s.transform).not.toBe("none");
+    }
+  });
 });
