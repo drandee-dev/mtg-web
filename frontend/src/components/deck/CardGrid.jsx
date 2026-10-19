@@ -190,6 +190,9 @@ export default function CardGrid({ decklist, commander, format, deckId, filter, 
       const holder = refocus.card
         ? [...document.querySelectorAll("[data-card-name]")].find((n) => n.dataset.cardName === refocus.card)
         : [...document.querySelectorAll("[data-column]")].find((n) => n.dataset.column === refocus.column);
+      // The user Tabbed somewhere else mid-retry: leave their focus alone.
+      const now = document.activeElement;
+      if (tries > 0 && holder && now && now !== document.body && !holder.contains(now)) { setRefocus(null); return; }
       const btn = holder?.querySelector(refocus.card ? '.more-menu-btn[aria-label^="Move "]' : '.more-menu-btn[aria-label^="Reorder "]');
       // A text row hides its actions (display: none) until the row itself has focus, and a
       // hidden button cannot take it: focus the row first, which shows them.

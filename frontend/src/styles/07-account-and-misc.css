@@ -191,8 +191,10 @@
 /* Autocomplete dropdown enter */
 .autocomplete { animation: fadeSlideIn .12s ease-out; }
 
-/* Ask panel enter: slides up as a phone sheet only */
+/* Ask panel enter: fades in docked on desktop, slides up as a phone sheet */
+.ask-panel { animation: fadeIn .18s ease-out; }
 @media (max-width: 699px) { .ask-panel { animation: panelSlideUp .2s ease-out; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateY(-4px); }

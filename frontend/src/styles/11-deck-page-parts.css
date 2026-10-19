@@ -55,9 +55,11 @@
 .hero-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 20px; }
 .deck-card {
   position: relative; background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
-  transition: border-color .15s;
+  transition: border-color .15s, transform .1s;
 }
 .deck-card:hover { border-color: var(--border-strong); }
+/* Pressed: only the tile's link, not its ⋯ button (which has its own). */
+.deck-card:has(.deck-card-link:active) { transform: scale(.985); }
 /* Above the next row's ⋯ buttons, which its menu can drop over. */
 .deck-card-menu-open { z-index: 3; }
 .deck-card-link { display: flex; flex-direction: column; color: var(--text); border-radius: 12px; }

@@ -94,8 +94,10 @@
 .teaser-tile {
   display: flex; flex-direction: column; gap: 10px; scroll-snap-align: start;
   color: var(--text); min-width: 0; text-decoration: none;
+  transition: transform .1s;
 }
 .teaser-tile:hover { text-decoration: none; }
+.teaser-tile:active { transform: scale(.97); }
 .teaser-tile-art {
   display: block; aspect-ratio: 3 / 2; border-radius: var(--radius-md);
   background: var(--panel-2); overflow: hidden; outline: 2px solid transparent; outline-offset: 2px;

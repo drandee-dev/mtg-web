@@ -191,6 +191,9 @@ p { margin: .25rem 0; }
 
 a { color: var(--accent-2); text-decoration: none; }
 a:hover { text-decoration: underline; }
+/* Pressed: text links dim; tiles (below) scale instead, so they opt out. */
+a:active { opacity: .7; }
+.deck-card-link:active, .teaser-tile:active { opacity: 1; }
 
 button {
   font: inherit;
