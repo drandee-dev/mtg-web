@@ -34,14 +34,19 @@ function dataImg(ci) {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+// Cards with a second face: the card modal shows its flip button for these.
+const MOCK_BACKS = { "Malakir Rebirth": { type_line: "Land", color_identity: ["B"] } };
+
 function cardPayload(name) {
   const m = MOCK_CARDS[name];
   if (!m) return { name, found: false, image: null, thumb: null };
   const img = dataImg(m.color_identity);
+  const back = MOCK_BACKS[name];
   return {
     name, found: true, image: img, thumb: img, art_crop: img,
     type_line: m.type_line, mana_cost: m.mana_cost, color_identity: m.color_identity,
     cmc: m.cmc, price_usd: m.price_usd, rarity: "rare", is_mdfc: false, roles: m.roles,
+    ...(back && { back_image: dataImg(back.color_identity), back_type_line: back.type_line }),
   };
 }
 
