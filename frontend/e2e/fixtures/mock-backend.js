@@ -34,11 +34,26 @@ function dataImg(ci) {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+// "Bulk 1" to "Bulk 99": generated cards for a 100-card deck (the performance specs). Types,
+// roles and colours cycle so the deck groups into several columns of different heights.
+const BULK_TYPES = ["Creature — Mock", "Instant", "Sorcery", "Artifact", "Enchantment"];
+const BULK_ROLES = [["Ramp"], ["Removal"], ["Draw"], ["Protection"], []];
+const BULK_COLORS = [["W"], ["U"], ["B"], ["R"], ["G"], []];
+function bulkCard(name) {
+  const m = /^Bulk (\d+)$/.exec(name);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return {
+    mana_cost: `{${(n % 5) + 1}}`, cmc: (n % 5) + 1, type_line: BULK_TYPES[n % 5], roles: BULK_ROLES[n % 5],
+    price_usd: 0.25 + (n % 7), color_identity: BULK_COLORS[n % 6],
+  };
+}
+
 // Cards with a second face: the card modal shows its flip button for these.
 const MOCK_BACKS = { "Malakir Rebirth": { type_line: "Land", color_identity: ["B"] } };
 
 function cardPayload(name) {
-  const m = MOCK_CARDS[name];
+  const m = MOCK_CARDS[name] || bulkCard(name);
   if (!m) return { name, found: false, image: null, thumb: null };
   const img = dataImg(m.color_identity);
   const back = MOCK_BACKS[name];

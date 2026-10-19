@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 // A compact "⋯" dropdown menu. Each item is { label, onClick, danger?, icon? }.
 // Keyboard: Enter or Space opens it with the first item focused, the arrows move between
 // items, Escape closes it and puts focus back on the button. (A mouse click leaves focus alone.)
-export default function MoreMenu({ items, label = "More actions" }) {
+function MoreMenu({ items, label = "More actions" }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const btnRef = useRef(null);
@@ -71,3 +71,6 @@ export default function MoreMenu({ items, label = "More actions" }) {
     </div>
   );
 }
+
+// Memoised for the stack cards, whose `items` are kept between renders.
+export default memo(MoreMenu);

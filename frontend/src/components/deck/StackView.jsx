@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { useCanHover, useCardImage } from "../../lib/hooks";
 import { useColumnCount, packMasonry } from "../../lib/masonry";
@@ -247,6 +247,10 @@ function CardImageGhost({ name }) {
   );
 }
 
+// The card itself cannot skip a render: useDraggable subscribes it to dnd-kit's context, so
+// every card re-renders when a drag starts or ends whatever memo says (counted: 304 renders at
+// pickup, with or without a memo on it). What it can do is hand its rail and its menu props that
+// have not changed, so they skip theirs: both are memoised, and the menu's items are kept below.
 function StackCard({ name, qty, printing, synergy, columnLabel, onCardClick, onRemove, onConsider, onSetQty, cardDragEnabled, moveTargets, onCardMove, expandedCard, setExpandedCard }) {
   const canHover = useCanHover();
   const data = useCardImage(name, printing);
@@ -266,9 +270,10 @@ function StackCard({ name, qty, printing, synergy, columnLabel, onCardClick, onR
   // Touch always has it; with a pointer it is the keyboard's way to move a card (drag is
   // the pointer's), and shows while the card has hover or focus.
   const showMoveMenu = moveTargets && moveTargets.length > 0;
-  const moveItems = showMoveMenu
+  // Kept between renders so the menu (and the rail) can skip theirs.
+  const moveItems = useMemo(() => (showMoveMenu
     ? moveTargets.map((t) => ({ label: `Move to ${t}`, onClick: () => onCardMove?.(name, t) }))
-    : [];
+    : []), [showMoveMenu, moveTargets, name, onCardMove]);
 
   function handleClick() {
     if (canHover) { onCardClick?.(name); return; }

@@ -1,11 +1,14 @@
+import { memo } from "react";
+
 // Archidekt-style vertical control rail on the right edge of a card (hover-revealed).
+// Memoised: a hundred cards re-render when a drag starts or ends, and the rail's props do not change.
 // Quantity stepper (+ adds a copy, − removes one / removes the card at 0) plus the
 // quick actions (Considering, Scryfall). Replaces the old top-right ✕ and the bottom
 // gradient overlay. `onPointerDown` is swallowed so dragging from a button doesn't
 // start a dnd-kit card drag.
 const scryfallUrl = (name) => `https://scryfall.com/search?q=${encodeURIComponent(`!"${name}"`)}`;
 
-export default function CardActionRail({ name, qty = 1, onSetQty, onRemove, onConsider }) {
+function CardActionRail({ name, qty = 1, onSetQty, onRemove, onConsider }) {
   return (
     <div className="card-rail" onPointerDown={(e) => e.stopPropagation()}>
       {onSetQty && (
@@ -49,3 +52,5 @@ export default function CardActionRail({ name, qty = 1, onSetQty, onRemove, onCo
     </div>
   );
 }
+
+export default memo(CardActionRail);
