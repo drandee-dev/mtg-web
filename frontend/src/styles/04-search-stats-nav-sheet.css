@@ -81,7 +81,11 @@
   background: var(--panel); border: 1px solid var(--border); padding: .6rem 1rem;
   border-radius: var(--radius); z-index: var(--z-toast); max-width: 90vw;
   box-shadow: var(--shadow-lg); backdrop-filter: blur(8px); font-size: var(--fs-sm); font-weight: 500;
-  display: flex; align-items: center; gap: .7rem; }
+  display: flex; align-items: center; gap: .7rem; animation: toastIn .18s ease-out; }
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to { opacity: 1; transform: translateX(-50%); }
+}
 /* A toast sits over the page, so over a dialog it would cover the dialog's own buttons
    (the upgrade guide's Skip and Continue, an import's Import). With a dialog open it
    moves to the top, under the bar, clear of those buttons. It can still cover a
