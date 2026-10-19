@@ -4,6 +4,7 @@ import { useColumnCount, packMasonry } from "../../lib/masonry";
 import ManaCost from "./ManaCost";
 import StackColumn from "./StackColumn";
 import StackDndContext from "./StackDndContext";
+import FlipColumns from "./FlipColumns";
 import MoreMenu from "./MoreMenu";
 
 function columnTotals(cards, metaMap) {
@@ -169,13 +170,15 @@ export default function TextStackView({
 
   return (
     <StackDndContext onColumnReorder={onColumnReorder} onCardMove={onCardMove} renderGhost={renderTextGhost}>
-      <div ref={containerRef} className={`stack-view text-stack-view ${canHover ? "" : "stack-touch"}`}>
-        {buckets.map((bucket, i) => (
-          <div className="stack-masonry-col" key={i}>
-            {bucket.map((item) => <div key={item.key}>{item.node}</div>)}
-          </div>
-        ))}
-      </div>
+      <FlipColumns orderKey={labels.join("|")}>
+        <div ref={containerRef} className={`stack-view text-stack-view ${canHover ? "" : "stack-touch"}`}>
+          {buckets.map((bucket, i) => (
+            <div className="stack-masonry-col" key={i}>
+              {bucket.map((item) => <div key={item.key}>{item.node}</div>)}
+            </div>
+          ))}
+        </div>
+      </FlipColumns>
     </StackDndContext>
   );
 }

@@ -84,6 +84,12 @@
   outline: 2px dashed var(--accent); outline-offset: 3px; border-radius: var(--radius);
   background: rgba(201,138,58,.06);
 }
+/* Where a dragged column will land: in front of this one. A bar in the gap above it. */
+.stack-column-insert { position: relative; }
+.stack-column-insert::before {
+  content: ""; position: absolute; left: 0; right: 0; top: -.55rem; height: 3px; z-index: 3;
+  border-radius: 2px; background: var(--accent); box-shadow: 0 0 8px rgba(201,138,58,.55); pointer-events: none;
+}
 
 /* ── dnd-kit drag-and-drop ─────────────────────────────────────────────────────
    Source column/card dims while its opaque copy floats in the DragOverlay. */

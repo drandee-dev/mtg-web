@@ -34,7 +34,7 @@ export default function StackColumn({
   const fixed = isCommander || pinned;
   const dndDisabled = fixed || !canHover;
 
-  const { setNodeRef: setDropRef, isOver } = useDroppable({
+  const { setNodeRef: setDropRef, isOver, active } = useDroppable({
     id: `drop:${label}`,
     data: { type: "column-dropzone", label },
     disabled: dndDisabled,
@@ -46,6 +46,12 @@ export default function StackColumn({
     disabled: dndDisabled,
   });
 
+  // A column dropped here goes in front of this one: say so with a gold bar above it. A
+  // card dropped here joins it, which the dashed outline around the whole column says.
+  const dragged = active?.data?.current;
+  const inserting = isOver && dragged?.type === "column" && dragged.label !== label;
+  const joining = isOver && !inserting;
+
   const nudgeItems = [];
   if (canMoveLeft) nudgeItems.push({ label: "Move column left", icon: "‹", onClick: () => onColumnNudge?.(label, -1) });
   if (canMoveRight) nudgeItems.push({ label: "Move column right", icon: "›", onClick: () => onColumnNudge?.(label, 1) });
@@ -54,7 +60,7 @@ export default function StackColumn({
     <div
       ref={setDropRef}
       data-column={label}
-      className={`stack-column ${className} ${isOver ? "stack-column-droptarget" : ""} ${isDragging ? "stack-column-dragging" : ""}`}
+      className={`stack-column ${className} ${joining ? "stack-column-droptarget" : ""} ${inserting ? "stack-column-insert" : ""} ${isDragging ? "stack-column-dragging" : ""}`}
     >
       <div
         ref={setDragRef}

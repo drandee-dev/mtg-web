@@ -4,6 +4,7 @@ import { useCanHover, useCardImage } from "../../lib/hooks";
 import { useColumnCount, packMasonry } from "../../lib/masonry";
 import StackColumn from "./StackColumn";
 import StackDndContext from "./StackDndContext";
+import FlipColumns from "./FlipColumns";
 import CardActionRail from "./CardActionRail";
 import MoreMenu from "./MoreMenu";
 import CardPlaceholder from "../CardPlaceholder";
@@ -184,13 +185,15 @@ export default function StackView({
 
   return (
     <StackDndContext onColumnReorder={onColumnReorder} onCardMove={onCardMove} renderGhost={renderImageGhost}>
-      <div ref={containerRef} className={`stack-view ${canHover ? "" : "stack-touch"}`}>
-        {buckets.map((bucket, i) => (
-          <div className="stack-masonry-col" key={i}>
-            {bucket.map((item) => <div key={item.key}>{item.node}</div>)}
-          </div>
-        ))}
-      </div>
+      <FlipColumns orderKey={labels.join("|")}>
+        <div ref={containerRef} className={`stack-view ${canHover ? "" : "stack-touch"}`}>
+          {buckets.map((bucket, i) => (
+            <div className="stack-masonry-col" key={i}>
+              {bucket.map((item) => <div key={item.key}>{item.node}</div>)}
+            </div>
+          ))}
+        </div>
+      </FlipColumns>
     </StackDndContext>
   );
 }
