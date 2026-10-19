@@ -54,10 +54,12 @@
   .cdm-overlay { align-items: flex-end; padding: 0; }
   .cdm-panel {
     flex-direction: column; gap: .75rem; max-width: none; max-height: 92vh; max-height: 92dvh;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: .5rem 1rem 1.25rem;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0; padding: 0 1rem 1.25rem;
     animation: cdmSheetUp .25s ease-out;
   }
-  .cdm-handle { display: block; width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); margin: .15rem auto .2rem; touch-action: none; }
+  /* A thumb's target, not the 4px bar: the bar is drawn inside a 44px box. */
+  .cdm-handle { display: flex; align-items: center; justify-content: center; flex: none; width: 160px; height: 44px; margin: 0 auto; touch-action: none; }
+  .cdm-handle::before { content: ""; width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong); }
   .cdm-art { width: 56%; max-width: 200px; align-self: center; }
   .cdm-body { padding-right: 0; }
   /* Two columns of bordered buttons, not a loose row of text; Remove is the only red one. */
