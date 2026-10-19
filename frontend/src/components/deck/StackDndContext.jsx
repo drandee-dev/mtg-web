@@ -20,6 +20,19 @@ import {
 // `renderGhost(activeData)` is view-specific: the image view renders an opaque
 // lifted stack of card art; the text view renders the dragged rows. The floating
 // copy lives in DragOverlay so it can escape the masonry column's overflow.
+// The picked-up copy fades out where it was dropped while the real column slides into its
+// new place (FlipColumns), instead of vanishing. It does not fly to the old spot: that is
+// where the dimmed original was, and the column is already leaving it. Reduced motion: it just goes.
+const at = ({ x, y, scaleX, scaleY }) => `translate3d(${x}px, ${y}px, 0) scaleX(${scaleX}) scaleY(${scaleY})`;
+const DROP_FADE = {
+  duration: 160,
+  easing: "ease-out",
+  keyframes: ({ transform }) => [
+    { opacity: 1, transform: at(transform.initial) },
+    { opacity: 0, transform: at(transform.initial) },
+  ],
+};
+
 export default function StackDndContext({ onColumnReorder, onCardMove, renderGhost, children }) {
   const [active, setActive] = useState(null);
 
@@ -54,7 +67,7 @@ export default function StackDndContext({ onColumnReorder, onCardMove, renderGho
       onDragCancel={() => setActive(null)}
     >
       {children}
-      <DragOverlay dropAnimation={null} className="stack-drag-overlay">
+      <DragOverlay dropAnimation={window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? null : DROP_FADE} className="stack-drag-overlay">
         {active ? renderGhost(active) : null}
       </DragOverlay>
     </DndContext>
