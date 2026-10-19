@@ -23,6 +23,10 @@
 /* The header is about 24px tall; the menu button's usual 36px would spill onto the first card. */
 .stack-column-header .kb-reveal .more-menu-btn { min-height: 22px; height: 22px; min-width: 28px; padding: 0 .4rem; font-size: 1rem; }
 .stack-column-header:hover .kb-reveal, .stack-column-header:focus-within .kb-reveal { opacity: 1; }
+/* The menu is opaque and covers the header's right end, where the price is: "$28.00" read as "$2".
+   While it shows, the price steps aside (opacity keeps its room). Fixed columns have no menu. */
+.stack-column-header:has(.kb-reveal):hover .stack-column-price,
+.stack-column-header:has(.kb-reveal):focus-within .stack-column-price { opacity: 0; }
 .stack-card-movemenu.kb-reveal { opacity: 0; right: calc(2.4rem + 3px); }
 .stack-card-wrap:hover .stack-card-movemenu.kb-reveal, .stack-card-wrap:focus-within .stack-card-movemenu.kb-reveal { opacity: 1; }
 @media (max-width: 500px) {
