@@ -20,11 +20,15 @@ export async function paintArt(page, selector, colour) {
 }
 
 // Peak contrast ratio of the pixels that change when `control` takes keyboard focus.
-export async function ringPeak(page, control) {
+// `keep`: a sibling to hold focus while the "before" shot is taken, for a control that is
+// only on screen while something around it has focus (a stack card's rail). Blurring such
+// a control hides it, and the diff then measures it appearing, not its ring.
+export async function ringPeak(page, control, { keep } = {}) {
   await control.scrollIntoViewIfNeeded();
   await page.mouse.move(0, 0);
   await page.keyboard.press("Shift"); // keyboard modality, so :focus-visible matches
-  await control.evaluate(() => document.activeElement?.blur());
+  if (keep) await keep.focus();
+  else await control.evaluate(() => document.activeElement?.blur());
   const box = await control.boundingBox();
   const vp = page.viewportSize();
   const pad = 10;

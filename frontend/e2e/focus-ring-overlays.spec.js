@@ -7,7 +7,7 @@
 // here: one would pass without a rule and guard nothing. How a ring is measured is in
 // fixtures/focus-ring.js.
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck } from "./fixtures/helpers.js";
+import { loadSharedDeck, setCardView } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 import { ART, paintArt, ringPeak } from "./fixtures/focus-ring.js";
 
@@ -20,7 +20,7 @@ async function openMdfcModal(page) {
 }
 
 for (const theme of ["dark", "light"]) {
-  test.describe(`flip button, ${theme} theme`, () => {
+  test.describe(`overlay controls, ${theme} theme`, () => {
     test.beforeEach(async ({ page }, testInfo) => {
       test.skip(testInfo.project.name !== "desktop-chrome", "sizes its own viewport");
       await page.addInitScript((t) => localStorage.setItem("mtgweb:theme", t), theme);
@@ -34,6 +34,28 @@ for (const theme of ["dark", "light"]) {
         const { peak, changed } = await ringPeak(page, page.locator(".cdm-flip"));
         expect(changed, "the flip button showed no focus change at all").toBeGreaterThan(0);
         expect(peak, `flip over ${name} art, ${theme}`).toBeGreaterThanOrEqual(3);
+      });
+    }
+
+    // A stack card's rail (its +, - and action buttons) is only on screen while the card or
+    // one of its buttons has focus, so each button is measured with a neighbour holding focus.
+    for (const [name, colour] of Object.entries(ART)) {
+      test(`a stack card's rail buttons over ${name} art`, async ({ page }) => {
+        await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+        await setCardView(page, { mode: "Stacks", group: "role" });
+        await paintArt(page, ".stack-card-wrap img", colour);
+        // Not the commander (the first card): it has one rail button, a normal card has four.
+        const buttons = page.locator(".stack-card-wrap").nth(1).locator(".card-rail-btn");
+        const count = await buttons.count();
+        expect(count, "the rail has buttons").toBeGreaterThan(2);
+        const weak = [];
+        for (let i = 0; i < count; i++) {
+          const keep = buttons.nth(i === 0 ? 1 : 0);
+          const { peak, changed } = await ringPeak(page, buttons.nth(i), { keep });
+          expect(changed, `rail button ${i} showed no focus change at all`).toBeGreaterThan(0);
+          if (peak < 3) weak.push(`button ${i}: ${peak}`);
+        }
+        expect(weak, `rail buttons under 3:1 over ${name} art, ${theme}`).toEqual([]);
       });
     }
 

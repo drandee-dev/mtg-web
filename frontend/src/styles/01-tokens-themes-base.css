@@ -152,6 +152,11 @@
 .deck-head :focus-visible, .deck-card-menu-btn:focus-visible, .cdm-flip:focus-visible {
   outline-color: #fff; box-shadow: 0 0 0 2px #0c0d11;
 }
+/* A rail button's ring goes inside it: the +/- pair sits in a box with overflow hidden, which
+   would clip a ring drawn outside. White at the edge, dark inside it, same two tones. */
+.card-rail-btn:focus-visible {
+  outline: 2px solid #fff; outline-offset: -2px; box-shadow: inset 0 0 0 4px #0c0d11;
+}
 
 /* Fluid root font-size: the whole UI is rem-based, so scaling the root
    scales typography, spacing, and components proportionally with the
