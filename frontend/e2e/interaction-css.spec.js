@@ -36,6 +36,22 @@ test.describe("Stack hover and focus", () => {
     expect(after).not.toBe(before);
   });
 
+  // I11b: the floating Reorder menu covers the header's right end, so a price under it read as "$2".
+  test("a column's price steps aside while its Reorder menu shows, and a pinned column's stays", async ({ page }) => {
+    const price = (h) => h.locator(".stack-column-price").evaluate((el) => getComputedStyle(el).opacity);
+    const header = page.locator(".stack-column-header", { has: page.locator(".kb-reveal") }).filter({ has: page.locator(".stack-column-price") }).first();
+    await page.mouse.move(0, 0);
+    expect(await price(header)).toBe("1");
+    await header.hover();
+    expect(await price(header)).toBe("0");
+    await page.mouse.move(0, 0);
+    await header.locator('.more-menu-btn[aria-label^="Reorder "]').focus();
+    expect(await price(header)).toBe("0");
+    const pinned = page.locator(".stack-column-header", { hasNot: page.locator(".kb-reveal") }).filter({ has: page.locator(".stack-column-price") }).first();
+    await pinned.hover();
+    expect(await price(pinned)).toBe("1");
+  });
+
   test("the rail has no backdrop blur (I2)", async ({ page }) => {
     const filter = await page.locator(".card-rail-btn").first().evaluate((el) => getComputedStyle(el).backdropFilter);
     expect(filter).toBe("none");
