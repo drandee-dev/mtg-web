@@ -12,7 +12,7 @@ import MassArtModal from "./MassArtModal";
 import UpgradeReview from "./UpgradeReview";
 import MoreMenu from "./MoreMenu";
 import { PaletteIcon, LinkIcon, LockIcon, UnlockIcon, ListIcon, SearchIcon } from "../Icons";
-import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderNamesClean, setCommanderPrinting } from "../../lib/deckParser";
+import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderNamesClean, setCommanderPrinting, webFormat } from "../../lib/deckParser";
 import { goalsToApi } from "../../lib/goals";
 import { isVisibleEntry } from "../../lib/optimizeLog";
 import { deckSignature } from "../../lib/insightsCache";
@@ -455,7 +455,7 @@ export default function DeckView({
     // Sideboard/maybeboard from the source land in Considering — never maindeck.
     const side = [res.sideboard, impMaybe].filter(Boolean).join("\n").trim();
     setMaybeboard?.(side);
-    if (res.format) setFormat(res.format);
+    if (res.format) setFormat(webFormat(res.format));
     if (res.name) onRenameDeck?.(res.name);
     const n = parseDeckText(impMain || "").totalCards;
     notify?.(`Imported "${res.name || "deck"}" — ${n} cards${side ? ` (+${parseDeckText(side).totalCards} in Considering)` : ""}.`);

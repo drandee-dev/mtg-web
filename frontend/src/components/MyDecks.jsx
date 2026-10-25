@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { disassembleDecklist, getCardImage, FORMATS } from "../lib/api";
-import { commanderNamesClean } from "../lib/deckParser";
+import { commanderNamesClean, webFormat } from "../lib/deckParser";
 import { useCardImage } from "../lib/hooks";
 import { buildPath } from "../lib/routes";
 import ExportDeckModal from "./ExportDeckModal";
@@ -49,7 +49,8 @@ function deckCardCount(text) {
 // constructed deck at least 60.
 function cardsFact(deck) {
   const count = deckCardCount(deck.decklist_text);
-  const isCmdr = !deck.format || deck.format === "commander" || deck.format === "paupercommander";
+  const fmt = webFormat(deck.format);
+  const isCmdr = !fmt || fmt === "commander" || fmt === "paupercommander";
   const target = isCmdr ? 100 : 60;
   const off = isCmdr && count > target ? `, ${count - target} over`
     : count < target ? `, ${target - count} short` : "";
@@ -57,7 +58,8 @@ function cardsFact(deck) {
 }
 
 function formatLabel(deck) {
-  return FORMAT_LABEL[deck.format || "commander"] || deck.format;
+  const fmt = webFormat(deck.format) || "commander";
+  return FORMAT_LABEL[fmt] || fmt;
 }
 
 function relativeTime(iso) {
@@ -234,14 +236,14 @@ export default function MyDecks({ decks, signedIn, onSave, onDelete, onOpen, onP
   async function clone(deck) {
     const name = prompt("Name the copy:", `${deck.name || "Untitled deck"} (copy)`);
     if (!name) return;
-    await onSave({ name: name.trim(), format: deck.format, decklist_text: deck.decklist_text });
+    await onSave({ name: name.trim(), format: webFormat(deck.format), decklist_text: deck.decklist_text });
     notify("Deck cloned.");
   }
 
   const searchable = decks.length >= SEARCH_FROM;
   const shown = searchable ? decks.filter((d) => {
     if (deckSearch && !d.name?.toLowerCase().includes(deckSearch.toLowerCase())) return false;
-    if (formatFilter !== "all" && d.format !== formatFilter) return false;
+    if (formatFilter !== "all" && (webFormat(d.format) || "commander") !== formatFilter) return false;
     return true;
   }) : decks;
   const sorted = [...shown].sort((a, b) => {
