@@ -1,3 +1,5 @@
+import { useInfoTip } from "../InfoTip";
+
 function statusScore(s) {
   const u = (s || "").toUpperCase();
   if (u === "PASS" || u === "OK") return 1;
@@ -66,16 +68,26 @@ export default function AssessmentPanel({
   const overBy = price != null && ceiling != null && price > ceiling ? price - ceiling : 0;
   const health = computeHealth(result, comp);
   const text = aiNote || verdictText({ thin, hasCats: Boolean(comp?.categories?.length), detected, target });
+  // Hooks before the early return. The score's breakdown used to be a hover-only title.
+  const scoreTip = useInfoTip("the score",
+    "A health score from the deck's own checks"
+    + (health ? `: ${health.parts.map((p) => `${p.label} ${Math.round(p.v * 100)}%`).join(", ")}. ` : ". ")
+    + "Complete counts cards against 100 (60 outside Commander); Roles is the share of roles at their target.");
+  const gapsTip = useInfoTip("gaps",
+    "Roles with fewer cards than this deck should run; the number after \"of\" is the target. "
+    + "Tap one to ask the AI for cards that fill it. Each tap uses an AI call.");
   if (!health && !text && !thin.length && !overBy) return null;
 
   const tone = health ? (health.score >= 80 ? "good" : health.score >= 55 ? "warn" : "bad") : "";
   return (
     <div className="asmt-wrap">
       <section aria-labelledby="improve-verdict">
-        <h3 id="improve-verdict" className="improve-h">Verdict</h3>
+        <div className="info-tip-host">
+          <h3 id="improve-verdict" className="improve-h">Verdict{health && scoreTip.button}</h3>
+          {health && scoreTip.panel}
+        </div>
         {health && (
-          <div className="asmt-score-row"
-            title={health.parts.map((p) => `${p.label} ${Math.round(p.v * 100)}%`).join(" · ")}>
+          <div className="asmt-score-row">
             <span className={`hr-score hr-${tone}`}>{health.score}</span>
             <span className="muted">out of 100</span>
           </div>
@@ -97,7 +109,10 @@ export default function AssessmentPanel({
 
       {thin.length > 0 && (
         <section aria-labelledby="improve-gaps">
-          <h3 id="improve-gaps" className="improve-h">Gaps</h3>
+          <div className="info-tip-host">
+            <h3 id="improve-gaps" className="improve-h">Gaps{gapsTip.button}</h3>
+            {gapsTip.panel}
+          </div>
           <div className="asmt-gaps">
             {thin.map((c) => (
               <button

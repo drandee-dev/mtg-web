@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FLAVOR_SUGGESTIONS } from "../../lib/goals";
+import { useInfoTip } from "../InfoTip";
 
 const BRACKETS = [1, 2, 3, 4, 5];
 const PILOTS = [["simple", "Simple"], ["moderate", "Moderate"], ["any", "Any"]];
@@ -24,6 +25,13 @@ export default function DeckGoals({
   const setOpen = onToggle ? onToggle : setOpenState;
   const [protectQuery, setProtectQuery] = useState("");
   const [customBudget, setCustomBudget] = useState("");
+  // What each goal tells the AI (mtg.goals_prompt_parts), in the words a player uses.
+  const bracketTip = useInfoTip("bracket",
+    "The power level you want, from 1 (casual) to 5 (competitive). Suggestions steer toward it and flag cards above it. Keep current leaves the level alone.");
+  const budgetTip = useInfoTip("budget",
+    "The most the whole deck may cost. AI suggestions keep the deck under it. Budget swaps always pick cheaper cards, whatever you set here.");
+  const pilotTip = useInfoTip("pilot",
+    "How much the deck asks of whoever plays it. Simple avoids long chains of triggers and stack tricks; Moderate allows some; Any sets no limit.");
 
   const set = (patch) => setGoals({ ...goals, ...patch });
   // What the closed card shows (`Improve`): bracket and budget always, the
@@ -89,8 +97,8 @@ export default function DeckGoals({
 
       {open && (
         <div className="dg-body">
-          <div className="dg-row">
-            <span className="dg-key">Bracket</span>
+          <div className="dg-row info-tip-host">
+            <span className="dg-key">Bracket{bracketTip.button}</span>
             <div className="dg-opts" role="group" aria-label="Target bracket">
               <button
                 className={`dg-chip${goals.bracketTarget == null ? " on" : ""}`}
@@ -104,10 +112,11 @@ export default function DeckGoals({
                 >{b}</button>
               ))}
             </div>
+            {bracketTip.panel}
           </div>
 
-          <div className="dg-row">
-            <span className="dg-key">Budget</span>
+          <div className="dg-row info-tip-host">
+            <span className="dg-key">Budget{budgetTip.button}</span>
             <div className="dg-opts" role="group" aria-label="Budget ceiling">
               <button
                 className={`dg-chip${goals.budgetCeiling == null ? " on" : ""}`}
@@ -135,10 +144,11 @@ export default function DeckGoals({
                 aria-label="Custom budget ceiling in dollars"
               />
             </div>
+            {budgetTip.panel}
           </div>
 
-          <div className="dg-row">
-            <span className="dg-key">Pilot</span>
+          <div className="dg-row info-tip-host">
+            <span className="dg-key">Pilot{pilotTip.button}</span>
             <div className="dg-opts" role="group" aria-label="Pilot complexity">
               {PILOTS.map(([id, label]) => (
                 <button
@@ -148,6 +158,7 @@ export default function DeckGoals({
                 >{label}</button>
               ))}
             </div>
+            {pilotTip.panel}
           </div>
 
           <div className="dg-row">

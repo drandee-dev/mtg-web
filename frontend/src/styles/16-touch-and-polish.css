@@ -7,7 +7,7 @@
    close buttons -- are exempted and get an invisible ::after hit extender;
    tight stacks extend less so neighboring zones don't overlap. */
 @media (pointer: coarse) {
-  button:not(.card-rail-btn):not(.cdm-close):not(.cdm-flip):not(.pw-cardchip-btn):not(.deck-card-menu-btn):not(.dg-suggest-x):not(.color-filter-pip),
+  button:not(.card-rail-btn):not(.cdm-close):not(.cdm-flip):not(.pw-cardchip-btn):not(.deck-card-menu-btn):not(.dg-suggest-x):not(.color-filter-pip):not(.info-tip-btn),
   input, select {
     min-height: 44px !important;
   }
@@ -17,7 +17,7 @@
   .card-rail-btn, .cdm-close, .cdm-flip,
   .pw-cardchip-btn, .deck-card-menu-btn, .dg-suggest-x, .icm-close, .account-close { position: relative; }
   .cdm-close::after, .cdm-flip::after, .deck-card-menu-btn::after, .dg-suggest-x::after,
-  .icm-close::after, .account-close::after {
+  .icm-close::after, .account-close::after, .info-tip-btn::after {
     content: ""; position: absolute; left: 50%; top: 50%;
     width: 44px; height: 44px; transform: translate(-50%, -50%);
   }

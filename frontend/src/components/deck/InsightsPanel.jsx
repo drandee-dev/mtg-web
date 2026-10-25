@@ -7,6 +7,7 @@ import DrawProbability from "./DrawProbability";
 import ChangeCard, { ChangeCardPlaceholder } from "./ChangeCard";
 import { REC_CATEGORIES } from "../../lib/changeset";
 import { ManaIcon } from "./ManaCost";
+import { useInfoTip } from "../InfoTip";
 
 // Tabbed insights toolbox — replaces the old Accordion/Feed dual modes.
 // One sticky tab strip, one content pane directly beneath it. Rendered twice
@@ -458,6 +459,14 @@ function ChangesPane({
   optimize, budgetSwaps, onLoadDeepChanges,
   onApplyChange, onSkipChange,
 }) {
+  // Hooks first: the pane returns early below until proposals have loaded.
+  const modeTip = useInfoTip("budget swaps and power upgrades",
+    "Budget swaps: cheaper cards that do the same job, led by what this commander's decks play. "
+    + "Power upgrades: the AI's changes toward your goals, kept inside your Goals budget. "
+    + "The green or red amount on a change is how it moves the deck's price.");
+  const sourceTip = useInfoTip("suggestions",
+    "Cards that EDHREC's decks with this commander play, one list at a time. "
+    + "\"Played in N%\" is the share of those decks that run the card.");
   if (!loaded) return <p className="muted small insp-empty">No change proposals loaded yet.</p>;
   // Every category key can come back present but empty (no EDHREC page for
   // this pairing), so count cards, not keys, or the dropdown renders blank.
@@ -478,23 +487,31 @@ function ChangesPane({
       )}
 
       {haveUpgrades && (
-        <div className="ai-panel-toggle insp-mode-toggle">
-          <button className={upgradeMode === "budget" ? "active" : ""} onClick={() => setUpgradeMode("budget")}>
-            Budget swaps
-          </button>
-          <button className={upgradeMode === "power" ? "active" : ""} onClick={() => setUpgradeMode("power")}>
-            Power upgrades
-          </button>
+        <div className="insp-tip-row info-tip-host">
+          <div className="ai-panel-toggle insp-mode-toggle">
+            <button className={upgradeMode === "budget" ? "active" : ""} onClick={() => setUpgradeMode("budget")}>
+              Budget swaps
+            </button>
+            <button className={upgradeMode === "power" ? "active" : ""} onClick={() => setUpgradeMode("power")}>
+              Power upgrades
+            </button>
+          </div>
+          {modeTip.button}
+          {modeTip.panel}
         </div>
       )}
 
       {hasRecs && (
-        <select className="insp-select" value={recCat} onChange={(e) => setRecCat(e.target.value)}
-          aria-label="Suggestion category">
-          {REC_CATEGORIES.filter(([k]) => recs.categories[k]?.length).map(([k, label]) => (
-            <option key={k} value={k}>Suggest from: {label} ({recs.categories[k].length})</option>
-          ))}
-        </select>
+        <div className="insp-tip-row info-tip-host">
+          <select className="insp-select" value={recCat} onChange={(e) => setRecCat(e.target.value)}
+            aria-label="Suggestion category">
+            {REC_CATEGORIES.filter(([k]) => recs.categories[k]?.length).map(([k, label]) => (
+              <option key={k} value={k}>Suggest from: {label} ({recs.categories[k].length})</option>
+            ))}
+          </select>
+          {sourceTip.button}
+          {sourceTip.panel}
+        </div>
       )}
 
       {changes.length === 0 && (
