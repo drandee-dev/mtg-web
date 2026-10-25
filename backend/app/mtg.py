@@ -790,9 +790,14 @@ def _edhrec_cardlists(commanders: list[str], timeout: float | None = None) -> di
     now = _time.time()
     hit = _cardlists_cache.get(key)
     if hit is not None and now < hit[0]:
-        if hit[1] is None:
+        if hit[1] is not None:
+            return hit[1]
+        # A remembered failure spares callers that would not wait anyway (an AI call's
+        # 3 s timeout). A caller that waits as long as it takes (Suggestions) asks
+        # again: the failure may have been only someone else's timeout (Holiday,
+        # 2026-10-24), and a slow EDHREC used to still load Suggestions.
+        if timeout is not None:
             raise EdhrecUnavailable(", ".join(commanders))
-        return hit[1]
     try:
         cats = (
             edhrec_lookup(list(commanders))

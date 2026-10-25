@@ -82,6 +82,8 @@ assert SECTION in s and "(EDHREC, 1000 decks)" in s, s[-1500:]
 assert "Tokens (920 decks), Aristocrats (487 decks)" in s, s[-1500:]
 assert "Swords to Plowshares 75% (in this deck)" in s, s[-1500:]
 assert "Village Rites 56%" in s and "Village Rites 56% (in" not in s, s[-1500:]
+# "; " between cards: card names contain commas.
+assert "Swords to Plowshares 75% (in this deck); Village Rites 56%" in s, s[-1500:]
 # Lands are mana, not strategy: they stay out of "most played".
 assert "Fetid Heath" not in s.split(SECTION)[1], s[-1500:]
 assert calls == [(["Silverquill, the Disputant"], 3)], calls
@@ -127,6 +129,21 @@ mtg._deck_context(DECK, "commander")
 mtg._ctx_cache.clear()
 mtg._deck_context(DECK, "commander")
 assert len(calls) == 1, f"EDHREC asked again during an outage: {calls}"
+# A slow EDHREC: AI calls (3 s timeout) give up, but Suggestions, which waits, must
+# still load; the AI calls' remembered failure must not stop it.
+def slow(names, timeout=None):
+    calls.append((list(names), timeout))
+    if timeout is not None:
+        raise TimeoutError("read timed out (stub)")
+    return page()
+
+
+mtg.edhrec_lookup = slow
+mtg._cardlists_cache.clear()
+mtg._ctx_cache.clear()
+mtg._deck_context(DECK, "commander")  # every AI call builds this first
+rec = mtg.deck_recommendations(DECK, fmt="commander")
+assert rec["categories"].get("instants"), f"Suggestions blanked by an AI call's timeout: {rec}"
 print("ok: no section when EDHREC is down, small, malformed or no commander; only legal cards")
 
 # --- every AI source that reads the shared context sends it ---------------- #

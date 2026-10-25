@@ -145,8 +145,9 @@ def test_misses_are_remembered_briefly():
     mtg._edhrec_cardlists(["Tymna the Weaver"])
     assert len(calls) == 2, calls
 
-    # A failure: raised, remembered, raised again without a second fetch.
-    def boom(names):
+    # A failure: raised, remembered for callers with a timeout (raised again without
+    # a second fetch); a caller without a timeout asks again.
+    def boom(names, timeout=None):
         calls.append(names)
         raise ConnectionError("down")
 
@@ -154,18 +155,23 @@ def test_misses_are_remembered_briefly():
     mtg._cardlists_cache.clear()
     for _ in range(2):
         try:
-            mtg._edhrec_cardlists(["Tymna the Weaver"])
+            mtg._edhrec_cardlists(["Tymna the Weaver"], timeout=3)
             raise AssertionError("a failure did not raise")
         except (ConnectionError, mtg.EdhrecUnavailable):
             pass
     assert len(calls) == 3, calls
+    try:
+        mtg._edhrec_cardlists(["Tymna the Weaver"])
+    except ConnectionError:
+        pass
+    assert len(calls) == 4, f"a caller that waits was refused by a remembered failure: {calls}"
 
     # A page with cards is kept for the long TTL.
     mtg.edhrec_lookup = lambda names: (calls.append(names), {"top_cards": [{"name": "x"}]})[1]
     mtg._cardlists_cache.clear()
     mtg._edhrec_cardlists(["Tymna the Weaver"])
     mtg._edhrec_cardlists(["Tymna the Weaver"])
-    assert len(calls) == 4, calls
+    assert len(calls) == 5, calls
     assert mtg._cardlists_cache[key][0] - mtg._time.time() > mtg._CARDLISTS_MISS_TTL
     mtg._cardlists_cache.clear()
     print("ok: misses are kept briefly, a full page for long")
