@@ -71,23 +71,27 @@ def _extract_cardviews(cardviews: list[dict]) -> list[dict]:
     ]
 
 
-def _get_json(session: requests.Session, url: str) -> dict | None:
-    """The page's JSON, or None for a 404 (no page). Other errors raise."""
-    resp = session.get(url)
+def _get_json(
+    session: requests.Session, url: str, timeout: float | None = None
+) -> dict | None:
+    """The page's JSON, or None for a 404 (no page). Other errors raise, a timeout too."""
+    resp = session.get(url, timeout=timeout)
     if resp.status_code == 404:
         return None
     resp.raise_for_status()
     return resp.json()
 
 
-def edhrec_lookup(commanders: list[str]) -> dict:
+def edhrec_lookup(commanders: list[str], timeout: float | None = None) -> dict:
+    """The commander's EDHREC card lists. `timeout` (seconds, per request) is for
+    callers that must not wait on EDHREC; the default waits as long as it takes."""
     slug = slugify(*commanders)
     url = EDHREC_JSON_URL.format(slug=slug)
 
     session = requests.Session()
     session.headers["User-Agent"] = USER_AGENT
 
-    data = _get_json(session, url)
+    data = _get_json(session, url, timeout)
 
     # A pairing has one canonical page, and its order is EDHREC's choice: not
     # alphabetical (Backgrounds and Doctors come commander-first), so never sort
@@ -102,7 +106,7 @@ def edhrec_lookup(commanders: list[str]) -> dict:
     ):
         target = EDHREC_PAGE_URL.format(path=redirect)
         if target != url:
-            data = _get_json(session, target)
+            data = _get_json(session, target, timeout)
 
     result: dict[str, list[dict]] = {v: [] for v in CARDLIST_TAGS.values()}
     if not data:

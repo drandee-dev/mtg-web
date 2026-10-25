@@ -1,7 +1,7 @@
 // Run with: node --test src/lib/insightState.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { stateFromCache, cacheFromState, migratePanel } from "./insightState.js";
+import { stateFromCache, cacheFromState, migratePanel, BUDGET_SWAPS_VERSION } from "./insightState.js";
 
 const CACHE = {
   v: 1,
@@ -59,6 +59,17 @@ test("saving leaves out a panel with no data and turns the sets into lists", () 
   assert.deepEqual(out.dismissed, ["Opt"]);
   assert.deepEqual(out.dismissedCuts, ["Forest"]);
   assert.deepEqual(out.declinedUpgrades, ["Cultivate"]);
+});
+
+test("cached budget swaps from older rules are dropped, so the page fetches them again", () => {
+  const withSwaps = (data) => ({ ...CACHE, panels: { ...CACHE.panels, budgetSwaps: { data, sig: "sig-b" } } });
+  const old = { swaps: [{ card: "Esper Sentinel", alternative: { name: "Wandering Champion" } }] };
+  assert.equal(stateFromCache(withSwaps(old)).budgetSwaps, null); // 2026-10-23: no `v`
+  assert.equal(stateFromCache(withSwaps({ ...old, v: BUDGET_SWAPS_VERSION - 1 })).budgetSwaps, null);
+  const current = { ...old, v: BUDGET_SWAPS_VERSION };
+  assert.deepEqual(stateFromCache(withSwaps(current)).budgetSwaps, current);
+  // The other panels are untouched by it.
+  assert.deepEqual(stateFromCache(withSwaps(old)).result, { total_cards: 99 });
 });
 
 test("what is saved loads back to the same state", () => {

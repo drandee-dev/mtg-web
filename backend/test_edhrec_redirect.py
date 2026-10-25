@@ -86,6 +86,43 @@ def test_second_redirect_not_followed():
     print("ok: a second redirect is not followed")
 
 
+def test_timeout_reaches_every_request():
+    """A caller's timeout must reach both GETs, the page and its redirect."""
+    seen = []
+
+    def get(self, url, **kw):
+        seen.append(kw.get("timeout"))
+        return FakeResp({"redirect": CANONICAL} if len(seen) == 1 else PAGE)
+
+    requests.Session.get = get
+    el.edhrec_lookup(["Tymna the Weaver", "Thrasios, Triton Hero"], timeout=3)
+    assert seen == [3, 3], seen
+    print("ok: the timeout reaches the page and the redirect request")
+
+
+def test_empty_page_is_not_cached():
+    """An empty page is asked for again; caching it would blank Suggestions for 12 h."""
+    calls = []
+
+    def empty(names):
+        calls.append(names)
+        return {v: [] for v in el.CARDLIST_TAGS.values()}
+
+    mtg.edhrec_lookup = empty
+    mtg._cardlists_cache.clear()
+    mtg._edhrec_cardlists(["Tymna the Weaver"])
+    mtg._edhrec_cardlists(["Tymna the Weaver"])
+    assert len(calls) == 2, calls
+    # A page with cards is kept: the second call is served from the cache.
+    mtg.edhrec_lookup = lambda names: (calls.append(names), {"top_cards": [{"name": "x"}]})[1]
+    mtg._cardlists_cache.clear()
+    mtg._edhrec_cardlists(["Tymna the Weaver"])
+    mtg._edhrec_cardlists(["Tymna the Weaver"])
+    assert len(calls) == 3, calls
+    mtg._cardlists_cache.clear()
+    print("ok: an empty page is fetched again, a full one is cached")
+
+
 def test_all_empty_gives_note():
     mtg.edhrec_lookup = lambda names: {v: [] for v in el.CARDLIST_TAGS.values()}
     mtg._bulk_index = lambda: {}  # no Scryfall download needed
@@ -116,6 +153,8 @@ if __name__ == "__main__":
         test_follows_redirect_once()
         test_self_redirect_does_not_loop()
         test_second_redirect_not_followed()
+        test_timeout_reaches_every_request()
+        test_empty_page_is_not_cached()
         test_all_empty_gives_note()
         test_failure_note_leaks_nothing()
         print("\nall passed")

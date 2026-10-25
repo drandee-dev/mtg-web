@@ -648,7 +648,11 @@ def deck_recommendations(text: str, *, fmt: str = "commander") -> dict[str, Any]
             "note": "Add a commander to get recommendations.",
         }
     try:
-        categories = edhrec_lookup(commanders)
+        # Copies: the loop below marks in_deck on each row, and the cached lists
+        # are shared with budget swaps and other decks.
+        categories = {
+            k: [dict(cv) for cv in v] for k, v in _edhrec_cardlists(commanders).items()
+        }
     except Exception:  # noqa: BLE001 - external service; degrade, don't 500
         # The exception can carry URLs and internals: log it, never return it.
         log.exception("EDHREC lookup failed for %s", commanders)
@@ -759,6 +763,52 @@ def commander_directory() -> list[dict]:
 
     _commander_dir_cache = (token, directory)
     return directory
+
+
+# A commander's EDHREC card lists, shared by Suggestions and budget swaps so one
+# fetch serves both. Only pages with cards are kept: a failure or an empty page is
+# asked again next time. Per process, so a cold serverless instance starts empty.
+_cardlists_cache: dict[tuple[str, ...], tuple[float, dict]] = {}
+
+
+def _edhrec_cardlists(commanders: list[str], timeout: float | None = None) -> dict:
+    """edhrec_lookup through the shared cache. Raises what edhrec_lookup raises."""
+    key = tuple(c.strip().lower() for c in commanders)
+    now = _time.time()
+    hit = _cardlists_cache.get(key)
+    if hit is not None and now < hit[0]:
+        return hit[1]
+    cats = (
+        edhrec_lookup(list(commanders))
+        if timeout is None
+        else edhrec_lookup(list(commanders), timeout=timeout)
+    )
+    if any(cats.values()):
+        _cardlists_cache[key] = (now + _SYNERGY_TTL, cats)
+    return cats
+
+
+# Below this many decks a commander's percentages are noise (6 of 12 decks reads 50%).
+_MIN_COMMANDER_DECKS = 100
+
+
+def _commander_inclusion(cats: dict, idx: Any) -> dict[str, float]:
+    """Canonical card name -> share of this commander's EDHREC decks that play it.
+
+    EDHREC names a double-faced card by its front face; the index resolves face
+    names, so "Fell the Profane" counts for "Fell the Profane // Fell Mire"."""
+    out: dict[str, float] = {}
+    for cards in cats.values():
+        for cv in cards:
+            potential = cv.get("potential_decks") or 0
+            if potential < _MIN_COMMANDER_DECKS:
+                continue
+            rec = idx.get(cv.get("name") or "")
+            if not rec:
+                continue
+            share = (cv.get("num_decks") or 0) / potential
+            out[rec["name"]] = max(share, out.get(rec["name"], 0.0))
+    return out
 
 
 # Signature cards for a commander page, straight off the same EDHREC feed the deck
@@ -2229,13 +2279,19 @@ def _land_swap_ok(old: dict, new: dict) -> bool:
     return need <= have
 
 
+# Bump when the swap rules change, so cached swaps in browsers are replaced (2 =
+# like-for-like plus commander-aware, 2026-10-24).
+BUDGET_SWAPS_VERSION = 2
+
+
 def budget_swaps(
     text: str, *, fmt: str = "commander", threshold: float = 5.0
 ) -> dict[str, Any]:
     """Find cheaper alternatives for expensive cards. No AI needed — pure search.
 
-    An alternative shares the card's role, costs within one mana of it and is the most
-    played such card under half the price. Cards with no role get no alternative."""
+    An alternative shares the card's role and kind, costs within one mana of it and is
+    under half the price; among those, the card this commander's EDHREC decks play most
+    wins, then the most played overall. Cards with no role get no alternative."""
     deck = parse_deck_text(text, format=fmt)
     hd = HydratedDeck.from_parsed(deck, _bulk_index())
     idx = _bulk_index()
@@ -2245,6 +2301,23 @@ def budget_swaps(
     in_deck = {
         e["name"] for zone in ("commanders", "cards") for e in deck.get(zone, [])
     }
+
+    # This commander's own decks first: the cheap card they actually play, not one
+    # that is merely popular everywhere. EDHREC gets 3 seconds per request (a partner
+    # redirect makes two, so about 6 at worst); without it the ranking is global
+    # popularity, as before.
+    incl: dict[str, float] = {}
+    # This commander's EDHREC utility lands (Phyrexian Tower, Bojuka Bog): a utility
+    # land is swapped for another one, not for a dual that only fixes colours.
+    utility: set[str] = set()
+    commanders = [e["name"] for e in deck.get("commanders", [])]
+    if commanders and fmt in _IDENTITY_FORMATS:
+        try:
+            cats = _edhrec_cardlists(commanders, timeout=3)
+            incl = _commander_inclusion(cats, idx)
+            utility = set(_commander_inclusion({"u": cats.get("utility_lands", [])}, idx))
+        except Exception:  # noqa: BLE001 - external service; fall back, don't fail
+            log.warning("budget swaps: EDHREC unavailable for %s, global ranking", commanders)
 
     priced = []
     for entry, card in hd.entries(zones=("cards",)):
@@ -2292,10 +2365,20 @@ def budget_swaps(
                         color_identity=ci,
                         fmt=fmt,
                         sort="edhrec-desc",
-                        limit=30,
+                        limit=200,
                         price_max=price * 0.5,
                         cmc_min=None if cmc is None else max(0, cmc - 1),
                         cmc_max=None if cmc is None else cmc + 1,
+                    )
+                    # Stable: cards this commander's decks play come first, most
+                    # played first; the rest keep their global order. A utility land
+                    # looks at the commander's utility lands before anything else.
+                    is_utility = ptype == "land" and name in utility
+                    cands.sort(
+                        key=lambda c: (
+                            not (is_utility and c.get("name", "") in utility),
+                            -incl.get(c.get("name", ""), 0.0),
+                        )
                     )
                     for c in cands:
                         cn = c.get("name", "")
@@ -2307,7 +2390,13 @@ def budget_swaps(
                             and cp < price * 0.5
                             and (ptype != "land" or _land_swap_ok(card, c))
                         ):
-                            alt = {"name": cn, "price": round(cp, 2), "role": role}
+                            alt = {
+                                "name": cn,
+                                "price": round(cp, 2),
+                                "role": role,
+                                # Share of this commander's EDHREC decks, or None.
+                                "commander_pct": round(100 * incl[cn]) if incl.get(cn) else None,
+                            }
                             # Taken: two swaps must not both add the same card.
                             in_deck.add(cn)
                             break
@@ -2319,6 +2408,10 @@ def budget_swaps(
             swaps.append({"card": name, "price": round(price, 2), "alternative": alt})
     swaps.sort(key=lambda s: s["price"], reverse=True)
     return {
+        # The page drops cached swaps from an older version and fetches again; keep
+        # in step with BUDGET_SWAPS_VERSION in frontend/src/lib/insightState.js.
+        "v": BUDGET_SWAPS_VERSION,
+        "ranked_by": "commander" if incl else "global",
         "swaps": swaps,
         "total_savings": round(
             sum(s["price"] - s["alternative"]["price"] for s in swaps), 2
