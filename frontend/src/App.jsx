@@ -526,7 +526,8 @@ export default function App() {
     try {
       const asked = getMoves();
       const same = (await store.list()).find((s) =>
-        s.name === d.name && s.decklist_text === d.decklist_text && (s.format || "commander") === (d.format || "commander"));
+        s.name === d.name && s.decklist_text === d.decklist_text
+          && (webFormat(s.format) || "commander") === (webFormat(d.format) || "commander"));
       if (same) {
         if (asked === getMoves()) showSaved(same);
         notify(`"${d.name}" was already saved.`);
@@ -668,7 +669,7 @@ export default function App() {
     const deck = decks.find((d) => d.id === currentDeck?.id);
     if (!deck) return notify("Couldn't find the saved copy of this deck.");
     const edits = { format, decklist_text: storageText };
-    const fmt = deck.format || "commander";
+    const fmt = webFormat(deck.format) || "commander";
     setCurrentDeck(_openDeck(deck, showInEditor(fmt, deck.decklist_text).text, fmt));
     notify("Changes discarded.", {
       label: "Undo",

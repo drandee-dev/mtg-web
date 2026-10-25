@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { downloadFile, useFocusTrap } from "../lib/hooks";
 import { useBackClose } from "../lib/backstack";
+import { webFormat } from "../lib/deckParser";
 
 /** Export modal (Archidekt-style): shows the normalized decklist text so it can
  * be copied straight into Archidekt / Moxfield's importer, or downloaded as a
@@ -23,7 +24,7 @@ function ModalInner({ deck, onClose, notify }) {
     let cancelled = false;
     async function load() {
       try {
-        const res = await api.exportText(deck.decklist_text, deck.format);
+        const res = await api.exportText(deck.decklist_text, webFormat(deck.format));
         if (!cancelled) setText(res.text || deck.decklist_text || "");
       } catch {
         // fall back to the raw stored list — still paste-able

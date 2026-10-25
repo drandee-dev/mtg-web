@@ -10,4 +10,6 @@ test("retired Brawl formats open as Commander; others pass through", () => {
   // Falsy stays falsy, so each caller keeps its own default.
   assert.equal(webFormat(""), "");
   assert.equal(webFormat(undefined), undefined);
+  // Object's own property names are not formats: a ?fmt= link must stay a string.
+  for (const f of ["constructor", "toString", "__proto__", "hasOwnProperty"]) assert.equal(webFormat(f), f);
 });

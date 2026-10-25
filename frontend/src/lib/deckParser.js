@@ -29,16 +29,18 @@ function _splitPrinting(raw) {
 // parsing so display/lookup sites get clean names while the raw string (suffix
 // intact) still round-trips through save/share/export.
 
-/** [{ name, printing, raw }] for each commander (partners split on " && "). */
 // Formats the app no longer serves, opened as the nearest one it does. Andres,
 // 2026-10-24: Brawl removed from the web app, and a Brawl deck opens as Commander
 // (the API refuses the Brawl formats, so left as is every panel would fail).
-// Applied wherever a format arrives from outside the format picker: a saved deck or
-// its draft, a share link, a URL import. Falsy stays falsy so callers keep their
-// own default.
+// Applied wherever a stored or outside format is read: a saved deck, its draft, a
+// share link, a URL import, Discard changes, and My Decks' label, filter, copy and
+// export. Falsy stays falsy so callers keep their own default. Own keys only:
+// "?fmt=constructor" must stay a string, not become Object's constructor.
 const RETIRED_FORMATS = { brawl: "commander", historic_brawl: "commander" };
-export const webFormat = (fmt) => RETIRED_FORMATS[fmt] || fmt;
+export const webFormat = (fmt) =>
+  (typeof fmt === "string" && Object.hasOwn(RETIRED_FORMATS, fmt) ? RETIRED_FORMATS[fmt] : fmt);
 
+/** [{ name, printing, raw }] for each commander (partners split on " && "). */
 export function splitCommanders(commander) {
   return (commander || "").split(" && ").filter(Boolean).map(_splitPrinting);
 }

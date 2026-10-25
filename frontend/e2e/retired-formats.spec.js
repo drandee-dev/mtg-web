@@ -2,7 +2,10 @@
 // Brawl formats. A deck that still says "brawl" (saved before, or on a share link)
 // must open as Commander, so its panels ask the API for Commander, not Brawl.
 import { test, expect } from "./fixtures/test-base.js";
-import { waitForAppReady, dismissColdStart, seedLocalDecks, importNewDeck, loadSharedDeck, deckMenuAction } from "./fixtures/helpers.js";
+import {
+  waitForAppReady, dismissColdStart, seedLocalDecks, importNewDeck, loadSharedDeck, deckMenuAction,
+  navigateToTab, backToDeck,
+} from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
 // The format the next deck request sends (analyze, composition, recommend: whichever
@@ -29,6 +32,45 @@ for (const retired of ["brawl", "historic_brawl"]) {
     expect(await sent).toBe("commander");
   });
 }
+
+const OLD_BRAWL = {
+  id: "old-brawl-deck", name: "Old Brawl deck", format: "brawl",
+  decklist_text: `Commander\n1 ${TEST_COMMANDER}\nDeck\n${TEST_DECK_TEXT}`,
+};
+
+async function seedOld(page) {
+  await page.goto("/");
+  await waitForAppReady(page);
+  await seedLocalDecks(page, [OLD_BRAWL]);
+  await page.reload();
+  await waitForAppReady(page);
+  await dismissColdStart(page);
+}
+
+test("My Decks labels a saved brawl deck Commander", async ({ page }) => {
+  await seedOld(page);
+  const facts = page.locator(".deck-card", { hasText: OLD_BRAWL.name }).locator(".deck-card-facts");
+  await expect(facts).toContainText("Commander, ");
+  await expect(facts).not.toContainText("brawl");
+});
+
+test("Discard changes on a saved brawl deck keeps Commander", async ({ page }) => {
+  await seedOld(page);
+  await page.locator(".deck-card", { hasText: OLD_BRAWL.name }).locator(".deck-card-art").click();
+  await expect(page.locator(".card-grid-container")).toBeVisible({ timeout: 10000 });
+  // An edit, as drafts.spec makes it: add a card from Card Search.
+  await navigateToTab(page, "Card Search");
+  const name = page.locator('input[placeholder="bolt"]');
+  await name.fill("bolt");
+  await name.press("Enter");
+  await page.locator(".results-table tbody tr", { hasText: "Lightning Bolt" })
+    .getByRole("button", { name: /^Add to / }).click();
+  await backToDeck(page);
+  await expect(page.locator(".deck-unsaved:visible")).toHaveText("Unsaved");
+  const sent = analyzeFormat(page);
+  await deckMenuAction(page, "Discard changes");
+  expect(await sent).toBe("commander");
+});
 
 // The import source's own format comes back as-is (Moxfield's, unmapped). Same body
 // as the mock backend's import, but saying brawl.
