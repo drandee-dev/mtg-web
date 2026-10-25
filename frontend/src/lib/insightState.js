@@ -9,6 +9,13 @@ import { PANEL_KEYS } from "./insightsCache.js";
 const OLD_CHANGE_PANELS = new Set(["Recommendations", "Cuts", "Upgrades"]);
 export const migratePanel = (p) => (OLD_CHANGE_PANELS.has(p) ? "Changes" : p);
 
+// The budget-swaps rules the server answers with (its `v`); keep in step with
+// BUDGET_SWAPS_VERSION in backend/app/mtg.py. Cached swaps from older rules are
+// dropped on hydrate, so the page fetches them again (free: no AI) instead of
+// showing swaps the server no longer makes, as happened after 2026-10-23's fix.
+export const BUDGET_SWAPS_VERSION = 2;
+const currentSwaps = (d) => (d && d.v === BUDGET_SWAPS_VERSION ? d : null);
+
 /** A cache from `loadInsights` (or null for a deck with none) → the values the
  * state starts from, or is reset to on a deck switch. `upgradeMode` is null
  * when the cache has none: a first load then defaults to "budget", and a deck
@@ -25,7 +32,7 @@ export function stateFromCache(c) {
     comp: data("comp"),
     recs: data("recs"),
     combos: data("combos"),
-    budgetSwaps: data("budgetSwaps"),
+    budgetSwaps: currentSwaps(data("budgetSwaps")),
     strategy: data("strategy"),
     ratings: data("ratings"),
     panelSigs,

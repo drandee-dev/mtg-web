@@ -46,6 +46,7 @@ test.describe("Activation flows", () => {
       r.fulfill({
         contentType: "application/json",
         body: JSON.stringify({
+          v: 2,
           swaps: [{ card: "Rhystic Study", price: 25, alternative: { name: "Mystic Remora", price: 4 } }],
           total_savings: 21,
         }),

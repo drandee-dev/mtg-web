@@ -15,7 +15,7 @@
 // their own (see DeckView's insightDecided comment) — a skip on one is just
 // an `insightDecided` write.
 
-import { fmtUsd } from "./format";
+import { fmtUsd } from "./format.js";
 
 export const REC_CATEGORIES = [
   ["high_synergy", "High synergy"],
@@ -79,13 +79,16 @@ export function buildChanges({
       const from = Number(sw.price);
       const to = Number(sw.alternative.price);
       const priced = Number.isFinite(to) && Number.isFinite(from);
+      // Set by the server only when this commander's EDHREC page has enough decks.
+      const pct = sw.alternative.commander_pct;
+      const played = pct ? ` Played in ${pct}% of this commander's decks.` : "";
       out.push({
         id: `up:${sw.card}`, source: "upgrade", action: "swap",
         cut: sw.card, add: sw.alternative.name, category: "Budget", impact: "low",
         price_delta: priced ? to - from : null,
-        reason: priced
+        reason: (priced
           ? `Same job for ${fmtUsd(to)} instead of ${fmtUsd(from)}.`
-          : "Cheaper card doing the same job.",
+          : "Cheaper card doing the same job.") + played,
       });
     }
   }
