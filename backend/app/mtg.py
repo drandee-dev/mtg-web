@@ -983,8 +983,11 @@ def _tool_json(response: Any) -> str | None:
     escaped and the object is never cut mid-way by a stray character; free text
     had no such guarantee and sometimes did not parse."""
     for block in response.content:
-        if getattr(block, "type", None) == "tool_use" and isinstance(
-            getattr(block, "input", None), dict
+        # An empty input is no answer: a reply cut off while writing the call can arrive as {}.
+        if (
+            getattr(block, "type", None) == "tool_use"
+            and isinstance(getattr(block, "input", None), dict)
+            and block.input
         ):
             return json.dumps(block.input)
     return None
@@ -1077,7 +1080,7 @@ def _ai_call(
             cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
             if on_ai_usage and callable(on_ai_usage):
                 on_ai_usage(model, usage)
-            return {
+            reply = {
                 "error": False,
                 "result": (_tool_json(response) if schema else None)
                 or _first_text(response),
@@ -1088,6 +1091,12 @@ def _ai_call(
                 # "max_tokens" means the reply was cut off mid-way.
                 "stop_reason": getattr(response, "stop_reason", None),
             }
+            if schema and reply["stop_reason"] == "max_tokens":
+                # A structured answer cut off mid-call can still look complete (a partial
+                # or empty input), and would read as "no changes" with no error.
+                _log_unreadable("structured reply cut off", reply)
+                return {**reply, "error": True, "result": AI_UNREADABLE_MESSAGE}
+            return reply
         except anthropic.NotFoundError:
             continue
         except anthropic.AuthenticationError:
@@ -1787,8 +1796,19 @@ def ai_strategy(
             "model": resp.get("model"),
         }
     except (ValueError, KeyError):
-        # Fallback: treat the whole response as the strategy text
+        # Fallback: treat a prose reply as the strategy text. Anything that starts like
+        # JSON is a broken object, not something to show, and a blank reply is nothing.
         _log_unreadable("strategy", resp)
+        prose = (resp["result"] or "").strip()
+        if not prose or prose[0] in "{[":
+            return {
+                "error": True,
+                "message": AI_UNREADABLE_MESSAGE,
+                "strategy": "",
+                "archetype": "",
+                "game_plan": "",
+                "synergies": [],
+            }
         return {
             "error": False,
             "strategy": resp["result"],
@@ -2198,6 +2218,17 @@ def _swap_type(card: dict) -> str | None:
     return next((t for t in _SWAP_TYPES if t in front), None)
 
 
+def _land_swap_ok(old: dict, new: dict) -> bool:
+    """A replacement land must tap for every coloured mana the original does, or the
+    mana gets worse: Vault of Champions (W/B) became Reliquary Tower (colourless).
+    A fetch land has no produced_mana of its own; it passes because it finds the colours."""
+    need = set(old.get("produced_mana") or []) & set("WUBRG")
+    have = set(new.get("produced_mana") or [])
+    if not have and "search your library for" in get_oracle_text(new).lower():
+        return True
+    return need <= have
+
+
 def budget_swaps(
     text: str, *, fmt: str = "commander", threshold: float = 5.0
 ) -> dict[str, Any]:
@@ -2261,7 +2292,7 @@ def budget_swaps(
                         color_identity=ci,
                         fmt=fmt,
                         sort="edhrec-desc",
-                        limit=15,
+                        limit=30,
                         price_max=price * 0.5,
                         cmc_min=None if cmc is None else max(0, cmc - 1),
                         cmc_max=None if cmc is None else cmc + 1,
@@ -2269,7 +2300,13 @@ def budget_swaps(
                     for c in cands:
                         cn = c.get("name", "")
                         cp = extract_price(c)
-                        if cn not in in_deck and cn != name and cp and cp < price * 0.5:
+                        if (
+                            cn not in in_deck
+                            and cn != name
+                            and cp
+                            and cp < price * 0.5
+                            and (ptype != "land" or _land_swap_ok(card, c))
+                        ):
                             alt = {"name": cn, "price": round(cp, 2), "role": role}
                             # Taken: two swaps must not both add the same card.
                             in_deck.add(cn)

@@ -64,6 +64,16 @@ for s in swaps:
     rank = new.get("edhrec_rank")
     assert rank is not None and rank < 8000, f"an unplayed card as the swap: {label} ({rank})"
 
+# A land must tap for every coloured mana the original does (Vault of Champions is W/B).
+for s in swaps:
+    old, new = idx.get(s["card"]), idx.get(s["alternative"]["name"])
+    if mtg._swap_type(old) == "land":
+        assert mtg._land_swap_ok(old, new), f"a worse-mana land: {s['card']} -> {new['name']}"
+assert not mtg._land_swap_ok(idx["Vault of Champions"], idx["Reliquary Tower"])  # colourless
+assert not mtg._land_swap_ok(idx["Godless Shrine"], idx["Rogue's Passage"])
+assert mtg._land_swap_ok(idx["Godless Shrine"], idx["Exotic Orchard"])  # taps for W and B
+assert mtg._land_swap_ok(idx["Godless Shrine"], idx["Evolving Wilds"])  # a fetch finds them
+
 # A card with no role has no job to repeat: it gets no swap at all.
 swapped = {s["card"] for s in swaps}
 for name in ("Torment of Hailfire", "Reanimate", "Make an Example", "Twinning Staff"):

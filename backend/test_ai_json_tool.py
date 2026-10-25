@@ -165,8 +165,9 @@ _log.propagate = False
 
 def unreadable(run):
     _logged.clear()
-    # A schema call whose reply came back as cut-off text, not a tool block.
-    _next[:] = [_text(RAW, stop="max_tokens")] * 8
+    # A schema call whose reply finished but came back as unparseable text, not a tool
+    # block. (A reply cut off at max_tokens is its own case, below.)
+    _next[:] = [_text(RAW, stop="end_turn")] * 8
     return run()
 
 
@@ -174,7 +175,7 @@ res = unreadable(callers["optimize"])
 assert res["error"] is True and res["message"] == mtg.AI_UNREADABLE_MESSAGE, res
 assert "SECRET-RAW-TEXT" not in json.dumps(res), res
 rec = [r.getMessage() for r in _logged]
-assert len(rec) == 1 and "optimize" in rec[0] and "max_tokens" in rec[0], rec
+assert len(rec) == 1 and "optimize" in rec[0] and "end_turn" in rec[0], rec
 assert "SECRET-RAW-TEXT" in rec[0], "the raw head must reach the server log"
 
 res = unreadable(callers["explain"])
@@ -186,6 +187,34 @@ res = unreadable(callers["combos"])
 assert "SECRET-RAW-TEXT" not in json.dumps(res), res
 assert res["assessments"][0]["reason"] == mtg.AI_UNREADABLE_MESSAGE, res
 assert len(_logged) == 1, _logged
+
+# --- a structured reply cut off at max_tokens is an error, not an empty answer #
+for label, partial in (("empty input", {}), ("partial input", {"assessment": "cut o"})):
+    _logged.clear()
+    _next[:] = [_tool(partial, stop="max_tokens")]
+    out = mtg._ai_call("sys", "hi", api_key="test", schema=schema)
+    assert out["error"] is True and out["result"] == mtg.AI_UNREADABLE_MESSAGE, (label, out)
+    assert len(_logged) == 1 and "max_tokens" in _logged[0].getMessage(), (label, _logged)
+    # The same truncation through a real caller: an error the page shows, never "no changes".
+    _next[:] = [_tool(partial, stop="max_tokens")]
+    res = mtg.ai_optimize(DECK, fmt="commander", api_key="test")
+    assert res["error"] is True and res["message"] == mtg.AI_UNREADABLE_MESSAGE, (label, res)
+# An empty tool input that did NOT hit the limit is still no answer: unreadable, not "{}".
+_logged.clear()
+_next[:] = [_tool({}, stop="tool_use")]
+res = mtg.ai_optimize(DECK, fmt="commander", api_key="test")
+assert res["error"] is True and res["message"] == mtg.AI_UNREADABLE_MESSAGE, res
+
+# --- strategy never shows a broken JSON object as if it were the strategy ---- #
+for label, raw in (("broken json", '{"strategy": "**X** cut off'), ("blank", "   ")):
+    _logged.clear()
+    _next[:] = [_text(raw)]
+    res = mtg.ai_strategy(DECK, fmt="commander", api_key="test")
+    assert res["error"] is True and res["message"] == mtg.AI_UNREADABLE_MESSAGE, (label, res)
+    assert res["strategy"] == "", (label, res)
+_next[:] = [_text("A plain prose reply.")]
+res = mtg.ai_strategy(DECK, fmt="commander", api_key="test")
+assert res["error"] is False and res["strategy"] == "A plain prose reply.", res
 
 # --- an optimize that keeps nothing says why in the log ------------------- #
 BAD = {
