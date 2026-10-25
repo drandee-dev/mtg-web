@@ -23,6 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import (
+    AfterValidator,
     BaseModel,
     Field,
     StrictFloat,
@@ -60,6 +61,25 @@ _MAX_MESSAGES = 50
 _MAX_MESSAGE_LEN = 10_000
 _MAX_REGEX_LEN = 200
 _VALID_ROLES = {"user", "assistant"}
+
+# The formats this web app serves: the bundled library's, plus Pauper and Pauper
+# Commander, minus Brawl. Andres, 2026-10-24: "You can completely remove brawl from the
+# web app". The bundled mtg_utils keeps Brawl because the CLI deck builder uses it, so
+# the web app's own list is the gate, and every route that takes a format uses it.
+_WEB_FORMATS = (frozenset(mtg.FORMAT_CONFIGS) - {"brawl", "historic_brawl"}) | {
+    "pauper",
+    "paupercommander",
+}
+
+
+def _known_format(v: str) -> str:
+    if v not in _WEB_FORMATS:
+        raise ValueError("unknown format")
+    return v
+
+
+# A format field on any request body: a web-app format or a 422.
+_Format = Annotated[str, Field(max_length=30), AfterValidator(_known_format)]
 
 
 class ChatMessage(BaseModel):
@@ -114,7 +134,7 @@ class ChatPayload(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=_MAX_MESSAGES)
     commander: str = Field(default="", max_length=_MAX_CARD_NAME_LEN)
     decklist: str = Field(default="", max_length=_MAX_DECKLIST_LEN)
-    format: str = Field(default="commander", max_length=30)
+    format: _Format = "commander"
     bracket: int | None = Field(default=None, ge=1, le=5)
     goals: GoalsPayload | None = None
     # Optimize session log digest ("cut: Sol Ring", "add: Arcane Signet", …) so
@@ -131,7 +151,7 @@ class WizardChatPayload(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=_MAX_MESSAGES)
     commander: str = Field(min_length=1, max_length=_MAX_CARD_NAME_LEN)
     decklist: str = Field(default="", max_length=_MAX_DECKLIST_LEN)
-    format: str = Field(default="commander", max_length=30)
+    format: _Format = "commander"
     bracket: int | None = Field(default=None, ge=1, le=5)
 
 
@@ -148,7 +168,7 @@ class ComboItem(BaseModel):
 
 class AiCombosPayload(BaseModel):
     decklist: str = Field(max_length=_MAX_DECKLIST_LEN)
-    format: str = Field(default="commander", max_length=30)
+    format: _Format = "commander"
     bracket: int | None = Field(default=None, ge=1, le=5)
     combos: list[ComboItem] = Field(default_factory=list, max_length=10)
     near_misses: list[ComboItem] = Field(default_factory=list, max_length=10)
@@ -254,7 +274,7 @@ def _validate_decklist(payload: dict) -> tuple[str, str]:
         raise HTTPException(
             400, f"Decklist too long ({len(decklist)} chars, max {_MAX_DECKLIST_LEN})."
         )
-    if fmt not in mtg.FORMAT_CONFIGS and fmt not in ("pauper", "paupercommander"):
+    if fmt not in _WEB_FORMATS:
         raise HTTPException(400, f"Unknown format: {fmt}")
     return decklist, fmt
 
@@ -410,6 +430,8 @@ def cards_search(
 ) -> dict:
     if oracle:
         _safe_regex(oracle, "oracle pattern")
+    if fmt is not None and fmt not in _WEB_FORMATS:
+        raise HTTPException(400, "Unknown format.")
     try:
         results = mtg.card_search(
             name=name,
@@ -560,15 +582,8 @@ class ValidateCardsPayload(BaseModel):
     """Card names an AI proposed, checked against the deck before any add."""
 
     decklist: str = Field(default="", max_length=_MAX_DECKLIST_LEN)
-    format: str = Field(default="commander", max_length=30)
+    format: _Format = "commander"
     names: list[_CardName] = Field(min_length=1, max_length=40)
-
-    @field_validator("format")
-    @classmethod
-    def format_must_be_known(cls, v: str) -> str:
-        if v not in mtg.FORMAT_CONFIGS:
-            raise ValueError("unknown format")
-        return v
 
 
 @app.post("/api/deck/validate-cards")
@@ -646,7 +661,7 @@ def deck_ai_strategy(request: Request, payload: StrategyPayload) -> dict:
     fmt = payload.format or "commander"
     if not decklist:
         raise HTTPException(400, "Body must include a non-empty 'decklist' string.")
-    if fmt not in mtg.FORMAT_CONFIGS and fmt not in ("pauper", "paupercommander"):
+    if fmt not in _WEB_FORMATS:
         raise HTTPException(400, f"Unknown format: {fmt}")
     commander = (payload.commander or "").strip() or None
     return mtg.ai_strategy(decklist, fmt=fmt, commander=commander, bracket=payload.bracket)
@@ -883,8 +898,9 @@ def _commander_field(raw: object) -> str:
 def wizard_skeleton(payload: SkeletonPayload) -> dict:
     commander = _commander_field(payload.commander)
     fmt = payload.format or "commander"
-    # A capped build searches the bulk by format, so it has to be a real one.
-    if fmt not in mtg.FORMAT_CONFIGS:
+    # A capped build searches the bulk by format, so it has to be a real one, and one
+    # the web app serves (no Brawl).
+    if fmt not in mtg.FORMAT_CONFIGS or fmt not in _WEB_FORMATS:
         raise HTTPException(400, "Unknown format.")
     return mtg.wizard_build_skeleton(
         commander,
@@ -911,7 +927,7 @@ def wizard_narrate(request: Request, payload: Annotated[dict, Body()]) -> dict:
     # Optional; a known format key or Commander. It filters the commander profile's
     # card list to what the format allows.
     fmt = payload.get("format")
-    fmt = fmt if isinstance(fmt, str) and fmt in mtg.FORMAT_CONFIGS else "commander"
+    fmt = fmt if isinstance(fmt, str) and fmt in _WEB_FORMATS else "commander"
     return mtg.wizard_narrate(commander, category, card_names, decklist, fmt=fmt)
 
 
