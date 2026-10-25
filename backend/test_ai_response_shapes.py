@@ -28,6 +28,9 @@ import anthropic  # noqa: E402
 
 from app import mtg  # noqa: E402
 
+# External service; the wizard and the deck context read it. Not what's under test.
+mtg.edhrec_lookup = lambda names, timeout=None: {}
+
 # --- _parse_ai_json shape coercion ---------------------------------------- #
 p = mtg._parse_ai_json
 

@@ -27,6 +27,10 @@ CARDLIST_TAGS = {
 }
 
 
+# EDHREC theme names seen live: "Tokens", "+1/+1 Counters", "-1/-1 Counters", "Spell Copy".
+_THEME_NAME = re.compile(r"[A-Za-z0-9 '&+/,.-]{1,40}")
+
+
 def slugify(*names: str) -> str:
     parts: list[str] = []
     for name in names:
@@ -118,6 +122,22 @@ def edhrec_lookup(commanders: list[str], timeout: float | None = None) -> dict:
         if tag in CARDLIST_TAGS:
             key = CARDLIST_TAGS[tag]
             result[key] = _extract_cardviews(cardlist.get("cardviews", []))
+
+    # How players build this commander: EDHREC's theme tags with their deck counts
+    # (Silverquill 2026-10-24: Tokens 920, Spellslinger 808, Aristocrats 487). Not a
+    # card list, so callers that walk the card lists skip it by name or by shape.
+    # Third-party text that reaches AI prompts (a system prompt, in chat): only a short
+    # plain tag name and an integer count pass.
+    result["themes"] = []
+    for t in (data.get("panels") or {}).get("taglinks") or []:
+        name = t.get("value") if isinstance(t, dict) else None
+        try:
+            count = int(t.get("count") or 0)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(name, str) and _THEME_NAME.fullmatch(name) and count > 0:
+            result["themes"].append({"name": name, "count": count})
+    result["themes"] = result["themes"][:10]
 
     return result
 

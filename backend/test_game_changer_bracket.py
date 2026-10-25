@@ -90,7 +90,7 @@ FAKE_EDHREC = {
     "artifacts": [entry("Mind Stone", 2500)],
     "lands": [entry(*LAND_GC), entry("Reliquary Tower", 500)],
 }
-mtg.edhrec_lookup = lambda names: FAKE_EDHREC
+mtg.edhrec_lookup = lambda names, timeout=None:FAKE_EDHREC
 COMMANDER = "Atraxa, Praetors' Voice"  # WUBG: every name above is on-colour
 
 

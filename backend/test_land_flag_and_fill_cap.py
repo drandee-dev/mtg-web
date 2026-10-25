@@ -38,7 +38,7 @@ def entry(name):
     return {"name": name, "synergy": 0.1, "num_decks": 100, "potential_decks": 1000}
 
 
-mtg.edhrec_lookup = lambda names: {
+mtg.edhrec_lookup = lambda names, timeout=None:{
     "instants": [entry("Malakir Rebirth")],
     "sorceries": [entry("Bala Ged Recovery")],
     "high_synergy": [entry("Wirewood Lodge"), entry("Llanowar Elves")],

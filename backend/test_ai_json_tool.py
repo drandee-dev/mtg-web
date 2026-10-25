@@ -25,6 +25,7 @@ import anthropic  # noqa: E402
 from app import mtg  # noqa: E402
 
 mtg.combo_search = lambda hd: {}  # external service; not what's under test
+mtg.edhrec_lookup = lambda names, timeout=None: {}  # likewise (deck context reads it)
 
 DECK = """Commander
 1 Silverquill, the Disputant
