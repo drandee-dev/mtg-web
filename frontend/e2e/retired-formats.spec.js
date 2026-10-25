@@ -52,6 +52,8 @@ test("My Decks labels a saved brawl deck Commander", async ({ page }) => {
   const facts = page.locator(".deck-card", { hasText: OLD_BRAWL.name }).locator(".deck-card-facts");
   await expect(facts).toContainText("Commander, ");
   await expect(facts).not.toContainText("brawl");
+  // Counted against Commander's 100, not a constructed deck's 60.
+  await expect(facts).toContainText("89 short");
 });
 
 test("Discard changes on a saved brawl deck keeps Commander", async ({ page }) => {
