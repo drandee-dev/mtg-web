@@ -86,6 +86,21 @@ def test_second_redirect_not_followed():
     print("ok: a second redirect is not followed")
 
 
+def test_themes_are_read():
+    """Theme tags come from panels.taglinks (live shape, Silverquill 2026-10-24)."""
+    page = {**PAGE, "panels": {"taglinks": [
+        {"value": "Tokens", "count": 920, "slug": "tokens"},
+        {"value": "Aristocrats", "count": 487, "slug": "aristocrats"},
+        {"count": 5},  # no name: skipped
+    ]}}
+    stub_get(page)
+    out = el.edhrec_lookup(["Silverquill, the Disputant"])
+    assert out["themes"] == [{"name": "Tokens", "count": 920}, {"name": "Aristocrats", "count": 487}], out
+    stub_get(PAGE)  # a page without panels
+    assert el.edhrec_lookup(["Silverquill, the Disputant"])["themes"] == []
+    print("ok: theme tags are read from the page")
+
+
 def test_timeout_reaches_every_request():
     """A caller's timeout must reach both GETs, the page and its redirect."""
     seen = []
@@ -153,6 +168,7 @@ if __name__ == "__main__":
         test_follows_redirect_once()
         test_self_redirect_does_not_loop()
         test_second_redirect_not_followed()
+        test_themes_are_read()
         test_timeout_reaches_every_request()
         test_empty_page_is_not_cached()
         test_all_empty_gives_note()

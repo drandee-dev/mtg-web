@@ -119,6 +119,15 @@ def edhrec_lookup(commanders: list[str], timeout: float | None = None) -> dict:
             key = CARDLIST_TAGS[tag]
             result[key] = _extract_cardviews(cardlist.get("cardviews", []))
 
+    # How players build this commander: EDHREC's theme tags with their deck counts
+    # (Silverquill 2026-10-24: Tokens 920, Spellslinger 808, Aristocrats 487). Not a
+    # card list, so callers that walk the card lists skip it by name or by shape.
+    result["themes"] = [
+        {"name": t["value"], "count": t.get("count") or 0}
+        for t in (data.get("panels") or {}).get("taglinks") or []
+        if t.get("value")
+    ][:10]
+
     return result
 
 

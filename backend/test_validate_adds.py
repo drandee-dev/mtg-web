@@ -16,6 +16,7 @@ config.bootstrap_mtg_utils()
 from app import mtg  # noqa: E402
 
 mtg.combo_search = lambda hd: {}  # external service; not what's under test
+mtg.edhrec_lookup = lambda names, timeout=None: {}  # likewise (deck context reads it)
 
 EZURI = (
     "Commander\n1 Ezuri, Renegade Leader\nDeck\n"

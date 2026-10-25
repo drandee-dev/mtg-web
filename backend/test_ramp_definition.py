@@ -204,7 +204,10 @@ try:
 finally:
     mtg._fill_candidates = real_fill
 assert mtg._classify_roles(card("Gilded Lotus"))[0] == "Ramp"
-assert seen and seen[0] is mtg._FILL_SEARCH["ramp"], seen[:1]
+# The ramp count's own definition (its prefilter and tier). Since 2026-10-23 budget
+# swaps pass a copy with the card's kind added (like for like), so not `is`.
+ramp = mtg._FILL_SEARCH["ramp"]
+assert seen and seen[0]["oracle"] == ramp["oracle"] and seen[0]["tier"] is ramp["tier"], seen[:1]
 alt = swaps["swaps"][0]["alternative"]
 assert alt["role"] == "Ramp" and ramp_tier(card(alt["name"])), alt
 
