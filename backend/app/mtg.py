@@ -773,20 +773,37 @@ def commander_directory() -> list[dict]:
 _cardlists_cache: dict[tuple[str, ...], tuple[float, dict]] = {}
 
 
+# A failure or an empty page is kept this long, not the 12 h a full page is: long
+# enough that an EDHREC outage or a commander with no page does not cost a fetch
+# (and up to ~6 s) on every AI call, short enough that Suggestions recovers soon.
+_CARDLISTS_MISS_TTL = 300
+
+
+class EdhrecUnavailable(Exception):
+    """A recent EDHREC failure for this commander, remembered for _CARDLISTS_MISS_TTL."""
+
+
 def _edhrec_cardlists(commanders: list[str], timeout: float | None = None) -> dict:
-    """edhrec_lookup through the shared cache. Raises what edhrec_lookup raises."""
+    """edhrec_lookup through the shared cache. Raises what edhrec_lookup raises, or
+    EdhrecUnavailable while a recent failure is remembered."""
     key = tuple(c.strip().lower() for c in commanders)
     now = _time.time()
     hit = _cardlists_cache.get(key)
     if hit is not None and now < hit[0]:
+        if hit[1] is None:
+            raise EdhrecUnavailable(", ".join(commanders))
         return hit[1]
-    cats = (
-        edhrec_lookup(list(commanders))
-        if timeout is None
-        else edhrec_lookup(list(commanders), timeout=timeout)
-    )
-    if any(cats.values()):
-        _cardlists_cache[key] = (now + _SYNERGY_TTL, cats)
+    try:
+        cats = (
+            edhrec_lookup(list(commanders))
+            if timeout is None
+            else edhrec_lookup(list(commanders), timeout=timeout)
+        )
+    except Exception:
+        _cardlists_cache[key] = (now + _CARDLISTS_MISS_TTL, None)
+        raise
+    ttl = _SYNERGY_TTL if any(cats.values()) else _CARDLISTS_MISS_TTL
+    _cardlists_cache[key] = (now + ttl, cats)
     return cats
 
 
@@ -813,18 +830,27 @@ def _commander_inclusion(cats: dict, idx: Any) -> dict[str, float]:
     return out
 
 
-def _commander_profile(commanders: list[str], idx: Any, in_deck: set[str]) -> str:
+def _commander_profile(
+    commanders: list[str], idx: Any, in_deck: set[str], fmt: str = "commander"
+) -> str:
     """How this commander is actually built, from its EDHREC page: the themes its
     players build and the cards they play most. Empty when EDHREC is unreachable
-    (3 s per request) or the page has under _MIN_COMMANDER_DECKS decks.
+    (3 s per request), the page has under _MIN_COMMANDER_DECKS decks, or anything in
+    the payload is malformed: the section is optional, never a reason to fail.
 
     Every AI suggestion source reads the shared deck context, so this is what lets
     them weigh a commander's real strategy rather than only its rules text."""
     try:
-        cats = _edhrec_cardlists(commanders, timeout=3)
-    except Exception:  # noqa: BLE001 - external service; the section is optional
-        log.warning("deck context: EDHREC unavailable for %s", commanders)
+        return _commander_profile_text(commanders, idx, in_deck, fmt)
+    except Exception:  # noqa: BLE001 - external service and its data; optional
+        log.warning("deck context: no EDHREC section for %s", commanders, exc_info=True)
         return ""
+
+
+def _commander_profile_text(
+    commanders: list[str], idx: Any, in_deck: set[str], fmt: str
+) -> str:
+    cats = _edhrec_cardlists(commanders, timeout=3)
     decks = max(
         (
             cv.get("potential_decks") or 0
@@ -844,16 +870,27 @@ def _commander_profile(commanders: list[str], idx: Any, in_deck: set[str]) -> st
     spells = {
         k: v for k, v in cats.items() if k not in ("themes", "lands", "utility_lands")
     }
-    played = sorted(_commander_inclusion(spells, idx).items(), key=lambda kv: -kv[1])[:15]
+    # Only cards this deck's format allows: a Commander page's staples are mostly
+    # rares, so a Pauper Commander deck would be steered toward cards it cannot run
+    # (Holiday, 2026-10-24). Chat, explain and combos have no legality check of their
+    # own, so the list itself must be clean.
+    legality_key = FORMAT_CONFIGS.get(fmt, {}).get("legality_key", fmt)
+    legal = {
+        n: s
+        for n, s in _commander_inclusion(spells, idx).items()
+        if ((idx.get(n) or {}).get("legalities") or {}).get(legality_key) in ("legal", "restricted")
+    }
+    played = sorted(legal.items(), key=lambda kv: -kv[1])[:15]
     if not themes and not played:
         return ""
     lines = [f"\n## How this commander is built (EDHREC, {decks} decks)"]
     if themes:
         lines.append("Themes players build: " + ", ".join(themes))
     if played:
+        # "; " because card names contain commas ("Tekuthal, Inquiry Dominus").
         lines.append(
             "Most played in these decks: "
-            + ", ".join(
+            + "; ".join(
                 f"{n} {round(100 * s)}%{' (in this deck)' if n in in_deck else ''}"
                 for n, s in played
             )
@@ -1673,11 +1710,12 @@ def _deck_context(
 
     # How players build this commander (EDHREC): read by every AI source through
     # this summary, and by fills, which writes its own shorter prompt. Any deck with
-    # a commander, Brawl included, as Suggestions already does ("all commander decks",
-    # Andres 2026-10-24); legality is still checked per format on every suggested card.
+    # a commander, as Suggestions already does ("all commander decks", Andres
+    # 2026-10-24). Not every source checks legality, so the profile lists only cards
+    # this deck's format allows.
     commander_profile = (
         # Canonical names: by_name's keys are its alias index, not record names.
-        _commander_profile(commanders, idx, {r["name"] for r in hd.records if r})
+        _commander_profile(commanders, idx, {r["name"] for r in hd.records if r}, fmt)
         if commanders
         else ""
     )
@@ -3294,6 +3332,7 @@ def wizard_narrate(
     card_names: list[str],
     current_decklist: str,
     *,
+    fmt: str = "commander",
     api_key: str | None = None,
 ) -> dict[str, Any]:
     """Have the AI explain why a batch of suggested cards fits this deck."""
@@ -3301,13 +3340,20 @@ def wizard_narrate(
     # Only names found in bulk reach the prompt, as the card's own name: the
     # raw client string never does.
     cmd_lines = []
+    cmd_names = []
     for n in commander_name.split(" && "):
         rec = idx.get(n.strip())
         if rec:
+            cmd_names.append(rec["name"])
             cmd_lines.append(
                 f"Commander: {rec.get('name', '')} ({rec.get('type_line', '')})\n"
                 f"Oracle: {_full_oracle(rec)}"
             )
+    # How this commander is played, so "why it fits" is about the real strategy.
+    if cmd_names:
+        profile = _commander_profile(cmd_names, idx, set(), fmt)
+        if profile:
+            cmd_lines.append(profile.strip())
 
     card_details = []
     for name in card_names[:10]:
@@ -3375,6 +3421,16 @@ def wizard_chat(
     )
     if ctx:
         system += f"\n\nCurrent deck context:\n{ctx['summary']}"
+    else:
+        # The start of a build has no list yet: give the commander's own text and how
+        # it is played, which the summary would otherwise carry. Names resolve through
+        # the card index, so the raw client string never reaches the system prompt.
+        idx = _bulk_index()
+        recs = [r for n in commander_name.split(" && ") if (r := idx.get(n.strip()))]
+        if recs:
+            brief = [f"**{r['name']}** — {r.get('type_line', '')}\nOracle: {_full_oracle(r)}" for r in recs]
+            profile = _commander_profile([r["name"] for r in recs], idx, set(), fmt)
+            system += "\n\nCommander:\n" + "\n".join(brief) + (profile or "")
 
     for m in messages:
         if m["role"] == "user":

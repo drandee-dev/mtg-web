@@ -908,7 +908,11 @@ def wizard_narrate(request: Request, payload: Annotated[dict, Body()]) -> dict:
             raise HTTPException(400, "Invalid card name.")
     category = (payload.get("category") or "")[:100]
     decklist = (payload.get("decklist") or "")[:_MAX_DECKLIST_LEN]
-    return mtg.wizard_narrate(commander, category, card_names, decklist)
+    # Optional; a known format key or Commander. It filters the commander profile's
+    # card list to what the format allows.
+    fmt = payload.get("format")
+    fmt = fmt if isinstance(fmt, str) and fmt in mtg.FORMAT_CONFIGS else "commander"
+    return mtg.wizard_narrate(commander, category, card_names, decklist, fmt=fmt)
 
 
 @app.post("/api/deck/wizard/chat")

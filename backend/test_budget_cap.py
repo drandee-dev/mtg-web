@@ -108,7 +108,7 @@ def listing(card_names):
 
 
 edhrec = {"creatures": listing(LISTED)}
-mtg.edhrec_lookup = lambda names: edhrec
+mtg.edhrec_lookup = lambda names, timeout=None:edhrec
 
 
 def skeleton(cap, bracket=2):
@@ -220,9 +220,9 @@ finally:
     mtg._BUDGET_PICKS = _picks
 
 # An EDHREC outage still looks like one: no top-up over an empty skeleton.
-mtg.edhrec_lookup = lambda names: {}
+mtg.edhrec_lookup = lambda names, timeout=None:{}
 assert "budget_picks" not in skeleton(CAP)
-mtg.edhrec_lookup = lambda names: edhrec
+mtg.edhrec_lookup = lambda names, timeout=None:edhrec
 
 # --- fills: the candidate pool is searched under the cap ---------------------- #
 DECK = f"Commander\n1 {CMD}\nDeck\n99 Mountain\n"

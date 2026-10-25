@@ -49,6 +49,8 @@ def page(of=1000):
         "high_synergy": [],
         # One card in the deck, one not: the "(in this deck)" mark needs both.
         "instants": [cv("Swords to Plowshares", 750, of), cv("Village Rites", 560, of)],
+        # A rare staple: legal in Commander, not in Pauper Commander.
+        "enchantments": [cv("Smothering Tithe", 400, of)],
         "lands": [cv("Fetid Heath", 530, of)],
         "themes": [{"name": "Tokens", "count": 920}, {"name": "Aristocrats", "count": 487}],
     }
@@ -98,11 +100,34 @@ for label, setup, fmt in (
 use(page())
 mtg._deck_context("Deck\n4 Lightning Bolt\n", "modern")
 assert calls == [], f"a deck with no commander asked EDHREC: {calls}"
-# "All commander decks": a Brawl deck has a commander, so it gets the profile too.
+# "All commander decks", but only cards the deck's format allows: a Commander page's
+# staples are mostly rares, and chat, explain and combos have no legality check.
+idx = mtg._bulk_index()
 use(page())
-s = mtg._deck_context("Commander\n1 Silverquill, the Disputant\n\nDeck\n1 Plains\n", "brawl")["summary"]
-assert calls and SECTION in s, f"a Brawl deck got no commander strategy: {calls}"
-print("ok: no section when EDHREC is down, the sample is small, or there is no commander; Brawl gets it")
+s = mtg._deck_context(DECK, "commander")["summary"]
+assert "Smothering Tithe 40%" in s, "control: Commander keeps the rare staple"
+use(page())
+s = mtg._deck_context(DECK, "paupercommander")["summary"]
+assert SECTION in s, "a Pauper Commander deck got no commander strategy"
+assert "Smothering Tithe" not in s.split(SECTION)[1], s[-1200:]
+listed = s.split("Most played in these decks: ")[1].split("\n")[0].split("; ")
+import re  # noqa: E402
+
+assert listed and listed != [""], s[-1200:]
+for item in listed:
+    name = re.fullmatch(r"(.+) \d+%(?: \(in this deck\))?", item).group(1)
+    assert idx.get(name)["legalities"]["paupercommander"] in ("legal", "restricted"), item
+# A malformed page (a number that is not one) leaves the section out, never the context.
+use({**page(), "instants": [{**cv("Village Rites", 560), "potential_decks": "abc"}]})
+ctx_bad = mtg._deck_context(DECK, "commander")
+assert SECTION not in ctx_bad["summary"] and "## Decklist" in ctx_bad["summary"]
+# A failure is remembered briefly: a second build within the miss window asks nobody.
+use(boom=True)
+mtg._deck_context(DECK, "commander")
+mtg._ctx_cache.clear()
+mtg._deck_context(DECK, "commander")
+assert len(calls) == 1, f"EDHREC asked again during an outage: {calls}"
+print("ok: no section when EDHREC is down, small, malformed or no commander; only legal cards")
 
 # --- every AI source that reads the shared context sends it ---------------- #
 sent: list[str] = []
@@ -149,6 +174,43 @@ for name in ("Thrasios, Triton Hero", "Tymna the Weaver"):
     assert oracle(name)[:40] in sent[0], f"fills prompt lacks {name}'s text"
 mtg._ai_call = real_ai_call
 print("ok: fills ranks this commander's picks first and sends every commander's text")
+
+# --- the deck wizard's AI parts see it too -------------------------------- #
+mtg._ai_call = spy
+use(page())
+sent.clear()
+mtg.wizard_narrate("Silverquill, the Disputant", "Removal", ["Swords to Plowshares"], "", api_key="t")
+assert sent and "Tokens (920 decks)" in sent[0], "wizard_narrate sent no commander strategy"
+mtg._ai_call = real_ai_call
+
+import anthropic  # noqa: E402
+from types import SimpleNamespace  # noqa: E402
+
+systems: list[str] = []
+
+
+class _Client:
+    def __init__(self, **_):
+        self.messages = SimpleNamespace(create=self._create)
+
+    def _create(self, **kw):
+        systems.append(kw["system"])
+        return SimpleNamespace(
+            content=[SimpleNamespace(type="text", text="ok")],
+            usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+            stop_reason="end_turn",
+        )
+
+
+real_client = anthropic.Anthropic
+anthropic.Anthropic = _Client
+use(page())
+# The start of a build: no decklist yet, only the commander.
+mtg.wizard_chat([{"role": "user", "content": "what should I build?"}], "Silverquill, the Disputant", "", api_key="t")
+assert systems and "Tokens (920 decks)" in systems[0], systems[:1]
+assert "Oracle:" in systems[0], "wizard_chat at the start of a build lacks the commander's text"
+anthropic.Anthropic = real_client
+print("ok: the wizard's narration and chat send the commander's strategy")
 
 # --- Suggestions never shows theme tags as a card category ----------------- #
 use(page())
