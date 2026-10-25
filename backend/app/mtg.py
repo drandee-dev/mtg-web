@@ -929,7 +929,28 @@ EMPTY_REPLY_MESSAGE = "The assistant returned an empty reply. Try again."
 # What a client sees when an AI call raises; the exception itself is logged,
 # never returned (it can carry request ids, key fragments or internals).
 AI_FAILED_MESSAGE = "AI request failed. Try again."
+# What a client sees when a reply came back but could not be read as the JSON asked
+# for. The reply itself goes to the log (_log_unreadable), never to the page: it is
+# model output, often half a JSON object.
+AI_UNREADABLE_MESSAGE = "The assistant's reply could not be read. Try again."
 log = logging.getLogger("mtg-web")
+
+
+def _log_unreadable(feature: str, resp: dict[str, Any]) -> None:
+    """Record why a reply could not be parsed: which model, whether it was cut off
+    (stop_reason "max_tokens") and the reply's two ends. This is what the 2026-10-23
+    optimize failure was missing: the page showed 200 characters and nothing else."""
+    raw = resp.get("result") or ""
+    log.warning(
+        "%s reply unreadable: model=%s stop_reason=%s output_tokens=%s chars=%d head=%r tail=%r",
+        feature,
+        resp.get("model"),
+        resp.get("stop_reason"),
+        resp.get("output_tokens"),
+        len(raw),
+        raw[:300],
+        raw[-300:],
+    )
 
 
 def _model_kwargs(model: str) -> dict[str, Any]:
@@ -951,6 +972,27 @@ def _first_text(response: Any) -> str:
     return ""
 
 
+# The tool a structured call is forced to use. Its input is the answer.
+_RESPOND_TOOL = "respond"
+
+
+def _tool_json(response: Any) -> str | None:
+    """The forced tool call's input as JSON text, or None if the reply has none.
+
+    The API builds this from the tool's schema, so quotes inside a reason are
+    escaped and the object is never cut mid-way by a stray character; free text
+    had no such guarantee and sometimes did not parse."""
+    for block in response.content:
+        # An empty input is no answer: a reply cut off while writing the call can arrive as {}.
+        if (
+            getattr(block, "type", None) == "tool_use"
+            and isinstance(getattr(block, "input", None), dict)
+            and block.input
+        ):
+            return json.dumps(block.input)
+    return None
+
+
 # Set by main.py to record token usage for cost tracking.
 # callable(model: str, usage) -> None, where `usage` is the SDK usage object.
 # The model has to travel with the tokens: the fallback path bills at a third of
@@ -967,11 +1009,16 @@ def _ai_call(
     api_key: str | None = None,
     max_tokens: int = 1500,
     cache_user_msg: bool = False,
+    schema: dict | None = None,
 ) -> dict[str, Any]:
     """Shared wrapper for all AI features. Uses Sonnet by default, falls back to
     Haiku if Sonnet is unavailable. Supports multi-turn via the messages param,
     or single-turn via user_msg. Supports Anthropic prompt caching on the user
     message (the deck context).
+
+    With `schema` (a JSON Schema object) the model is forced to answer through a
+    tool whose input is that object, and "result" is that input as JSON text, so
+    the caller's JSON parse cannot fail on a stray quote or trailing prose.
     """
     import anthropic
 
@@ -999,6 +1046,25 @@ def _ai_call(
         else:
             messages = [{"role": "user", "content": user_msg or ""}]
 
+    extra: dict[str, Any] = {}
+    if schema:
+        # The system prompts still describe a JSON format; this line says where the
+        # answer goes instead, so the two do not compete.
+        system = (
+            f"{system}\n\nReturn your answer by calling the `{_RESPOND_TOOL}` tool; "
+            "its fields take the place of the JSON format described above."
+        )
+        extra = {
+            "tools": [
+                {
+                    "name": _RESPOND_TOOL,
+                    "description": "Return the answer as structured data.",
+                    "input_schema": schema,
+                }
+            ],
+            "tool_choice": {"type": "tool", "name": _RESPOND_TOOL},
+        }
+
     client = anthropic.Anthropic(api_key=key)
     for model in (_AI_MODEL, _AI_MODEL_FALLBACK):
         try:
@@ -1008,19 +1074,29 @@ def _ai_call(
                 system=system,
                 messages=messages,
                 **_model_kwargs(model),
+                **extra,
             )
             usage = response.usage
             cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
             if on_ai_usage and callable(on_ai_usage):
                 on_ai_usage(model, usage)
-            return {
+            reply = {
                 "error": False,
-                "result": _first_text(response),
+                "result": (_tool_json(response) if schema else None)
+                or _first_text(response),
                 "model": model,
                 "input_tokens": usage.input_tokens,
                 "output_tokens": usage.output_tokens,
                 "cache_read_tokens": cache_read,
+                # "max_tokens" means the reply was cut off mid-way.
+                "stop_reason": getattr(response, "stop_reason", None),
             }
+            if schema and reply["stop_reason"] == "max_tokens":
+                # A structured answer cut off mid-call can still look complete (a partial
+                # or empty input), and would read as "no changes" with no error.
+                _log_unreadable("structured reply cut off", reply)
+                return {**reply, "error": True, "result": AI_UNREADABLE_MESSAGE}
+            return reply
         except anthropic.NotFoundError:
             continue
         except anthropic.AuthenticationError:
@@ -1608,6 +1684,27 @@ _STRATEGY_INSTRUCTION = """Analyze the deck above and provide four things:
 IMPORTANT: Your entire response must be ONLY valid JSON. No preamble, no explanation, no markdown. Start with { immediately. Format:
 {"strategy": "**Archetype Name** — 2-3 sentence strategy description.", "archetype": "Archetype Name", "game_plan": "Short paragraph.", "synergies": [{"cards": ["Card A", "Card B"], "note": "Why they work together."}]}"""
 
+_STRATEGY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "strategy": {"type": "string"},
+        "archetype": {"type": "string"},
+        "game_plan": {"type": "string"},
+        "synergies": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "cards": {"type": "array", "items": {"type": "string"}},
+                    "note": {"type": "string"},
+                },
+                "required": ["cards", "note"],
+            },
+        },
+    },
+    "required": ["strategy", "archetype", "game_plan", "synergies"],
+}
+
 _MAX_SYNERGIES = 5
 
 
@@ -1676,6 +1773,7 @@ def ai_strategy(
         messages=_cached_deck_messages(ctx["summary"], _STRATEGY_INSTRUCTION, tail=tail),
         api_key=api_key,
         max_tokens=1400,
+        schema=_STRATEGY_SCHEMA,
     )
     if resp["error"]:
         return {
@@ -1698,7 +1796,19 @@ def ai_strategy(
             "model": resp.get("model"),
         }
     except (ValueError, KeyError):
-        # Fallback: treat the whole response as the strategy text
+        # Fallback: treat a prose reply as the strategy text. Anything that starts like
+        # JSON is a broken object, not something to show, and a blank reply is nothing.
+        _log_unreadable("strategy", resp)
+        prose = (resp["result"] or "").strip()
+        if not prose or prose[0] in "{[":
+            return {
+                "error": True,
+                "message": AI_UNREADABLE_MESSAGE,
+                "strategy": "",
+                "archetype": "",
+                "game_plan": "",
+                "synergies": [],
+            }
         return {
             "error": False,
             "strategy": resp["result"],
@@ -1729,6 +1839,29 @@ IMPORTANT: Your entire response must be ONLY valid JSON. No preamble, no markdow
 - category: one of Ramp, Draw, Removal, Board wipe, Wincon, Synergy, Mana base, Utility
 - impact: "high" | "medium" | "low"
 Suggest 4-8 changes ordered from highest impact to lowest."""
+
+_OPTIMIZE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "assessment": {"type": "string"},
+        "changes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": ["swap", "cut", "add"]},
+                    "cut": {"type": "string"},
+                    "add": {"type": "string"},
+                    "reason": {"type": "string"},
+                    "category": {"type": "string"},
+                    "impact": {"type": "string", "enum": ["high", "medium", "low"]},
+                },
+                "required": ["action", "reason", "category", "impact"],
+            },
+        },
+    },
+    "required": ["assessment", "changes"],
+}
 
 
 # --------------------------------------------------------------------------- #
@@ -1908,6 +2041,7 @@ def ai_optimize(
         ),
         api_key=api_key,
         max_tokens=2500,
+        schema=_OPTIMIZE_SCHEMA,
     )
     if resp["error"]:
         return {
@@ -1920,9 +2054,10 @@ def ai_optimize(
     try:
         data = _parse_ai_json(resp["result"], expect=(dict, list))
     except (ValueError, KeyError):
+        _log_unreadable("optimize", resp)
         return {
             "error": True,
-            "message": f"Failed to parse AI response: {resp['result'][:200]}",
+            "message": AI_UNREADABLE_MESSAGE,
             "assessment": "",
             "changes": [],
         }
@@ -2005,6 +2140,16 @@ def ai_optimize(
             }
         )
 
+    if not changes:
+        # Not an error to the page, which just shows an empty list, so the log has to
+        # say why: the model proposed nothing, or every card check rejected its picks.
+        # (One real run on 2026-10-24 came back with no changes and no sign of which.)
+        log.warning(
+            "optimize: no changes kept; %d proposed %r; stop_reason=%s",
+            len(proposals),
+            [(p.get("cut"), p.get("add")) for p in proposals],
+            resp.get("stop_reason"),
+        )
     return {
         "error": False,
         "assessment": str(data.get("assessment") or "")[:600],
@@ -2061,10 +2206,36 @@ def _extract_ai_json(raw: str) -> Any:
     raise ValueError(f"No valid JSON found in response: {raw[:200]}")
 
 
+_SWAP_TYPES = (
+    "land", "creature", "planeswalker", "instant", "sorcery", "artifact", "enchantment",
+)
+
+
+def _swap_type(card: dict) -> str | None:
+    """The card's main type for like-for-like swaps (front face; a creature that is
+    also an artifact or enchantment counts as a creature)."""
+    front = (card.get("type_line") or "").lower().split("//")[0]
+    return next((t for t in _SWAP_TYPES if t in front), None)
+
+
+def _land_swap_ok(old: dict, new: dict) -> bool:
+    """A replacement land must tap for every coloured mana the original does, or the
+    mana gets worse: Vault of Champions (W/B) became Reliquary Tower (colourless).
+    A fetch land has no produced_mana of its own; it passes because it finds the colours."""
+    need = set(old.get("produced_mana") or []) & set("WUBRG")
+    have = set(new.get("produced_mana") or [])
+    if not have and "search your library for" in get_oracle_text(new).lower():
+        return True
+    return need <= have
+
+
 def budget_swaps(
     text: str, *, fmt: str = "commander", threshold: float = 5.0
 ) -> dict[str, Any]:
-    """Find cheaper alternatives for expensive cards. No AI needed — pure search."""
+    """Find cheaper alternatives for expensive cards. No AI needed — pure search.
+
+    An alternative shares the card's role, costs within one mana of it and is the most
+    played such card under half the price. Cards with no role get no alternative."""
     deck = parse_deck_text(text, format=fmt)
     hd = HydratedDeck.from_parsed(deck, _bulk_index())
     idx = _bulk_index()
@@ -2075,13 +2246,16 @@ def budget_swaps(
         e["name"] for zone in ("commanders", "cards") for e in deck.get(zone, [])
     }
 
-    swaps = []
+    priced = []
     for entry, card in hd.entries(zones=("cards",)):
-        if not card:
-            continue
-        price = extract_price(card)
-        if not price or price < threshold:
-            continue
+        price = extract_price(card) if card else None
+        if price and price >= threshold:
+            priced.append((price, entry, card))
+    # Dearest first: the cards that save the most get first pick of the alternatives.
+    priced.sort(key=lambda p: p[0], reverse=True)
+
+    swaps = []
+    for price, entry, card in priced:
         name = entry.get("name", "")
         roles = _classify_roles(card)
         alt = None
@@ -2104,54 +2278,43 @@ def budget_swaps(
                         break
             if search_cfg:
                 try:
+                    # The most played card of this role that is under half the price
+                    # and costs about the same to cast. Cheapest-first picked whatever
+                    # junk the role contained (a 6-drop for a 1-drop); a card with no
+                    # role gets no swap, because nothing says what job it does.
+                    cmc = card.get("cmc")
+                    # Same kind of card too: a creature for a creature, an instant for
+                    # an instant. A role alone is too wide (Draw spans a 1-drop creature
+                    # and a mana rock that cantrips).
+                    ptype = _swap_type(card)
                     cands = _fill_candidates(
-                        search_cfg,
+                        {**search_cfg, "type": ptype or search_cfg.get("type")},
                         color_identity=ci,
                         fmt=fmt,
-                        sort="price-asc",
-                        limit=10,
+                        sort="edhrec-desc",
+                        limit=30,
+                        price_max=price * 0.5,
+                        cmc_min=None if cmc is None else max(0, cmc - 1),
+                        cmc_max=None if cmc is None else cmc + 1,
                     )
                     for c in cands:
                         cn = c.get("name", "")
                         cp = extract_price(c)
-                        if cn not in in_deck and cn != name and cp and cp < price * 0.5:
+                        if (
+                            cn not in in_deck
+                            and cn != name
+                            and cp
+                            and cp < price * 0.5
+                            and (ptype != "land" or _land_swap_ok(card, c))
+                        ):
                             alt = {"name": cn, "price": round(cp, 2), "role": role}
+                            # Taken: two swaps must not both add the same card.
+                            in_deck.add(cn)
                             break
                 except Exception:
                     pass
             if alt:
                 break
-        if not alt:
-            type_line = (card.get("type_line") or "").lower()
-            for t in ("creature", "instant", "sorcery", "artifact", "enchantment"):
-                if t in type_line:
-                    try:
-                        cands = _search_cards(
-                            config.BULK_PATH,
-                            card_type=t,
-                            color_identity=ci,
-                            format=fmt,
-                            sort="price-asc",
-                            limit=10,
-                        )
-                        for c in cands:
-                            cn = c.get("name", "")
-                            cp = extract_price(c)
-                            if (
-                                cn not in in_deck
-                                and cn != name
-                                and cp
-                                and cp < price * 0.5
-                            ):
-                                alt = {
-                                    "name": cn,
-                                    "price": round(cp, 2),
-                                    "role": t.capitalize(),
-                                }
-                                break
-                    except Exception:
-                        pass
-                    break
         if alt:
             swaps.append({"card": name, "price": round(price, 2), "alternative": alt})
     swaps.sort(key=lambda s: s["price"], reverse=True)
@@ -2197,6 +2360,8 @@ def _fill_candidates(
     sort: str,
     limit: int,
     price_max: float | None = None,
+    cmc_min: float | None = None,
+    cmc_max: float | None = None,
 ) -> list[dict]:
     """Search for cards in one role (a _FILL_SEARCH-shaped cfg).
 
@@ -2212,6 +2377,8 @@ def _fill_candidates(
         "format": fmt,
         "sort": sort,
         "price_max": price_max,
+        "cmc_min": cmc_min,
+        "cmc_max": cmc_max,
     }
     presets = cfg.get("presets")
     tier = cfg.get("tier")
@@ -2247,6 +2414,23 @@ IMPORTANT: Your entire response must be ONLY valid JSON. No preamble, no explana
 [{"name": "Card Name", "reason": "Why this fits this specific deck."}]
 
 Only pick from the provided list. Do NOT suggest cards not in the list."""
+
+# An object, not a bare list: a tool's input is always an object. _parse_ai_json
+# (expect=list) already unwraps the first list field.
+_FILLS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "picks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}, "reason": {"type": "string"}},
+                "required": ["name", "reason"],
+            },
+        }
+    },
+    "required": ["picks"],
+}
 
 
 def ai_composition_fills(
@@ -2342,6 +2526,7 @@ def ai_composition_fills(
             api_key=api_key,
             max_tokens=800,
             cache_user_msg=True,
+            schema=_FILLS_SCHEMA,
         )
         if resp["error"]:
             fills.append({"category": label, "suggestions": pool[:4], "pool": pool})
@@ -2356,6 +2541,8 @@ def ai_composition_fills(
             if not picks:
                 picks = pool[:4]
         except (ValueError, KeyError):
+            # The user sees the unranked pool, as if the AI had no opinion; say why.
+            _log_unreadable("fills", resp)
             picks = pool[:4]
 
         fills.append({"category": label, "suggestions": picks, "pool": pool})
@@ -2391,6 +2578,24 @@ For each card, provide a 1-2 sentence explanation of WHY it synergizes — not j
 IMPORTANT: Your entire response must be ONLY valid JSON. No preamble, no explanation, no markdown. Start with [ or { immediately. Format:
 [{"name": "Card Name", "explanation": "Why this card specifically synergizes with this deck."}]"""
 
+_EXPLAIN_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "explanations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "explanation": {"type": "string"},
+                },
+                "required": ["name", "explanation"],
+            },
+        }
+    },
+    "required": ["explanations"],
+}
+
 
 def ai_explain_recommendations(
     text: str,
@@ -2420,6 +2625,7 @@ def ai_explain_recommendations(
             ctx["summary"], _EXPLAIN_INSTRUCTION + goal_sys, tail=tail
         ),
         api_key=api_key,
+        schema=_EXPLAIN_SCHEMA,
     )
     if resp["error"]:
         return {"error": True, "message": resp["result"], "explanations": []}
@@ -2427,7 +2633,8 @@ def ai_explain_recommendations(
     try:
         explanations = _parse_ai_json(resp["result"], expect=list)
     except (ValueError, KeyError):
-        explanations = [{"name": "Parse error", "explanation": resp["result"][:200]}]
+        _log_unreadable("explain", resp)
+        explanations = [{"name": "Parse error", "explanation": AI_UNREADABLE_MESSAGE}]
 
     return {"error": False, "explanations": explanations, "model": resp.get("model")}
 
@@ -2445,6 +2652,33 @@ Also suggest any combos the deck could support that aren't listed, appropriate t
 
 IMPORTANT: Your entire response must be ONLY valid JSON. No preamble, no explanation, no markdown. Start with [ or { immediately. Format:
 {"assessments": [{"combo": "Card A + Card B", "verdict": "BUILD or SKIP", "reason": "Why."}], "new_suggestions": [{"combo": "Card X + Card Y", "reason": "Why this combo fits the deck and bracket."}]}"""
+
+_COMBO_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "assessments": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "combo": {"type": "string"},
+                    "verdict": {"type": "string", "enum": ["BUILD", "SKIP"]},
+                    "reason": {"type": "string"},
+                },
+                "required": ["combo", "verdict", "reason"],
+            },
+        },
+        "new_suggestions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"combo": {"type": "string"}, "reason": {"type": "string"}},
+                "required": ["combo", "reason"],
+            },
+        },
+    },
+    "required": ["assessments", "new_suggestions"],
+}
 
 
 def ai_combo_guidance(
@@ -2473,7 +2707,12 @@ def ai_combo_guidance(
     user_msg = f"{ctx['summary']}\n\n## Combos & near-misses to assess\n{combo_desc}"
 
     resp = _ai_call(
-        _COMBO_SYSTEM, user_msg, api_key=api_key, max_tokens=2000, cache_user_msg=True
+        _COMBO_SYSTEM,
+        user_msg,
+        api_key=api_key,
+        max_tokens=2000,
+        cache_user_msg=True,
+        schema=_COMBO_SCHEMA,
     )
     if resp["error"]:
         return {
@@ -2486,9 +2725,10 @@ def ai_combo_guidance(
     try:
         data = _parse_ai_json(resp["result"], expect=dict)
     except (ValueError, KeyError):
+        _log_unreadable("combo guidance", resp)
         data = {
             "assessments": [
-                {"combo": "Parse error", "verdict": "—", "reason": resp["result"][:200]}
+                {"combo": "Parse error", "verdict": "—", "reason": AI_UNREADABLE_MESSAGE}
             ],
             "new_suggestions": [],
         }
