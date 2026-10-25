@@ -169,3 +169,20 @@ assert rec["categories"]["creatures"][0]["in_deck"] is False, rec
 cached = next(iter(mtg._cardlists_cache.values()))[1]
 assert "in_deck" not in cached["creatures"][0], cached
 print("ok: sample floor, partners, shared cache without leaks")
+
+# The rules version is written in four places; a bump in one alone would make every
+# reload drop the cached swaps (or keep stale ones), with nothing else failing.
+import re  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+V = mtg.BUDGET_SWAPS_VERSION
+FE = Path(__file__).resolve().parent.parent / "frontend"
+copies = {
+    "src/lib/insightState.js": rf"export const BUDGET_SWAPS_VERSION = {V};",
+    "e2e/fixtures/mock-backend.js": rf"\bv: {V},",
+    "e2e/activation-flows.spec.js": rf"\bv: {V},",
+}
+for rel, pattern in copies.items():
+    text = (FE / rel).read_text(encoding="utf-8")
+    assert re.search(pattern, text), f"{rel} does not say version {V}"
+print(f"ok: version {V} agrees in backend, frontend and both mocks")

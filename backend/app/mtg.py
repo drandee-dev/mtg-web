@@ -765,11 +765,6 @@ def commander_directory() -> list[dict]:
     return directory
 
 
-# Signature cards for a commander page, straight off the same EDHREC feed the deck
-# skeleton already uses. Cached hard because this is an outbound call to someone
-# else's free JSON API and a browse session would otherwise hit it per page view.
-# Keyed by commander, valued (expires_at, cards) — an expiry rather than a start time,
-# so hits and misses can age at different rates without a second structure.
 # A commander's EDHREC card lists, shared by Suggestions and budget swaps so one
 # fetch serves both. Only pages with cards are kept: a failure or an empty page is
 # asked again next time. Per process, so a cold serverless instance starts empty.
@@ -816,6 +811,11 @@ def _commander_inclusion(cats: dict, idx: Any) -> dict[str, float]:
     return out
 
 
+# Signature cards for a commander page, straight off the same EDHREC feed the deck
+# skeleton already uses. Cached hard because this is an outbound call to someone
+# else's free JSON API and a browse session would otherwise hit it per page view.
+# Keyed by commander, valued (expires_at, cards) — an expiry rather than a start time,
+# so hits and misses can age at different rates without a second structure.
 _synergy_cache: dict[str, tuple[float, list[dict]]] = {}
 _SYNERGY_TTL = 12 * 3600  # EDHREC recomputes daily at most
 # Failures expire far sooner than successes: a 403 usually means "no page for this
@@ -2303,8 +2303,9 @@ def budget_swaps(
     }
 
     # This commander's own decks first: the cheap card they actually play, not one
-    # that is merely popular everywhere. EDHREC gets 3 seconds; without it the
-    # ranking is global popularity, as before.
+    # that is merely popular everywhere. EDHREC gets 3 seconds per request (a partner
+    # redirect makes two, so about 6 at worst); without it the ranking is global
+    # popularity, as before.
     incl: dict[str, float] = {}
     # This commander's EDHREC utility lands (Phyrexian Tower, Bojuka Bog): a utility
     # land is swapped for another one, not for a dual that only fixes colours.
