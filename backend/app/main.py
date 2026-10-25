@@ -62,8 +62,8 @@ _MAX_MESSAGE_LEN = 10_000
 _MAX_REGEX_LEN = 200
 _VALID_ROLES = {"user", "assistant"}
 
-# The formats this web app serves: the bundled library's, plus Pauper and Pauper
-# Commander, minus Brawl. Andres, 2026-10-24: "You can completely remove brawl from the
+# The formats this web app serves: the bundled library's (mtg.py already adds Pauper
+# and Pauper Commander to it; named here too so the list reads whole), minus Brawl. Andres, 2026-10-24: "You can completely remove brawl from the
 # web app". The bundled mtg_utils keeps Brawl because the CLI deck builder uses it, so
 # the web app's own list is the gate, and every route that takes a format uses it.
 _WEB_FORMATS = (frozenset(mtg.FORMAT_CONFIGS) - {"brawl", "historic_brawl"}) | {

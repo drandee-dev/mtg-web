@@ -1,5 +1,6 @@
 import { assembleForStorage } from "./api";
 import { b64decode } from "./b64";
+import { webFormat } from "./deckParser.js";
 
 /** The deck a share link carries (?deck=<base64>&fmt=&cmd=) as
  * `{ format, decklist_text, commander }`, or null when there is no link or it
@@ -14,7 +15,7 @@ export function loadSharedDeck() {
     const encoded = params.get("deck");
     if (!encoded) return null;
     const decoded = b64decode(encoded);
-    const fmt = params.get("fmt") || "commander";
+    const fmt = webFormat(params.get("fmt")) || "commander";
     const cmd = params.get("cmd") || "";
     const decklist_text = assembleForStorage(decoded, cmd, "");
     return decklist_text.trim() ? { format: fmt, decklist_text, commander: cmd } : null;

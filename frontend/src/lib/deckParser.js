@@ -30,6 +30,15 @@ function _splitPrinting(raw) {
 // intact) still round-trips through save/share/export.
 
 /** [{ name, printing, raw }] for each commander (partners split on " && "). */
+// Formats the app no longer serves, opened as the nearest one it does. Andres,
+// 2026-10-24: Brawl removed from the web app, and a Brawl deck opens as Commander
+// (the API refuses the Brawl formats, so left as is every panel would fail).
+// Applied wherever a format arrives from outside the format picker: a saved deck or
+// its draft, a share link, a URL import. Falsy stays falsy so callers keep their
+// own default.
+const RETIRED_FORMATS = { brawl: "commander", historic_brawl: "commander" };
+export const webFormat = (fmt) => RETIRED_FORMATS[fmt] || fmt;
+
 export function splitCommanders(commander) {
   return (commander || "").split(" && ").filter(Boolean).map(_splitPrinting);
 }

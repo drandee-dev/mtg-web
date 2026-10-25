@@ -71,8 +71,6 @@ print(f"ok: {len(ROUTES) + 1} routes refuse brawl and historic_brawl")
 # The UI's formats still get through format validation on every route.
 for fmt in ("commander", "paupercommander", "standard", "modern", "legacy"):
     for method, url, body in ROUTES:
-        if url == "/api/deck/wizard/skeleton" and fmt == "paupercommander":
-            continue  # a capped build needs a bundled config; not this change
         r = call(method, url, body(fmt))
         assert not refused_for_format(r), f"{url} refused {fmt}: {r.status_code} {r.text[:200]}"
 print("ok: commander, pauper commander, standard, modern and legacy still pass")

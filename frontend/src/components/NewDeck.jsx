@@ -4,7 +4,7 @@ import { searchCommanders as scryfallSearchCommanders } from "../lib/scryfall";
 import { loadDirectory } from "../lib/commanderDirectory";
 import { parseNarration } from "../lib/buildNotes";
 import { parseCollectionCsv, buildOwnedIndex, ownedQuantity } from "../lib/collection";
-import { commanderDisplay, commanderNamesClean } from "../lib/deckParser";
+import { commanderDisplay, commanderNamesClean, webFormat } from "../lib/deckParser";
 import { SPELL_CATS, assembleSkeleton, mergeFills } from "../lib/fillMerge";
 import { fmtUsd } from "../lib/format";
 import { useCardImage } from "../lib/hooks";
@@ -360,7 +360,7 @@ function NewDeckSteps({ onCreate, notify, seed }) {
       if (!deckText.trim() && !commander && !side) throw new Error("no cards found in the import");
       await create({
         name: res.name || (commander ? commanderDisplay(commander) : "Imported deck"),
-        format: res.format || "commander",
+        format: webFormat(res.format) || "commander",
         decklist_text: assembleForStorage(deckText, commander, side),
         arrival: { review: true },
       });
