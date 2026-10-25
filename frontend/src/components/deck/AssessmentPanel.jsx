@@ -72,7 +72,8 @@ export default function AssessmentPanel({
   const scoreTip = useInfoTip("the score",
     "A health score from the deck's own checks"
     + (health ? `: ${health.parts.map((p) => `${p.label} ${Math.round(p.v * 100)}%`).join(", ")}. ` : ". ")
-    + "Complete counts cards against 100 (60 outside Commander); Roles is the share of roles at their target.");
+    + "Complete counts cards against 100 (60 outside Commander)"
+    + (health?.parts.some((p) => p.label === "Roles") ? "; Roles is the share of roles at or above their target." : "."));
   const gapsTip = useInfoTip("gaps",
     "Roles with fewer cards than this deck should run; the number after \"of\" is the target. "
     + "Tap one to ask the AI for cards that fill it. Each tap uses an AI call.");
@@ -82,8 +83,9 @@ export default function AssessmentPanel({
   return (
     <div className="asmt-wrap">
       <section aria-labelledby="improve-verdict">
-        <div className="info-tip-host">
-          <h3 id="improve-verdict" className="improve-h">Verdict{health && scoreTip.button}</h3>
+        <div className="info-tip-host info-tip-head">
+          <h3 id="improve-verdict" className="improve-h">Verdict</h3>
+          {health && scoreTip.button}
           {health && scoreTip.panel}
         </div>
         {health && (
@@ -109,8 +111,9 @@ export default function AssessmentPanel({
 
       {thin.length > 0 && (
         <section aria-labelledby="improve-gaps">
-          <div className="info-tip-host">
-            <h3 id="improve-gaps" className="improve-h">Gaps{gapsTip.button}</h3>
+          <div className="info-tip-host info-tip-head">
+            <h3 id="improve-gaps" className="improve-h">Gaps</h3>
+            {gapsTip.button}
             {gapsTip.panel}
           </div>
           <div className="asmt-gaps">

@@ -460,10 +460,12 @@ function ChangesPane({
   onApplyChange, onSkipChange,
 }) {
   // Hooks first: the pane returns early below until proposals have loaded.
+  // Matches lib/changeset.js: the AI's changes show in both modes; budget mode adds
+  // the swaps on top. ChangeCard colours a saving green and a cost amber (.opt-delta).
   const modeTip = useInfoTip("budget swaps and power upgrades",
-    "Budget swaps: cheaper cards that do the same job, led by what this commander's decks play. "
-    + "Power upgrades: the AI's changes toward your goals, kept inside your Goals budget. "
-    + "The green or red amount on a change is how it moves the deck's price.");
+    "Both show the AI's changes toward your goals. Budget swaps also adds cheaper cards that "
+    + "do the same job, led by what this commander's decks play; Power upgrades shows the AI's "
+    + "changes alone. The amount on a change is how it moves the deck's price: green saves, amber costs more.");
   const sourceTip = useInfoTip("suggestions",
     "Cards that EDHREC's decks with this commander play, one list at a time. "
     + "\"Played in N%\" is the share of those decks that run the card.");

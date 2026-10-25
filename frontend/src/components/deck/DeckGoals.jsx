@@ -26,10 +26,12 @@ export default function DeckGoals({
   const [protectQuery, setProtectQuery] = useState("");
   const [customBudget, setCustomBudget] = useState("");
   // What each goal tells the AI (mtg.goals_prompt_parts), in the words a player uses.
+  // goals_prompt_parts only asks the model (nothing checks a price), and sends no
+  // bracket line for Keep current: the wording says what is sent, not more.
   const bracketTip = useInfoTip("bracket",
-    "The power level you want, from 1 (casual) to 5 (competitive). Suggestions steer toward it and flag cards above it. Keep current leaves the level alone.");
+    "The power level you want, from 1 (casual) to 5 (competitive). AI suggestions are told to steer toward it and to flag cards above it. Keep current gives the AI no target.");
   const budgetTip = useInfoTip("budget",
-    "The most the whole deck may cost. AI suggestions keep the deck under it. Budget swaps always pick cheaper cards, whatever you set here.");
+    "The most the whole deck may cost. AI suggestions are told to stay under it. Budget swaps always pick cheaper cards, whatever you set here.");
   const pilotTip = useInfoTip("pilot",
     "How much the deck asks of whoever plays it. Simple avoids long chains of triggers and stack tricks; Moderate allows some; Any sets no limit.");
 

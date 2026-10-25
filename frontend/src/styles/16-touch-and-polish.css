@@ -17,7 +17,7 @@
   .card-rail-btn, .cdm-close, .cdm-flip,
   .pw-cardchip-btn, .deck-card-menu-btn, .dg-suggest-x, .icm-close, .account-close { position: relative; }
   .cdm-close::after, .cdm-flip::after, .deck-card-menu-btn::after, .dg-suggest-x::after,
-  .icm-close::after, .account-close::after, .info-tip-btn::after {
+  .icm-close::after, .account-close::after {
     content: ""; position: absolute; left: 50%; top: 50%;
     width: 44px; height: 44px; transform: translate(-50%, -50%);
   }
