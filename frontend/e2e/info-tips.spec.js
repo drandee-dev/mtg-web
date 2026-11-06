@@ -97,6 +97,27 @@ test("a tap or click elsewhere closes it", async ({ page }) => {
   await expect(p).toBeEmpty();
 });
 
+// A closed tip is an empty live region: no box to draw or tap, and no room in its row
+// (on phones its own flex line used to add the row gap under every label; Holiday, 2026-11-06).
+test("a closed tip draws nothing and takes no room", async ({ page }) => {
+  await openImprove(page, { deep: true });
+  for (const label of ["bracket", "budget", "pilot", "the score", "gaps", "budget swaps and power upgrades", "suggestions"]) {
+    const p = await panelOf(page, label);
+    await expect(p).toBeEmpty();
+    const { area, grew } = await p.evaluate((el) => {
+      const host = el.closest(".info-tip-host");
+      const r = el.getBoundingClientRect();
+      const before = host.getBoundingClientRect().height;
+      el.style.display = "none";
+      const without = host.getBoundingClientRect().height;
+      el.style.display = "";
+      return { area: r.width * r.height, grew: before - without };
+    });
+    expect(area, `${label}: closed panel box`).toBe(0);
+    expect(grew, `${label}: height the closed panel adds`).toBe(0);
+  }
+});
+
 test("desktop: a bubble over the page", async ({ page, isMobile }) => {
   test.skip(isMobile, "desktop layout");
   await openImprove(page);
