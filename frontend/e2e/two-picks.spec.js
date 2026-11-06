@@ -18,11 +18,14 @@ const CUT = {
   impact: "medium", price_usd: null, cut_price_usd: 0.75, price_delta: -0.75, over_budget: false, cheaper: null,
 };
 
-async function openWith(page, changes) {
-  await page.route("**/api/deck/optimize", (route) => route.fulfill({
-    contentType: "application/json",
-    body: JSON.stringify({ error: false, assessment: "x", changes, model: "mock" }),
-  }));
+async function openWith(page, changes, sent = []) {
+  await page.route("**/api/deck/optimize", (route) => {
+    sent.push(route.request().postDataJSON());
+    return route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ error: false, assessment: "x", changes, model: "mock" }),
+    });
+  });
   await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
   await openDeckSection(page, "Improve");
   await page.locator(".insp-deep").click();
@@ -89,6 +92,29 @@ test("a skip records both picks for the AI's session memory", async ({ page }) =
   await cards.first().getByRole("button", { name: "Skip", exact: true }).click();
   await expect(cards).toHaveCount(1);
   expect((await skipsIn(page)).sort()).toEqual(["Cultivate > Lightning Bolt", "Cultivate > Malakir Rebirth"]);
+});
+
+// Job 4b (Andres, 2026-11-06): the main pick stays the strongest even over budget,
+// unless the user changes it in Goals. The row shows only once a budget is set.
+test("Goals: Over budget is Strongest first until the user picks Savings first", async ({ page }) => {
+  const sent = [];
+  await openWith(page, [SWAP], sent);
+  const row = page.getByRole("group", { name: "When over budget", exact: true });
+  await page.locator(".dg-head").click(); // open the Goals editor
+  await expect(row).toHaveCount(0); // no budget, nothing to be over
+  await page.locator('.dg-opts[aria-label="Budget ceiling"]').getByRole("button", { name: "$50", exact: true }).click();
+  await expect(row.getByRole("button", { name: "Strongest first", exact: true })).toHaveAttribute("aria-pressed", "true");
+  expect(sent.at(-1)?.goals?.over_budget).toBeUndefined(); // the first pass: no budget yet
+  const lookAgain = page.getByRole("button", { name: "Look again", exact: true });
+  await lookAgain.click();
+  await expect.poll(() => sent.at(-1)?.goals?.budget_ceiling).toBe(50);
+  expect(sent.at(-1).goals.over_budget).toBeUndefined(); // the default sends nothing
+  await row.getByRole("button", { name: "Savings first", exact: true }).click();
+  await expect(row.getByRole("button", { name: "Savings first", exact: true })).toHaveAttribute("aria-pressed", "true");
+  const before = sent.length;
+  await lookAgain.click();
+  await expect.poll(() => sent.length).toBeGreaterThan(before);
+  expect(sent.at(-1).goals.over_budget).toBe("savings");
 });
 
 test("the cheaper line has its own help tip, and fits a phone", async ({ page }) => {

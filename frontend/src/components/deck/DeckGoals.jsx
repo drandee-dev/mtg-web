@@ -5,6 +5,7 @@ import { useInfoTip } from "../InfoTip";
 const BRACKETS = [1, 2, 3, 4, 5];
 const PILOTS = [["simple", "Simple"], ["moderate", "Moderate"], ["any", "Any"]];
 const BUDGET_PRESETS = [50, 100, 275, 500];
+const OVER_BUDGET = [["strongest", "Strongest first"], ["savings", "Savings first"]];
 
 // Deck Goals editor — collapsed summary rows, expandable editor. Every AI
 // feature (cuts, fills, upgrades, chat) reads these goals. When no goals are
@@ -31,7 +32,9 @@ export default function DeckGoals({
   const bracketTip = useInfoTip("bracket",
     "The power level you want, from 1 (casual) to 5 (competitive). AI suggestions are told to steer toward it and to flag cards above it. Keep current gives the AI no target.");
   const budgetTip = useInfoTip("budget",
-    "The most the whole deck may cost. AI suggestions are told to stay under it, but each AI change names its strongest card whatever it costs, with a cheaper one for the same job beside it; either is marked when the deck would end up over this. Budget swaps always pick cheaper cards, whatever you set here.");
+    "The most the whole deck may cost. AI suggestions are told to stay under it, but each AI change names its strongest card whatever it costs (unless Over budget is set to Savings first), with a cheaper one for the same job beside it; either is marked when the deck would end up over this. Budget swaps always pick cheaper cards, whatever you set here.");
+  const overTip = useInfoTip("over budget",
+    "What each AI change leads with when the deck already costs more than your budget. Strongest first: its main card is the strongest for the slot, with a cheaper one for the same job beside it. Savings first: its main card may be one that brings the deck's price down.");
   const pilotTip = useInfoTip("pilot",
     "How much the deck asks of whoever plays it. Simple avoids long chains of triggers and stack tricks; Moderate allows some; Any sets no limit.");
 
@@ -42,6 +45,7 @@ export default function DeckGoals({
     ["Bracket", goals.bracketTarget ? String(goals.bracketTarget) : "Keep current"],
     ["Budget", goals.budgetCeiling ? `Up to $${goals.budgetCeiling}` : "No limit"],
   ];
+  if (goals.budgetCeiling && goals.overBudget === "savings") rows.push(["Over budget", "Savings first"]);
   if (goals.pilot && goals.pilot !== "any") rows.push(["Pilot", goals.pilot[0].toUpperCase() + goals.pilot.slice(1)]);
   if (goals.protected.length) rows.push(["Protected", `${goals.protected.length} ${goals.protected.length === 1 ? "card" : "cards"}`]);
   if (goals.flavorNote.trim()) rows.push(["Note", "Set"]);
@@ -148,6 +152,25 @@ export default function DeckGoals({
             </div>
             {budgetTip.panel}
           </div>
+
+          {/* Only with a budget: without one there is nothing to be over. */}
+          {goals.budgetCeiling != null && (
+            <div className="dg-row info-tip-host">
+              {/* Two words in a narrow label column: the button stays with the last word. */}
+              <span className="dg-key">Over <span className="dg-key-tail">budget{overTip.button}</span></span>
+              <div className="dg-opts" role="group" aria-label="When over budget">
+                {OVER_BUDGET.map(([id, label]) => (
+                  <button
+                    key={id}
+                    className={`dg-chip${(goals.overBudget || "strongest") === id ? " on" : ""}`}
+                    aria-pressed={(goals.overBudget || "strongest") === id}
+                    onClick={() => set({ overBudget: id })}
+                  >{label}</button>
+                ))}
+              </div>
+              {overTip.panel}
+            </div>
+          )}
 
           <div className="dg-row info-tip-host">
             <span className="dg-key">Pilot{pilotTip.button}</span>

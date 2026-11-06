@@ -102,6 +102,17 @@ class GoalsPayload(BaseModel):
     protected: list[str] = Field(default_factory=list, max_length=15)
     pilot: str = Field(default="any", max_length=10)
     flavor_note: str = Field(default="", max_length=300)
+    # What an AI change leads with when the deck already costs more than the budget:
+    # its strongest card (the default, Andres 2026-11-06) or a card that saves money.
+    over_budget: str = Field(default="strongest", max_length=10)
+
+    @field_validator("over_budget")
+    @classmethod
+    def over_budget_must_be_valid(cls, v: str) -> str:
+        v = v.lower()
+        if v not in ("strongest", "savings"):
+            raise ValueError("over_budget must be strongest or savings")
+        return v
 
     @field_validator("pilot")
     @classmethod

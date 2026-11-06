@@ -1387,7 +1387,14 @@ def goals_prompt_parts(
             f"Budget ceiling: ${float(budget):.0f} total deck price. It binds the "
             f"\"cheaper\" pick: if the deck is under the ceiling, that card must keep "
             f"it under; if the deck is already over, that card must not raise the "
-            f"deck's price. The main \"add\" is the strongest card even if it costs more."
+            f"deck's price. "
+            + (
+                "If the deck is already over the ceiling, the main \"add\" may be a "
+                "card that brings the deck's price down (the user chose savings first)."
+                if goals.get("over_budget") == "savings"
+                else "The main \"add\" is the strongest card even if it costs more, "
+                "including when the deck is already over the ceiling."
+            )
         )
     elif budget:
         sys_lines.append(
