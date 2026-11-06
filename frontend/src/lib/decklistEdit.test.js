@@ -17,6 +17,15 @@ test("a card added to a list ending in a Companion or Maybeboard section stays i
     assert.equal(parseDeckText(setQty(deck, "Forest", 2)).totalCards, 100);
   }
   assert.equal(appendLine("1 A", "1 B"), "1 A\n1 B");
+  // A whole Arena list typed into "Edit as text": the card goes after Deck, not
+  // before the earlier Companion section, where it would join the commanders.
+  const arena = "Commander\n1 Atraxa, Praetors' Voice\n\nCompanion\n1 Lurrus of the Dream-Den\n\nDeck\n98 Plains";
+  assert.equal(appendLine(arena, "1 Ponder"), `${arena}\n1 Ponder`);
+  // Commander is the last header: a Deck header comes first, before a Companion section.
+  assert.equal(appendLine("Commander\n1 Atraxa, Praetors' Voice\nCompanion\n1 Lurrus of the Dream-Den", "1 Ponder"),
+    "Commander\n1 Atraxa, Praetors' Voice\nDeck\n1 Ponder\nCompanion\n1 Lurrus of the Dream-Den");
+  assert.equal(appendLine("Commander\n1 Atraxa, Praetors' Voice", "1 Ponder"),
+    "Commander\n1 Atraxa, Praetors' Voice\nDeck\n1 Ponder");
 });
 
 const DECK = ["1 Sol Ring (C21) 263", "4 Lightning Bolt", "1 Fire // Ice", "1 B.F.M. (Big Furry Monster)", "", "1 Cultivate"].join("\n");

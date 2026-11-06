@@ -27,6 +27,21 @@ test.describe("URL import + Considering + rename", () => {
     await expect(page.locator(".deck-head-count")).toHaveText("3 / 100 cards");
   });
 
+  // 2026-11-06 (Holiday): a Companion section typed into "Edit as text" joins
+  // Considering when the editor loses focus, so later adds can't vanish into it.
+  test("a companion typed into the text editor moves to Considering on leaving it", async ({ page }) => {
+    await loadSharedDeck(page, "1 Sol Ring\n1 Counterspell", TEST_COMMANDER);
+    await deckMenuAction(page, "Edit as text");
+    const editor = page.locator(".deck-text-editor");
+    await editor.fill("1 Sol Ring\n1 Counterspell\nCompanion\n1 Jegantha, the Wellspring");
+    await editor.blur();
+    await expect(editor).toHaveValue("1 Sol Ring\n1 Counterspell");
+    await expect(page.locator(".toast")).toContainText("Moved Jegantha, the Wellspring to Considering");
+    const considering = page.locator(".considering-group, .stack-column-considering");
+    await expect(considering.locator('[aria-label*="Jegantha"]').first()).toBeVisible();
+    await expect(page.locator(".deck-head-count")).toHaveText("3 / 100 cards");
+  });
+
   test("populated deck: URL import asks before replacing, then replaces wholesale", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await deckMenuAction(page, "Import cards");

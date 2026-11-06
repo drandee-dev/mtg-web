@@ -12,7 +12,7 @@ import MassArtModal from "./MassArtModal";
 import UpgradeReview from "./UpgradeReview";
 import MoreMenu from "./MoreMenu";
 import { PaletteIcon, LinkIcon, LockIcon, UnlockIcon, ListIcon, SearchIcon } from "../Icons";
-import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderNamesClean, setCommanderPrinting, webFormat } from "../../lib/deckParser";
+import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderNamesClean, setCommanderPrinting, webFormat, pullCompanions } from "../../lib/deckParser";
 import { goalsToApi } from "../../lib/goals";
 import { isVisibleEntry } from "../../lib/optimizeLog";
 import { deckSignature } from "../../lib/insightsCache";
@@ -273,7 +273,8 @@ export default function DeckView({
     removeCard(name, { silent: true });
     const demoted = commanderNamesClean(commander);
     if (demoted.length) {
-      setDecklist((prev) => `${prev.replace(/\s*$/, "")}\n${demoted.map((d) => `1 ${d}`).join("\n")}`);
+      // appendLineText keeps cards out of a Companion section (Holiday, 2026-11-06).
+      setDecklist((prev) => demoted.reduce((text, d) => appendLineText(text, `1 ${d}`), prev));
     }
     setCommander(name);
     notify?.(demoted.length
@@ -326,10 +327,22 @@ export default function DeckView({
   // Considering column → maindeck: one action, one toast.
   function moveFromConsidering(name) {
     removeFromConsidering(name);
-    setDecklist((prev) => `${prev.replace(/\s*$/, "")}\n1 ${name}`);
+    setDecklist((prev) => appendLineText(prev, `1 ${name}`));
     notify?.(`Added ${name} to the deck`);
     // Undo puts it back where it came from.
     warnIfBadAdd({ before: decklist, commander: isCommanderFmt ? commander : "", format, name, notify, undo: () => addToConsidering(name) });
+  }
+
+  // Leaving the text editor: a Companion section typed or pasted there joins
+  // Considering, as on paste and import, so the deck text never holds one
+  // (Holiday, 2026-11-06). A companion starts the game outside the deck.
+  function settleCompanions() {
+    const { rest, companions } = pullCompanions(decklist);
+    if (!companions.length) return;
+    const names = companions.map((l) => l.replace(/^\d+\s+/, ""));
+    setDecklist(rest.trim());
+    setMaybeboard?.((prev) => appendConsidering(prev, names));
+    notify?.(`Moved ${names.join(", ")} to Considering: a companion starts outside the deck`);
   }
 
   function renameDeck() {
@@ -423,7 +436,7 @@ export default function DeckView({
       if (impCmdr) setCommander(impCmdr);
       if (impMaybe) setMaybeboard(impMaybe);
     } else {
-      if (mainLines) setDecklist((prev) => (prev.trim() ? `${prev.replace(/\s*$/, "")}\n${mainLines}` : mainLines));
+      if (mainLines) setDecklist((prev) => (prev.trim() ? appendLineText(prev, mainLines) : mainLines));
       if (impCmdr && !commander) setCommander(impCmdr);
     }
     const n = parseDeckText(mainLines).totalCards;
@@ -944,6 +957,7 @@ export default function DeckView({
               className="deck-text-editor"
               value={decklist}
               onChange={(e) => setDecklist(e.target.value)}
+              onBlur={settleCompanions}
               placeholder={"1 Sol Ring\n1 Llanowar Elves\n…"}
               aria-label="Edit decklist as text"
             />

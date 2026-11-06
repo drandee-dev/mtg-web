@@ -28,18 +28,24 @@ export function findDeckLine(text, name) {
 /** Section headers whose cards are not in the deck: the Considering pile and a
  * companion (it starts the game outside the deck). Shared with deckParser. */
 export const OUTSIDE_SECTION = /^\s*(maybeboard|companion)\s*$/i;
+const ANY_SECTION = /^\s*(commander|deck|sideboard|maybeboard|companion)\s*$/i;
 
-/** `line` added as the deck's last card: after the last line, or before a
- * Companion or Maybeboard section when the text has one. Appended after such a
- * section, a new card would be filed in it and vanish from the deck
- * (Holiday, 2026-11-06). */
+/** `line` added as the deck's last card. Text can hold section headers ("Edit as
+ * text" takes anything): the line goes after the last Deck or Sideboard section,
+ * before any Companion or Maybeboard section that follows it. Appended inside such
+ * a section, a new card vanished from the deck; inserted before an earlier one
+ * (Arena's Commander, Companion, Deck order) it joined the commanders (Holiday,
+ * 2026-11-06). If the last such header is Commander, a Deck header comes first. */
 export function appendLine(text, line) {
   const lines = text.replace(/\s*$/, "").split("\n");
-  const at = lines.findIndex((l) => OUTSIDE_SECTION.test(l));
-  if (at < 0) return `${lines.join("\n")}\n${line}`;
+  let lastIn = -1;
+  lines.forEach((l, i) => { if (ANY_SECTION.test(l) && !OUTSIDE_SECTION.test(l)) lastIn = i; });
+  const add = lastIn >= 0 && /^\s*commander\s*$/i.test(lines[lastIn]) ? ["Deck", line] : [line];
+  const at = lines.findIndex((l, i) => i > lastIn && OUTSIDE_SECTION.test(l));
+  if (at < 0) return `${lines.join("\n")}\n${add.join("\n")}`;
   let i = at;
-  while (i > 0 && !lines[i - 1].trim()) i--;
-  lines.splice(i, 0, line);
+  while (i > lastIn + 1 && !lines[i - 1].trim()) i--;
+  lines.splice(i, 0, ...add);
   return lines.join("\n");
 }
 
