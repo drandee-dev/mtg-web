@@ -38,12 +38,20 @@ def _place(result: dict, section: str, entry: dict) -> None:
     the deck (it is not one of a Commander deck's 100, and Arena lists it in the
     sideboard too), so it goes to its own list and no count; before 2026-11-06 it
     landed in the main deck and a 99+1 deck read as 101."""
-    key = {"commander": "commanders", "sideboard": "sideboard", "companion": "companions"}
+    key = {
+        "commander": "commanders",
+        "sideboard": "sideboard",
+        "companion": "companions",
+        "maybeboard": "maybeboard",
+    }
     result[key.get(section, "cards")].append(entry)
 
 
 def _empty() -> dict:
-    return {"commanders": [], "cards": [], "sideboard": [], "companions": []}
+    # "maybeboard": the web app saves its Considering pile under a Maybeboard header.
+    # Unknown here before 2026-11-06, the header read as a card named "Maybeboard" and
+    # the pile as main-deck cards, so every export carried both. Kept apart, uncounted.
+    return {"commanders": [], "cards": [], "sideboard": [], "companions": [], "maybeboard": []}
 
 
 def _parse_moxfield(content: str) -> dict:
@@ -78,6 +86,7 @@ _ARENA_SECTION_HEADERS = frozenset(
         "companion",
         "deck",
         "sideboard",
+        "maybeboard",
     }
 )
 
@@ -221,7 +230,8 @@ def parse_deck_text(
     # that arise from the same card appearing with different set codes
     # (e.g., "2 Ethereal Armor (DSK) 7" + "2 Ethereal Armor (RTR) 9").
     result.setdefault("companions", [])
-    for section in ("commanders", "cards", "sideboard", "companions"):
+    result.setdefault("maybeboard", [])
+    for section in ("commanders", "cards", "sideboard", "companions", "maybeboard"):
         entries = result.get(section, [])
         for entry in entries:
             entry["name"] = _strip_set_code(entry["name"])

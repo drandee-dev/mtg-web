@@ -115,3 +115,43 @@ p = parse_deck_text("//Commander\n1 Atraxa, Praetors' Voice\n//Companion\n1 Jega
                     format="commander")
 assert p["total_cards"] == 100 and len(p["companions"]) == 1, p
 print("ok: a pasted Companion section is kept apart and not counted")
+
+# --- the sideboard depends on format (Andres, 2026-11-06) ---------------------- #
+# Constructed keeps it as a Sideboard section of the deck; Commander sends it to
+# Considering (the PDH case above). Maybeboard and companion always go to Considering.
+mox_modern = {"name": "Modern", "format": "modern", "boards": {
+    "commanders": board(), "mainboard": board((56, "Island"), (4, "Brainstorm")),
+    "sideboard": board((15, "Pyroblast")), "maybeboard": board((1, "Ponder")),
+    "companions": board((1, "Jegantha, the Wellspring")), "signatureSpells": board()}}
+d = imported("https://www.moxfield.com/decks/modern", mox_modern)
+assert d["decklist"].splitlines() == ["56 Island", "4 Brainstorm", "Sideboard", "15 Pyroblast"], d
+assert d["sideboard"].splitlines() == ["1 Jegantha, the Wellspring", "1 Ponder"], d
+p = parse_deck_text(d["decklist"], format="modern")
+assert (p["total_cards"], p["total_sideboard"]) == (60, 15), p
+arch_modern = {"name": "A", "deckFormat": 2, "categories": [], "cards": [
+    arch_card(60, "Island", "Lands"), arch_card(15, "Pyroblast", "Sideboard"), arch_card(1, "Ponder", "Maybeboard")]}
+d = imported("https://archidekt.com/decks/2/x", arch_modern)
+assert d["decklist"].splitlines() == ["60 Island", "Sideboard", "15 Pyroblast"], d
+assert d["sideboard"] == "1 Ponder", d
+# Commander still sends a Sideboard category to Considering.
+d = imported("https://archidekt.com/decks/3/x", {**arch_modern, "deckFormat": 3})
+assert "Sideboard" not in d["decklist"] and "15 Pyroblast" in d["sideboard"], d
+print("ok: a constructed import keeps its sideboard; Commander sends it to Considering")
+
+# --- the Considering pile stays out of exports and counts (2026-11-06) ---------- #
+# The web app saves Considering under a "Maybeboard" header. Unknown to the parser,
+# the header read as a card named "Maybeboard" and the pile as main-deck cards, so
+# every export carried both.
+from app import mtg  # noqa: E402
+
+stored = "Commander\n1 Atraxa, Praetors' Voice\nDeck\n98 Plains\n1 Sol Ring\nMaybeboard\n2 Swords to Plowshares"
+p = parse_deck_text(stored, format="commander")
+assert p["total_cards"] == 100 and [c["name"] for c in p["maybeboard"]] == ["Swords to Plowshares"], p
+out = mtg.export_deck_text(stored, fmt="commander")
+assert "Swords to Plowshares" not in out and "Maybeboard" not in out, out
+legacy = "Deck\n56 Island\n4 Brainstorm\nSideboard\n15 Pyroblast\nMaybeboard\n1 Ponder"
+out = mtg.export_deck_text(legacy, fmt="legacy")
+assert "Ponder" not in out and "Maybeboard" not in out and "15 Pyroblast" in out, out
+p = parse_deck_text("//Mainboard\n60 Island\n//Maybeboard\n1 Ponder", format="legacy")
+assert p["total_cards"] == 60, p
+print("ok: a Maybeboard (Considering) section is left out of exports and counts")

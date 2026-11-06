@@ -200,6 +200,23 @@ test.describe("New deck screen", () => {
     expect(deck.decklist_text).toBe(`Commander\n1 ${TEST_COMMANDER}\nDeck\n1 Sol Ring\n1 Counterspell\nMaybeboard\n1 Lightning Bolt`);
   });
 
+  // The sideboard depends on format (Andres, 2026-11-06): a constructed link keeps
+  // its Sideboard section in the deck; the maybeboard still goes to Considering.
+  test("a constructed deck link keeps its sideboard in the deck", async ({ page }) => {
+    await page.route("**/api/deck/import-url", (route) => route.fulfill({
+      json: { name: "Modern Deck", decklist: "56 Island\n4 Brainstorm\nSideboard\n15 Pyroblast",
+              sideboard: "1 Ponder", format: "modern", source: "moxfield" },
+    }));
+    await openNew(page);
+    await door(page, "Paste or import").click();
+    await page.locator("#nd-url").fill("https://www.moxfield.com/decks/modern");
+    await page.getByRole("button", { name: "Import the deck →" }).click();
+    await expect(page).toHaveURL(onADeck);
+    const [deck] = await savedDecks(page);
+    expect(deck.format).toBe("modern");
+    expect(deck.decklist_text).toBe("56 Island\n4 Brainstorm\nSideboard\n15 Pyroblast\nMaybeboard\n1 Ponder");
+  });
+
   // Enter in the link field imports too, and a held key repeats: the button
   // being disabled does nothing for the key.
   test("Enter twice in the deck-link field imports once and makes one deck", async ({ page }) => {

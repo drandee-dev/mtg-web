@@ -463,7 +463,9 @@ export default function DeckView({
   // URL imports REPLACE the deck (a linked deck is a complete deck, not a card
   // pack). Empty deck → apply immediately; populated deck → confirm first.
   function applyUrlImport(res) {
-    const { commander: impCmdr, deckText: impMain, maybeboard: impMaybe } = disassembleDecklist(res.decklist || "");
+    // The imported deck's format decides its sideboard: a constructed deck keeps it.
+    const { commander: impCmdr, deckText: impMain, maybeboard: impMaybe } =
+      disassembleDecklist(res.decklist || "", webFormat(res.format) || format);
     // A URL import is a whole different deck, so the generator's notes go too.
     clearBuildNotes();
     setDecklist((impMain || "").trim());

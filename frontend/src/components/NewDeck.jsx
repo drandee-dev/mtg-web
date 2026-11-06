@@ -354,8 +354,9 @@ function NewDeckSteps({ onCreate, notify, seed }) {
     setImporting(true);
     try {
       const res = await api.importUrl(url);
-      const { commander, deckText, maybeboard } = disassembleDecklist(res.decklist || "");
-      // The source's sideboard and maybeboard land in Considering, never the deck.
+      // A constructed deck keeps its sideboard in the deck (Andres, 2026-11-06); the
+      // source's maybeboard, companion and a Commander sideboard land in Considering.
+      const { commander, deckText, maybeboard } = disassembleDecklist(res.decklist || "", webFormat(res.format));
       const side = [res.sideboard, maybeboard].filter(Boolean).join("\n").trim();
       if (!deckText.trim() && !commander && !side) throw new Error("no cards found in the import");
       await create({

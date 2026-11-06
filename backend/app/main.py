@@ -716,6 +716,12 @@ class ImportUrlPayload(BaseModel):
 _MOXFIELD_FORMATS = {"pauperEdh": "paupercommander", "historicBrawl": "historic_brawl"}
 
 
+def _keeps_sideboard(fmt: str) -> bool:
+    """A constructed format keeps its sideboard in the deck; a commander format (or
+    an unknown one, read as Commander) sends it to Considering (Andres, 2026-11-06)."""
+    return not (mtg.FORMAT_CONFIGS.get(fmt) or {}).get("has_commander", True)
+
+
 @app.post("/api/deck/import-url")
 def deck_import_url(payload: ImportUrlPayload) -> dict:
     """Import a decklist from Moxfield or Archidekt URL."""
@@ -762,12 +768,18 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
                 *board_lines("mainboard"),
                 *board_lines("signatureSpells"),
             ]
-            # Sideboard, maybeboard and the companion come along too, but NEVER into
-            # the maindeck: the client puts them in the Considering pile. A companion
-            # starts outside the game; in the deck it made a 99+1 Commander deck 101.
+            # Maybeboard and the companion come along too, but NEVER into the maindeck:
+            # the client puts them in the Considering pile. A companion starts outside
+            # the game; in the deck it made a 99+1 Commander deck 101. The sideboard
+            # depends on format (Andres, 2026-11-06): Considering in Commander, a
+            # Sideboard section of the deck in constructed.
+            sideboard = board_lines("sideboard")
+            keep_sideboard = _keeps_sideboard(fmt) and bool(sideboard)
+            if keep_sideboard:
+                lines += ["Sideboard", *sideboard]
             side_lines = [
                 *board_lines("companions"),
-                *board_lines("sideboard"),
+                *([] if keep_sideboard else sideboard),
                 *board_lines("maybeboard"),
             ]
             return {
@@ -828,6 +840,10 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
             lines = []
             cmd_lines = []
             side_lines = []
+            # A constructed deck's Sideboard category stays with the deck (Andres,
+            # 2026-11-06: the sideboard depends on format).
+            keep_sideboard = _keeps_sideboard(fmt)
+            sideboard_lines = []
             for card_data in data.get("cards") or []:
                 cname = ((card_data.get("card") or {}).get("oracleCard") or {}).get(
                     "name", ""
@@ -837,6 +853,9 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
                 if not cname:
                     continue
                 primary = (categories[0] if categories else "") or ""
+                if keep_sideboard and primary.strip().lower() == "sideboard":
+                    sideboard_lines.append(f"{qty} {cname}")
+                    continue
                 if primary.strip().lower() in board_categories:
                     side_lines.append(f"{qty} {cname}")
                     continue
@@ -849,6 +868,8 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
             # Partners share one Commander block (two blocks broke the client's parse).
             if cmd_lines:
                 lines = ["Commander", *cmd_lines, "Deck", *lines]
+            if sideboard_lines:
+                lines += ["Sideboard", *sideboard_lines]
             return {
                 "name": name,
                 "decklist": "\n".join(lines),
