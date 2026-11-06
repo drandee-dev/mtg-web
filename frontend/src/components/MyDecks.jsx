@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { disassembleDecklist, getCardImage, FORMATS } from "../lib/api";
-import { commanderNamesClean, webFormat } from "../lib/deckParser";
+import { commanderNamesClean, deckCardCount, webFormat } from "../lib/deckParser";
 import { useCardImage } from "../lib/hooks";
 import { buildPath } from "../lib/routes";
 import ExportDeckModal from "./ExportDeckModal";
@@ -37,12 +37,6 @@ function readMetaCache() {
 
 function writeMetaCache(cache) {
   try { localStorage.setItem(META_CACHE_KEY, JSON.stringify(cache)); } catch { /* quota — skip */ }
-}
-
-function deckCardCount(text) {
-  return (text || "").split("\n")
-    .filter((l) => /^\s*\d/.test(l) && !/^\s*commander\s*$/i.test(l))
-    .reduce((s, l) => s + (parseInt(l.trim(), 10) || 0), 0);
 }
 
 // "100 cards", or how far off it is: a Commander deck is exactly 100, a

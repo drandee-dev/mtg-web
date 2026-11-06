@@ -10,7 +10,23 @@ const TYPE_ORDER = [
   "Land",
 ];
 
-const SECTION_HEADERS = /^\s*(commander|deck|sideboard|maybeboard)\s*$/i;
+const SECTION_HEADERS = /^\s*(commander|deck|sideboard|maybeboard|companion)\s*$/i;
+// Sections whose cards are not in the deck: the Considering pile, and a companion,
+// which starts the game outside it (a 99+1 Commander deck read as 101 before
+// 2026-11-06). Their lines are skipped until the next section header.
+const OUTSIDE_SECTIONS = /^\s*(maybeboard|companion)\s*$/i;
+
+/** The deck's cards with the commander counted: every "N Name" line outside the
+ * Considering and Companion sections (My Decks' "100 cards" fact). */
+export function deckCardCount(text) {
+  let outside = false;
+  let n = 0;
+  for (const line of (text || "").split("\n")) {
+    if (SECTION_HEADERS.test(line)) { outside = OUTSIDE_SECTIONS.test(line); continue; }
+    if (!outside && /^\s*\d/.test(line)) n += parseInt(line.trim(), 10) || 0;
+  }
+  return n;
+}
 
 // Moxfield/Arena-style pinned printing suffix: "Sol Ring (C21) 263".
 const PRINTING_SUFFIX = /\s+\(([A-Za-z0-9]{2,6})\)\s+([A-Za-z0-9★†-]{1,10})\s*$/;
@@ -67,9 +83,11 @@ export function setCommanderPrinting(commander, name, printing) {
 export function parseDeckText(deckText) {
   const lines = (deckText || "").split("\n");
   const cards = [];
+  let outside = false;
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed || SECTION_HEADERS.test(trimmed)) continue;
+    if (SECTION_HEADERS.test(trimmed)) { outside = OUTSIDE_SECTIONS.test(trimmed); continue; }
+    if (!trimmed || outside) continue;
     const match = trimmed.match(/^(\d+)\s+(.+)$/);
     if (!match) continue;
     const qty = parseInt(match[1], 10) || 1;

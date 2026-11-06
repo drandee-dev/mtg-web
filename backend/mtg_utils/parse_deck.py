@@ -33,10 +33,21 @@ def _detect_format(content: str) -> str:
     return "plain"
 
 
+def _place(result: dict, section: str, entry: dict) -> None:
+    """File one parsed entry under its section. A companion starts the game outside
+    the deck (it is not one of a Commander deck's 100, and Arena lists it in the
+    sideboard too), so it goes to its own list and no count; before 2026-11-06 it
+    landed in the main deck and a 99+1 deck read as 101."""
+    key = {"commander": "commanders", "sideboard": "sideboard", "companion": "companions"}
+    result[key.get(section, "cards")].append(entry)
+
+
+def _empty() -> dict:
+    return {"commanders": [], "cards": [], "sideboard": [], "companions": []}
+
+
 def _parse_moxfield(content: str) -> dict:
-    commanders: list[dict] = []
-    cards: list[dict] = []
-    sideboard: list[dict] = []
+    result = _empty()
     current_section = ""
 
     for raw_line in content.splitlines():
@@ -56,14 +67,9 @@ def _parse_moxfield(content: str) -> dict:
             quantity = 1
             name = line
 
-        if current_section == "commander":
-            commanders.append({"name": name, "quantity": quantity})
-        elif current_section == "sideboard":
-            sideboard.append({"name": name, "quantity": quantity})
-        else:
-            cards.append({"name": name, "quantity": quantity})
+        _place(result, current_section, {"name": name, "quantity": quantity})
 
-    return {"commanders": commanders, "cards": cards, "sideboard": sideboard}
+    return result
 
 
 _ARENA_SECTION_HEADERS = frozenset(
@@ -77,9 +83,7 @@ _ARENA_SECTION_HEADERS = frozenset(
 
 
 def _parse_mtgo(content: str) -> dict:
-    commanders: list[dict] = []
-    cards: list[dict] = []
-    sideboard: list[dict] = []
+    result = _empty()
     current_section = ""
 
     for raw_line in content.splitlines():
@@ -96,14 +100,9 @@ def _parse_mtgo(content: str) -> dict:
         if match:
             quantity = int(match.group(1))
             name = match.group(2).strip()
-            if current_section == "commander":
-                commanders.append({"name": name, "quantity": quantity})
-            elif current_section == "sideboard":
-                sideboard.append({"name": name, "quantity": quantity})
-            else:
-                cards.append({"name": name, "quantity": quantity})
+            _place(result, current_section, {"name": name, "quantity": quantity})
 
-    return {"commanders": commanders, "cards": cards, "sideboard": sideboard}
+    return result
 
 
 def parse_csv(content: str) -> dict:
@@ -141,9 +140,7 @@ def parse_csv(content: str) -> dict:
 
 
 def _parse_plain(content: str) -> dict:
-    commanders: list[dict] = []
-    cards: list[dict] = []
-    sideboard: list[dict] = []
+    result = _empty()
     current_section = ""
 
     for raw_line in content.splitlines():
@@ -164,14 +161,9 @@ def _parse_plain(content: str) -> dict:
             quantity = 1
             name = line
 
-        if current_section == "commander":
-            commanders.append({"name": name, "quantity": quantity})
-        elif current_section == "sideboard":
-            sideboard.append({"name": name, "quantity": quantity})
-        else:
-            cards.append({"name": name, "quantity": quantity})
+        _place(result, current_section, {"name": name, "quantity": quantity})
 
-    return {"commanders": commanders, "cards": cards, "sideboard": sideboard}
+    return result
 
 
 # Matches Moxfield set code + collector number suffix: " (SET) 123" or " (SET) 123a"
@@ -228,7 +220,8 @@ def parse_deck_text(
     # Strip Moxfield-style set codes from all names and merge duplicates
     # that arise from the same card appearing with different set codes
     # (e.g., "2 Ethereal Armor (DSK) 7" + "2 Ethereal Armor (RTR) 9").
-    for section in ("commanders", "cards", "sideboard"):
+    result.setdefault("companions", [])
+    for section in ("commanders", "cards", "sideboard", "companions"):
         entries = result.get(section, [])
         for entry in entries:
             entry["name"] = _strip_set_code(entry["name"])

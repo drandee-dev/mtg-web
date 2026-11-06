@@ -712,6 +712,10 @@ class ImportUrlPayload(BaseModel):
         return v
 
 
+# Moxfield's format names that differ from the web app's (checked live 2026-11-06).
+_MOXFIELD_FORMATS = {"pauperEdh": "paupercommander", "historicBrawl": "historic_brawl"}
+
+
 @app.post("/api/deck/import-url")
 def deck_import_url(payload: ImportUrlPayload) -> dict:
     """Import a decklist from Moxfield or Archidekt URL."""
@@ -737,30 +741,35 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
             data = resp.json()
             name = data.get("name", "Imported deck")
             fmt = data.get("format", "commander")
-            lines = []
-            side_lines = []
-            commanders = data.get("commanders") or {}
-            for card_data in commanders.values():
-                cname = (card_data.get("card") or {}).get("name", "")
-                qty = card_data.get("quantity", 1)
-                if cname:
-                    lines.append(f"Commander\n{qty} {cname}\nDeck")
-            for board_key in ("mainboard", "companions", "signatureSpells"):
-                board = data.get(board_key) or {}
-                for card_data in board.values():
+            fmt = _MOXFIELD_FORMATS.get(fmt, fmt)
+
+            def board_lines(key: str) -> list[str]:
+                # The v3 API keeps each board under data["boards"][key]["cards"];
+                # the old top-level data[key] read nothing, so every Moxfield import
+                # came back empty (found 2026-11-06). The old shape stays a fallback.
+                board = (data.get("boards") or {}).get(key)
+                cards = (board or {}).get("cards") if board else data.get(key)
+                out = []
+                for card_data in (cards or {}).values():
                     cname = (card_data.get("card") or {}).get("name", "")
-                    qty = card_data.get("quantity", 1)
                     if cname:
-                        lines.append(f"{qty} {cname}")
-            # Sideboard + maybeboard come along too, but NEVER into the maindeck —
-            # the client puts them in the Considering pile.
-            for board_key in ("sideboard", "maybeboard"):
-                board = data.get(board_key) or {}
-                for card_data in board.values():
-                    cname = (card_data.get("card") or {}).get("name", "")
-                    qty = card_data.get("quantity", 1)
-                    if cname:
-                        side_lines.append(f"{qty} {cname}")
+                        out.append(f"{card_data.get('quantity', 1)} {cname}")
+                return out
+
+            # Partners share one Commander block, which the client's parser expects.
+            cmd_lines = board_lines("commanders")
+            lines = (["Commander", *cmd_lines, "Deck"] if cmd_lines else []) + [
+                *board_lines("mainboard"),
+                *board_lines("signatureSpells"),
+            ]
+            # Sideboard, maybeboard and the companion come along too, but NEVER into
+            # the maindeck: the client puts them in the Considering pile. A companion
+            # starts outside the game; in the deck it made a 99+1 Commander deck 101.
+            side_lines = [
+                *board_lines("companions"),
+                *board_lines("sideboard"),
+                *board_lines("maybeboard"),
+            ]
             return {
                 "name": name,
                 "decklist": "\n".join(lines),
@@ -787,6 +796,8 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
             data = resp.json()
             name = data.get("name", "Imported deck")
             fmt = data.get("deckFormat", "commander")
+            # Checked against Archidekt's own deck search, 2026-11-06: 7 is "Custom"
+            # (it was read as Pioneer), Pioneer is 15, Pauper EDH is 17.
             fmt_map = {
                 1: "standard",
                 2: "modern",
@@ -794,7 +805,8 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
                 4: "legacy",
                 5: "vintage",
                 6: "pauper",
-                7: "pioneer",
+                15: "pioneer",
+                17: "paupercommander",
             }
             if isinstance(fmt, int):
                 fmt = fmt_map.get(fmt, "commander")
@@ -806,13 +818,15 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
             # includedInDeck=True (it ships with exports), which used to leak it into
             # the maindeck here. Those boards now travel separately so the client can
             # park them in the Considering pile.
-            board_categories = {"sideboard", "maybeboard", "considering"}
+            # A Companion category goes with them: the companion is outside the deck.
+            board_categories = {"sideboard", "maybeboard", "considering", "companion"}
             excluded_categories = {
                 c.get("name")
                 for c in (data.get("categories") or [])
                 if c.get("includedInDeck") is False
             }
             lines = []
+            cmd_lines = []
             side_lines = []
             for card_data in data.get("cards") or []:
                 cname = ((card_data.get("card") or {}).get("oracleCard") or {}).get(
@@ -829,9 +843,12 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
                 if categories and primary in excluded_categories:
                     continue
                 if "Commander" in categories:
-                    lines.insert(0, f"Commander\n{qty} {cname}\nDeck")
+                    cmd_lines.append(f"{qty} {cname}")
                 else:
                     lines.append(f"{qty} {cname}")
+            # Partners share one Commander block (two blocks broke the client's parse).
+            if cmd_lines:
+                lines = ["Commander", *cmd_lines, "Deck", *lines]
             return {
                 "name": name,
                 "decklist": "\n".join(lines),
