@@ -15,15 +15,26 @@ const SECTION_HEADERS = /^\s*(commander|deck|sideboard|maybeboard|companion)\s*$
 // the Considering pile, a companion, which starts the game outside it (a 99+1
 // Commander deck read as 101 before 2026-11-06), and a sideboard. Their lines are
 // skipped until the next section header.
-const ASIDE_SECTION = /^\s*(companion|sideboard)\s*$/i;
+const COMPANION_SECTION = /^\s*companion\s*$/i;
+const COMPANION_OR_SIDEBOARD = /^\s*(companion|sideboard)\s*$/i;
 
-/** A pasted or saved list's Companion and Sideboard sections taken out:
- * { rest, aside }, `rest` the text without them, `aside` their card lines, each card
- * once (Arena lists a companion under both). They go to Considering, as the URL
- * importers send them: the deck text never ends in a section that would swallow the
- * next card added, an Arena list (Commander, Companion, Deck) still yields its
- * commander (Holiday, 2026-11-06), and a constructed 60 + 15 counts as 60, not 75. */
-export function pullAsides(text) {
+/** Commander and Pauper Commander (also an unset or retired format, which opens as
+ * Commander): the formats with a commander and no sideboard. */
+export function isCommanderFormat(fmt) {
+  const f = webFormat(fmt) || "commander";
+  return f === "commander" || f === "paupercommander";
+}
+
+/** A pasted or saved list's Companion sections, and in Commander its Sideboard
+ * sections, taken out: { rest, aside }, `rest` the text without them, `aside`
+ * their card lines, each card once (Arena lists a companion under both). They go
+ * to Considering, as the URL importers send them: the deck text never ends in a
+ * section that would swallow the next card added, and an Arena list (Commander,
+ * Companion, Deck) still yields its commander (Holiday, 2026-11-06). A constructed
+ * deck keeps its Sideboard in the text, so it is exported and legality-checked;
+ * it is only left out of the count (Andres, 2026-11-06: "depends on format"). */
+export function pullAsides(text, { sideboard = true } = {}) {
+  const ASIDE_SECTION = sideboard ? COMPANION_OR_SIDEBOARD : COMPANION_SECTION;
   const rest = [];
   const aside = [];
   const seen = new Set();

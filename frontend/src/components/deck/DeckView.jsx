@@ -333,11 +333,12 @@ export default function DeckView({
     warnIfBadAdd({ before: decklist, commander: isCommanderFmt ? commander : "", format, name, notify, undo: () => addToConsidering(name) });
   }
 
-  // Leaving the text editor: a Companion or Sideboard section typed or pasted there
-  // joins Considering, as on paste and import, so the deck text never holds one
-  // (Holiday, 2026-11-06). Both sit outside the deck.
+  // Leaving the text editor: a Companion section typed or pasted there joins
+  // Considering, as on paste and import, so the deck text never holds one (Holiday,
+  // 2026-11-06); so does a Sideboard in Commander. A constructed deck keeps its
+  // sideboard in the text, uncounted, exported and checked.
   function settleAsides() {
-    const { rest, aside } = pullAsides(decklist);
+    const { rest, aside } = pullAsides(decklist, { sideboard: isCommanderFmt });
     if (!aside.length) return;
     const names = aside.map((l) => l.replace(/^\d+\s+/, ""));
     setDecklist(rest.trim());
@@ -427,7 +428,7 @@ export default function DeckView({
   // (adopting the imported commander/maybeboard); populated deck → append,
   // adopting the imported commander only if none is set yet.
   function mergeImportedText(text) {
-    const { commander: impCmdr, deckText: impMain, maybeboard: impMaybe } = disassembleDecklist(text || "");
+    const { commander: impCmdr, deckText: impMain, maybeboard: impMaybe } = disassembleDecklist(text || "", format);
     const mainLines = (impMain || "").trim();
     if (!mainLines && !impCmdr) throw new Error("no cards found in the import");
     const wasEmpty = !decklist.trim() && !commander;

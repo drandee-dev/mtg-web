@@ -1,7 +1,7 @@
 // Run with: node --test src/lib/deckParser.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { deckCardCount, parseDeckText, pullAsides, webFormat } from "./deckParser.js";
+import { deckCardCount, isCommanderFormat, parseDeckText, pullAsides, webFormat } from "./deckParser.js";
 
 // Holiday, 2026-11-06: a pasted Companion section is taken out (it joins Considering),
 // including Arena's order, where it sits between Commander and Deck.
@@ -24,6 +24,18 @@ test("pullAsides takes a Sideboard section out too, each card once", () => {
   const { rest, aside } = pullAsides(arena);
   assert.deepEqual(aside, ["1 Lurrus of the Dream-Den", "14 Pyroblast"]);
   assert.equal(parseDeckText(rest).totalCards, 60);
+  // Constructed (Andres, "depends on format"): the sideboard stays in the text, so it
+  // is exported and checked (Holiday found it exported as main-deck cards when moved),
+  // and is only left out of the count.
+  const kept = pullAsides(arena, { sideboard: false });
+  assert.deepEqual(kept.aside, ["1 Lurrus of the Dream-Den"]);
+  assert.match(kept.rest, /Sideboard\n1 Lurrus of the Dream-Den\n14 Pyroblast$/);
+  assert.equal(parseDeckText(kept.rest).totalCards, 60);
+});
+
+test("isCommanderFormat: Commander, Pauper Commander, unset and retired formats", () => {
+  for (const f of ["commander", "paupercommander", "", undefined, "brawl"]) assert.equal(isCommanderFormat(f), true, f);
+  for (const f of ["legacy", "modern", "standard", "pauper", "pioneer"]) assert.equal(isCommanderFormat(f), false, f);
 });
 
 // 2026-11-06: a companion is not one of the deck's cards, and neither is the

@@ -56,6 +56,24 @@ test.describe("URL import + Considering + rename", () => {
     await expect(page.locator(".deck-head-count")).toHaveText("3 / 100 cards");
   });
 
+  // Constructed keeps its sideboard (Andres, 2026-11-06: "depends on format"): it
+  // stays in the deck text, so export and legality see it, and it isn't counted.
+  test("a constructed deck keeps a typed sideboard, uncounted", async ({ page }) => {
+    const text = "56 Island\n4 Brainstorm\nSideboard\n15 Pyroblast";
+    const q = new URLSearchParams({ deck: Buffer.from(text, "utf8").toString("base64"), fmt: "legacy" });
+    await page.goto(`/?${q.toString()}`);
+    await waitForAppReady(page);
+    await dismissColdStart(page);
+    await expect(page.locator(".deck-head-count")).toHaveText("60 / 60+ cards");
+    await deckMenuAction(page, "Edit as text");
+    const editor = page.locator(".deck-text-editor");
+    await expect(editor).toHaveValue(text);
+    await editor.fill(`${text}\n1 Red Elemental Blast`);
+    await editor.blur();
+    await expect(editor).toHaveValue(`${text}\n1 Red Elemental Blast`);
+    await expect(page.locator(".deck-head-count")).toHaveText("60 / 60+ cards");
+  });
+
   test("populated deck: URL import asks before replacing, then replaces wholesale", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await deckMenuAction(page, "Import cards");

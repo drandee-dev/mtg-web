@@ -129,7 +129,7 @@ export default function App() {
   // Fill the editor from a deck's storage form. Returns the card text, and the
   // whole form as the editor will reassemble it (the saved copy to compare to).
   const showInEditor = useCallback((fmt, decklistText) => {
-    const { commander: c, deckText: t, maybeboard: mb } = disassembleDecklist(decklistText);
+    const { commander: c, deckText: t, maybeboard: mb } = disassembleDecklist(decklistText, fmt);
     setFormat(fmt || "commander");
     setCommander(c);
     setDeckText(t);
@@ -481,7 +481,7 @@ export default function App() {
       throw e;
     }
     await refresh();
-    const { commander: cmd, deckText: cards } = disassembleDecklist(decklist_text);
+    const { commander: cmd, deckText: cards } = disassembleDecklist(decklist_text, fmt);
     const share = { label: "🔗 Share link", onClick: () => copyShareLink(assembleDecklist(cards, cmd), fmt, cmd) };
     if (asked !== getMoves() || askedBy !== userIdRef.current) {
       // Openable only by the account that asked for it: that is whose list it is in.
