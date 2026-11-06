@@ -10,10 +10,11 @@
   border-radius: 50%; border: 1px solid var(--border-strong); background: transparent;
   color: var(--muted); font-size: 11px; font-weight: 700; line-height: 1; cursor: pointer;
 }
-/* A 32px target that takes no layout room, on touch too: the usual 44px extender
+/* A 30px target that takes no layout room, on touch too: the usual 44px extender
    would reach 13px out and take taps from the select, the toggle and the first chip
-   beside it (Holiday, 2026-10-25). 32px is above WCAG's 24px target size, and every
-   neighbour sits at least 8px away, beyond this box's 7px reach. */
+   beside it (Holiday, 2026-10-25). The inset counts from inside the 1px border, so it
+   reaches 6px past the circle: 30px, above WCAG's 24px target size, and every
+   neighbour sits at least 8px away. */
 .info-tip-btn::after { content: ""; position: absolute; inset: -7px; }
 .info-tip-btn:hover { color: var(--text); border-color: var(--text-secondary); background: transparent; }
 .info-tip-btn.on { color: var(--accent); border-color: var(--accent); }
@@ -27,8 +28,9 @@
   font-size: var(--fs-sm); font-weight: 400; line-height: 1.45; text-align: left;
 }
 /* Closed: the live region stays in the page (so its text is announced when it
-   arrives) but draws nothing. Not display:none, which some readers would not watch. */
-.info-tip:empty { padding: 0; border: 0; box-shadow: none; background: none; margin: 0; }
+   arrives) but draws nothing and takes no room. Not display:none, which some readers
+   would not watch. Absolute even on phones, or its own flex line adds the row gap. */
+.info-tip:empty { position: absolute; padding: 0; border: 0; box-shadow: none; background: none; margin: 0; }
 
 /* A heading with its help button beside it (Verdict, Gaps). */
 .info-tip-head { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-bottom: .5rem; }
