@@ -7,7 +7,7 @@
    close buttons -- are exempted and get an invisible ::after hit extender;
    tight stacks extend less so neighboring zones don't overlap. */
 @media (pointer: coarse) {
-  button:not(.card-rail-btn):not(.cdm-close):not(.cdm-flip):not(.pw-cardchip-btn):not(.deck-card-menu-btn):not(.dg-suggest-x):not(.color-filter-pip),
+  button:not(.card-rail-btn):not(.cdm-close):not(.cdm-flip):not(.pw-cardchip-btn):not(.deck-card-menu-btn):not(.dg-suggest-x):not(.color-filter-pip):not(.info-tip-btn),
   input, select {
     min-height: 44px !important;
   }

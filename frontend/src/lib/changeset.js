@@ -31,9 +31,16 @@ export const REC_CATEGORIES = [
 
 const REC_LABEL = Object.fromEntries(REC_CATEGORIES);
 
-function recReason(synergy) {
-  return synergy != null
-    ? `Played in ${Math.round(synergy * 100)}% of decks like this one.`
+// The share of this commander's EDHREC decks that play the card. This used to print
+// EDHREC's synergy score as "Played in N%", which it is not (a synergy can even be
+// negative); budget swaps' "Played in N%" is the real share, so the two now agree.
+function deckShare(c) {
+  return c?.potential_decks > 0 ? Math.round((100 * (c.num_decks || 0)) / c.potential_decks) : null;
+}
+
+function recReason(share) {
+  return share != null
+    ? `Played in ${share}% of this commander's decks.`
     : "Commonly played alongside this commander.";
 }
 
@@ -42,10 +49,10 @@ export function buildChanges({
   skipped, declinedUpgrades, pinned, decided,
 }) {
   const out = [];
-  const synergyOf = (name) => {
+  const shareOf = (name) => {
     for (const list of Object.values(recs?.categories || {})) {
-      const hit = list.find((c) => c.name === name);
-      if (hit?.synergy != null) return hit.synergy;
+      const share = deckShare(list.find((c) => c.name === name));
+      if (share != null) return share;
     }
     return null;
   };
@@ -54,7 +61,7 @@ export function buildChanges({
   for (const name of pinned || []) {
     out.push({
       id: `rec:${name}`, source: "rec", isPinned: true, action: "add", add: name,
-      category: "Pinned", impact: "high", reason: recReason(synergyOf(name)),
+      category: "Pinned", impact: "high", reason: recReason(shareOf(name)),
     });
   }
   for (const c of recs?.categories?.[recCat] || []) {
@@ -63,7 +70,7 @@ export function buildChanges({
       id: `rec:${c.name}`, source: "rec", action: "add", add: c.name,
       category: REC_LABEL[recCat] || recCat,
       impact: (c.synergy ?? 0) >= 0.7 ? "high" : "medium",
-      reason: recReason(c.synergy),
+      reason: recReason(deckShare(c)),
     });
   }
   // AI-sourced changeset — cuts, adds and swaps in one pass, goal-aware.

@@ -192,10 +192,11 @@ export async function mockBackend(page) {
     if (path.endsWith("/api/deck/recommend")) {
       return json({
         categories: {
+          // The real API's rows carry deck counts; the reason line shows num_decks/potential_decks.
           high_synergy: [
-            { name: "Lightning Bolt", synergy: 0.92, in_deck: false },
-            { name: "Rhystic Study", synergy: 0.85, in_deck: false },
-            { name: "Smothering Tithe", synergy: 0.8, in_deck: false },
+            { name: "Lightning Bolt", synergy: 0.92, num_decks: 640, potential_decks: 1000, in_deck: false },
+            { name: "Rhystic Study", synergy: 0.85, num_decks: 720, potential_decks: 1000, in_deck: false },
+            { name: "Smothering Tithe", synergy: 0.8, num_decks: 510, potential_decks: 1000, in_deck: false },
           ],
         },
       });
