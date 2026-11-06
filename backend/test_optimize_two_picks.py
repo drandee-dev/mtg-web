@@ -36,13 +36,17 @@ _real_ai_call = mtg._ai_call
 calls: list[dict] = []
 
 
-def run(changes, goals=None, *, deck=DECK, bracket=5, as_text=False):
+def run(changes, goals=None, *, deck=DECK, bracket=5, as_text=False, fmt="commander"):
     """bracket=5 by default: these checks add Game Changers (Rhystic Study, Demonic
     Tutor) to a deck with none, which job 4d's bracket cap would otherwise drop."""
 
     def fake(system, **k):
         calls.append({"system": system, **k})
-        listed = json.dumps(changes) if as_text else changes
+        listed = changes
+        if as_text == "wrapped":  # the whole answer nested once more (Holiday, 2026-11-06)
+            listed = json.dumps({"assessment": "x", "changes": changes})
+        elif as_text:
+            listed = json.dumps(changes)
         return {
             "error": False,
             "result": json.dumps({"assessment": "x", "changes": listed}),
@@ -52,7 +56,7 @@ def run(changes, goals=None, *, deck=DECK, bracket=5, as_text=False):
     mtg._ai_call = fake
     mtg._ctx_cache.clear()
     try:
-        out = mtg.ai_optimize(deck, goals=goals, bracket=bracket)
+        out = mtg.ai_optimize(deck, fmt=fmt, goals=goals, bracket=bracket)
     finally:
         mtg._ai_call = _real_ai_call
     assert out["error"] is False, out
@@ -204,6 +208,8 @@ print("ok: over budget leads with the strongest card unless the user picks savin
 # --- job 4d: the list sent as text (2026-11-06, 1 of 6 paid calls) ------------ #
 out = run([swap("Thought Vessel", "Mind Stone")], as_text=True)
 assert ("Thought Vessel", "Mind Stone") in out, out
+out = run([swap("Thought Vessel", "Mind Stone")], as_text="wrapped")
+assert ("Thought Vessel", "Mind Stone") in out, out
 print("ok: a change list sent as JSON text is read, not shown as an empty list")
 
 # --- job 4d: bare adds and cuts keep the deck at its size --------------------- #
@@ -257,4 +263,15 @@ jace = swap(None, "Jace, the Mind Sculptor", "Narset, Parter of Veils", action="
 assert cheaper_of(jace)["name"] == "Narset, Parter of Veils", "at bracket 5 Narset is kept"
 (only,) = run([jace], bracket=None).values()
 assert only["add"] == "Jace, the Mind Sculptor" and only["cheaper"] is None, only
-print("ok: a Game Changer that would lift the deck past its target, or its bracket now, is dropped")
+# Mass land denial lifts a deck to bracket 4 as well (Holiday, 2026-11-06).
+assert "destroy all lands" in mtg.get_oracle_text(idx.get("Armageddon")).lower()
+assert not idx.get("Armageddon")["game_changer"]
+out = run([swap("Cultivate", "Armageddon")], bracket=None)
+assert out == {}, out
+assert ("Cultivate", "Armageddon") in run([swap("Cultivate", "Armageddon")], {"bracket_target": 4}, bracket=None)
+# Brackets are Commander's: in Legacy a Game Changer-flagged staple is an ordinary pick.
+LEGACY = "Deck\n56 Island\n4 Brainstorm"
+assert idx.get("Force of Will")["game_changer"]
+out = run([swap("Brainstorm", "Force of Will")], deck=LEGACY, bracket=None, fmt="legacy")
+assert ("Brainstorm", "Force of Will") in out, out
+print("ok: a Game Changer or mass land denial that would lift a Commander deck past its target, or its bracket now, is dropped")

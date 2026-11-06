@@ -2355,6 +2355,8 @@ def ai_optimize(
             raw_changes = json.loads(raw_changes)
         except ValueError:
             raw_changes = []
+        if isinstance(raw_changes, dict):  # the whole answer, nested once more
+            raw_changes = raw_changes.get("changes") or []
     if not isinstance(raw_changes, list):
         raw_changes = []
     proposals = [ch for ch in raw_changes[:12] if isinstance(ch, dict)]
@@ -2364,28 +2366,37 @@ def ai_optimize(
     size = (FORMAT_CONFIGS.get(fmt) or {}).get("deck_size")
     room = (size - int(deck.get("total_cards") or 0)) if size else 0
     # Bracket ceiling: the target if one is set, otherwise the bracket the deck is
-    # in now (Andres, 2026-11-06), so a strongest pick can't add the Game Changer
-    # that lifts it a bracket. Mirrors detect_bracket: 1-3 Game Changers is 3, 4+ is 4.
+    # in now (Andres, 2026-11-06), so a strongest pick can't add the Game Changer or
+    # mass land denial that lifts it a bracket. Brackets are a Commander idea: a
+    # Legacy Force of Will carries the same Scryfall flag (Holiday, 2026-11-06).
+    has_brackets = bool((FORMAT_CONFIGS.get(fmt) or {}).get("has_commander"))
     target = bracket or (goals or {}).get("bracket_target")
-    b_info = ctx.get("bracket") or {}
     try:
-        b_ceiling = int(target or b_info.get("bracket") or 5)
+        b_ceiling = int(target or (ctx.get("bracket") or {}).get("bracket") or 5)
     except (TypeError, ValueError):
         b_ceiling = 5
-    gc_now = len(b_info.get("game_changers") or [])
-    gc_added = 0  # Game Changers the changes kept so far would add, if all applied
+    base_recs = [r for r in (ctx["hd"].records if ctx.get("hd") else []) if r]
+    kept_adds: list[dict] = []  # cards the kept changes add, as if all were applied
 
-    def _bracket_at(gc: int) -> int:
-        if b_info.get("mass_land_denial") or gc >= 4:
-            return 4
-        return 3 if gc else 2
-
-    def _gc(rec: dict | None) -> int:
-        return 1 if rec and rec.get("game_changer") else 0
+    def _bracket_of(recs: list[dict]) -> tuple[int, int]:
+        """detect_bracket's bracket and how many cards push it up (Game Changers
+        plus mass land denial)."""
+        b = detect_bracket(recs, 0.0)
+        signals = len(b.get("game_changers") or []) + len(b.get("mass_land_denial") or [])
+        return int(b.get("bracket") or 2), signals
 
     def _lifts_bracket(add_rec: dict | None, cut_rec: dict | None) -> bool:
-        step = _gc(add_rec) - _gc(cut_rec)
-        return step > 0 and _bracket_at(gc_now + gc_added + step) > b_ceiling
+        """Does this change leave the deck above the ceiling while adding a card that
+        pushes the bracket up? Judged with detect_bracket on the deck plus the adds kept
+        so far, so Game Changers and mass land denial both count, and a one-for-one
+        trade of such cards still passes."""
+        if not (has_brackets and add_rec and b_ceiling < 5):
+            return False
+        before = base_recs + kept_adds
+        cut_name = (cut_rec or {}).get("name")
+        after = [r for r in before if r.get("name") != cut_name] + [add_rec]
+        bracket_after, signals_after = _bracket_of(after)
+        return bracket_after > b_ceiling and signals_after > _bracket_of(before)[1]
     # Every add goes through the shared gate: exact name, legal (bans), inside the
     # deck's identity (inferred when no commander is set), not already in.
     add_names = [
@@ -2442,7 +2453,7 @@ def ai_optimize(
             add = verdict["name"]
             add_rec = idx.get(add)
             if _lifts_bracket(add_rec, cut_rec):
-                log.info("optimize: %r dropped, a Game Changer past bracket %d", add, b_ceiling)
+                log.info("optimize: %r dropped, it lifts the deck past bracket %d", add, b_ceiling)
                 continue
 
         add_price = extract_price(add_rec) if add_rec else None
@@ -2461,14 +2472,15 @@ def ai_optimize(
             else None
         )
         if alt and _lifts_bracket(idx.get(alt["name"]), cut_rec):
-            log.info("optimize: cheaper %r dropped, a Game Changer past bracket %d", alt["name"], b_ceiling)
+            log.info("optimize: cheaper %r dropped, it lifts the deck past bracket %d", alt["name"], b_ceiling)
             alt = None
         # Counted only once the change is kept, so a dropped one uses no room.
         if action == "add":
             room -= 1
         elif action == "cut":
             room += 1
-        gc_added += max(0, _gc(add_rec) - _gc(cut_rec))
+        if add_rec:
+            kept_adds.append(add_rec)
         changes.append(
             {
                 "action": action,
