@@ -51,10 +51,30 @@ test("the cheaper card is marked when it too leaves the deck over budget", async
   await expect(cards.first().locator(".chg-alt .opt-over")).toHaveText("Over your budget");
 });
 
-test("Apply cheaper swaps in the cheaper card and logs it", async ({ page }) => {
+// A deck that starts over its cap marks every pick, money-saving ones included; those
+// say the deck is still over, not that the card breaks the budget (La Dispute run).
+test("a pick that saves money on an over-budget deck says \"Still over budget\"", async ({ page }) => {
+  const saving = {
+    ...SWAP, price_delta: -1.5, over_budget: true,
+    cheaper: { ...SWAP.cheaper, price_delta: -2.0, over_budget: true },
+  };
+  const cards = await openWith(page, [saving]);
+  await expect(cards.first().locator(".chg-meta .opt-over")).toHaveText("Still over budget");
+  await expect(cards.first().locator(".chg-alt .opt-over")).toHaveText("Still over budget");
+});
+
+const skipsIn = (page) => page.evaluate(() => Object.keys(localStorage)
+  .filter((k) => k.startsWith("mtgweb:optlog:"))
+  .flatMap((k) => JSON.parse(localStorage.getItem(k)))
+  .filter((e) => e.action === "skip")
+  .map((e) => `${e.cut} > ${e.add}`));
+
+test("Apply cheaper swaps in the cheaper card, logs it, and declines the strongest", async ({ page }) => {
   const cards = await openWith(page, [SWAP, CUT]);
-  await cards.first().getByRole("button", { name: "Apply cheaper", exact: true }).click();
+  await cards.first().getByRole("button", { name: "Apply cheaper: Malakir Rebirth", exact: true }).click();
   await expect(cards).toHaveCount(1); // the change is done, whichever pick was taken
+  // The strongest pick is remembered as declined, so the next pass won't offer it again.
+  expect(await skipsIn(page)).toEqual(["Cultivate > Lightning Bolt"]);
   const log = page.locator(".opt-log");
   await log.locator(".opt-log-summary").click();
   await expect(log.locator(".opt-log-row")).toContainText("Cultivate → Malakir Rebirth");
@@ -68,12 +88,7 @@ test("a skip records both picks for the AI's session memory", async ({ page }) =
   const cards = await openWith(page, [SWAP, CUT]);
   await cards.first().getByRole("button", { name: "Skip", exact: true }).click();
   await expect(cards).toHaveCount(1);
-  const skips = await page.evaluate(() => Object.keys(localStorage)
-    .filter((k) => k.startsWith("mtgweb:optlog:"))
-    .flatMap((k) => JSON.parse(localStorage.getItem(k)))
-    .filter((e) => e.action === "skip")
-    .map((e) => `${e.cut} > ${e.add}`));
-  expect(skips.sort()).toEqual(["Cultivate > Lightning Bolt", "Cultivate > Malakir Rebirth"]);
+  expect((await skipsIn(page)).sort()).toEqual(["Cultivate > Lightning Bolt", "Cultivate > Malakir Rebirth"]);
 });
 
 test("the cheaper line has its own help tip, and fits a phone", async ({ page }) => {
@@ -84,8 +99,9 @@ test("the cheaper line has its own help tip, and fits a phone", async ({ page })
   await tipBtn.click();
   await expect(panel).toContainText("whatever it costs");
   await expect(panel).toContainText("Over your budget");
+  await expect(panel).toContainText("Still over budget");
   const alt = cards.first().locator(".chg-alt");
-  const apply = alt.getByRole("button", { name: "Apply cheaper", exact: true });
+  const apply = alt.getByRole("button", { name: "Apply cheaper: Malakir Rebirth", exact: true });
   expect((await apply.boundingBox()).height).toBeGreaterThanOrEqual(44);
   const { right, vw } = await alt.evaluate((el) => ({
     right: el.getBoundingClientRect().right, vw: document.documentElement.clientWidth,

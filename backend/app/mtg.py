@@ -1385,8 +1385,9 @@ def goals_prompt_parts(
     if budget and two_picks:
         sys_lines.append(
             f"Budget ceiling: ${float(budget):.0f} total deck price. It binds the "
-            f"\"cheaper\" pick: that card must keep the deck under the ceiling. The "
-            f"main \"add\" is the strongest card even if it costs more."
+            f"\"cheaper\" pick: if the deck is under the ceiling, that card must keep "
+            f"it under; if the deck is already over, that card must not raise the "
+            f"deck's price. The main \"add\" is the strongest card even if it costs more."
         )
     elif budget:
         sys_lines.append(
@@ -2011,7 +2012,7 @@ CRITICAL RULES:
 3. Prefer "swap" changes (cut one card, add one card covering the same or a more needed role). Use a bare "cut" only when the deck is OVER the format's card count, and a bare "add" only when it is UNDER.
 4. Cut targets must be exact card names from the decklist. Additions must be real Magic cards with exact English names, inside the commander's color identity, and not already in the deck.
 5. Every reason must be one specific sentence about THIS deck — reference the commander, a synergy, a goal, or a curve/composition fact.
-6. TWO PICKS for every swap and add: "add" is the STRONGEST card for this slot and the deck's goals, whatever it costs. "cheaper" is a cheaper real card doing the same job in the same slot (same role, same rules as rule 4, not the same card as "add"), with "cheaper_reason" in at most 15 words. If a budget ceiling is given, the cheaper pick must keep the deck under it. Omit "cheaper" only when no cheaper card does the job.
+6. TWO PICKS for every swap and add: "add" is the STRONGEST card for this slot within the target bracket and the deck's goals, whatever it costs. "cheaper" is a cheaper real card doing the same job in the same slot (same role, same kind of card, about the same mana cost, same rules as rule 4, not the same card as "add"), with "cheaper_reason" in at most 15 words. Omit "cheaper" only when no cheaper card does the job.
 
 IMPORTANT: Your entire response must be ONLY valid JSON. No preamble, no markdown. Start with { immediately. Format:
 {"assessment": "Two sentences: where the deck stands relative to the user's goals, and what this changeset focuses on.",
@@ -2181,6 +2182,28 @@ OPTIMIZE_FOCUS = {
 }
 
 
+# Roles too broad to say two cards do the same job: every role-less creature is a
+# "Creature", and Sacrifice/Lifegain ride along on mana rocks and wipes.
+_WEAK_ROLES = {"Creature", "Sacrifice", "Lifegain"}
+
+
+def _same_job(strong: dict, cheap: dict) -> bool:
+    """Whether the cheaper card does the strongest card's job (Andres, 2026-11-06):
+    a real role in common, within 2 mana, the same kind of card, and a land that
+    still taps the strongest land's colours. A role alone was too wide: Mind Stone
+    counts as Draw (it cantrips), so it passed for Vanquisher's Banner on a real
+    run. This drops Smothering Tithe -> Arcane Signet too, by his choice: a missed
+    cheaper card beats a wrong one."""
+    shared = (set(_classify_roles(strong)) - _WEAK_ROLES) & (
+        set(_classify_roles(cheap)) - _WEAK_ROLES
+    )
+    if not shared or _swap_type(strong) != _swap_type(cheap):
+        return False
+    if abs((strong.get("cmc") or 0) - (cheap.get("cmc") or 0)) > 2:
+        return False
+    return _swap_type(strong) != "land" or _land_swap_ok(strong, cheap)
+
+
 def _cheaper_pick(
     ch: dict,
     add_rec: dict | None,
@@ -2194,9 +2217,8 @@ def _cheaper_pick(
 
     Kept only when it passes the same gate as every add, is a different card
     from the strongest pick, costs less than it (both priced: a guess is no
-    saving), and does the same job: a role in common with the strongest pick,
-    or the same card type when the strongest has no role to compare. Each
-    rejection is logged, since the page simply shows one option.
+    saving), and does the same job (_same_job). Each rejection is logged, since
+    the page simply shows one option.
     """
     raw = str(ch.get("cheaper") or "").strip()[:100]
     if not raw:
@@ -2213,14 +2235,7 @@ def _cheaper_pick(
     if not (price and add_price and price < add_price):
         log.info("optimize: cheaper %r not cheaper (%s vs %s)", name, price, add_price)
         return None
-    roles = set(_classify_roles(add_rec))
-    same_job = (
-        bool(roles & set(_classify_roles(rec)))
-        if roles
-        else _primary_type(rec.get("type_line") or "")
-        == _primary_type(add_rec.get("type_line") or "")
-    )
-    if not same_job:
+    if not _same_job(add_rec, rec):
         log.info("optimize: cheaper %r does a different job from %r", name, add_rec.get("name"))
         return None
     delta = round(price - (cut_price or 0), 2)
@@ -2400,12 +2415,19 @@ def ai_optimize(
             }
         )
 
-    # A cheaper card another change already adds as its main pick is no option.
-    main_adds = {c["add"] for c in changes if c["add"]}
+    # A card that already appears in this list is no cheaper option: applying one
+    # would leave the other as a cut with nothing added. Main adds always win, then
+    # the first change to offer a cheaper card keeps it.
+    taken = {c["add"] for c in changes if c["add"]}
     for c in changes:
-        if c["cheaper"] and c["cheaper"]["name"] in main_adds:
-            log.info("optimize: cheaper %r dropped, another change adds it", c["cheaper"]["name"])
+        alt = c["cheaper"]
+        if not alt:
+            continue
+        if alt["name"] in taken:
+            log.info("optimize: cheaper %r dropped, already in this list", alt["name"])
             c["cheaper"] = None
+        else:
+            taken.add(alt["name"])
 
     if not changes:
         # Not an error to the page, which just shows an empty list, so the log has to

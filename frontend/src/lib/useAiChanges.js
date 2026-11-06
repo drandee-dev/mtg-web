@@ -251,6 +251,9 @@ export function useAiChanges({
     // didn't decline it. Covers budget swaps and optimize-sourced swaps
     // alike — both cut a card out in the same "swap" shape.
     if ((ch.source === "upgrade" || ch.source === "optimize") && ch.cut && ch.add) skip(ch.cut);
+    // Taking the cheaper card declines the strongest one, or the next pass offers
+    // it again for the same slot (Holiday, 2026-11-06).
+    if (ch.source === "optimize" && ch.strongest) logOptSkip({ cut: ch.cut, add: ch.strongest });
   }
 
   // Each source owns its own persisted verdict list, so one source's "Show

@@ -7,8 +7,10 @@ import { fmtUsd } from "../../lib/format";
 const CHEAPER_TIP =
   "The AI names the strongest card for this slot, whatever it costs, and a cheaper card "
   + "that does the same job. With a budget in Goals, the cheaper card is the one asked to "
-  + "keep the deck under it. \"Over your budget\" means the deck would cost more than your "
-  + "budget with that card in.";
+  + "keep the deck under it. \"Over your budget\": this card adds cost and the deck would "
+  + "end up above your budget. \"Still over budget\": the deck is already above it and stays "
+  + "there, even though this card saves money. Both use the deck's price when the AI made "
+  + "its suggestions.";
 
 function Delta({ value }) {
   if (value == null || value === 0) return null;
@@ -19,7 +21,12 @@ function Delta({ value }) {
   );
 }
 
-const Over = ({ on }) => (on ? <span className="opt-over">Over your budget</span> : null);
+// Over the Goals budget after this card. A pick that saves money can still be
+// "over" when the deck started above the cap; saying "Over your budget" there read
+// as if the card broke it (the La Dispute run, 2026-11-06).
+const Over = ({ on, delta }) => (on
+  ? <span className="opt-over">{delta > 0 ? "Over your budget" : "Still over budget"}</span>
+  : null);
 
 // One small card picture. getCardImage caches per name for the session, so a
 // card that shows up in two rows, or again after "Look again", costs one lookup.
@@ -82,7 +89,7 @@ export default function ChangeCard({ ch, onApply, onSkip, extra = null }) {
           <span className="chg-meta">
             {ch.category && <span className="opt-cat">{ch.category}</span>}
             <Delta value={delta} />
-            <Over on={ch.over_budget} />
+            <Over on={ch.over_budget} delta={delta} />
           </span>
         )}
         {alt && (
@@ -92,16 +99,18 @@ export default function ChangeCard({ ch, onApply, onSkip, extra = null }) {
               <Thumb name={alt.name} className="chg-thumb chg-alt-thumb" />
               <span className="chg-alt-text">
                 Cheaper: <b><CardPreview name={alt.name} /></b> <Delta value={alt.price_delta} />{" "}
-                <Over on={alt.over_budget} />
+                <Over on={alt.over_budget} delta={alt.price_delta} />
               </span>
             </span>
             {tip.button}
             <button
               type="button"
               className="ghost chg-alt-apply"
+              aria-label={`Apply cheaper: ${alt.name}`}
               onClick={() => onApply({
                 ...ch, add: alt.name, price_usd: alt.price_usd, price_delta: alt.price_delta,
                 over_budget: alt.over_budget, reason: alt.reason || ch.reason, cheaper: null,
+                strongest: ch.add,
               })}
             >Apply cheaper</button>
             {alt.reason && <span className="chg-alt-why">{alt.reason}</span>}
