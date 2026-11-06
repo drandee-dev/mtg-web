@@ -108,12 +108,14 @@ export default function DeckGoals({
             <div className="dg-opts" role="group" aria-label="Target bracket">
               <button
                 className={`dg-chip${goals.bracketTarget == null ? " on" : ""}`}
+                aria-pressed={goals.bracketTarget == null}
                 onClick={() => set({ bracketTarget: null })}
               >keep current</button>
               {BRACKETS.map((b) => (
                 <button
                   key={b}
                   className={`dg-chip${goals.bracketTarget === b ? " on" : ""}`}
+                  aria-pressed={goals.bracketTarget === b}
                   onClick={() => set({ bracketTarget: goals.bracketTarget === b ? null : b })}
                 >{b}</button>
               ))}
@@ -126,12 +128,14 @@ export default function DeckGoals({
             <div className="dg-opts" role="group" aria-label="Budget ceiling">
               <button
                 className={`dg-chip${goals.budgetCeiling == null ? " on" : ""}`}
+                aria-pressed={goals.budgetCeiling == null}
                 onClick={() => set({ budgetCeiling: null })}
               >none</button>
               {BUDGET_PRESETS.map((b) => (
                 <button
                   key={b}
                   className={`dg-chip${goals.budgetCeiling === b ? " on" : ""}`}
+                  aria-pressed={goals.budgetCeiling === b}
                   onClick={() => set({ budgetCeiling: goals.budgetCeiling === b ? null : b })}
                 >${b}</button>
               ))}
@@ -179,6 +183,7 @@ export default function DeckGoals({
                 <button
                   key={id}
                   className={`dg-chip${goals.pilot === id ? " on" : ""}`}
+                  aria-pressed={goals.pilot === id}
                   onClick={() => set({ pilot: id })}
                 >{label}</button>
               ))}

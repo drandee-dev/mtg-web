@@ -457,7 +457,7 @@ export default function DeckView({
       : new Set(consideringNames(impMaybe).filter((x) => !have.has(x))).size;
     const pile = k ? ` (+${k} in Considering)` : "";
     notify?.(wasEmpty ? `Imported ${n} cards${pile}.`
-      : pileOnly ? `Added ${k} cards to Considering.`
+      : pileOnly ? (k ? `Added ${k} cards to Considering.` : "Those cards are already in Considering.")
       : `Added ${n} cards to the deck${pile}.`);
     return wasEmpty;
   }

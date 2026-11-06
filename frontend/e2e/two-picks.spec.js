@@ -102,7 +102,14 @@ test("Goals: Over budget is Strongest first until the user picks Savings first",
   const row = page.getByRole("group", { name: "When over budget", exact: true });
   await page.locator(".dg-head").click(); // open the Goals editor
   await expect(row).toHaveCount(0); // no budget, nothing to be over
-  await page.locator('.dg-opts[aria-label="Budget ceiling"]').getByRole("button", { name: "$50", exact: true }).click();
+  const budget = page.locator('.dg-opts[aria-label="Budget ceiling"]');
+  await expect(budget.getByRole("button", { name: "none", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await budget.getByRole("button", { name: "$50", exact: true }).click();
+  // Every Goals chip says whether it is on, not only the Over budget row (2026-11-06).
+  await expect(budget.getByRole("button", { name: "$50", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(budget.getByRole("button", { name: "none", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator('.dg-opts[aria-label="Target bracket"] [aria-pressed="true"]')).toHaveCount(1);
+  await expect(page.locator('.dg-opts[aria-label="Pilot complexity"] [aria-pressed]')).not.toHaveCount(0);
   await expect(row.getByRole("button", { name: "Strongest first", exact: true })).toHaveAttribute("aria-pressed", "true");
   expect(sent.at(-1)?.goals?.over_budget).toBeUndefined(); // the first pass: no budget yet
   const lookAgain = page.getByRole("button", { name: "Look again", exact: true });

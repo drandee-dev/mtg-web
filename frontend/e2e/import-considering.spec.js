@@ -124,6 +124,11 @@ test.describe("URL import + Considering + rename", () => {
     const considering = page.locator(".considering-group, .stack-column-considering");
     await expect(considering.locator('[aria-label*="Jegantha"]').first()).toBeVisible();
     await expect(page.locator(".deck-head-count")).toHaveText("3 / 100 cards");
+    // The same paste again adds nothing, and says so (Holiday, 2026-11-06).
+    await deckMenuAction(page, "Import cards");
+    await page.locator(".icm-panel textarea").fill("Companion\n1 Jegantha, the Wellspring");
+    await page.locator(".icm-foot button", { hasText: "Import" }).click();
+    await expect(page.locator(".toast").last()).toContainText("already in Considering");
   });
 
   test("populated deck: URL import asks before replacing, then replaces wholesale", async ({ page }) => {
