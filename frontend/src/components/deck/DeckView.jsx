@@ -441,9 +441,17 @@ export default function DeckView({
     } else {
       if (mainLines) setDecklist((prev) => (prev.trim() ? appendLineText(prev, mainLines) : mainLines));
       if (impCmdr && !commander) setCommander(impCmdr);
+      // The list's Considering cards (its Maybeboard, Companion and, in Commander,
+      // Sideboard sections) join this deck's pile. Dropped here before 2026-11-06
+      // (Holiday), they vanished without a word.
+      const names = (impMaybe || "").split("\n")
+        .map((l) => l.trim().replace(/^\d+\s+/, "")).filter(Boolean);
+      if (names.length) setMaybeboard?.((prev) => appendConsidering(prev, names));
     }
     const n = parseDeckText(mainLines).totalCards;
-    notify?.(wasEmpty ? `Imported ${n} cards.` : `Added ${n} cards to the deck.`);
+    const k = parseDeckText(impMaybe || "").totalCards;
+    const pile = k ? ` (+${k} in Considering)` : "";
+    notify?.(wasEmpty ? `Imported ${n} cards${pile}.` : `Added ${n} cards to the deck${pile}.`);
     return wasEmpty;
   }
 

@@ -74,6 +74,22 @@ test.describe("URL import + Considering + rename", () => {
     await expect(page.locator(".deck-head-count")).toHaveText("60 / 60+ cards");
   });
 
+  // Holiday, 2026-11-06: pasting into a deck that has cards dropped the list's
+  // Considering cards (its Companion and, in Commander, Sideboard sections).
+  test("pasting into a populated deck keeps the list's companion and sideboard in Considering", async ({ page }) => {
+    await loadSharedDeck(page, "1 Sol Ring\n1 Counterspell", TEST_COMMANDER);
+    await deckMenuAction(page, "Import cards");
+    await page.locator(".icm-panel textarea").fill(
+      "1 Arcane Signet\nCompanion\n1 Jegantha, the Wellspring\nSideboard\n1 Lightning Bolt",
+    );
+    await page.locator(".icm-foot button", { hasText: "Import" }).click();
+    await expect(page.locator(".toast")).toContainText("Added 1 cards to the deck (+2 in Considering)");
+    const considering = page.locator(".considering-group, .stack-column-considering");
+    await expect(considering.locator('[aria-label*="Jegantha"]').first()).toBeVisible();
+    await expect(considering.locator('[aria-label*="Lightning Bolt"]').first()).toBeVisible();
+    await expect(page.locator(".deck-head-count")).toHaveText("4 / 100 cards");
+  });
+
   test("populated deck: URL import asks before replacing, then replaces wholesale", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await deckMenuAction(page, "Import cards");
