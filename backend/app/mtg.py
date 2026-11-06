@@ -2347,7 +2347,45 @@ def ai_optimize(
     }
     commander_lower = {e["name"].lower() for e in deck.get("commanders", [])}
     protected = _protected_set(goals)
-    proposals = [ch for ch in (data.get("changes") or [])[:12] if isinstance(ch, dict)]
+    raw_changes = data.get("changes") or []
+    if isinstance(raw_changes, str):
+        # A paid call on 2026-11-06 sent the list as JSON text inside the tool's
+        # input; read as-is it gave no proposals and the page showed an empty list.
+        try:
+            raw_changes = json.loads(raw_changes)
+        except ValueError:
+            raw_changes = []
+    if not isinstance(raw_changes, list):
+        raw_changes = []
+    proposals = [ch for ch in raw_changes[:12] if isinstance(ch, dict)]
+    # Rule 3: a bare add only while the deck is short of its size, a bare cut only
+    # while it is over. Real calls kept both on a full 100-card deck (2026-11-06),
+    # leaving 101 or 99 cards once applied.
+    size = (FORMAT_CONFIGS.get(fmt) or {}).get("deck_size")
+    room = (size - int(deck.get("total_cards") or 0)) if size else 0
+    # Bracket ceiling: the target if one is set, otherwise the bracket the deck is
+    # in now (Andres, 2026-11-06), so a strongest pick can't add the Game Changer
+    # that lifts it a bracket. Mirrors detect_bracket: 1-3 Game Changers is 3, 4+ is 4.
+    target = bracket or (goals or {}).get("bracket_target")
+    b_info = ctx.get("bracket") or {}
+    try:
+        b_ceiling = int(target or b_info.get("bracket") or 5)
+    except (TypeError, ValueError):
+        b_ceiling = 5
+    gc_now = len(b_info.get("game_changers") or [])
+    gc_added = 0  # Game Changers the changes kept so far would add, if all applied
+
+    def _bracket_at(gc: int) -> int:
+        if b_info.get("mass_land_denial") or gc >= 4:
+            return 4
+        return 3 if gc else 2
+
+    def _gc(rec: dict | None) -> int:
+        return 1 if rec and rec.get("game_changer") else 0
+
+    def _lifts_bracket(add_rec: dict | None, cut_rec: dict | None) -> bool:
+        step = _gc(add_rec) - _gc(cut_rec)
+        return step > 0 and _bracket_at(gc_now + gc_added + step) > b_ceiling
     # Every add goes through the shared gate: exact name, legal (bans), inside the
     # deck's identity (inferred when no commander is set), not already in.
     add_names = [
@@ -2371,8 +2409,14 @@ def ai_optimize(
                 continue
         elif action == "cut":
             add = ""
+            if room >= 0:
+                log.info("optimize: bare cut %r dropped, the deck is not over its size", cut)
+                continue
         elif action == "add":
             cut = ""
+            if room <= 0:
+                log.info("optimize: bare add %r dropped, the deck is not short of its size", add)
+                continue
         else:
             continue
         if not cut and not add:
@@ -2397,6 +2441,9 @@ def ai_optimize(
                 continue
             add = verdict["name"]
             add_rec = idx.get(add)
+            if _lifts_bracket(add_rec, cut_rec):
+                log.info("optimize: %r dropped, a Game Changer past bracket %d", add, b_ceiling)
+                continue
 
         add_price = extract_price(add_rec) if add_rec else None
         cut_price = extract_price(cut_rec) if cut_rec else None
@@ -2408,6 +2455,20 @@ def ai_optimize(
             if (add_price or cut_price)
             else None
         )
+        alt = (
+            _cheaper_pick(ch, add_rec, add_price, cut_price, verdicts, idx, over)
+            if add
+            else None
+        )
+        if alt and _lifts_bracket(idx.get(alt["name"]), cut_rec):
+            log.info("optimize: cheaper %r dropped, a Game Changer past bracket %d", alt["name"], b_ceiling)
+            alt = None
+        # Counted only once the change is kept, so a dropped one uses no room.
+        if action == "add":
+            room -= 1
+        elif action == "cut":
+            room += 1
+        gc_added += max(0, _gc(add_rec) - _gc(cut_rec))
         changes.append(
             {
                 "action": action,
@@ -2420,11 +2481,7 @@ def ai_optimize(
                 "cut_price_usd": round(cut_price, 2) if cut_price else None,
                 "price_delta": delta,
                 "over_budget": bool(add) and over(delta),
-                "cheaper": _cheaper_pick(
-                    ch, add_rec, add_price, cut_price, verdicts, idx, over
-                )
-                if add
-                else None,
+                "cheaper": alt,
             }
         )
 

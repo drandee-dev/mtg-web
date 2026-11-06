@@ -36,19 +36,23 @@ _real_ai_call = mtg._ai_call
 calls: list[dict] = []
 
 
-def run(changes, goals=None):
+def run(changes, goals=None, *, deck=DECK, bracket=5, as_text=False):
+    """bracket=5 by default: these checks add Game Changers (Rhystic Study, Demonic
+    Tutor) to a deck with none, which job 4d's bracket cap would otherwise drop."""
+
     def fake(system, **k):
         calls.append({"system": system, **k})
+        listed = json.dumps(changes) if as_text else changes
         return {
             "error": False,
-            "result": json.dumps({"assessment": "x", "changes": changes}),
+            "result": json.dumps({"assessment": "x", "changes": listed}),
             "model": "fake",
         }
 
     mtg._ai_call = fake
     mtg._ctx_cache.clear()
     try:
-        out = mtg.ai_optimize(DECK, goals=goals)
+        out = mtg.ai_optimize(deck, goals=goals, bracket=bracket)
     finally:
         mtg._ai_call = _real_ai_call
     assert out["error"] is False, out
@@ -108,9 +112,10 @@ for label, change in (
     ("unknown card", swap("Thought Vessel", "Rhystic Study", "Not A Real Card")),
 ):
     assert cheaper_of(change) is None, label
-# A bare cut never gets one.
+# A bare cut never gets one (on a deck over its size, where a bare cut is kept).
+OVER = DECK + "\n95 Wastes"
 out = run([{"action": "cut", "cut": "Cultivate", "reason": "r", "category": "Ramp",
-            "impact": "low", "cheaper": "Arcane Signet"}])
+            "impact": "low", "cheaper": "Arcane Signet"}], deck=OVER)
 assert out[("Cultivate", None)]["cheaper"] is None, out
 print("ok: kept pick carries price, change and reason; dearer, off colour, same and unknown dropped")
 
@@ -195,3 +200,61 @@ try:
 except ValueError:
     pass
 print("ok: over budget leads with the strongest card unless the user picks savings first")
+
+# --- job 4d: the list sent as text (2026-11-06, 1 of 6 paid calls) ------------ #
+out = run([swap("Thought Vessel", "Mind Stone")], as_text=True)
+assert ("Thought Vessel", "Mind Stone") in out, out
+print("ok: a change list sent as JSON text is read, not shown as an empty list")
+
+# --- job 4d: bare adds and cuts keep the deck at its size --------------------- #
+def size_of(deck):
+    return mtg._deck_context(deck)["deck"]["total_cards"]
+
+
+FULL, SHORT = DECK + "\n94 Wastes", DECK + "\n93 Wastes"
+assert (size_of(DECK), size_of(SHORT), size_of(FULL), size_of(OVER)) == (6, 99, 100, 101)
+bare_add = lambda n: swap(None, n, action="add")  # noqa: E731
+bare_cut = lambda n: {"action": "cut", "cut": n, "reason": "r", "category": "Ramp", "impact": "low"}  # noqa: E731
+# A full deck: neither, but a swap still goes through.
+out = run([bare_add("Mind Stone"), bare_cut("Cultivate"), swap("Thought Vessel", "Fellwar Stone")], deck=FULL)
+assert list(out) == [("Thought Vessel", "Fellwar Stone")], out
+# One short: the first bare add fills it, a second would overfill; a cut would widen it.
+out = run([bare_add("Mind Stone"), bare_add("Fellwar Stone"), bare_cut("Cultivate")], deck=SHORT)
+assert list(out) == [(None, "Mind Stone")], out
+# One over: one bare cut, not two; an add would widen it.
+out = run([bare_cut("Cultivate"), bare_cut("Thought Vessel"), bare_add("Mind Stone")], deck=OVER)
+assert list(out) == [("Cultivate", None)], out
+# A dropped add uses no room: the bad name first, then the real card still fits.
+out = run([bare_add("Not A Real Card"), bare_add("Mind Stone")], deck=SHORT)
+assert list(out) == [(None, "Mind Stone")], out
+print("ok: bare adds only while short of the deck's size, bare cuts only while over")
+
+# --- job 4d: no Game Changer past the bracket ceiling (Andres, 2026-11-06) ----- #
+# With no target the ceiling is the bracket the deck is in now; a target replaces it.
+assert mtg._deck_context(DECK)["bracket"]["bracket"] == 2, "test deck must start in bracket 2"
+GC = ["Rhystic Study", "Demonic Tutor", "Smothering Tithe", "Vampiric Tutor", "Cyclonic Rift"]
+assert all(idx.get(n)["game_changer"] for n in GC) and not idx.get("Mind Stone")["game_changer"]
+out = run([swap("Thought Vessel", "Rhystic Study"), swap("Cultivate", "Mind Stone")], bracket=None)
+assert list(out) == [("Cultivate", "Mind Stone")], out
+# The Goals target counts as the ceiling too (the page sends it there, not as `bracket`).
+out = run([swap("Thought Vessel", "Rhystic Study")], {"bracket_target": 3}, bracket=None)
+assert ("Thought Vessel", "Rhystic Study") in out, out
+# Target 3 allows 1-3 Game Changers: of five, three are kept, counted across the list.
+five = [bare_add(n) for n in GC]
+out = run(five, {"bracket_target": 3}, bracket=None)
+assert [a for _, a in out] == GC[:3], out
+assert len(run(five, {"bracket_target": 4}, bracket=None)) == 5
+# A deck already holding one: trading it for another adds none, so a target of 2
+# still allows that swap and drops a new one.
+WITH_GC = DECK + "\n1 Demonic Tutor"
+assert mtg._deck_context(WITH_GC)["bracket"]["bracket"] == 3
+out = run([swap("Demonic Tutor", "Vampiric Tutor"), swap("Cultivate", "Rhystic Study")],
+          {"bracket_target": 2}, deck=WITH_GC, bracket=None)
+assert list(out) == [("Demonic Tutor", "Vampiric Tutor")], out
+# The cheaper pick is checked too: Narset is a Game Changer, Jace is not.
+assert idx.get("Narset, Parter of Veils")["game_changer"] and not idx.get("Jace, the Mind Sculptor")["game_changer"]
+jace = swap(None, "Jace, the Mind Sculptor", "Narset, Parter of Veils", action="add")
+assert cheaper_of(jace)["name"] == "Narset, Parter of Veils", "at bracket 5 Narset is kept"
+(only,) = run([jace], bracket=None).values()
+assert only["add"] == "Jace, the Mind Sculptor" and only["cheaper"] is None, only
+print("ok: a Game Changer that would lift the deck past its target, or its bracket now, is dropped")
