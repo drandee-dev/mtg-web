@@ -12,7 +12,7 @@ import MassArtModal from "./MassArtModal";
 import UpgradeReview from "./UpgradeReview";
 import MoreMenu from "./MoreMenu";
 import { PaletteIcon, LinkIcon, LockIcon, UnlockIcon, ListIcon, SearchIcon } from "../Icons";
-import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderNamesClean, setCommanderPrinting, webFormat, pullAsides } from "../../lib/deckParser";
+import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderNamesClean, setCommanderPrinting, webFormat, pullAsides, isCommanderFormat } from "../../lib/deckParser";
 import { goalsToApi } from "../../lib/goals";
 import { isVisibleEntry } from "../../lib/optimizeLog";
 import { deckSignature } from "../../lib/insightsCache";
@@ -337,8 +337,8 @@ export default function DeckView({
   // Considering, as on paste and import, so the deck text never holds one (Holiday,
   // 2026-11-06); so does a Sideboard in Commander. A constructed deck keeps its
   // sideboard in the text, uncounted, exported and checked.
-  function settleAsides() {
-    const { rest, aside } = pullAsides(decklist, { sideboard: isCommanderFmt });
+  function settleAsides(sideboard = isCommanderFmt) {
+    const { rest, aside } = pullAsides(decklist, { sideboard });
     if (!aside.length) return;
     const names = aside.map((l) => l.replace(/^\d+\s+/, ""));
     setDecklist(rest.trim());
@@ -831,7 +831,11 @@ export default function DeckView({
               <select
                 className="dh-format"
                 value={format}
-                onChange={(e) => setFormat(e.target.value)}
+                onChange={(e) => {
+                  setFormat(e.target.value);
+                  // A constructed sideboard sits outside a Commander deck: move it now, not on reload.
+                  if (isCommanderFormat(e.target.value)) settleAsides(true);
+                }}
                 disabled={locked}
                 aria-label="Deck format"
               >
@@ -970,7 +974,7 @@ export default function DeckView({
               className="deck-text-editor"
               value={decklist}
               onChange={(e) => setDecklist(e.target.value)}
-              onBlur={settleAsides}
+              onBlur={() => settleAsides()}
               placeholder={"1 Sol Ring\n1 Llanowar Elves\n…"}
               aria-label="Edit decklist as text"
             />

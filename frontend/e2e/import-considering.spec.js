@@ -74,6 +74,21 @@ test.describe("URL import + Considering + rename", () => {
     await expect(page.locator(".deck-head-count")).toHaveText("60 / 60+ cards");
   });
 
+  // 2026-11-06: switching Legacy to Commander left the sideboard in the deck text
+  // until a reload moved it; the switch now moves it to Considering straight away.
+  test("switching a constructed deck to Commander moves its sideboard to Considering", async ({ page }) => {
+    const text = "56 Island\n4 Brainstorm\nSideboard\n15 Pyroblast";
+    const q = new URLSearchParams({ deck: Buffer.from(text, "utf8").toString("base64"), fmt: "legacy" });
+    await page.goto(`/?${q.toString()}`);
+    await waitForAppReady(page);
+    await dismissColdStart(page);
+    await page.locator(".dh-format").selectOption("commander");
+    const considering = page.locator(".considering-group, .stack-column-considering");
+    await expect(considering.locator('[aria-label*="Pyroblast"]').first()).toBeVisible();
+    await deckMenuAction(page, "Edit as text");
+    await expect(page.locator(".deck-text-editor")).toHaveValue("56 Island\n4 Brainstorm");
+  });
+
   // Holiday, 2026-11-06: pasting into a deck that has cards dropped the list's
   // Considering cards (its Companion and, in Commander, Sideboard sections).
   test("pasting into a populated deck keeps the list's companion and sideboard in Considering", async ({ page }) => {
