@@ -463,12 +463,14 @@ function ChangesPane({
   // Matches lib/changeset.js: the AI's changes show in both modes; budget mode adds
   // the swaps on top. ChangeCard colours a saving green and a cost amber (.opt-delta).
   const modeTip = useInfoTip("budget swaps and power upgrades",
-    "Both show the AI's changes toward your goals. Budget swaps also adds cheaper cards that "
+    "Both show the AI's changes toward your goals, each with a cheaper card for the same job "
+    + "under it when there is one. Budget swaps also adds cheaper cards that "
     + "do the same job, led by what this commander's decks play; Power upgrades shows the AI's "
     + "changes alone. The amount on a change is how it moves the deck's price: green saves, amber costs more.");
   const sourceTip = useInfoTip("suggestions",
     "Cards that EDHREC's decks with this commander play, one list at a time. "
-    + "\"Played in N%\" is the share of those decks that run the card.");
+    + "\"Played in N%\" is the share of those decks that run the card, shown once at least "
+    + "100 decks have this commander.");
   if (!loaded) return <p className="muted small insp-empty">No change proposals loaded yet.</p>;
   // Every category key can come back present but empty (no EDHREC page for
   // this pairing), so count cards, not keys, or the dropdown renders blank.

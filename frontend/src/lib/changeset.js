@@ -34,8 +34,13 @@ const REC_LABEL = Object.fromEntries(REC_CATEGORIES);
 // The share of this commander's EDHREC decks that play the card. This used to print
 // EDHREC's synergy score as "Played in N%", which it is not (a synergy can even be
 // negative); budget swaps' "Played in N%" is the real share, so the two now agree.
+// Under 100 decks there is no share, the same floor as budget swaps
+// (_MIN_COMMANDER_DECKS): 6 of 12 is no "50%".
+const MIN_COMMANDER_DECKS = 100;
 function deckShare(c) {
-  return c?.potential_decks > 0 ? Math.round((100 * (c.num_decks || 0)) / c.potential_decks) : null;
+  return c?.potential_decks >= MIN_COMMANDER_DECKS
+    ? Math.round((100 * (c.num_decks || 0)) / c.potential_decks)
+    : null;
 }
 
 function recReason(share) {

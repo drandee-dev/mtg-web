@@ -110,6 +110,19 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .opt-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
 .opt-actions button { min-height: 44px; padding: 0 16px; border-radius: var(--radius-md); font-weight: 500; }
 .chg-apply { border: 1px solid var(--border-strong); }
+.opt-over { font-size: var(--fs-2xs); font-weight: 600; color: var(--warn); }
+/* A two-pick AI change (suggestions job 4): the cheaper card under the reason. */
+.chg-alt {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px;
+  margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--border);
+  font-size: var(--fs-sm); color: var(--text-secondary);
+}
+.chg-alt-card { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.chg-alt-thumb { width: 28px; height: 39px; border-radius: 3px; }
+.chg-alt-text { min-width: 0; }
+.chg-alt-text b { color: var(--text); }
+.chg-alt-apply { min-height: 44px; padding: 0 14px; border-radius: var(--radius-md); border: 1px solid var(--border-strong); }
+.chg-alt-why { flex-basis: 100%; font-size: var(--fs-xs); color: var(--muted); }
 @media (min-width: 700px) {
   .opt-card { grid-template-columns: auto 1fr auto; }
   .opt-actions { grid-column: auto; }
