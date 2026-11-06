@@ -1,7 +1,20 @@
 // Run with: node --test src/lib/deckParser.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { deckCardCount, parseDeckText, webFormat } from "./deckParser.js";
+import { deckCardCount, parseDeckText, pullCompanions, webFormat } from "./deckParser.js";
+
+// Holiday, 2026-11-06: a pasted Companion section is taken out (it joins Considering),
+// including Arena's order, where it sits between Commander and Deck.
+test("pullCompanions takes Companion sections out of a pasted list", () => {
+  const arena = "Commander\n1 Atraxa, Praetors' Voice\n\nCompanion\n1 Jegantha, the Wellspring\n\nDeck\n99 Forest";
+  const { rest, companions } = pullCompanions(arena);
+  assert.deepEqual(companions, ["1 Jegantha, the Wellspring"]);
+  assert.ok(!rest.includes("Jegantha") && !/companion/i.test(rest), rest);
+  assert.match(rest, /^Commander\n1 Atraxa, Praetors' Voice\n\s*\nDeck\n99 Forest$/);
+  const last = pullCompanions("98 Plains\nCompanion\n1 Lurrus of the Dream-Den");
+  assert.deepEqual(last, { rest: "98 Plains", companions: ["1 Lurrus of the Dream-Den"] });
+  assert.deepEqual(pullCompanions("1 A\nMaybeboard\n1 B"), { rest: "1 A\nMaybeboard\n1 B", companions: [] });
+});
 
 // 2026-11-06: a companion is not one of the deck's cards, and neither is the
 // Considering pile saved under "Maybeboard" (My Decks counted both).

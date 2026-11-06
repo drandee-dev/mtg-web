@@ -170,6 +170,23 @@ test.describe("New deck screen", () => {
     expect((await savedDecks(page)).length).toBe(1);
   });
 
+  // 2026-11-06 (Holiday): a pasted Companion section joins Considering, as the
+  // importers do, also in Arena's order (between Commander and Deck), so the
+  // commander is still found and the deck text never ends in a companion.
+  test("a pasted companion goes to Considering and the commander is still found", async ({ page }) => {
+    await openNew(page);
+    await door(page, "Paste or import").click();
+    await page.locator("#nd-paste").fill(
+      `Commander\n1 ${TEST_COMMANDER}\n\nCompanion\n1 Jegantha, the Wellspring\n\nDeck\n1 Sol Ring\n1 Counterspell`,
+    );
+    await page.getByRole("button", { name: "Create the deck →" }).click();
+    await expect(guide(page)).toBeVisible();
+    const [deck] = await savedDecks(page);
+    expect(deck.decklist_text).toBe(
+      `Commander\n1 ${TEST_COMMANDER}\nDeck\n1 Sol Ring\n1 Counterspell\nMaybeboard\n1 Jegantha, the Wellspring`,
+    );
+  });
+
   test("a deck link imports with its name, and its sideboard goes to Considering", async ({ page }) => {
     await openNew(page);
     await door(page, "Paste or import").click();

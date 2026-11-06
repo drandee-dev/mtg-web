@@ -2,6 +2,22 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { escapeRegExp, findDeckLine, appendLine, removeLine, setQty } from "./decklistEdit.js";
+import { parseDeckText } from "./deckParser.js";
+
+// Holiday, 2026-11-06: a card added to a list ending in a Companion (or Maybeboard)
+// section was filed in that section and vanished from the deck.
+test("a card added to a list ending in a Companion or Maybeboard section stays in the deck", () => {
+  for (const tail of ["Companion\n1 Lurrus of the Dream-Den", "\nMaybeboard\n1 Ponder"]) {
+    const deck = `97 Plains\n1 Sol Ring\n${tail}`;
+    const added = appendLine(deck, "1 Rhystic Study");
+    assert.ok(added.endsWith(tail), added);
+    const parsed = parseDeckText(added);
+    assert.equal(parsed.totalCards, 99, added);
+    assert.ok(parsed.cards.some((c) => c.name === "Rhystic Study"), added);
+    assert.equal(parseDeckText(setQty(deck, "Forest", 2)).totalCards, 100);
+  }
+  assert.equal(appendLine("1 A", "1 B"), "1 A\n1 B");
+});
 
 const DECK = ["1 Sol Ring (C21) 263", "4 Lightning Bolt", "1 Fire // Ice", "1 B.F.M. (Big Furry Monster)", "", "1 Cultivate"].join("\n");
 

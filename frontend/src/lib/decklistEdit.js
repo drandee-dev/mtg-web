@@ -25,9 +25,22 @@ export function findDeckLine(text, name) {
   return text.split("\n").find((l) => re.test(l)) || null;
 }
 
-/** `line` added after the last line, however the text ends. */
+/** Section headers whose cards are not in the deck: the Considering pile and a
+ * companion (it starts the game outside the deck). Shared with deckParser. */
+export const OUTSIDE_SECTION = /^\s*(maybeboard|companion)\s*$/i;
+
+/** `line` added as the deck's last card: after the last line, or before a
+ * Companion or Maybeboard section when the text has one. Appended after such a
+ * section, a new card would be filed in it and vanish from the deck
+ * (Holiday, 2026-11-06). */
 export function appendLine(text, line) {
-  return `${text.replace(/\s*$/, "")}\n${line}`;
+  const lines = text.replace(/\s*$/, "").split("\n");
+  const at = lines.findIndex((l) => OUTSIDE_SECTION.test(l));
+  if (at < 0) return `${lines.join("\n")}\n${line}`;
+  let i = at;
+  while (i > 0 && !lines[i - 1].trim()) i--;
+  lines.splice(i, 0, line);
+  return lines.join("\n");
 }
 
 /** The text without the first line for `name`; unchanged when there is none. */
@@ -54,6 +67,6 @@ export function setQty(text, name, qty) {
       out.push(l);
     }
   }
-  if (!placed && qty > 0) out.push(`${qty} ${name}`);
+  if (!placed && qty > 0) return appendLine(out.join("\n"), `${qty} ${name}`);
   return out.join("\n");
 }
