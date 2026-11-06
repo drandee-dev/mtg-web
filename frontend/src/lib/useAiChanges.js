@@ -119,11 +119,16 @@ export function useAiChanges({
   }
 
   // A skip goes in the session log too, which feeds the AI's session memory.
+  // Both picks of a two-pick change are skipped, or the next pass offers the
+  // cheaper card as a fresh suggestion for the same slot.
   function logOptSkip(ch) {
     const cut = ch.cut || null;
-    const add = ch.add || null;
-    const dup = optLog.some((e) => e.action === "skip" && e.cut === cut && e.add === add);
-    if (!dup) setOptLog(appendLog(deckId, makeEntry({ action: "skip", cut, add })));
+    let log = optLog;
+    for (const add of [ch.add || null, ...(ch.cheaper?.name ? [ch.cheaper.name] : [])]) {
+      const dup = log.some((e) => e.action === "skip" && e.cut === cut && e.add === add);
+      if (!dup) log = appendLog(deckId, makeEntry({ action: "skip", cut, add }));
+    }
+    if (log !== optLog) setOptLog(log);
   }
 
   function undoOptChange(entry) {
@@ -246,6 +251,9 @@ export function useAiChanges({
     // didn't decline it. Covers budget swaps and optimize-sourced swaps
     // alike — both cut a card out in the same "swap" shape.
     if ((ch.source === "upgrade" || ch.source === "optimize") && ch.cut && ch.add) skip(ch.cut);
+    // Taking the cheaper card declines the strongest one, or the next pass offers
+    // it again for the same slot (Holiday, 2026-11-06).
+    if (ch.source === "optimize" && ch.strongest) logOptSkip({ cut: ch.cut, add: ch.strongest });
   }
 
   // Each source owns its own persisted verdict list, so one source's "Show

@@ -30,6 +30,19 @@ test("a suggestion's percentage is the share of this commander's decks, not EDHR
   assert.equal(reason("No Data"), "Commonly played alongside this commander.");
 });
 
+test("a suggestion shows no share under 100 decks, the floor budget swaps use", () => {
+  const out = buildChanges({
+    recCat: "creatures",
+    recs: { categories: { creatures: [
+      { name: "Small Sample", num_decks: 6, potential_decks: 12 },
+      { name: "Just Enough", num_decks: 50, potential_decks: 100 },
+    ] } },
+  });
+  const reason = (n) => out.find((c) => c.add === n).reason;
+  assert.equal(reason("Small Sample"), "Commonly played alongside this commander.");
+  assert.equal(reason("Just Enough"), "Played in 50% of this commander's decks.");
+});
+
 test("without commander data the reason has no percentage", () => {
   for (const pct of [null, undefined, 0]) {
     const [ch] = swapsOf({ name: "Blood Artist", price: 2.68, commander_pct: pct });

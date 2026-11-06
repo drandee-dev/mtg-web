@@ -31,7 +31,7 @@ export default function DeckGoals({
   const bracketTip = useInfoTip("bracket",
     "The power level you want, from 1 (casual) to 5 (competitive). AI suggestions are told to steer toward it and to flag cards above it. Keep current gives the AI no target.");
   const budgetTip = useInfoTip("budget",
-    "The most the whole deck may cost. AI suggestions are told to stay under it. Budget swaps always pick cheaper cards, whatever you set here.");
+    "The most the whole deck may cost. AI suggestions are told to stay under it, but each AI change names its strongest card whatever it costs, with a cheaper one for the same job beside it; either is marked when the deck would end up over this. Budget swaps always pick cheaper cards, whatever you set here.");
   const pilotTip = useInfoTip("pilot",
     "How much the deck asks of whoever plays it. Simple avoids long chains of triggers and stack tricks; Moderate allows some; Any sets no limit.");
 

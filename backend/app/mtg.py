@@ -1357,13 +1357,19 @@ _PILOT_INSTRUCTIONS = {
 }
 
 
-def goals_prompt_parts(goals: dict | None) -> tuple[str, str]:
+def goals_prompt_parts(
+    goals: dict | None, *, two_picks: bool = False
+) -> tuple[str, str]:
     """(system_suffix, user_suffix) for user Deck Goals.
 
     Validated scalars (bracket target, budget, pilot) are safe for the system
     prompt. Free text (protected card names, flavor note) is user-supplied, so
     it rides in the USER message wrapped in <user_input> tags per the
     prompt-injection rules — never in the system prompt.
+
+    `two_picks` (the AI pass, which names a strongest and a cheaper card per
+    change): the budget binds the cheaper pick only, so the strongest one is
+    free to cost more and the page marks it over budget instead.
     """
     if not goals:
         return "", ""
@@ -1376,7 +1382,14 @@ def goals_prompt_parts(goals: dict | None) -> tuple[str, str]:
             f"a higher bracket."
         )
     budget = goals.get("budget_ceiling")
-    if budget:
+    if budget and two_picks:
+        sys_lines.append(
+            f"Budget ceiling: ${float(budget):.0f} total deck price. It binds the "
+            f"\"cheaper\" pick: if the deck is under the ceiling, that card must keep "
+            f"it under; if the deck is already over, that card must not raise the "
+            f"deck's price. The main \"add\" is the strongest card even if it costs more."
+        )
+    elif budget:
         sys_lines.append(
             f"Budget ceiling: ${float(budget):.0f} total deck price. Never suggest "
             f"additions that would push the deck over it; prefer cheap, efficient swaps."
@@ -1999,10 +2012,11 @@ CRITICAL RULES:
 3. Prefer "swap" changes (cut one card, add one card covering the same or a more needed role). Use a bare "cut" only when the deck is OVER the format's card count, and a bare "add" only when it is UNDER.
 4. Cut targets must be exact card names from the decklist. Additions must be real Magic cards with exact English names, inside the commander's color identity, and not already in the deck.
 5. Every reason must be one specific sentence about THIS deck — reference the commander, a synergy, a goal, or a curve/composition fact.
+6. TWO PICKS for every swap and add: "add" is the STRONGEST card for this slot within the target bracket and the deck's goals, whatever it costs. "cheaper" is a cheaper real card doing the same job in the same slot (same role, same kind of card, about the same mana cost, same rules as rule 4, not the same card as "add"), with "cheaper_reason" in at most 15 words. Omit "cheaper" only when no cheaper card does the job.
 
 IMPORTANT: Your entire response must be ONLY valid JSON. No preamble, no markdown. Start with { immediately. Format:
 {"assessment": "Two sentences: where the deck stands relative to the user's goals, and what this changeset focuses on.",
- "changes": [{"action": "swap", "cut": "Card In Deck", "add": "New Card", "reason": "One sentence.", "category": "Ramp", "impact": "high"}]}
+ "changes": [{"action": "swap", "cut": "Card In Deck", "add": "New Card", "reason": "One sentence.", "category": "Ramp", "impact": "high", "cheaper": "Cheaper Card", "cheaper_reason": "Up to 15 words."}]}
 
 - action: "swap" | "cut" | "add"
 - category: one of Ramp, Draw, Removal, Board wipe, Wincon, Synergy, Mana base, Utility
@@ -2024,6 +2038,8 @@ _OPTIMIZE_SCHEMA = {
                     "reason": {"type": "string"},
                     "category": {"type": "string"},
                     "impact": {"type": "string", "enum": ["high", "medium", "low"]},
+                    "cheaper": {"type": "string"},
+                    "cheaper_reason": {"type": "string"},
                 },
                 "required": ["action", "reason", "category", "impact"],
             },
@@ -2166,6 +2182,72 @@ OPTIMIZE_FOCUS = {
 }
 
 
+# Roles too broad to say two cards do the same job: every role-less creature is a
+# "Creature", and Sacrifice/Lifegain ride along on mana rocks and wipes.
+_WEAK_ROLES = {"Creature", "Sacrifice", "Lifegain"}
+
+
+def _same_job(strong: dict, cheap: dict) -> bool:
+    """Whether the cheaper card does the strongest card's job (Andres, 2026-11-06):
+    a real role in common, within 2 mana, the same kind of card, and a land that
+    still taps the strongest land's colours. A role alone was too wide: Mind Stone
+    counts as Draw (it cantrips), so it passed for Vanquisher's Banner on a real
+    run. This drops Smothering Tithe -> Arcane Signet too, by his choice: a missed
+    cheaper card beats a wrong one."""
+    shared = (set(_classify_roles(strong)) - _WEAK_ROLES) & (
+        set(_classify_roles(cheap)) - _WEAK_ROLES
+    )
+    if not shared or _swap_type(strong) != _swap_type(cheap):
+        return False
+    if abs((strong.get("cmc") or 0) - (cheap.get("cmc") or 0)) > 2:
+        return False
+    return _swap_type(strong) != "land" or _land_swap_ok(strong, cheap)
+
+
+def _cheaper_pick(
+    ch: dict,
+    add_rec: dict | None,
+    add_price: float | None,
+    cut_price: float | None,
+    verdicts: dict,
+    idx: Any,
+    over: Any,
+) -> dict | None:
+    """The AI's cheaper card for one change, or None when it is no real option.
+
+    Kept only when it passes the same gate as every add, is a different card
+    from the strongest pick, costs less than it (both priced: a guess is no
+    saving), and does the same job (_same_job). Each rejection is logged, since
+    the page simply shows one option.
+    """
+    raw = str(ch.get("cheaper") or "").strip()[:100]
+    if not raw:
+        return None
+    verdict = verdicts.get(raw)
+    if not verdict or verdict["status"] != "ok":
+        log.info("optimize: cheaper %r rejected: %s", raw, verdict and verdict["status"])
+        return None
+    name = verdict["name"]
+    rec = idx.get(name)
+    price = extract_price(rec) if rec else None
+    if not add_rec or name == add_rec.get("name"):
+        return None
+    if not (price and add_price and price < add_price):
+        log.info("optimize: cheaper %r not cheaper (%s vs %s)", name, price, add_price)
+        return None
+    if not _same_job(add_rec, rec):
+        log.info("optimize: cheaper %r does a different job from %r", name, add_rec.get("name"))
+        return None
+    delta = round(price - (cut_price or 0), 2)
+    return {
+        "name": name,
+        "price_usd": round(price, 2),
+        "price_delta": delta,
+        "reason": str(ch.get("cheaper_reason") or "")[:140],
+        "over_budget": over(delta),
+    }
+
+
 def ai_optimize(
     text: str,
     *,
@@ -2182,7 +2264,14 @@ def ai_optimize(
     protected card), add must be a real card in color identity and not already
     in the deck — so the queue never shows an impossible change."""
     ctx = _deck_context_cached(text, fmt, bracket=bracket)
-    goal_sys, goal_user = goals_prompt_parts(goals)
+    goal_sys, goal_user = goals_prompt_parts(goals, two_picks=True)
+    # The cheaper pick has to keep the deck under the ceiling, so the AI needs the
+    # deck's price; the server rechecks both picks against it below.
+    price_now = deck_breakdown(ctx["hd"])["price_usd"] if ctx.get("hd") else None
+    try:
+        ceiling = float((goals or {}).get("budget_ceiling") or 0) or None
+    except (TypeError, ValueError):
+        ceiling = None
     focus_label = OPTIMIZE_FOCUS.get(focus or "")
     if focus_label:
         goal_sys += (
@@ -2194,6 +2283,8 @@ def ai_optimize(
     # than the cached payload block; the old code glued goal_user onto the
     # payload block, which busted its own cache on every goals edit.
     tail = goal_user
+    if price_now:
+        tail += f"\n\nCurrent deck price: ${price_now:.0f}."
     if recent_changes:
         digest = "; ".join(recent_changes[-30:])
         tail += (
@@ -2209,7 +2300,8 @@ def ai_optimize(
             ctx["summary"], _OPTIMIZE_INSTRUCTION + goal_sys, tail=tail
         ),
         api_key=api_key,
-        max_tokens=2500,
+        # Two picks and reasons per change; 2500 risked a cut-off answer.
+        max_tokens=3500,
         schema=_OPTIMIZE_SCHEMA,
     )
     if resp["error"]:
@@ -2245,11 +2337,16 @@ def ai_optimize(
     proposals = [ch for ch in (data.get("changes") or [])[:12] if isinstance(ch, dict)]
     # Every add goes through the shared gate: exact name, legal (bans), inside the
     # deck's identity (inferred when no commander is set), not already in.
-    add_names = [str(ch.get("add") or "").strip()[:100] for ch in proposals]
+    add_names = [
+        str(ch.get(k) or "").strip()[:100] for ch in proposals for k in ("add", "cheaper")
+    ]
     verdicts = {
         r["input"]: r
         for r in validate_adds([n for n in add_names if n], text, fmt)["results"]
     }
+
+    def over(delta: float | None) -> bool:
+        return bool(ceiling and price_now is not None and price_now + (delta or 0) > ceiling)
 
     changes: list[dict] = []
     for ch in proposals:
@@ -2293,6 +2390,11 @@ def ai_optimize(
         impact = str(ch.get("impact") or "").strip().lower()
         if impact not in ("high", "medium", "low"):
             impact = "medium"
+        delta = (
+            round((add_price or 0) - (cut_price or 0), 2)
+            if (add_price or cut_price)
+            else None
+        )
         changes.append(
             {
                 "action": action,
@@ -2303,11 +2405,29 @@ def ai_optimize(
                 "impact": impact,
                 "price_usd": round(add_price, 2) if add_price else None,
                 "cut_price_usd": round(cut_price, 2) if cut_price else None,
-                "price_delta": round((add_price or 0) - (cut_price or 0), 2)
-                if (add_price or cut_price)
+                "price_delta": delta,
+                "over_budget": bool(add) and over(delta),
+                "cheaper": _cheaper_pick(
+                    ch, add_rec, add_price, cut_price, verdicts, idx, over
+                )
+                if add
                 else None,
             }
         )
+
+    # A card that already appears in this list is no cheaper option: applying one
+    # would leave the other as a cut with nothing added. Main adds always win, then
+    # the first change to offer a cheaper card keeps it.
+    taken = {c["add"] for c in changes if c["add"]}
+    for c in changes:
+        alt = c["cheaper"]
+        if not alt:
+            continue
+        if alt["name"] in taken:
+            log.info("optimize: cheaper %r dropped, already in this list", alt["name"])
+            c["cheaper"] = None
+        else:
+            taken.add(alt["name"])
 
     if not changes:
         # Not an error to the page, which just shows an empty list, so the log has to
