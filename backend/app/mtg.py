@@ -1392,8 +1392,14 @@ def goals_prompt_parts(
                 "If the deck is already over the ceiling, the main \"add\" may be a "
                 "card that brings the deck's price down (the user chose savings first)."
                 if goals.get("over_budget") == "savings"
+                # Job 4c: with only the line above, a paid call on an over-cap deck
+                # (2026-11-06) still chose which cards to change to save money.
                 else "The main \"add\" is the strongest card even if it costs more, "
-                "including when the deck is already over the ceiling."
+                "including when the deck is already over the ceiling. The ceiling is "
+                "not a goal to move toward: never pick a card to change because of "
+                "its price, and never swap a card for a weaker one to save money (the "
+                "\"cheaper\" pick already shows the saving). Choose every change for "
+                "power and the deck's plan."
             )
         )
     elif budget:

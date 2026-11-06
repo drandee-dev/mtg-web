@@ -175,6 +175,11 @@ assert STRONGEST in prompt and SAVINGS not in prompt, "default must be strongest
 assert SAVINGS in two({"budget_ceiling": 300, "over_budget": "savings"})
 assert STRONGEST not in two({"budget_ceiling": 300, "over_budget": "savings"})
 assert STRONGEST in two({"budget_ceiling": 300, "over_budget": "strongest"})
+# Job 4c: a paid call on an over-cap deck still chose cards to change to save money, so
+# strongest first also says the ceiling is no reason to change a card; savings first doesn't.
+NOT_A_GOAL = "never swap a card for a weaker one to save money"
+assert NOT_A_GOAL in prompt and NOT_A_GOAL in two({"budget_ceiling": 300})
+assert NOT_A_GOAL not in two({"budget_ceiling": 300, "over_budget": "savings"})
 # The setting only shapes the budget line, so with no budget nothing is sent.
 assert two({"over_budget": "savings"}) == ""
 # The other callers' binding line is untouched by it.
