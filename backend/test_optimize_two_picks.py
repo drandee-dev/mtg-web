@@ -164,3 +164,29 @@ assert f"Current deck price: ${deck_price:.0f}." in prompt, prompt[-600:]
 # Every other caller keeps the old, binding budget line.
 assert "Never suggest additions" in mtg.goals_prompt_parts({"budget_ceiling": 300})[0]
 print("ok: prompt names both picks, the cheaper-only budget line and the deck price")
+
+# --- the Goals toggle: what the main pick leads with over the cap (job 4b) ---- #
+# Andres, 2026-11-06: the strongest card, even on a deck already over its budget,
+# unless the user chooses savings first.
+two = lambda g: mtg.goals_prompt_parts(g, two_picks=True)[0]  # noqa: E731
+STRONGEST = "including when the deck is already over the ceiling"
+SAVINGS = "the user chose savings first"
+assert STRONGEST in prompt and SAVINGS not in prompt, "default must be strongest first"
+assert SAVINGS in two({"budget_ceiling": 300, "over_budget": "savings"})
+assert STRONGEST not in two({"budget_ceiling": 300, "over_budget": "savings"})
+assert STRONGEST in two({"budget_ceiling": 300, "over_budget": "strongest"})
+# The setting only shapes the budget line, so with no budget nothing is sent.
+assert two({"over_budget": "savings"}) == ""
+# The other callers' binding line is untouched by it.
+assert SAVINGS not in mtg.goals_prompt_parts({"budget_ceiling": 300, "over_budget": "savings"})[0]
+
+from app.main import GoalsPayload  # noqa: E402
+
+assert GoalsPayload().over_budget == "strongest"
+assert GoalsPayload(over_budget="Savings").over_budget == "savings"
+try:
+    GoalsPayload(over_budget="cheapest")
+    raise AssertionError("an unknown over_budget value was accepted")
+except ValueError:
+    pass
+print("ok: over budget leads with the strongest card unless the user picks savings first")

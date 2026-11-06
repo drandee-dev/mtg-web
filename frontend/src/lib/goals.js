@@ -8,6 +8,9 @@ export const DEFAULT_GOALS = {
   protected: [],       // card names the AI must never cut/replace
   pilot: "any",        // "simple" | "moderate" | "any"
   flavorNote: "",      // free text, e.g. "Mutate tribal. No infinite combos."
+  // What an AI change leads with when the deck already costs more than the budget:
+  // "strongest" (default, Andres 2026-11-06) | "savings". Only means anything with a budget.
+  overBudget: "strongest",
 };
 
 export const FLAVOR_SUGGESTIONS = [
@@ -32,7 +35,7 @@ export function saveGoals(deckId, goals) {
   try {
     const isDefault =
       !goals.bracketTarget && !goals.budgetCeiling && !goals.protected.length &&
-      goals.pilot === "any" && !goals.flavorNote.trim();
+      goals.pilot === "any" && !goals.flavorNote.trim() && goals.overBudget !== "savings";
     if (isDefault) localStorage.removeItem(key(deckId));
     else localStorage.setItem(key(deckId), JSON.stringify(goals));
   } catch { /* storage full/blocked — goals are best-effort */ }
@@ -52,5 +55,7 @@ export function goalsToApi(goals) {
     ...(goals.protected.length ? { protected: goals.protected.slice(0, 15) } : {}),
     ...(goals.pilot && goals.pilot !== "any" ? { pilot: goals.pilot } : {}),
     ...(goals.flavorNote.trim() ? { flavor_note: goals.flavorNote.trim().slice(0, 300) } : {}),
+    // Sent only when it changes something: savings first, with a budget to be over.
+    ...(goals.overBudget === "savings" && goals.budgetCeiling ? { over_budget: "savings" } : {}),
   };
 }

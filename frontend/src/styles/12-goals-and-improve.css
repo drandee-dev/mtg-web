@@ -42,6 +42,7 @@
 .dg-body { padding: .2rem .65rem .65rem; border-top: 1px solid var(--border); }
 .dg-row { display: flex; gap: .5rem; margin-top: .55rem; }
 .dg-key { flex: none; width: 72px; /* room for the label's help button */ font-size: var(--fs-xs); color: var(--text-secondary); padding-top: .3rem; }
+.dg-key-tail { white-space: nowrap; }
 .dg-opts { display: flex; gap: .3rem; flex-wrap: wrap; align-items: center; min-width: 0; }
 .dg-chip {
   font-size: var(--fs-xs); font-weight: 600; border-radius: 999px; min-height: 30px;
