@@ -105,6 +105,27 @@ test.describe("URL import + Considering + rename", () => {
     await expect(page.locator(".deck-head-count")).toHaveText("4 / 100 cards");
   });
 
+  // 2026-11-06: the toast counted pasted copies (3 Ponder = +3) though the pile adds one entry.
+  test("the paste toast counts Considering cards by name", async ({ page }) => {
+    await loadSharedDeck(page, "1 Sol Ring\n1 Counterspell", TEST_COMMANDER);
+    await deckMenuAction(page, "Import cards");
+    await page.locator(".icm-panel textarea").fill("1 Arcane Signet\nSideboard\n3 Ponder");
+    await page.locator(".icm-foot button", { hasText: "Import" }).click();
+    await expect(page.locator(".toast")).toContainText("Added 1 cards to the deck (+1 in Considering)");
+  });
+
+  // 2026-11-06: a paste of only a Companion section was refused as "no cards found".
+  test("a paste of only Considering cards adds them to the pile", async ({ page }) => {
+    await loadSharedDeck(page, "1 Sol Ring\n1 Counterspell", TEST_COMMANDER);
+    await deckMenuAction(page, "Import cards");
+    await page.locator(".icm-panel textarea").fill("Companion\n1 Jegantha, the Wellspring");
+    await page.locator(".icm-foot button", { hasText: "Import" }).click();
+    await expect(page.locator(".toast")).toContainText("Added 1 cards to Considering");
+    const considering = page.locator(".considering-group, .stack-column-considering");
+    await expect(considering.locator('[aria-label*="Jegantha"]').first()).toBeVisible();
+    await expect(page.locator(".deck-head-count")).toHaveText("3 / 100 cards");
+  });
+
   test("populated deck: URL import asks before replacing, then replaces wholesale", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await deckMenuAction(page, "Import cards");

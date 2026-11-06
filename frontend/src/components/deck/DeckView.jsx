@@ -430,8 +430,10 @@ export default function DeckView({
   function mergeImportedText(text) {
     const { commander: impCmdr, deckText: impMain, maybeboard: impMaybe } = disassembleDecklist(text || "", format);
     const mainLines = (impMain || "").trim();
-    if (!mainLines && !impCmdr) throw new Error("no cards found in the import");
-    const wasEmpty = !decklist.trim() && !commander;
+    const pileOnly = !mainLines && !impCmdr;
+    if (pileOnly && !(impMaybe || "").trim()) throw new Error("no cards found in the import");
+    // A paste of only Considering cards (a companion, a sideboard) adds to the pile, never replaces the deck.
+    const wasEmpty = !decklist.trim() && !commander && !pileOnly;
     if (wasEmpty) {
       // Wholesale replacement — whatever the generator explained is gone.
       clearBuildNotes();
@@ -449,9 +451,14 @@ export default function DeckView({
       if (names.length) setMaybeboard?.((prev) => appendConsidering(prev, names));
     }
     const n = parseDeckText(mainLines).totalCards;
-    const k = parseDeckText(impMaybe || "").totalCards;
+    // The pile holds one entry per name, so count the new names, not the pasted copies.
+    const have = new Set(consideringNames(maybeboard));
+    const k = wasEmpty ? parseDeckText(impMaybe || "").totalCards
+      : new Set(consideringNames(impMaybe).filter((x) => !have.has(x))).size;
     const pile = k ? ` (+${k} in Considering)` : "";
-    notify?.(wasEmpty ? `Imported ${n} cards${pile}.` : `Added ${n} cards to the deck${pile}.`);
+    notify?.(wasEmpty ? `Imported ${n} cards${pile}.`
+      : pileOnly ? `Added ${k} cards to Considering.`
+      : `Added ${n} cards to the deck${pile}.`);
     return wasEmpty;
   }
 
