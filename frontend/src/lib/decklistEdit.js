@@ -25,14 +25,16 @@ export function findDeckLine(text, name) {
   return text.split("\n").find((l) => re.test(l)) || null;
 }
 
-/** Section headers whose cards are not in the deck: the Considering pile and a
- * companion (it starts the game outside the deck). Shared with deckParser. */
-export const OUTSIDE_SECTION = /^\s*(maybeboard|companion)\s*$/i;
+/** Section headers whose cards are not in the deck: the Considering pile, a
+ * companion (it starts the game outside the deck) and a sideboard (the importers
+ * send it to Considering; counted, a constructed 60 + 15 read 75). Shared with
+ * deckParser. */
+export const OUTSIDE_SECTION = /^\s*(maybeboard|companion|sideboard)\s*$/i;
 const ANY_SECTION = /^\s*(commander|deck|sideboard|maybeboard|companion)\s*$/i;
 
 /** `line` added as the deck's last card. Text can hold section headers ("Edit as
- * text" takes anything): the line goes after the last Deck or Sideboard section,
- * before any Companion or Maybeboard section that follows it. Appended inside such
+ * text" takes anything): the line goes after the last Deck section, before any
+ * Companion, Sideboard or Maybeboard section that follows it. Appended inside such
  * a section, a new card vanished from the deck; inserted before an earlier one
  * (Arena's Commander, Companion, Deck order) it joined the commanders (Holiday,
  * 2026-11-06). If the last such header is Commander, a Deck header comes first. */

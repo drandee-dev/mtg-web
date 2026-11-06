@@ -7,7 +7,7 @@ import { parseDeckText } from "./deckParser.js";
 // Holiday, 2026-11-06: a card added to a list ending in a Companion (or Maybeboard)
 // section was filed in that section and vanished from the deck.
 test("a card added to a list ending in a Companion or Maybeboard section stays in the deck", () => {
-  for (const tail of ["Companion\n1 Lurrus of the Dream-Den", "\nMaybeboard\n1 Ponder"]) {
+  for (const tail of ["Companion\n1 Lurrus of the Dream-Den", "\nMaybeboard\n1 Ponder", "Sideboard\n1 Pyroblast"]) {
     const deck = `97 Plains\n1 Sol Ring\n${tail}`;
     const added = appendLine(deck, "1 Rhystic Study");
     assert.ok(added.endsWith(tail), added);

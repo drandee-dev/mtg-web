@@ -12,34 +12,39 @@ const TYPE_ORDER = [
 
 const SECTION_HEADERS = /^\s*(commander|deck|sideboard|maybeboard|companion)\s*$/i;
 // Sections whose cards are not in the deck (OUTSIDE_SECTIONS, from decklistEdit):
-// the Considering pile, and a companion, which starts the game outside it (a 99+1
-// Commander deck read as 101 before 2026-11-06). Their lines are skipped until the
-// next section header.
+// the Considering pile, a companion, which starts the game outside it (a 99+1
+// Commander deck read as 101 before 2026-11-06), and a sideboard. Their lines are
+// skipped until the next section header.
+const ASIDE_SECTION = /^\s*(companion|sideboard)\s*$/i;
 
-/** A pasted or saved list's Companion sections taken out: { rest, companions },
- * `rest` the text without them, `companions` their card lines. The importers send
- * a companion to Considering; a pasted one goes there too, so the deck text never
- * ends in a section that would swallow the next card added, and an Arena list
- * (Commander, Companion, Deck) still yields its commander (Holiday, 2026-11-06). */
-export function pullCompanions(text) {
+/** A pasted or saved list's Companion and Sideboard sections taken out:
+ * { rest, aside }, `rest` the text without them, `aside` their card lines, each card
+ * once (Arena lists a companion under both). They go to Considering, as the URL
+ * importers send them: the deck text never ends in a section that would swallow the
+ * next card added, an Arena list (Commander, Companion, Deck) still yields its
+ * commander (Holiday, 2026-11-06), and a constructed 60 + 15 counts as 60, not 75. */
+export function pullAsides(text) {
   const rest = [];
-  const companions = [];
-  let inCompanion = false;
+  const aside = [];
+  const seen = new Set();
+  let inAside = false;
   for (const line of (text || "").split(/\r?\n/)) {
     if (SECTION_HEADERS.test(line)) {
-      inCompanion = /^\s*companion\s*$/i.test(line);
-      if (!inCompanion) rest.push(line);
-    } else if (inCompanion) {
-      if (line.trim()) companions.push(line.trim());
+      inAside = ASIDE_SECTION.test(line);
+      if (!inAside) rest.push(line);
+    } else if (inAside) {
+      const card = line.trim();
+      const key = card.replace(/^\d+\s+/, "").toLowerCase();
+      if (card && !seen.has(key)) { seen.add(key); aside.push(card); }
     } else {
       rest.push(line);
     }
   }
-  return { rest: rest.join("\n"), companions };
+  return { rest: rest.join("\n"), aside };
 }
 
 /** The deck's cards with the commander counted: every "N Name" line outside the
- * Considering and Companion sections (My Decks' "100 cards" fact). */
+ * Considering, Companion and Sideboard sections (My Decks' "100 cards" fact). */
 export function deckCardCount(text) {
   let outside = false;
   let n = 0;

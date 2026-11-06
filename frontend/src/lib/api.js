@@ -1,6 +1,6 @@
 // Thin client for the FastAPI analysis backend. Base URL is configurable so the same
 // build works locally (localhost) and in production (your Render URL).
-import { pullCompanions } from "./deckParser.js";
+import { pullAsides } from "./deckParser.js";
 
 const BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8001";
 
@@ -291,8 +291,8 @@ export function warnIfBadAdd({ before, commander, format, name, notify, undo }) 
 const _CMD_BLOCK = /^\s*commander\s*\r?\n((?:\s*\d+\s+.+\r?\n)+)\s*deck\s*(?:\r?\n([\s\S]*))?$/i;
 const _MAYBE_SPLIT = /(?:^|\r?\n)\s*maybeboard\s*\r?\n/i;
 export function disassembleDecklist(text) {
-  // A Companion section joins the Considering pile, as the importers do.
-  const { rest, companions } = pullCompanions(text);
+  // Companion and Sideboard sections join the Considering pile, as the importers do.
+  const { rest, aside } = pullAsides(text);
   const raw = rest.trim();
   let commander = "";
   let body = raw;
@@ -311,7 +311,7 @@ export function disassembleDecklist(text) {
     deckText = parts[0].trim();
     maybeboard = parts.slice(1).join("\n").trim();
   }
-  if (companions.length) maybeboard = [...companions, maybeboard].filter(Boolean).join("\n");
+  if (aside.length) maybeboard = [...aside, maybeboard].filter(Boolean).join("\n");
   return { commander, deckText, maybeboard };
 }
 

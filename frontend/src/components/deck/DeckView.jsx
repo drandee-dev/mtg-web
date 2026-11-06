@@ -12,7 +12,7 @@ import MassArtModal from "./MassArtModal";
 import UpgradeReview from "./UpgradeReview";
 import MoreMenu from "./MoreMenu";
 import { PaletteIcon, LinkIcon, LockIcon, UnlockIcon, ListIcon, SearchIcon } from "../Icons";
-import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderNamesClean, setCommanderPrinting, webFormat, pullCompanions } from "../../lib/deckParser";
+import { parseDeckText, deckCompleteness, setPrintingInText, splitCommanders, commanderNamesClean, setCommanderPrinting, webFormat, pullAsides } from "../../lib/deckParser";
 import { goalsToApi } from "../../lib/goals";
 import { isVisibleEntry } from "../../lib/optimizeLog";
 import { deckSignature } from "../../lib/insightsCache";
@@ -333,16 +333,18 @@ export default function DeckView({
     warnIfBadAdd({ before: decklist, commander: isCommanderFmt ? commander : "", format, name, notify, undo: () => addToConsidering(name) });
   }
 
-  // Leaving the text editor: a Companion section typed or pasted there joins
-  // Considering, as on paste and import, so the deck text never holds one
-  // (Holiday, 2026-11-06). A companion starts the game outside the deck.
-  function settleCompanions() {
-    const { rest, companions } = pullCompanions(decklist);
-    if (!companions.length) return;
-    const names = companions.map((l) => l.replace(/^\d+\s+/, ""));
+  // Leaving the text editor: a Companion or Sideboard section typed or pasted there
+  // joins Considering, as on paste and import, so the deck text never holds one
+  // (Holiday, 2026-11-06). Both sit outside the deck.
+  function settleAsides() {
+    const { rest, aside } = pullAsides(decklist);
+    if (!aside.length) return;
+    const names = aside.map((l) => l.replace(/^\d+\s+/, ""));
     setDecklist(rest.trim());
     setMaybeboard?.((prev) => appendConsidering(prev, names));
-    notify?.(`Moved ${names.join(", ")} to Considering: a companion starts outside the deck`);
+    notify?.(names.length > 3
+      ? `Moved ${names.length} companion and sideboard cards to Considering`
+      : `Moved ${names.join(", ")} to Considering: companions and sideboards sit outside the deck`);
   }
 
   function renameDeck() {
@@ -957,7 +959,7 @@ export default function DeckView({
               className="deck-text-editor"
               value={decklist}
               onChange={(e) => setDecklist(e.target.value)}
-              onBlur={settleCompanions}
+              onBlur={settleAsides}
               placeholder={"1 Sol Ring\n1 Llanowar Elves\n…"}
               aria-label="Edit decklist as text"
             />

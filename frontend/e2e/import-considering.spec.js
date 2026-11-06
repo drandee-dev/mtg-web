@@ -42,6 +42,20 @@ test.describe("URL import + Considering + rename", () => {
     await expect(page.locator(".deck-head-count")).toHaveText("3 / 100 cards");
   });
 
+  // A Sideboard section goes the same way (follow-up, 2026-11-06): the URL importers
+  // already send a sideboard to Considering, and counted it made a 60 + 15 read 75.
+  test("a sideboard typed into the text editor moves to Considering on leaving it", async ({ page }) => {
+    await loadSharedDeck(page, "1 Sol Ring\n1 Counterspell", TEST_COMMANDER);
+    await deckMenuAction(page, "Edit as text");
+    const editor = page.locator(".deck-text-editor");
+    await editor.fill("1 Sol Ring\n1 Counterspell\nSideboard\n1 Lightning Bolt");
+    await editor.blur();
+    await expect(editor).toHaveValue("1 Sol Ring\n1 Counterspell");
+    const considering = page.locator(".considering-group, .stack-column-considering");
+    await expect(considering.locator('[aria-label*="Lightning Bolt"]').first()).toBeVisible();
+    await expect(page.locator(".deck-head-count")).toHaveText("3 / 100 cards");
+  });
+
   test("populated deck: URL import asks before replacing, then replaces wholesale", async ({ page }) => {
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await deckMenuAction(page, "Import cards");

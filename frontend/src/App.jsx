@@ -3,6 +3,7 @@ import { useRegisterSW } from "virtual:pwa-register/react";
 import { supabase, supabaseEnabled } from "./lib/supabase";
 import { api, assembleDecklist, assembleForStorage, disassembleDecklist, setAccessToken, warnIfBadAdd } from "./lib/api";
 import { commanderDisplay, webFormat } from "./lib/deckParser";
+import { appendLine } from "./lib/decklistEdit";
 import { copyLocalDecks, localDecksToCopy, makeStore } from "./lib/store";
 import { downloadFile } from "./lib/hooks";
 import { useBackClose } from "./lib/backstack";
@@ -679,7 +680,8 @@ export default function App() {
   }, [decks, currentDeck?.id, format, storageText, showInEditor, notify]);
 
   const addCardToDecklist = useCallback((name) => {
-    setDeckText((prev) => `${prev.replace(/\s*$/, "")}\n1 ${name}`);
+    // appendLine, as every DeckView writer: never inside a Considering section.
+    setDeckText((prev) => appendLine(prev, `1 ${name}`));
   }, []);
 
   // Search tab adds are free choice, so they get the off-color/banned warning.
