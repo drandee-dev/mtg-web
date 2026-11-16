@@ -4,7 +4,7 @@ starlette>=1.10.0   # via fastapi; floor clears known advisories (OSV, 2026-10-2
 uvicorn[standard]>=0.30
 
 # AI features (Phase 2: Rules Q&A, deck suggestions)
-anthropic>=0.52
+anthropic==2.8.0
 
 # Auth (Supabase JWT verification) + AI usage tracking (Supabase table)
 pyjwt>=2.15.1

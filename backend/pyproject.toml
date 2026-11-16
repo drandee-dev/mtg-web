@@ -10,7 +10,7 @@ dependencies = [
     # Floors on starlette (via fastapi), pyjwt and requests are the first
     # versions with no known advisories (OSV, 2026-10-25).
     "starlette>=1.10.0",
-    "anthropic>=0.52",
+    "anthropic==2.8.0",
     "pyjwt>=2.15.1",
     "supabase>=2.9",
     "click>=8.0",
