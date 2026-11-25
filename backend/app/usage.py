@@ -15,6 +15,8 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 log = logging.getLogger("mtg-web")
@@ -69,70 +71,89 @@ def _day_start() -> str:
     return datetime.date.today().isoformat()
 
 
+# A paused Supabase project answered each query after about 7 s (2026-11-25): the
+# health check took 14 s and every AI call waited on up to four dead queries. So a
+# query gets _QUERY_TIMEOUT, and after one failure nothing is asked for _RETRY_AFTER.
+_QUERY_TIMEOUT = 1.5
+_RETRY_AFTER = 60.0
+_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="usage")
+_down_until = 0.0
+
+
+def _run(what: str, query: Any) -> Any:
+    """query()'s result, or None when tracking is off, backing off, slow or failing.
+
+    Every caller fails open on None (no cap, no count): a Supabase outage must not
+    take the AI features or /api/health down with it.
+    """
+    global _down_until
+    if not _client or time.monotonic() < _down_until:
+        return None
+    try:
+        # shortcut: the abandoned call keeps its worker until the client's own
+        # timeout; the back-off keeps that to one or two at a time. Set the HTTP
+        # client's timeout instead if supabase-py is ever pinned.
+        return _pool.submit(query).result(timeout=_QUERY_TIMEOUT)
+    except Exception:
+        _down_until = time.monotonic() + _RETRY_AFTER
+        log.exception(
+            "Usage %s failed: tracking is off for %.0f s (no cap, no rate limit).",
+            what,
+            _RETRY_AFTER,
+        )
+        return None
+
+
+def monthly_usage() -> tuple[float, int, str]:
+    """(cents spent, AI calls, tracking) for this month, in one query. tracking is
+    "ok", "off" (Supabase not configured) or "down" (the query failed or timed out);
+    the numbers are zero unless it is "ok"."""
+    if not _client:
+        return 0.0, 0, "off"
+
+    def query() -> tuple[float, int]:
+        resp = (
+            _client.table("ai_usage_events")
+            .select("cost_cents", count="exact")
+            .eq("kind", "cost")
+            .gte("created_at", _month_start())
+            .execute()
+        )
+        return sum(row["cost_cents"] for row in resp.data), resp.count or 0
+
+    got = _run("monthly read", query)
+    return (*got, "ok") if got is not None else (0.0, 0, "down")
+
+
 def monthly_total_cents() -> float:
-    # Fail open like the write paths: a Supabase outage or misconfigured key
-    # must not 500 /api/health (the frontend treats that as "backend down").
-    if not _client:
-        return 0.0
-    try:
-        resp = (
-            _client.table("ai_usage_events")
-            .select("cost_cents")
-            .eq("kind", "cost")
-            .gte("created_at", _month_start())
-            .execute()
-        )
-        return sum(row["cost_cents"] for row in resp.data)
-    except Exception:
-        log.exception("Usage query failed — budget cap not enforced this request.")
-        return 0.0
-
-
-def monthly_call_count() -> int:
-    if not _client:
-        return 0
-    try:
-        resp = (
-            _client.table("ai_usage_events")
-            .select("id", count="exact")
-            .eq("kind", "cost")
-            .gte("created_at", _month_start())
-            .execute()
-        )
-        return resp.count or 0
-    except Exception:
-        log.exception("Usage query failed — reporting zero monthly calls.")
-        return 0
+    return monthly_usage()[0]
 
 
 def daily_call_count(limit_key: str) -> int:
-    if not _client:
-        return 0
-    try:
-        resp = (
+    resp = _run(
+        "daily read",
+        lambda: (
             _client.table("ai_usage_events")
             .select("id", count="exact")
             .eq("kind", "attempt")
             .eq("limit_key", limit_key)
             .gte("created_at", _day_start())
             .execute()
-        )
-        return resp.count or 0
-    except Exception:
-        log.exception("Usage query failed — daily rate limit not enforced this request.")
-        return 0
+        ),
+    )
+    return (resp.count or 0) if resp is not None else 0
 
 
 def record_attempt(limit_key: str) -> None:
     """Log a call attempt for daily per-user rate limiting (fires at gate-check time)."""
-    if not _client:
-        return
-    try:
-        _client.table("ai_usage_events").insert(
-            {"kind": "attempt", "limit_key": limit_key}
-        ).execute()
-    except Exception:
-        log.exception("Failed to record AI usage attempt event.")
+    _run(
+        "attempt write",
+        lambda: (
+            _client.table("ai_usage_events")
+            .insert({"kind": "attempt", "limit_key": limit_key})
+            .execute()
+        ),
+    )
 
 
 def cost_cents(model: str, usage: Any) -> float:
@@ -159,15 +180,10 @@ def record_cost(model: str, usage: Any) -> None:
     """Log actual token cost once the AI response returns (mtg.py's on_ai_usage hook)."""
     if not _client:
         return
-    cost = cost_cents(model, usage)
-    try:
-        _client.table("ai_usage_events").insert(
-            {
-                "kind": "cost",
-                "cost_cents": cost,
-                "input_tokens": usage.input_tokens,
-                "output_tokens": usage.output_tokens,
-            }
-        ).execute()
-    except Exception:
-        log.exception("Failed to record AI usage cost event.")
+    row = {
+        "kind": "cost",
+        "cost_cents": cost_cents(model, usage),
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+    }
+    _run("cost write", lambda: _client.table("ai_usage_events").insert(row).execute())

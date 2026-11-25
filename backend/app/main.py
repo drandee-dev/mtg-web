@@ -374,7 +374,7 @@ async def _always_vary_on_origin(request: Request, call_next):
 
 @app.get("/api/health")
 def health() -> dict:
-    total_cents = usage.monthly_total_cents()
+    total_cents, calls, tracking = usage.monthly_usage()
     budget_pct = max(0, 100 - int(total_cents / max(_AI_MONTHLY_BUDGET_CENTS, 1) * 100))
     has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
     return {
@@ -383,7 +383,9 @@ def health() -> dict:
         "data_as_of": mtg.data_as_of(),
         "ai_available": has_key and budget_pct > 0,
         "ai_budget_remaining_pct": budget_pct,
-        "ai_calls_this_month": usage.monthly_call_count(),
+        "ai_calls_this_month": calls,
+        # "down" means the two numbers above are zeros, not readings: no cap applies.
+        "usage_tracking": tracking,
     }
 
 
