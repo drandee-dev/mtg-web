@@ -2372,6 +2372,8 @@ def ai_optimize(
             log.info("optimize: cheaper %r dropped, held back by a guard", alt["name"])
             alt = None
         # As if applied, so the next change is judged against the lands left.
+        # shortcut: assumes the main add, not the cheaper pick; they can differ in
+        # land-ness, drifting the count for later changes. Fix if a real list shows it.
         lands += _land_delta(cut_rec, add_rec)
         # Counted only once the change is kept, so a dropped one uses no room.
         if action == "add":
