@@ -61,6 +61,15 @@ def test_healthy_database_is_read_in_one_query():
     assert usage.monthly_usage() == (4.0, 2, "ok")
     assert c.calls == 1, c.calls
     assert usage.daily_call_count("1.2.3.4") == 2
+    # The two inserts are what the rate limit and the cap count: each must reach it.
+    usage.record_attempt("1.2.3.4")
+    assert c.calls == 3, c.calls
+
+    class Tokens:
+        input_tokens, output_tokens = 1000, 100
+
+    usage.record_cost("claude-sonnet-5", Tokens())
+    assert c.calls == 4, c.calls
     print("ok: a healthy database gives the month's cents and calls in one query")
 
 

@@ -32,7 +32,9 @@ jobs:
         run: |
           ok=0
           for i in 1 2 3; do
-            body=$(curl -sf --max-time 30 https://mtg-workshop-api.vercel.app/api/health)
+            # "|| true": one failed request is retried like a "down" answer; a site
+            # that stays dead still ends with ok=0 and a red run.
+            body=$(curl -sf --max-time 30 https://mtg-workshop-api.vercel.app/api/health || true)
             echo "$body"
             # After a failed read the API asks nothing for 60 s, so wait that out.
             if echo "$body" | grep -q '"usage_tracking":"ok"'; then ok=1; else sleep 65; fi
