@@ -1,0 +1,123 @@
+{
+ "error": false,
+ "assessment": "The deck is a solid bracket-2 Sliver tribal build with good tutors and mana fixing but is thin on card draw and spot removal, and the sacrifice/encore engine around Sliver Gravemother is underfed with only a few sac outlets and no way to reliably mill or discard Slivers into the graveyard. This changeset adds cheap interaction and card advantage while leaning further into the graveyard/encore payoff that defines the commander.",
+ "changes": [
+  {
+   "action": "swap",
+   "cut": "Windfall",
+   "add": "Reforge the Soul",
+   "reason": "A card-advantage wheel that also refills your hand is better for this deck than a symmetrical discard-draw that dumps your own Slivers without recursion value, and the deck already lacks enough proactive draw.",
+   "category": "Draw",
+   "impact": "medium",
+   "price_usd": 4.98,
+   "cut_price_usd": 2.3,
+   "price_delta": 2.68,
+   "over_budget": false,
+   "cheaper": null
+  },
+  {
+   "action": "swap",
+   "cut": "Hollowhead Sliver",
+   "add": "Village Rites",
+   "reason": "Sliver Gravemother wants Slivers in the graveyard to encore, and this gives a free sac outlet plus card draw instead of a looting ability that only sometimes finds a target.",
+   "category": "Synergy",
+   "impact": "high",
+   "price_usd": 0.29,
+   "cut_price_usd": 0.24,
+   "price_delta": 0.05,
+   "over_budget": false,
+   "cheaper": {
+    "name": "Altar's Reap",
+    "price_usd": 0.17,
+    "price_delta": -0.07,
+    "reason": "Same instant-speed sac-for-card effect at common rarity, very cheap.",
+    "over_budget": false
+   }
+  },
+  {
+   "action": "swap",
+   "cut": "Taunting Sliver",
+   "add": "Toxic Deluge",
+   "reason": "The deck has only 4 spot removal effects which is thin, and this flexible wipe can also act as a lighter sweeper that fills your own graveyard with Slivers for later encore value.",
+   "category": "Removal",
+   "impact": "high",
+   "price_usd": 3.6,
+   "cut_price_usd": 2.22,
+   "price_delta": 1.38,
+   "over_budget": false,
+   "cheaper": {
+    "name": "Languish",
+    "price_usd": 0.33,
+    "price_delta": -1.89,
+    "reason": "Cheaper sweeper that similarly feeds the graveyard with your Slivers.",
+    "over_budget": false
+   }
+  },
+  {
+   "action": "swap",
+   "cut": "Diffusion Sliver",
+   "add": "Vindicate",
+   "reason": "With only 4 spot removal spells this deck struggles to answer problem permanents, and Vindicate hits any permanent type to cover artifacts, enchantments, and lands that the current list can't touch.",
+   "category": "Removal",
+   "impact": "high",
+   "price_usd": 0.28,
+   "cut_price_usd": 1.53,
+   "price_delta": -1.25,
+   "over_budget": false,
+   "cheaper": null
+  },
+  {
+   "action": "swap",
+   "cut": "Shifting Sliver",
+   "add": "Grave Pact",
+   "reason": "This directly amplifies the sacrifice/death-trigger plan the deck is built around, punishing opponents every time a Sliver is sacrificed to feed the graveyard for encore.",
+   "category": "Synergy",
+   "impact": "high",
+   "price_usd": 26.76,
+   "cut_price_usd": 1.14,
+   "price_delta": 25.62,
+   "over_budget": false,
+   "cheaper": null
+  },
+  {
+   "action": "swap",
+   "cut": "Hibernation Sliver",
+   "add": "Mausoleum Secrets",
+   "reason": "A cheap tutor that can also find Slivers or utility lands supports the graveyard plan better than a bounce-for-life effect that works against filling the graveyard.",
+   "category": "Synergy",
+   "impact": "medium",
+   "price_usd": 0.84,
+   "cut_price_usd": 1.5,
+   "price_delta": -0.66,
+   "over_budget": false,
+   "cheaper": null
+  },
+  {
+   "action": "swap",
+   "cut": "Clot Sliver",
+   "add": "Phyrexian Reclamation",
+   "reason": "This gives recurring graveyard value for the many Slivers that will die, letting you rebuy creatures instead of relying solely on the one-shot encore ability.",
+   "category": "Synergy",
+   "impact": "medium",
+   "price_usd": 2.76,
+   "cut_price_usd": 0.31,
+   "price_delta": 2.45,
+   "over_budget": false,
+   "cheaper": null
+  },
+  {
+   "action": "swap",
+   "cut": "Crypt Sliver",
+   "add": "Toski, Bearer of Secrets",
+   "reason": "The deck is thin on card draw at 8/10 and this provides a recurring, hard-to-remove draw engine across a token-heavy board full of small Sliver attackers.",
+   "category": "Draw",
+   "impact": "medium",
+   "price_usd": 4.47,
+   "cut_price_usd": 0.48,
+   "price_delta": 3.99,
+   "over_budget": false,
+   "cheaper": null
+  }
+ ],
+ "model": "claude-sonnet-5"
+}

@@ -281,6 +281,11 @@ class Theme:
             or bool(re.search(_type_word(self.tribe), card_text(rec)))
         )
 
+    def tribe_plural(self) -> str:
+        """ "Slivers", "Elves": how a sentence names the tribe."""
+        t = self.tribe or ""
+        return _PLURALS.get(t, t + "s").title()
+
     def reasons(self, rec: dict | None) -> set[str]:
         """Why the card is on theme: "commander", "tribe" and/or mechanic keys."""
         if not rec:
