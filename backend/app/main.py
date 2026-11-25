@@ -692,6 +692,10 @@ def deck_optimize(request: Request, payload: Annotated[dict, Body()]) -> dict:
     if not isinstance(raw_changes, list):
         raise HTTPException(400, "recent_changes must be a list.")
     recent_changes = [str(s)[:120] for s in raw_changes[:30]]
+    # Strategy's archetype, as the client last read it: free text, so capped here
+    # and <user_input>-wrapped in ai_optimize.
+    archetype = payload.get("archetype")
+    archetype = archetype.strip()[:60] if isinstance(archetype, str) else ""
     return mtg.ai_optimize(
         decklist,
         fmt=fmt,
@@ -699,6 +703,7 @@ def deck_optimize(request: Request, payload: Annotated[dict, Body()]) -> dict:
         goals=_parse_goals(payload),
         focus=focus,
         recent_changes=recent_changes,
+        archetype=archetype,
     )
 
 

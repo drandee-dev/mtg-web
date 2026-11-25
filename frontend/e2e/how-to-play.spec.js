@@ -30,6 +30,25 @@ async function quickAdd(page, name) {
   await expect(page.locator(".toast", { hasText: `Added ${name}` })).toBeVisible();
 }
 
+// Audit job 3.2: the archetype rides along so the AI pass stays on the deck's plan.
+test("the AI pass sends the archetype once How to play has been written", async ({ page }) => {
+  const optimizeBody = () => page.waitForRequest((r) => r.url().includes("/api/deck/optimize"))
+    .then((r) => r.postDataJSON());
+  await loadSharedDeck(page, BIG_DECK, TEST_COMMANDER);
+  await openDeckSection(page, "Improve");
+  let body = optimizeBody();
+  await page.locator(".insp-deep").click();
+  expect(await body).not.toHaveProperty("archetype");
+
+  await openDeckSection(page, "How to play");
+  await expect(play(page).locator("strong", { hasText: "Superfriends" })).toBeVisible();
+  await openDeckSection(page, "Improve");
+  // The deep-pass button is gone after one pass; a gap chip runs the same pass again.
+  body = optimizeBody();
+  await page.locator(".asmt-chip", { hasText: "Card draw" }).click();
+  expect((await body).archetype).toBe("Superfriends");
+});
+
 test("one strategy request across three card adds; Write it again makes the second", async ({ page }) => {
   const calls = countRequests(page, "/api/deck/ai/strategy");
   await loadSharedDeck(page, BIG_DECK, TEST_COMMANDER);
