@@ -16,18 +16,20 @@
 // an `insightDecided` write.
 
 import { fmtUsd } from "./format.js";
+import { pickCategories } from "./categories.js";
 
-export const REC_CATEGORIES = [
-  ["high_synergy", "High synergy"],
-  ["top_cards", "Top cards"],
-  ["creatures", "Creatures"],
-  ["instants", "Instants"],
-  ["sorceries", "Sorceries"],
-  ["artifacts", "Artifacts"],
-  ["enchantments", "Enchantments"],
-  ["planeswalkers", "Planeswalkers"],
-  ["lands", "Lands"],
-];
+export const REC_CATEGORIES = pickCategories(
+  "high_synergy", "top_cards", "creatures", "instants", "sorceries", "artifacts",
+  "mana_artifacts", "enchantments", "planeswalkers", "battles", "lands",
+);
+
+/** The suggestion list to show: the one picked if it has cards, else the first that
+ *  does. A commander's page can lack a list (Atraxa has no high-lift list), and the
+ *  Improve tab used to open on that empty list as "Nothing left here". */
+export function recCategoryOrFirst(recs, picked) {
+  const has = (k) => recs?.categories?.[k]?.length;
+  return has(picked) ? picked : (REC_CATEGORIES.find(([k]) => has(k))?.[0] ?? picked);
+}
 
 const REC_LABEL = Object.fromEntries(REC_CATEGORIES);
 

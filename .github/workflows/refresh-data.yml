@@ -40,3 +40,20 @@ jobs:
             if echo "$body" | grep -q '"usage_tracking":"ok"'; then ok=1; else sleep 65; fi
           done
           [ "$ok" = 1 ]
+
+  # Every EDHREC test stubs the page, so a renamed list (2026-11: high synergy became
+  # high lift) emptied the suggestions with nothing failing. Mondays, or on a manual run.
+  edhrec-page-shape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check the live EDHREC page against the parser
+        run: |
+          if [ "${{ github.event_name }}" != workflow_dispatch ] && [ "$(date -u +%u)" != 1 ]; then
+            echo "Runs on Mondays only."; exit 0
+          fi
+          pip install requests click
+          python backend/check_edhrec_live.py

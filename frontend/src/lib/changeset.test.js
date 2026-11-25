@@ -1,7 +1,17 @@
 // Run with: node --test src/lib/changeset.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildChanges } from "./changeset.js";
+import { buildChanges, recCategoryOrFirst } from "./changeset.js";
+
+test("an empty suggestion list falls back to the first list with cards", () => {
+  // Atraxa's EDHREC page has no high-lift list; Improve opened on it as "Nothing left here".
+  const recs = { categories: { high_synergy: [], top_cards: [], creatures: [{ name: "x" }] } };
+  assert.equal(recCategoryOrFirst(recs, "high_synergy"), "creatures");
+  assert.equal(recCategoryOrFirst(recs, "creatures"), "creatures");
+  recs.categories.high_synergy.push({ name: "y" });
+  assert.equal(recCategoryOrFirst(recs, "high_synergy"), "high_synergy");
+  assert.equal(recCategoryOrFirst(null, "high_synergy"), "high_synergy");
+});
 
 const swapsOf = (alternative) => buildChanges({
   upgradeMode: "budget",

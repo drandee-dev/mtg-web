@@ -4,21 +4,16 @@
 // never changes: a fill takes a spare basic while lands sit above the floor,
 // and at the floor it displaces the least-played skeleton spell instead.
 
+import { pickCategories } from "./categories.js";
+
 // Skeleton categories that supply the non-land half of the deck, in the order
 // they get drawn from.
-export const SPELL_CATS = [
-  ["staples", "Format staples"],
-  ["high_synergy", "High synergy"],
-  ["top_cards", "Top cards"],
-  ["creatures", "Creatures"],
-  ["instants", "Instants"],
-  ["sorceries", "Sorceries"],
-  ["artifacts", "Artifacts"],
-  ["enchantments", "Enchantments"],
-  // Only sent under a price cap: the most-played affordable cards, drawn last
-  // so they fill only the slots the commander's own lists couldn't.
-  ["budget_picks", "Budget picks"],
-];
+// budget_picks (only sent under a price cap) comes last, so the most-played
+// affordable cards fill only the slots the commander's own lists couldn't.
+export const SPELL_CATS = pickCategories(
+  "staples", "high_synergy", "top_cards", "creatures", "instants", "sorceries",
+  "artifacts", "enchantments", "budget_picks",
+);
 const STAPLES = "Format staples";
 
 const BASIC_FOR = { W: "Plains", U: "Island", B: "Swamp", R: "Mountain", G: "Forest" };
