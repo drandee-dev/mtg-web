@@ -13,6 +13,9 @@ EDHREC_PAGE_URL = "https://json.edhrec.com/pages{path}.json"
 USER_AGENT = "commander-utils/0.1.0"
 
 CARDLIST_TAGS = {
+    # EDHREC replaced "High Synergy Cards" with "High Lift Cards" (seen 2026-11-25);
+    # both fill the one key every caller reads. check_edhrec_live.py catches the next rename.
+    "highliftcards": "high_synergy",
     "highsynergycards": "high_synergy",
     "topcards": "top_cards",
     "newcards": "new_cards",
@@ -20,8 +23,10 @@ CARDLIST_TAGS = {
     "instants": "instants",
     "sorceries": "sorceries",
     "utilityartifacts": "artifacts",
+    "manaartifacts": "mana_artifacts",
     "enchantments": "enchantments",
     "planeswalkers": "planeswalkers",
+    "battles": "battles",
     "utilitylands": "utility_lands",
     "lands": "lands",
 }
@@ -66,6 +71,9 @@ def _extract_cardviews(cardviews: list[dict]) -> list[dict]:
         {
             "name": cv.get("name", ""),
             "synergy": cv.get("synergy", 0.0),
+            # How much likelier this commander's decks are to play the card than
+            # decks of its colours; absent on the old synergy list.
+            "lift": cv.get("lift", 0.0),
             "inclusion": cv.get("inclusion", 0),
             "num_decks": cv.get("num_decks", 0),
             "potential_decks": cv.get("potential_decks", 0),
@@ -122,6 +130,8 @@ def edhrec_lookup(commanders: list[str], timeout: float | None = None) -> dict:
         if tag in CARDLIST_TAGS:
             key = CARDLIST_TAGS[tag]
             result[key] = _extract_cardviews(cardlist.get("cardviews", []))
+    # Highest lift first (EDHREC's own order today; stable, so a page without lift keeps its order).
+    result["high_synergy"].sort(key=lambda cv: -(cv["lift"] or 0))
 
     # How players build this commander: EDHREC's theme tags with their deck counts
     # (Silverquill 2026-10-24: Tokens 920, Spellslinger 808, Aristocrats 487). Not a

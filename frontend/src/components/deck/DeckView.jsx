@@ -24,6 +24,7 @@ import {
   removeLine as removeLineText, setQty as setQtyText,
 } from "../../lib/decklistEdit";
 import { fmtUsd } from "../../lib/format";
+import { recCategoryOrFirst } from "../../lib/changeset";
 import NavLink from "../layout/NavLink";
 import AskButton from "../layout/AskButton";
 
@@ -626,13 +627,14 @@ export default function DeckView({
 
   // The AI changes: the pass, its session log, and the Suggested changes list
   // (lib/useAiChanges.js). Called after useInsightCache, whose result it reads.
+  const recCat = recCategoryOrFirst(recs, cat);
   const {
     optimize, optimizing, optLog, runOptimize, undoOptChange, clearOptLog,
     stalePanels, loadChanges, changeUpgradeMode, applyInsightChange, skipInsightChange,
     changes, changeCount,
   } = useAiChanges({
     deckId, decklist, commander, format, isCommanderFmt, currentSig, apiGoals,
-    notify, openSection, busy, setBusy, recCat: cat,
+    notify, openSection, busy, setBusy, recCat,
     cache: insightCache,
     edits: { findDeckLine, removeCard, appendLine },
   });
@@ -688,7 +690,7 @@ export default function DeckView({
     },
     stalePanels,
     recs,
-    recCat: cat,
+    recCat,
     setRecCat: setCat,
     skipped,
     onClearSkipped: clearSkipped,

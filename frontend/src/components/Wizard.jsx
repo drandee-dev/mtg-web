@@ -6,19 +6,7 @@ import { commanderNamesClean } from "../lib/deckParser";
 import { LAND_TARGET } from "../lib/fillMerge";
 import { fmtUsd } from "../lib/format";
 
-const CAT_ORDER = [
-  ["staples", "Format staples"],
-  ["suggested_lands", "Mana base"],
-  ["high_synergy", "High synergy"],
-  ["top_cards", "Top cards"],
-  ["creatures", "Creatures"],
-  ["instants", "Instants"],
-  ["sorceries", "Sorceries"],
-  ["artifacts", "Artifacts"],
-  ["enchantments", "Enchantments"],
-  ["budget_picks", "Budget picks"], // only sent under a price cap
-  ["lands", "Utility lands"],
-];
+import { CATEGORIES as CAT_ORDER } from "../lib/categories";
 
 function groupByType(picked) {
   const groups = {};
