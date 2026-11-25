@@ -140,7 +140,12 @@ assert by["Deadly Rollick"]["commander_pct"] == 24, by["Deadly Rollick"]
 # A utility land of this commander is swapped for another of its utility lands, not for
 # the more played dual; a plain dual still gets the commander's most played land.
 assert by["Phyrexian Tower"]["name"] == "Midgar, City of Mako // Reactor Raid", by["Phyrexian Tower"]
-assert by["Vault of Champions"]["name"] == "Fetid Heath", by["Vault of Champions"]
+# Dearest first, so the dearest plain land takes it. Not a fixed card: prices drift
+# (Vault of Champions fell to $4.28 by 2026-11-25 and left the swap list).
+utility = {c["name"] for c in page()["utility_lands"]}
+plain = [s for s in out["swaps"] if mtg._swap_type(idx.get(s["card"])) == "land"
+         and s["card"] not in utility]
+assert plain and plain[0]["alternative"]["name"] == "Fetid Heath", plain
 # Like-for-like still holds under the new ranking.
 for card, alt in by.items():
     old, new = idx.get(card), idx.get(alt["name"])
