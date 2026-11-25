@@ -257,7 +257,9 @@ def _changeling(rec: dict) -> bool:
 
 def _type_word(t: str) -> str:
     plural = _PLURALS.get(t, t + "s")
-    return rf"\b(?:{re.escape(t)}|{re.escape(plural)})\b"
+    # "non-Human" names every type but that one. shortcut: a hate line ("Whenever a
+    # Human deals damage to you", Mikaeus) still names it; fix if such a deck misreads.
+    return rf"(?<!non-)\b(?:{re.escape(t)}|{re.escape(plural)})\b"
 
 
 @dataclass

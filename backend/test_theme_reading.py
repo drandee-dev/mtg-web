@@ -137,3 +137,20 @@ assert (
     read_theme([idx.get("Breena, the Demagogue")], elves[:7]).tribe is None
 )  # under 8
 print("ok: a deck's own majority type counts at 8+, the text pieces strip as intended")
+
+# "non-Human" is not naming Humans (Holiday's review of 3.1).
+# A made-up commander: Mikaeus itself also says "Whenever a Human deals damage to you".
+cmdr = {
+    "name": "Test Lord",
+    "type_line": "Legendary Creature — Zombie",
+    "oracle_text": "Other non-Human creatures you control get +1/+1.",
+    "keywords": [],
+}
+human = {"type_line": "Creature — Human Soldier", "oracle_text": "", "keywords": []}
+humans = [{**human, "name": f"Human {i}"} for i in range(6)]
+assert read_theme([cmdr], [cmdr, *humans]).tribe != "human"
+plain = {**cmdr, "oracle_text": "Other Human creatures you control get +1/+1."}
+assert read_theme([plain], [plain, *humans]).tribe == "human", (
+    "control: a plain Human names it"
+)
+print("ok: a commander's non-Human does not name Humans")
