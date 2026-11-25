@@ -20,3 +20,23 @@ jobs:
             exit 0
           fi
           curl -sf -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}"
+
+  # Supabase pauses a Free project after a week of too few database queries, and a
+  # paused project took the site down (2026-11-25: 14 s health checks, no sign-in, no
+  # AI spending cap). Each health call reads the usage table once; "a few requests
+  # each day" is what their docs ask for. A red run here means tracking is down.
+  keep-database-awake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read AI usage through the API
+        run: |
+          ok=0
+          for i in 1 2 3; do
+            # "|| true": one failed request is retried like a "down" answer; a site
+            # that stays dead still ends with ok=0 and a red run.
+            body=$(curl -sf --max-time 30 https://mtg-workshop-api.vercel.app/api/health || true)
+            echo "$body"
+            # After a failed read the API asks nothing for 60 s, so wait that out.
+            if echo "$body" | grep -q '"usage_tracking":"ok"'; then ok=1; else sleep 65; fi
+          done
+          [ "$ok" = 1 ]
