@@ -313,7 +313,7 @@ export async function mockBackend(page) {
       return json({
         // The real API's rules version (insightState.BUDGET_SWAPS_VERSION); a cached
         // answer without it is dropped on reload and fetched again.
-        v: 2,
+        v: 3,
         ranked_by: "commander",
         total_savings: 19.01,
         swaps: [{ card: "Smothering Tithe", price: 20.0, alternative: { name: "Arcane Signet", price: 0.99, commander_pct: 61 } }],

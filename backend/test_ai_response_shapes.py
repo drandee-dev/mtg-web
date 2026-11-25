@@ -79,9 +79,12 @@ assert p('Here: [{"cut": "x"}]', expect=(dict, list)) == [{"cut": "x"}]
 _real_ai_call = mtg._ai_call  # the fills section below replaces it
 
 # --- ai_composition_fills survives the shapes that crashed it ------------- #
+from app.theme import Theme  # noqa: E402
+
 mtg._deck_context_cached = lambda *a, **k: {
     "deck": {"format": "commander", "cards": []},
     "hd": None,
+    "theme": Theme(),  # the real context always carries one (audit job 3.1)
     "commanders": [],
 }
 mtg.deck_composition = lambda *a, **k: {

@@ -268,7 +268,7 @@ class Theme:
     tribe_named: bool = False  # True when a commander's text names it
     mechanics: list[Mechanic] = field(default_factory=list)
     roles: dict[str, list[str]] = field(default_factory=dict)
-    _pats: list[re.Pattern] = field(default_factory=list, repr=False)
+    _pats: dict[str, re.Pattern] = field(default_factory=dict, repr=False)
     _commanders: set[str] = field(default_factory=set, repr=False)
 
     def on_tribe(self, rec: dict) -> bool:
@@ -281,14 +281,31 @@ class Theme:
             or bool(re.search(_type_word(self.tribe), card_text(rec)))
         )
 
+    def reasons(self, rec: dict | None) -> set[str]:
+        """Why the card is on theme: "commander", "tribe" and/or mechanic keys."""
+        if not rec:
+            return set()
+        out = {"commander"} if rec.get("name") in self._commanders else set()
+        if self.on_tribe(rec):
+            out.add("tribe")
+        target = f"{(rec.get('type_line') or '').lower()}\n{card_text(rec)}"
+        return out | {k for k, p in self._pats.items() if p.search(target)}
+
     def on_theme(self, rec: dict | None) -> bool:
         """The card is the tribe, supports it, or fills a mechanic the commander cares about."""
-        if not rec:
-            return False
-        if rec.get("name") in self._commanders or self.on_tribe(rec):
+        return bool(self.reasons(rec))
+
+    def keeps_theme(self, old: dict, new: dict) -> bool:
+        """May `new` replace `old` without leaving the theme? A tribe card needs a
+        tribe card (Apex Altisaur's swap must be a Dinosaur, not any enters-effect
+        creature); a mechanic card needs one sharing a mechanic; an off-theme card
+        takes anything."""
+        why = self.reasons(old) - {"commander"}
+        if not why:
             return True
-        target = f"{(rec.get('type_line') or '').lower()}\n{card_text(rec)}"
-        return any(p.search(target) for p in self._pats)
+        if "tribe" in why:
+            return "tribe" in self.reasons(new)
+        return bool(why & self.reasons(new))
 
     def prompt_text(self) -> str:
         out = ["\n## Theme reading (from card data)"]
@@ -345,7 +362,7 @@ def read_theme(commanders: list[dict], cards: list[dict]) -> Theme:
         tribe=tribe,
         tribe_named=named,
         mechanics=mechanics,
-        _pats=[re.compile(m.card) for m in mechanics if m.card],
+        _pats={m.key: re.compile(m.card) for m in mechanics if m.card},
         _commanders={c.get("name") for c in commanders},
     )
     roles: dict[str, list[str]] = {}
