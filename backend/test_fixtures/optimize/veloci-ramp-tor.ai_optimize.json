@@ -1,0 +1,97 @@
+{
+ "error": false,
+ "assessment": "This Pantlaza Dinosaurs deck is well-built around 2-Core bracket with good ETB/discover payoffs, ramp, and the Apex Altisaur + Wrathful Raptors combo intact; the changeset focuses on tightening the discover payoff density, shoring up interaction, and smoothing the curve without pushing past bracket 2.",
+ "changes": [
+  {
+   "action": "swap",
+   "cut": "Temple of the False God",
+   "add": "Gishath, Sun's Avatar",
+   "reason": "Gishath is an 82%-played Dinosaur commander-level ETB/combat-damage engine that triggers Pantlaza's discover on itself and refills the hand, far outclassing a narrow colorless land.",
+   "category": "Synergy",
+   "impact": "high",
+   "price_usd": 4.43,
+   "cut_price_usd": 0.18,
+   "price_delta": 4.25,
+   "over_budget": false,
+   "cheaper": null
+  },
+  {
+   "action": "swap",
+   "cut": "From the Rubble",
+   "add": "Heroic Intervention",
+   "reason": "The deck has no protection for its board wipes or the Apex Altisaur/Wrathful Raptors combo, and Heroic Intervention is a listed near-miss combo piece that also protects against wraths.",
+   "category": "Removal",
+   "impact": "high",
+   "price_usd": 7.97,
+   "cut_price_usd": 0.35,
+   "price_delta": 7.62,
+   "over_budget": false,
+   "cheaper": {
+    "name": "Tamiyo's Safekeeping",
+    "price_usd": 3.83,
+    "price_delta": 3.48,
+    "reason": "Cheap single-target protection, much lower cost than Heroic Intervention.",
+    "over_budget": false
+   }
+  },
+  {
+   "action": "swap",
+   "cut": "Temple Altisaur",
+   "add": "Swords to Plowshares",
+   "reason": "At only 11 spot removal pieces with mostly clunky 3-4 mana answers, adding premier 1-mana removal improves interaction density without changing the Dinosaur plan much since Temple Altisaur's prevention effect is low-impact.",
+   "category": "Removal",
+   "impact": "high",
+   "price_usd": 1.13,
+   "cut_price_usd": 0.94,
+   "price_delta": 0.19,
+   "over_budget": false,
+   "cheaper": null
+  },
+  {
+   "action": "swap",
+   "cut": "Exotic Orchard",
+   "add": "Ghalta, Primal Hunger",
+   "reason": "Ghalta is a 73%-played staple huge Dinosaur that is often free to cast off the deck's big creatures and is a strong discover trigger target for Pantlaza, better than a conditional mana land in a 3-color but land-heavy manabase.",
+   "category": "Synergy",
+   "impact": "medium",
+   "price_usd": 1.01,
+   "cut_price_usd": 0.18,
+   "price_delta": 0.83,
+   "over_budget": false,
+   "cheaper": null
+  },
+  {
+   "action": "swap",
+   "cut": "Arch of Orazca",
+   "add": "Beast Within",
+   "reason": "Generous Gift is the deck's only flexible removal; Beast Within adds a second instant-speed answer to any permanent type, which this deck currently lacks enough of versus enchantments/planeswalkers.",
+   "category": "Removal",
+   "impact": "medium",
+   "price_usd": 0.4,
+   "cut_price_usd": 0.32,
+   "price_delta": 0.08,
+   "over_budget": false,
+   "cheaper": null
+  },
+  {
+   "action": "swap",
+   "cut": "Thriving Bluff",
+   "add": "Three Visits",
+   "reason": "A land-into-battlefield ramp spell that can fetch a Forest untapped is a strictly better fixing-plus-ramp effect than a tapped triome-style land in a deck already rich in tapped lands.",
+   "category": "Ramp",
+   "impact": "low",
+   "price_usd": 4.92,
+   "cut_price_usd": 0.11,
+   "price_delta": 4.81,
+   "over_budget": false,
+   "cheaper": {
+    "name": "Nature's Lore",
+    "price_usd": 1.48,
+    "price_delta": 1.37,
+    "reason": "Same effect, slightly cheaper and more widely available.",
+    "over_budget": false
+   }
+  }
+ ],
+ "model": "claude-sonnet-5"
+}

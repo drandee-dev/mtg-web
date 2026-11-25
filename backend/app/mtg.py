@@ -2138,6 +2138,25 @@ def ai_optimize(
     tail = goal_user
     if price_now:
         tail += f"\n\nCurrent deck price: ${price_now:.0f}."
+    # Audit job 3.4: two guards the server enforces below, told to the model first so
+    # it spends its picks on changes that survive them.
+    theme = ctx.get("theme")
+    audit = mana_audit(ctx["hd"]) if ctx.get("hd") else {}
+    land_floor = int(audit.get("land_count_floor") or 0)
+    lands = int(audit.get("land_count") or 0)
+    rules = []
+    if land_floor:
+        rules.append(
+            f"The deck runs {lands} lands and must keep at least {land_floor}: a change "
+            "that cuts a land without adding one may not take it below that."
+        )
+    if theme and (theme.tribe or theme.mechanics):
+        rules.append(
+            "A card in the theme reading above (the tribe, or a mechanic the commander "
+            "cares about) may only be swapped for a card in the same part of the theme."
+        )
+    if rules:
+        tail += "\n\nThe server drops changes that break these rules: " + " ".join(rules)
     # Audit job 3.2: Strategy said "Tribal Aggro (Slivers)" while Optimize cut seven
     # Slivers; the two calls shared nothing. Per deck and free text, so the tail.
     archetype = (archetype or "").strip()[:60]
@@ -2259,6 +2278,26 @@ def ai_optimize(
     def over(delta: float | None) -> bool:
         return bool(ceiling and price_now is not None and price_now + (delta or 0) > ceiling)
 
+    def _land_delta(cut_rec: dict | None, add_rec: dict | None) -> int:
+        return int(bool(add_rec) and _land_flag(add_rec)) - int(
+            bool(cut_rec) and _land_flag(cut_rec)
+        )
+
+    def _held(cut_rec: dict | None, add_rec: dict | None) -> str | None:
+        """Why this change is held back, or None. "tribe"/"theme": it cuts an
+        on-theme card for one that leaves the theme (Theme.keeps_theme; a bare cut
+        leaves it too). "lands": it takes the deck under the mana audit's floor; a
+        deck already under it loses no land (his answers, 2026-11-25)."""
+        if theme and cut_rec:
+            why = theme.reasons(cut_rec) - {"commander"}
+            if why and not (add_rec and theme.keeps_theme(cut_rec, add_rec)):
+                return "tribe" if "tribe" in why else "theme"
+        delta = _land_delta(cut_rec, add_rec)
+        if land_floor and delta < 0 and lands + delta < land_floor:
+            return "lands"
+        return None
+
+    held: list[dict] = []
     changes: list[dict] = []
     for ch in proposals:
         action = str(ch.get("action") or "").strip().lower()
@@ -2305,6 +2344,12 @@ def ai_optimize(
                 log.info("optimize: %r dropped, it lifts the deck past bracket %d", add, b_ceiling)
                 continue
 
+        reason_held = _held(cut_rec, add_rec)
+        if reason_held:
+            log.info("optimize: %r -> %r held back (%s)", cut, add, reason_held)
+            held.append({"cut": cut or None, "add": add or None, "reason": reason_held})
+            continue
+
         add_price = extract_price(add_rec) if add_rec else None
         cut_price = extract_price(cut_rec) if cut_rec else None
         impact = str(ch.get("impact") or "").strip().lower()
@@ -2323,6 +2368,11 @@ def ai_optimize(
         if alt and _lifts_bracket(idx.get(alt["name"]), cut_rec):
             log.info("optimize: cheaper %r dropped, it lifts the deck past bracket %d", alt["name"], b_ceiling)
             alt = None
+        if alt and _held(cut_rec, idx.get(alt["name"])):
+            log.info("optimize: cheaper %r dropped, held back by a guard", alt["name"])
+            alt = None
+        # As if applied, so the next change is judged against the lands left.
+        lands += _land_delta(cut_rec, add_rec)
         # Counted only once the change is kept, so a dropped one uses no room.
         if action == "add":
             room -= 1
@@ -2374,8 +2424,32 @@ def ai_optimize(
         "error": False,
         "assessment": str(data.get("assessment") or "")[:600],
         "changes": changes,
+        "held_back": held,
+        "held_back_note": _held_back_note(held, theme, land_floor),
         "model": resp.get("model"),
     }
+
+
+def _held_back_note(held: list[dict], theme: Any, land_floor: int) -> str | None:
+    """One line for the page (his answer, 2026-11-25: a count, no rows until job 6),
+    e.g. "7 changes held back: they would cut your Slivers." or "6 changes held back:
+    4 would leave fewer than 39 lands, 2 would cut your Dinosaurs." """
+    if not held:
+        return None
+    counts = Counter(h["reason"] for h in held)
+    what = {
+        "tribe": (
+            f"would cut your {theme.tribe_plural()}" if theme and theme.tribe else ""
+        ),
+        "theme": "would cut cards on the deck's theme",
+        "lands": f"would leave fewer than {land_floor} lands",
+    }
+    n = len(held)
+    if len(counts) == 1:  # one reason: "they would cut your Slivers", as he wrote it
+        parts = [f"{'they' if n != 1 else 'it'} {what[next(iter(counts))]}"]
+    else:
+        parts = [f"{k} {what[r]}" for r, k in counts.items()]
+    return f"{n} change{'s' if n != 1 else ''} held back: {', '.join(parts)}."
 
 
 def _parse_ai_json(raw: str, expect: type | tuple[type, ...] | None = None) -> Any:
