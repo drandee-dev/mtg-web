@@ -38,7 +38,7 @@ def entry(name):
     return {"name": name, "synergy": 0.1, "num_decks": 100, "potential_decks": 1000}
 
 
-mtg.edhrec_lookup = lambda names, timeout=None:{
+mtg.edhrec_lookup = lambda names, timeout=None: {
     "instants": [entry("Malakir Rebirth")],
     "sorceries": [entry("Bala Ged Recovery")],
     "high_synergy": [entry("Wirewood Lodge"), entry("Llanowar Elves")],
@@ -79,12 +79,14 @@ for cat, fill in f.items():
         assert all(e.get("is_land") is True for e in fill["pool"]), fill
 assert all(s.get("is_land") is False for s in f["Card draw"]["suggestions"])
 seen = {e["name"]: e.get("is_land") for x in f.values() for e in x["pool"]}
-for name, want in {
-    "Command Tower": True,
-    "Fell the Profane // Fell Mire": True,  # MDFC in the spot-removal pool
-    "Sol Ring": False,
-}.items():
+for name, want in {"Command Tower": True, "Sol Ring": False}.items():
     assert seen.get(name) is want, (name, seen.get(name))
+# Every pool entry carries the same flag as the skeleton's (MDFCs checked above).
+# Which cards appear moved with the theme ranking (audit job 3.3: Fell the Profane
+# used to be the pool's MDFC and fell out of Atraxa's 12).
+idx = mtg._bulk_index()
+for name, flag in seen.items():
+    assert flag is mtg._land_flag(idx.get(name)), (name, flag)
 
 # Board wipes: 0 of 3 -> at most 3 suggestions; 1 of 3 -> at most 2.
 wipes = f["Board wipes"]

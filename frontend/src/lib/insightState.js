@@ -14,7 +14,7 @@ export const migratePanel = (p) => (OLD_CHANGE_PANELS.has(p) ? "Changes" : p);
 // they drift). Cached swaps from older rules are dropped on hydrate, so they are
 // fetched again (free: no AI) the next time the deeper pass loads, instead of
 // showing swaps the server no longer makes, as happened after 2026-10-23's fix.
-export const BUDGET_SWAPS_VERSION = 2;
+export const BUDGET_SWAPS_VERSION = 3;
 const currentSwaps = (d) => (d && d.v === BUDGET_SWAPS_VERSION ? d : null);
 
 /** A cache from `loadInsights` (or null for a deck with none) → the values the

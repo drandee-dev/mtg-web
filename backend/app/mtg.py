@@ -2450,8 +2450,9 @@ def _land_swap_ok(old: dict, new: dict) -> bool:
 
 
 # Bump when the swap rules change, so cached swaps in browsers are replaced (2 =
-# like-for-like plus commander-aware, 2026-10-24).
-BUDGET_SWAPS_VERSION = 2
+# like-for-like plus commander-aware, 2026-10-24; 3 = theme lock and self-only
+# protection, audit job 3.3).
+BUDGET_SWAPS_VERSION = 3
 
 
 def budget_swaps(
@@ -2471,6 +2472,12 @@ def budget_swaps(
     in_deck = {
         e["name"] for zone in ("commanders", "cards") for e in deck.get(zone, [])
     }
+    # Audit job 3.3: an on-theme card is only swapped for one that keeps its theme
+    # (Synapse Sliver went to Solemn Simulacrum, Apex Altisaur to Terastodon).
+    theme = read_theme(
+        [r for r in (idx.get(e["name"]) for e in deck.get("commanders", [])) if r],
+        [c for _, c in hd.entries(zones=("commanders", "cards")) if c],
+    )
 
     # This commander's own decks first: the cheap card they actually play, not one
     # that is merely popular everywhere. EDHREC gets 3 seconds per request (a partner
@@ -2515,10 +2522,7 @@ def budget_swaps(
                     {"Ramp": "ramp", "Land": "lands"}.get(role)
                 )
             if not search_cfg:
-                for pattern, label in _ORACLE_ROLES:
-                    if label == role:
-                        search_cfg = {"oracle": pattern, "type": None}
-                        break
+                search_cfg = _oracle_role_search(role)
             if search_cfg:
                 try:
                     # The most played card of this role that is under half the price
@@ -2559,6 +2563,7 @@ def budget_swaps(
                             and cp
                             and cp < price * 0.5
                             and (ptype != "land" or _land_swap_ok(card, c))
+                            and theme.keeps_theme(card, c)
                         ):
                             alt = {
                                 "name": cn,
@@ -2767,8 +2772,16 @@ def ai_composition_fills(
             for c in candidates
             if c.get("name") not in in_deck and not (no_gc and c.get("game_changer"))
         ]
-        # Stable: this commander's most played first, the rest in global order.
-        candidates.sort(key=lambda c: -incl.get(c.get("name", ""), 0.0))
+        # Stable: on-theme cards first (audit job 3.3; not for lands, which are mana:
+        # a spell//land MDFC would rank on its spell side), then this commander's
+        # most played, the rest in global order.
+        theme = ctx["theme"]
+        candidates.sort(
+            key=lambda c: (
+                key != "lands" and not theme.on_theme(c),
+                -incl.get(c.get("name", ""), 0.0),
+            )
+        )
         candidates = candidates[:12]
 
         # Build the full pool with names for skip/replace
@@ -3046,11 +3059,42 @@ _ROLE_CHECKS = [
     ("tokens", "Tokens"),
 ]
 
+_PROTECTION = re.compile(
+    r"\bprotection from\b|\bhexproof\b|\bindestructible\b|\bshroud\b|\bward\b"
+)
+
+
+def _grants_protection(card: dict) -> bool:
+    """Protection as a role means protecting other things. A keyword alone on its
+    own line ("Indestructible", "Ward {2}") guards only the card itself: Xenagos and
+    Hulking Raptor were swapped for each other as "Protection" (audit job 3.3)."""
+    kws = [k.lower() for k in card.get("keywords") or []] + ["protection from"]
+    kept = []
+    for line in _full_oracle(card).lower().splitlines():
+        parts = [p.strip() for p in re.sub(r"\([^)]*\)", "", line).split(",")]
+        # The keyword must end the word: "equip {0}" is one, "equipped creature" isn't.
+        if not all(
+            p and any(re.match(rf"{re.escape(k)}\b", p) for k in kws) for p in parts
+        ):
+            kept.append(line)
+    return bool(_PROTECTION.search("\n".join(kept)))
+
+
+def _oracle_role_search(role: str) -> dict | None:
+    """A _fill_candidates cfg for a role with no preset. Protection scans its regex,
+    then keeps the cards that protect something else."""
+    if role == "Protection":
+        return {
+            "oracle": _PROTECTION.pattern,
+            "tier": lambda c: "full" if _grants_protection(c) else None,
+            "type": None,
+        }
+    pattern = next((p for p, label in _ORACLE_ROLES if label == role), None)
+    return {"oracle": pattern, "type": None} if isinstance(pattern, str) else None
+
+
 _ORACLE_ROLES = [
-    (
-        r"\bprotection from\b|\bhexproof\b|\bindestructible\b|\bshroud\b|\bward\b",
-        "Protection",
-    ),
+    (_grants_protection, "Protection"),
     (r"\breturn.*from.*graveyard\b|\breanimate\b", "Recursion"),
     (r"\bsacrifice\b", "Sacrifice"),
     (is_ramp, "Ramp"),  # the ramp count's own definition, not a regex
