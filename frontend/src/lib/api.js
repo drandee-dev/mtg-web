@@ -175,8 +175,8 @@ export const api = {
     post("/api/deck/ai/explain", { decklist, format, card_names, ...(bracket != null ? { bracket } : {}), ...(goals ? { goals } : {}) }),
   aiStrategy: (decklist, format, commander, bracket) =>
     post("/api/deck/ai/strategy", { decklist, format, ...(commander ? { commander } : {}), ...(bracket != null ? { bracket } : {}) }),
-  optimize: (decklist, format, goals, focus, recentChanges) =>
-    post("/api/deck/optimize", { decklist, format, ...(goals ? { goals } : {}), ...(focus ? { focus } : {}), ...(recentChanges?.length ? { recent_changes: recentChanges } : {}) }),
+  optimize: (decklist, format, goals, focus, recentChanges, archetype) =>
+    post("/api/deck/optimize", { decklist, format, ...(goals ? { goals } : {}), ...(focus ? { focus } : {}), ...(recentChanges?.length ? { recent_changes: recentChanges } : {}), ...(archetype ? { archetype } : {}) }),
   // Server gate for AI-named cards: [{ input, name, status, reason }], status ∈
   // ok | in_deck | unknown | illegal | off_color. Max 40 names per call.
   validateCards: (decklist, format, names) =>

@@ -26,7 +26,7 @@ export function useAiChanges({
   const {
     recs, setRecs, combos, budgetSwaps, setBudgetSwaps, upgradeMode, setUpgradeMode,
     panelSigs, markFresh, skipped, pinned, setPinned, declinedUpgrades,
-    insightDecided, setInsightDecided, skip, declineUpgrade,
+    insightDecided, setInsightDecided, skip, declineUpgrade, strategy,
   } = cache;
   const { findDeckLine, removeCard, appendLine } = edits;
 
@@ -61,8 +61,9 @@ export function useAiChanges({
       const recentChanges = loadLog(deckId)
         .slice(-20)
         .map((e) => `${e.action}: ${describeEntry(e)}`);
+      // How to play's archetype (job 3.2), stale or not: a few swaps rarely change it.
       const r = await api.optimize(full, format, apiGoals,
-        typeof focus === "string" ? focus : null, recentChanges);
+        typeof focus === "string" ? focus : null, recentChanges, strategy?.archetype);
       r.changes = (r.changes || []).map((c, i) => ({ ...c, id: `${i}:${c.cut || ""}>${c.add || ""}` }));
       setOptimize(r);
       // The Changes tab's deep pass reuses this result (loadChanges) and needs
