@@ -166,6 +166,72 @@ def test_high_lift_list_is_read_and_ranked():
     )
 
 
+def test_popular_cards_rank_before_rare_high_lift_ones():
+    """Audit job 3.5: Sliver Gravemother's top two by lift were Convergence of
+    Dominion (13% of its decks) and Obeka (7%), ahead of Regal Sliver (64%). Cards in
+    20%+ of the decks go first, by lift; on a page under 100 decks lift alone."""
+
+    def cv(name, lift, decks, of=2000):
+        return {
+            "name": name,
+            "synergy": 0.2,
+            "lift": lift,
+            "num_decks": decks,
+            "potential_decks": of,
+        }
+
+    def page(of):
+        return {
+            "container": {
+                "json_dict": {
+                    "cardlists": [
+                        {
+                            "tag": "highliftcards",
+                            "cardviews": [
+                                cv(
+                                    "Convergence of Dominion",
+                                    31.0,
+                                    round(0.13 * of),
+                                    of,
+                                ),
+                                cv(
+                                    "Obeka, Splitter of Seconds",
+                                    25.0,
+                                    round(0.07 * of),
+                                    of,
+                                ),
+                                cv("Regal Sliver", 4.2, round(0.64 * of), of),
+                                cv("Diffusion Sliver", 3.1, round(0.83 * of), of),
+                                # Exactly 20%: popular.
+                                cv("Sliver Hivelord", 2.0, round(0.20 * of), of),
+                            ],
+                        }
+                    ]
+                }
+            }
+        }
+
+    stub_get(page(2000))
+    names = [
+        c["name"] for c in el.edhrec_lookup(["Sliver Gravemother"])["high_synergy"]
+    ]
+    assert names == [
+        "Regal Sliver",
+        "Diffusion Sliver",
+        "Sliver Hivelord",
+        "Convergence of Dominion",
+        "Obeka, Splitter of Seconds",
+    ], names
+    stub_get(page(80))  # too few decks to judge popularity: lift order
+    names = [
+        c["name"] for c in el.edhrec_lookup(["Sliver Gravemother"])["high_synergy"]
+    ]
+    assert names[:2] == ["Convergence of Dominion", "Obeka, Splitter of Seconds"], names
+    print(
+        "ok: cards in 20%+ of the decks rank first, by lift; small pages keep lift order"
+    )
+
+
 def test_timeout_reaches_every_request():
     """A caller's timeout must reach both GETs, the page and its redirect."""
     seen = []
@@ -275,6 +341,7 @@ if __name__ == "__main__":
         test_second_redirect_not_followed()
         test_themes_are_read()
         test_high_lift_list_is_read_and_ranked()
+        test_popular_cards_rank_before_rare_high_lift_ones()
         test_timeout_reaches_every_request()
         test_misses_are_remembered_briefly()
         test_all_empty_gives_note()

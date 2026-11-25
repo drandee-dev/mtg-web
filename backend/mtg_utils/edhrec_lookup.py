@@ -66,6 +66,18 @@ def _played_here(cv: dict) -> bool:
     return not ((cv.get("synergy") or 0.0) < 0 and inclusion < 0.30)
 
 
+POPULAR_SHARE = 0.20
+POPULAR_MIN_DECKS = 100
+
+
+def _popular(cv: dict) -> bool:
+    """In POPULAR_SHARE of this commander's decks, on a page with enough decks to say."""
+    potential = cv.get("potential_decks") or 0
+    if potential < POPULAR_MIN_DECKS:
+        return False
+    return (cv.get("num_decks") or 0) / potential >= POPULAR_SHARE
+
+
 def _extract_cardviews(cardviews: list[dict]) -> list[dict]:
     return [
         {
@@ -130,8 +142,11 @@ def edhrec_lookup(commanders: list[str], timeout: float | None = None) -> dict:
         if tag in CARDLIST_TAGS:
             key = CARDLIST_TAGS[tag]
             result[key] = _extract_cardviews(cardlist.get("cardviews", []))
-    # Highest lift first (EDHREC's own order today; stable, so a page without lift keeps its order).
-    result["high_synergy"].sort(key=lambda cv: -(cv["lift"] or 0))
+    # Cards in 20%+ of this commander's decks first, then the rest, each by highest
+    # lift (stable, so a page without lift keeps its order). Lift alone put Convergence
+    # of Dominion (13% of Sliver Gravemother's decks) ahead of Regal Sliver (64%):
+    # audit job 3.5, his rule (2026-11-25), only on pages with 100+ decks.
+    result["high_synergy"].sort(key=lambda cv: (not _popular(cv), -(cv["lift"] or 0)))
 
     # How players build this commander: EDHREC's theme tags with their deck counts
     # (Silverquill 2026-10-24: Tokens 920, Spellslinger 808, Aristocrats 487). Not a
