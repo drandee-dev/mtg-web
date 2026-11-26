@@ -565,7 +565,7 @@ function NewDeckSteps({ onCreate, notify, seed }) {
   // before assembleSkeleton picks its slots, and ai/fills gap-closers only
   // reach for an unowned card once the owned pool can't fill the slot.
   // Every non-basic pick is then flagged owned or not, and the unowned ones
-  // get priced via the same per-name lookup CardPreview/CardBottomSheet use.
+  // get priced via the same per-name lookup CardPreview uses.
   async function generateFromCollection(cmdNames) {
     const commanderName = cmdNames.join(" && ");
     setStepIdx(steps.length - 1);
