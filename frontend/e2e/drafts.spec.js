@@ -140,12 +140,12 @@ test.describe("Deck drafts", () => {
     await expect(unsavedMark(page)).toHaveCount(0);
     await expect(live).toHaveText("");
 
-    await page.locator(".dh-format").selectOption("legacy");
+    await page.locator(".dh-format").selectOption("paupercommander");
     await expect(unsavedMark(page)).toHaveText("Unsaved");
     // Announced with what it means, from a region that was already there.
     await expect(live).toHaveAttribute("role", "status");
     await expect(live).toHaveText(/kept in this browser until you save or discard/);
-    expect((await draftOf(page, TEST_DECK_STORAGE.id)).format).toBe("legacy");
+    expect((await draftOf(page, TEST_DECK_STORAGE.id)).format).toBe("paupercommander");
 
     await page.locator(".dh-format").selectOption("commander");
     await expect(unsavedMark(page)).toHaveCount(0);

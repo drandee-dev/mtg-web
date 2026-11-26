@@ -320,13 +320,11 @@ export function assembleForStorage(rawText, commander, maybeboard) {
   return out;
 }
 
-// Formats offered in the UI (trimmed per request). Value is the backend format key.
+// Formats the app serves (audit job 5.6: Commander and Pauper Commander only).
+// Value is the backend format key; deckParser's webFormat opens any other as Commander.
 export const FORMATS = [
   ["commander", "Commander"],
   ["paupercommander", "Pauper Commander"],
-  ["standard", "Standard"],
-  ["modern", "Modern"],
-  ["legacy", "Legacy"],
 ];
 
 // Official WotC Commander brackets. Value is what the backend's _target_bracket

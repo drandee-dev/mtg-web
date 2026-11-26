@@ -42,6 +42,6 @@ test("an older saved result with only an overall mana status never reads ok when
   assert.equal(line(r, null), "Legal:ok | mana short:warn");
 });
 
-test("a 60-card format counts against 60, and missing audits are left out", () => {
-  assert.equal(line({ total_cards: 58, format: "standard" }, null), "Legal:ok | 58 of 60 cards:warn");
+test("a short deck counts against 100, and missing audits are left out", () => {
+  assert.equal(line({ total_cards: 58, format: "paupercommander" }, null), "Legal:ok | 58 of 100 cards:warn");
 });

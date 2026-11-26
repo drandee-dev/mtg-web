@@ -33,9 +33,11 @@ test("pullAsides takes a Sideboard section out too, each card once", () => {
   assert.equal(parseDeckText(kept.rest).totalCards, 60);
 });
 
-test("isCommanderFormat: Commander, Pauper Commander, unset and retired formats", () => {
-  for (const f of ["commander", "paupercommander", "", undefined, "brawl"]) assert.equal(isCommanderFormat(f), true, f);
-  for (const f of ["legacy", "modern", "standard", "pauper", "pioneer"]) assert.equal(isCommanderFormat(f), false, f);
+test("isCommanderFormat: every format is a Commander one since audit job 5.6", () => {
+  // Served formats, unset, and every retired one (they all open as Commander).
+  for (const f of ["commander", "paupercommander", "", undefined, "brawl", "legacy", "modern", "standard", "pauper", "pioneer"]) {
+    assert.equal(isCommanderFormat(f), true, f);
+  }
 });
 
 // 2026-11-06: a companion is not one of the deck's cards, and neither is the
@@ -52,13 +54,15 @@ test("companion, sideboard and Considering sections are not counted as deck card
   assert.equal(parseDeckText("60 Island\nSideboard\n15 Pyroblast").totalCards, 60);
 });
 
-test("retired Brawl formats open as Commander; others pass through", () => {
-  assert.equal(webFormat("brawl"), "commander");
-  assert.equal(webFormat("historic_brawl"), "commander");
-  for (const f of ["commander", "paupercommander", "standard", "modern", "legacy"]) assert.equal(webFormat(f), f);
+test("only Commander and Pauper Commander are served; every other format opens as Commander (audit job 5.6)", () => {
+  for (const f of ["commander", "paupercommander"]) assert.equal(webFormat(f), f);
+  for (const f of ["brawl", "historic_brawl", "standard", "modern", "legacy", "pauper", "pioneer"]) {
+    assert.equal(webFormat(f), "commander", f);
+  }
   // Falsy stays falsy, so each caller keeps its own default.
   assert.equal(webFormat(""), "");
   assert.equal(webFormat(undefined), undefined);
-  // Object's own property names are not formats: a ?fmt= link must stay a string.
-  for (const f of ["constructor", "toString", "__proto__", "hasOwnProperty"]) assert.equal(webFormat(f), f);
+  assert.equal(webFormat(null), null);
+  // Object's own property names are just more unserved strings, never Object's members.
+  for (const f of ["constructor", "toString", "__proto__", "hasOwnProperty"]) assert.equal(webFormat(f), "commander");
 });
