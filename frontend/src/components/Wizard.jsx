@@ -109,7 +109,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
     const room = (100 - cmdCount) - Object.keys(p).length;
     if (currentCat?.[0] !== "budget_picks") return Math.max(room, 0);
     const spells = Object.values(p).filter((info) => !(info?.roles || []).includes("Land")).length;
-    return Math.max(Math.min(room, 100 - cmdCount - LAND_TARGET - spells), 0);
+    return Math.max(Math.min(room, 100 - cmdCount - (skeleton?.land_target ?? LAND_TARGET) - spells), 0);
   }
 
   function addAll() {

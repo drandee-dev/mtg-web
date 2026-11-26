@@ -511,7 +511,6 @@ def deck_breakdown(hd: HydratedDeck) -> dict[str, Any]:
 # land-count formula: viability is judged from land count + ramp + average mana value.
 _VIA_SOURCE_BASE = 0.30  # baseline mana-source fraction of the deck
 _VIA_SOURCE_MV = 0.03  # extra sources per +1 average mana value (curve cost)
-_VIA_LAND_FLOOR = 0.27  # minimum real lands (ramp can't fully substitute)
 _VIA_WARN = 0.88  # within this fraction of target/floor → WARN, below → FAIL
 
 
@@ -520,17 +519,18 @@ def _rank(status: str) -> int:
 
 
 def mana_viability(
-    land_count: int, ramp_count: int, avg_mv: float, deck_size: int
+    land_count: int, ramp_count: int, avg_mv: float, deck_size: int, land_floor: int
 ) -> dict[str, Any]:
     """Judge the mana base from land count + ramp density + average mana value.
 
     Mana sources = lands + ramp (ramp ≈ a pseudo-source). The target scales with the
-    curve (higher avg MV needs more sources). A separate land floor ensures there are
-    enough real lands to actually cast the ramp. Status is the worse of the two checks.
+    curve (higher avg MV needs more sources). The land floor is mana_audit's
+    land_count_floor, the one land target composition, Optimize and the generator
+    use (audit job 4.1). Status is the worse of the two checks.
     """
     sources = land_count + ramp_count
     target = round(deck_size * (_VIA_SOURCE_BASE + _VIA_SOURCE_MV * avg_mv))
-    floor = round(deck_size * _VIA_LAND_FLOOR)
+    floor = land_floor
 
     def gate(value: int, threshold: int) -> str:
         if value >= threshold:
@@ -585,6 +585,7 @@ def analyze_deck(text: str, *, fmt: str = "commander") -> dict[str, Any]:
         mana.get("ramp_count", 0),
         mana.get("avg_cmc", 0.0),
         deck_size,
+        mana["land_count_floor"],
     )
     mana["viability"] = viability
     color_status = mana.get("color_balance_status", "PASS")
@@ -871,7 +872,9 @@ def _commander_profile_text(
     # Counts, not shares: EDHREC tags only some decks with a theme (Silverquill: 920
     # Tokens of 11,530 decks), so a share of all decks makes the top theme read as minor.
     themes = [
-        f"{t['name']} ({t['count']} decks)" for t in cats.get("themes") or [] if t.get("count")
+        f"{t['name']} ({t['count']} decks)"
+        for t in cats.get("themes") or []
+        if t.get("count")
     ][:6]
     spells = {
         k: v for k, v in cats.items() if k not in ("themes", "lands", "utility_lands")
@@ -884,7 +887,8 @@ def _commander_profile_text(
     legal = {
         n: s
         for n, s in _commander_inclusion(spells, idx).items()
-        if ((idx.get(n) or {}).get("legalities") or {}).get(legality_key) in ("legal", "restricted")
+        if ((idx.get(n) or {}).get("legalities") or {}).get(legality_key)
+        in ("legal", "restricted")
     }
     played = sorted(legal.items(), key=lambda kv: -kv[1])[:15]
     if not themes and not played:
@@ -959,7 +963,9 @@ def commander_synergies(name: str, limit: int = 10) -> list[dict]:
         out.append(
             {
                 "name": card_name,
-                "pct": round(100 * cv.get("num_decks", 0) / potential) if potential else None,
+                "pct": round(100 * cv.get("num_decks", 0) / potential)
+                if potential
+                else None,
                 "synergy": round(100 * cv.get("synergy", 0.0)),
             }
         )
@@ -975,6 +981,7 @@ def commander_synergies(name: str, limit: int = 10) -> list[dict]:
 # toward its category but is reported as `light` and ranked below full-tier fills;
 # a card matching both tiers is full.
 _COMPOSITION = [
+    # Target replaced per deck by mana_audit's land_count_floor (audit job 4.1).
     ("lands", "Lands", 36, None, ()),  # from deck_stats.land_count
     ("ramp", "Ramp", 10, None, ()),  # deck_stats.ramp_count / ramp_light_count
     ("card-draw", "Card draw", 10, ("card-draw", "cantrip"), ()),
@@ -1012,6 +1019,8 @@ def deck_composition(text: str, *, fmt: str = "commander") -> dict[str, Any]:
         light = 0
         if key == "lands":
             count = stats.get("land_count", 0)
+            if is_commander_fmt:
+                target = mana_audit(hd)["land_count_floor"]
         elif key == "ramp":
             count = stats.get("ramp_count", 0)
             light = stats.get("ramp_light_count", 0)
@@ -1386,20 +1395,20 @@ def goals_prompt_parts(
     if budget and two_picks:
         sys_lines.append(
             f"Budget ceiling: ${float(budget):.0f} total deck price. It binds the "
-            f"\"cheaper\" pick: if the deck is under the ceiling, that card must keep "
+            f'"cheaper" pick: if the deck is under the ceiling, that card must keep '
             f"it under; if the deck is already over, that card must not raise the "
             f"deck's price. "
             + (
-                "If the deck is already over the ceiling, the main \"add\" may be a "
+                'If the deck is already over the ceiling, the main "add" may be a '
                 "card that brings the deck's price down (the user chose savings first)."
                 if goals.get("over_budget") == "savings"
                 # Job 4c: with only the line above, a paid call on an over-cap deck
                 # (2026-11-06) still chose which cards to change to save money.
-                else "The main \"add\" is the strongest card even if it costs more, "
+                else 'The main "add" is the strongest card even if it costs more, '
                 "including when the deck is already over the ceiling. The ceiling is "
                 "not a goal to move toward: never pick a card to change because of "
                 "its price, and never swap a card for a weaker one to save money (the "
-                "\"cheaper\" pick already shows the saving). Choose every change for "
+                '"cheaper" pick already shows the saving). Choose every change for '
                 "power and the deck's plan."
             )
         )
@@ -1591,8 +1600,14 @@ def _deck_context(
     if commander_profile:
         lines.append(commander_profile)
     commander_notes = "\n".join(
-        [*(["Commander cares about: " + "; ".join(cmd_mechanics)] if cmd_mechanics else []),
-         *([commander_profile.strip()] if commander_profile else [])]
+        [
+            *(
+                ["Commander cares about: " + "; ".join(cmd_mechanics)]
+                if cmd_mechanics
+                else []
+            ),
+            *([commander_profile.strip()] if commander_profile else []),
+        ]
     )
 
     summary = "\n".join(lines)
@@ -1673,7 +1688,9 @@ _DECKBUILDER_SYSTEM = (
 )
 
 
-def _cached_deck_messages(payload: str, instruction: str, *, tail: str = "") -> list[dict]:
+def _cached_deck_messages(
+    payload: str, instruction: str, *, tail: str = ""
+) -> list[dict]:
     """Two-breakpoint user message for a deck-analysis AI call. Pass
     _DECKBUILDER_SYSTEM as the call's `system` — this only pays off if that
     stays constant; see its comment above for why.
@@ -1800,11 +1817,15 @@ def ai_strategy(
     # commander into that text before calling this). Kept as a per-call
     # fallback, in the uncached tail so it costs nothing when unused, for the
     # narrow case a caller supplies a decklist with no parseable commander.
-    tail = "" if ctx["commanders"] else (f"\nCommander: {commander}" if commander else "")
+    tail = (
+        "" if ctx["commanders"] else (f"\nCommander: {commander}" if commander else "")
+    )
 
     resp = _ai_call(
         _DECKBUILDER_SYSTEM,
-        messages=_cached_deck_messages(ctx["summary"], _STRATEGY_INSTRUCTION, tail=tail),
+        messages=_cached_deck_messages(
+            ctx["summary"], _STRATEGY_INSTRUCTION, tail=tail
+        ),
         api_key=api_key,
         max_tokens=1400,
         schema=_STRATEGY_SCHEMA,
@@ -2077,7 +2098,9 @@ def _cheaper_pick(
         return None
     verdict = verdicts.get(raw)
     if not verdict or verdict["status"] != "ok":
-        log.info("optimize: cheaper %r rejected: %s", raw, verdict and verdict["status"])
+        log.info(
+            "optimize: cheaper %r rejected: %s", raw, verdict and verdict["status"]
+        )
         return None
     name = verdict["name"]
     rec = idx.get(name)
@@ -2088,7 +2111,11 @@ def _cheaper_pick(
         log.info("optimize: cheaper %r not cheaper (%s vs %s)", name, price, add_price)
         return None
     if not _same_job(add_rec, rec):
-        log.info("optimize: cheaper %r does a different job from %r", name, add_rec.get("name"))
+        log.info(
+            "optimize: cheaper %r does a different job from %r",
+            name,
+            add_rec.get("name"),
+        )
         return None
     delta = round(price - (cut_price or 0), 2)
     return {
@@ -2156,7 +2183,9 @@ def ai_optimize(
             "cares about) may only be swapped for a card in the same part of the theme."
         )
     if rules:
-        tail += "\n\nThe server drops changes that break these rules: " + " ".join(rules)
+        tail += "\n\nThe server drops changes that break these rules: " + " ".join(
+            rules
+        )
     # Audit job 3.8: with only the rule above, a paid call on Sliver Swarm (2026-11-25)
     # still proposed four Sliver cuts and every change was held back. Name the cards
     # outside the theme, where cuts should come from first (see 3.9 below).
@@ -2275,10 +2304,13 @@ def ai_optimize(
         return has_brackets and _lifts_past(
             base_recs + kept_adds, add_rec, cut_rec, b_ceiling
         )
+
     # Every add goes through the shared gate: exact name, legal (bans), inside the
     # deck's identity (inferred when no commander is set), not already in.
     add_names = [
-        str(ch.get(k) or "").strip()[:100] for ch in proposals for k in ("add", "cheaper")
+        str(ch.get(k) or "").strip()[:100]
+        for ch in proposals
+        for k in ("add", "cheaper")
     ]
     verdicts = {
         r["input"]: r
@@ -2286,7 +2318,9 @@ def ai_optimize(
     }
 
     def over(delta: float | None) -> bool:
-        return bool(ceiling and price_now is not None and price_now + (delta or 0) > ceiling)
+        return bool(
+            ceiling and price_now is not None and price_now + (delta or 0) > ceiling
+        )
 
     def _land_delta(cut_rec: dict | None, add_rec: dict | None) -> int:
         return int(bool(add_rec) and _land_flag(add_rec)) - int(
@@ -2332,12 +2366,17 @@ def ai_optimize(
         elif action == "cut":
             add = ""
             if room >= 0:
-                log.info("optimize: bare cut %r dropped, the deck is not over its size", cut)
+                log.info(
+                    "optimize: bare cut %r dropped, the deck is not over its size", cut
+                )
                 continue
         elif action == "add":
             cut = ""
             if room <= 0:
-                log.info("optimize: bare add %r dropped, the deck is not short of its size", add)
+                log.info(
+                    "optimize: bare add %r dropped, the deck is not short of its size",
+                    add,
+                )
                 continue
         else:
             continue
@@ -2364,7 +2403,11 @@ def ai_optimize(
             add = verdict["name"]
             add_rec = idx.get(add)
             if _lifts_bracket(add_rec, cut_rec):
-                log.info("optimize: %r dropped, it lifts the deck past bracket %d", add, b_ceiling)
+                log.info(
+                    "optimize: %r dropped, it lifts the deck past bracket %d",
+                    add,
+                    b_ceiling,
+                )
                 continue
 
         reason_held = _held(cut_rec, add_rec)
@@ -2400,7 +2443,11 @@ def ai_optimize(
             else None
         )
         if alt and _lifts_bracket(idx.get(alt["name"]), cut_rec):
-            log.info("optimize: cheaper %r dropped, it lifts the deck past bracket %d", alt["name"], b_ceiling)
+            log.info(
+                "optimize: cheaper %r dropped, it lifts the deck past bracket %d",
+                alt["name"],
+                b_ceiling,
+            )
             alt = None
         if alt and _held(cut_rec, idx.get(alt["name"])):
             log.info("optimize: cheaper %r dropped, held back by a guard", alt["name"])
@@ -2570,7 +2617,13 @@ def _extract_ai_json(raw: str) -> Any:
 
 
 _SWAP_TYPES = (
-    "land", "creature", "planeswalker", "instant", "sorcery", "artifact", "enchantment",
+    "land",
+    "creature",
+    "planeswalker",
+    "instant",
+    "sorcery",
+    "artifact",
+    "enchantment",
 )
 
 
@@ -2640,9 +2693,13 @@ def budget_swaps(
         try:
             cats = _edhrec_cardlists(commanders, timeout=3)
             incl = _commander_inclusion(cats, idx)
-            utility = set(_commander_inclusion({"u": cats.get("utility_lands", [])}, idx))
+            utility = set(
+                _commander_inclusion({"u": cats.get("utility_lands", [])}, idx)
+            )
         except Exception:  # noqa: BLE001 - external service; fall back, don't fail
-            log.warning("budget swaps: EDHREC unavailable for %s, global ranking", commanders)
+            log.warning(
+                "budget swaps: EDHREC unavailable for %s, global ranking", commanders
+            )
 
     priced = []
     for entry, card in hd.entries(zones=("cards",)):
@@ -2724,7 +2781,9 @@ def budget_swaps(
                                 "price": round(cp, 2),
                                 "role": role,
                                 # Share of this commander's EDHREC decks, or None.
-                                "commander_pct": round(100 * incl[cn]) if incl.get(cn) else None,
+                                "commander_pct": round(100 * incl[cn])
+                                if incl.get(cn)
+                                else None,
                             }
                             # Taken: two swaps must not both add the same card.
                             in_deck.add(cn)
@@ -2846,7 +2905,10 @@ _FILLS_SCHEMA = {
             "type": "array",
             "items": {
                 "type": "object",
-                "properties": {"name": {"type": "string"}, "reason": {"type": "string"}},
+                "properties": {
+                    "name": {"type": "string"},
+                    "reason": {"type": "string"},
+                },
                 "required": ["name", "reason"],
             },
         }
@@ -3145,7 +3207,10 @@ _COMBO_SCHEMA = {
             "type": "array",
             "items": {
                 "type": "object",
-                "properties": {"combo": {"type": "string"}, "reason": {"type": "string"}},
+                "properties": {
+                    "combo": {"type": "string"},
+                    "reason": {"type": "string"},
+                },
                 "required": ["combo", "reason"],
             },
         },
@@ -3201,7 +3266,11 @@ def ai_combo_guidance(
         _log_unreadable("combo guidance", resp)
         data = {
             "assessments": [
-                {"combo": "Parse error", "verdict": "—", "reason": AI_UNREADABLE_MESSAGE}
+                {
+                    "combo": "Parse error",
+                    "verdict": "—",
+                    "reason": AI_UNREADABLE_MESSAGE,
+                }
             ],
             "new_suggestions": [],
         }
@@ -3378,7 +3447,7 @@ def _enrich_card(card_dict: dict, idx: Any, cap: float | None = None) -> dict:
 
 # Generic most-played affordable cards offered when a capped skeleton runs
 # short, after the commander's own leftover list cards.
-# One per spell slot (99 cards less 36 lands), so a commander with thin lists
+# One per spell slot (99 cards less the land target, about 36), so a commander with thin lists
 # never pads with basics for want of picks: Thrasios && Tymna at a $1 cap has
 # no leftovers of its own and used all 40 of an earlier limit.
 _BUDGET_PICKS = 63
@@ -3591,6 +3660,16 @@ def wizard_build_skeleton(
         },
         "skeleton": skeleton,
         "bracket": bracket,
+        # The deck's land floor, which depends only on the commanders (audit job 4.1).
+        "land_target": mana_audit(
+            HydratedDeck.from_parsed(
+                parse_deck_text(
+                    "Commander\n" + "\n".join(f"1 {r['name']}" for r in recs),
+                    format=fmt,
+                ),
+                idx,
+            )
+        )["land_count_floor"],
     }
 
 
@@ -3699,7 +3778,10 @@ def wizard_chat(
         idx = _bulk_index()
         recs = [r for n in commander_name.split(" && ") if (r := idx.get(n.strip()))]
         if recs:
-            brief = [f"**{r['name']}** — {r.get('type_line', '')}\nOracle: {_full_oracle(r)}" for r in recs]
+            brief = [
+                f"**{r['name']}** — {r.get('type_line', '')}\nOracle: {_full_oracle(r)}"
+                for r in recs
+            ]
             profile = _commander_profile([r["name"] for r in recs], idx, set(), fmt)
             system += "\n\nCommander:\n" + "\n".join(brief) + (profile or "")
 
