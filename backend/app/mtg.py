@@ -585,7 +585,7 @@ def analyze_deck(text: str, *, fmt: str = "commander") -> dict[str, Any]:
         mana.get("ramp_count", 0),
         mana.get("avg_cmc", 0.0),
         deck_size,
-        mana.get("land_count_floor", 0),
+        mana["land_count_floor"],
     )
     mana["viability"] = viability
     color_status = mana.get("color_balance_status", "PASS")
@@ -3447,7 +3447,7 @@ def _enrich_card(card_dict: dict, idx: Any, cap: float | None = None) -> dict:
 
 # Generic most-played affordable cards offered when a capped skeleton runs
 # short, after the commander's own leftover list cards.
-# One per spell slot (99 cards less about 36 lands), so a commander with thin lists
+# One per spell slot (99 cards less the land target, about 36), so a commander with thin lists
 # never pads with basics for want of picks: Thrasios && Tymna at a $1 cap has
 # no leftovers of its own and used all 40 of an earlier limit.
 _BUDGET_PICKS = 63
