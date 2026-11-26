@@ -206,10 +206,8 @@ assert SECRET not in json.dumps(events), events
 out = _real_ai_call("sys", "hi", api_key="test")
 assert out == {"error": True, "result": mtg.AI_FAILED_MESSAGE}, out
 assert SECRET not in json.dumps(out), out
-out = mtg.wizard_chat([{"role": "user", "content": "hi"}], "X", "", api_key="test")
-assert out == {"error": True, "message": mtg.AI_FAILED_MESSAGE}, out
 # Every failure reached the server log with the exception attached.
-assert len(_logged) == 3 and all(
+assert len(_logged) == 2 and all(
     r.exc_info and SECRET in str(r.exc_info[1]) for r in _logged
 ), _logged
 

@@ -139,7 +139,6 @@ callers = {
     "explain": lambda: mtg.ai_explain_recommendations(
         DECK, ["Sol Ring"], fmt="commander", api_key="test"
     ),
-    "combos": lambda: mtg.ai_combo_guidance(DECK, [], [], fmt="commander", api_key="test"),
     "fills": lambda: mtg.ai_composition_fills(DECK, fmt="commander", api_key="test"),
 }
 for name, run in callers.items():
@@ -182,11 +181,6 @@ assert "SECRET-RAW-TEXT" in rec[0], "the raw head must reach the server log"
 res = unreadable(callers["explain"])
 assert "SECRET-RAW-TEXT" not in json.dumps(res), res
 assert res["explanations"][0]["explanation"] == mtg.AI_UNREADABLE_MESSAGE, res
-assert len(_logged) == 1, _logged
-
-res = unreadable(callers["combos"])
-assert "SECRET-RAW-TEXT" not in json.dumps(res), res
-assert res["assessments"][0]["reason"] == mtg.AI_UNREADABLE_MESSAGE, res
 assert len(_logged) == 1, _logged
 
 # --- a structured reply cut off at max_tokens is an error, not an empty answer #

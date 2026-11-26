@@ -166,14 +166,13 @@ for name, run in {
     "optimize / power upgrades": lambda: mtg.ai_optimize(DECK, api_key="t"),
     "strategy": lambda: mtg.ai_strategy(DECK, api_key="t"),
     "explain": lambda: mtg.ai_explain_recommendations(DECK, ["Sol Ring"], api_key="t"),
-    "combos": lambda: mtg.ai_combo_guidance(DECK, [], [], api_key="t"),
     "fills": lambda: mtg.ai_composition_fills(DECK, api_key="t"),
 }.items():
     sent.clear()
     run()
     assert sent, f"{name}: made no AI call"
     assert all("Tokens (920 decks)" in m for m in sent), f"{name}: no commander strategy sent"
-print("ok: optimize, strategy, explain, combos and fills all send it")
+print("ok: optimize, strategy, explain and fills all send it")
 
 # --- fills: commander-first pool and every commander's text ---------------- #
 use(page())
@@ -198,36 +197,9 @@ use(page())
 sent.clear()
 mtg.wizard_narrate("Silverquill, the Disputant", "Removal", ["Swords to Plowshares"], "", api_key="t")
 assert sent and "Tokens (920 decks)" in sent[0], "wizard_narrate sent no commander strategy"
+assert "Oracle:" in sent[0], "wizard_narrate lacks the commander's text"
 mtg._ai_call = real_ai_call
-
-import anthropic  # noqa: E402
-from types import SimpleNamespace  # noqa: E402
-
-systems: list[str] = []
-
-
-class _Client:
-    def __init__(self, **_):
-        self.messages = SimpleNamespace(create=self._create)
-
-    def _create(self, **kw):
-        systems.append(kw["system"])
-        return SimpleNamespace(
-            content=[SimpleNamespace(type="text", text="ok")],
-            usage=SimpleNamespace(input_tokens=1, output_tokens=1),
-            stop_reason="end_turn",
-        )
-
-
-real_client = anthropic.Anthropic
-anthropic.Anthropic = _Client
-use(page())
-# The start of a build: no decklist yet, only the commander.
-mtg.wizard_chat([{"role": "user", "content": "what should I build?"}], "Silverquill, the Disputant", "", api_key="t")
-assert systems and "Tokens (920 decks)" in systems[0], systems[:1]
-assert "Oracle:" in systems[0], "wizard_chat at the start of a build lacks the commander's text"
-anthropic.Anthropic = real_client
-print("ok: the wizard's narration and chat send the commander's strategy")
+print("ok: the wizard's narration sends the commander's strategy")
 
 # --- Suggestions never shows theme tags as a card category ----------------- #
 use(page())

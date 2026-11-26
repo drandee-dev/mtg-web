@@ -158,33 +158,6 @@ class ChatPayload(BaseModel):
         return [str(s)[:120] for s in v]
 
 
-class WizardChatPayload(BaseModel):
-    messages: list[ChatMessage] = Field(min_length=1, max_length=_MAX_MESSAGES)
-    commander: str = Field(min_length=1, max_length=_MAX_CARD_NAME_LEN)
-    decklist: str = Field(default="", max_length=_MAX_DECKLIST_LEN)
-    format: _Format = "commander"
-    bracket: int | None = Field(default=None, ge=1, le=5)
-
-
-class ComboItem(BaseModel):
-    cards: list[str] = Field(default_factory=list, max_length=20)
-    missing_card: str | None = Field(default=None, max_length=_MAX_CARD_NAME_LEN)
-    missing_template: str | None = Field(default=None, max_length=_MAX_CARD_NAME_LEN)
-
-    @field_validator("cards")
-    @classmethod
-    def cap_card_names(cls, v: list[str]) -> list[str]:
-        return [c[:_MAX_CARD_NAME_LEN] for c in v[:20]]
-
-
-class AiCombosPayload(BaseModel):
-    decklist: str = Field(max_length=_MAX_DECKLIST_LEN)
-    format: _Format = "commander"
-    bracket: int | None = Field(default=None, ge=1, le=5)
-    combos: list[ComboItem] = Field(default_factory=list, max_length=10)
-    near_misses: list[ComboItem] = Field(default_factory=list, max_length=10)
-
-
 def _safe_regex(pattern: str, label: str = "pattern") -> re.Pattern:
     """Pre-flight a user-supplied regex: cap length, reject bad syntax early.
 
@@ -643,20 +616,6 @@ def deck_ai_explain(request: Request, payload: Annotated[dict, Body()]) -> dict:
     )
 
 
-@app.post("/api/deck/ai/combos")
-def deck_ai_combos(request: Request, payload: AiCombosPayload) -> dict:
-    _check_ai_access(request)
-    decklist = payload.decklist.strip()
-    fmt = payload.format
-    if not decklist:
-        raise HTTPException(400, "Body must include a non-empty 'decklist' string.")
-    combos_data = [c.model_dump() for c in payload.combos]
-    near_misses = [c.model_dump() for c in payload.near_misses]
-    return mtg.ai_combo_guidance(
-        decklist, combos_data, near_misses, fmt=fmt, bracket=payload.bracket
-    )
-
-
 class StrategyPayload(BaseModel):
     """Body of ai/strategy. Same limits `_validate_decklist` applies; the route
     checks the format is a real one."""
@@ -987,19 +946,6 @@ def wizard_narrate(request: Request, payload: Annotated[dict, Body()]) -> dict:
     return mtg.wizard_narrate(commander, category, card_names, decklist, fmt=fmt)
 
 
-@app.post("/api/deck/wizard/chat")
-def wizard_chat(request: Request, payload: WizardChatPayload) -> dict:
-    _check_ai_access(request)
-    messages = [{"role": m.role, "content": m.content} for m in payload.messages]
-    return mtg.wizard_chat(
-        messages,
-        payload.commander.strip(),
-        payload.decklist,
-        fmt=payload.format,
-        bracket=payload.bracket,
-    )
-
-
 def _planeswalker_prompt(payload: ChatPayload) -> tuple[str, list[dict], bool]:
     """Build the Planeswalker system prompt + wrapped message list.
 
@@ -1317,21 +1263,6 @@ def card_printing(
         "public, s-maxage=86400, stale-while-revalidate=86400"
     )
     return mtg.card_printing_image(set_code, cn)
-
-
-@app.post("/api/rules/ask")
-def rules_ask(
-    request: Request,
-    payload: Annotated[
-        dict, Body(example={"question": "Can I counter a triggered ability?"})
-    ],
-) -> dict:
-    """AI Rules Q&A: answer a plain-English MTG rules question with cited rules."""
-    _check_ai_access(request)
-    question = (payload.get("question") or "").strip()
-    if not question or len(question) > _MAX_QUESTION_LEN:
-        raise HTTPException(400, f"Question must be 1-{_MAX_QUESTION_LEN} characters.")
-    return mtg.rules_ask(question)
 
 
 @app.post("/api/rules/ask/stream")
