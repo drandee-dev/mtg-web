@@ -46,7 +46,26 @@ from mtg_utils.card_classify import get_oracle_text
 _COUNT = r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|X)"
 # What a card sacrifices to draw once ("Sacrifice this artifact: Draw a card").
 # A token ("Sacrifice this token:", a Clue) is repeatable draw and stays full.
-_SELF_SAC_TYPES = ("artifact", "creature", "enchantment", "land")
+_SELF_SAC_TYPES = (
+    "artifact",
+    "creature",
+    "enchantment",
+    "land",
+    "equipment",
+    "aura",
+    "vehicle",
+    "permanent",
+)
+# A tutor's target is the text after "for" up to the first "card(s)".
+_SEARCH_TARGET = r"(?:(?!\bcards?\b)[^.])*"
+_LAND_WORD = (
+    r"\b(?:basic|lands?|plains|islands?|swamps?|mountains?|forests?|wastes|"
+    r"gates?|deserts?|caves?|locus|urza's)\b"
+)
+_NONLAND_TYPE = (
+    r"\b(?:artifacts?|creatures?|enchantments?|instants?|sorcery|sorceries|"
+    r"planeswalkers?|battles?|kindred|tribal)\b"
+)
 # Draw that is not real card draw: cycling's reminder text, or a one-shot
 # self-sacrifice (card-draw-light). Fixed-width lookbehinds, so the presets stay
 # plain `patterns` for the readers that use those directly.
@@ -1707,17 +1726,28 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
         should_not_match=("Lightning Bolt",),
     ),
     # Tutors — search your library for a nonland card. A search whose target
-    # names a land before the word "card" (basic land, Forest, Plains or Island)
-    # is ramp or fixing, not a tutor (audit job 4.2: Cultivate, fetch lands).
+    # (the text before "card") names a land and no nonland type is ramp or
+    # fixing, not a tutor (audit job 4.2: Cultivate, fetch lands).
     Preset(
         name="tutors",
         description="Searches your library for a nonland card.",
         patterns=_rx(
-            r"\bsearch (?:your|target opponent's|a) library for "
-            r"(?!(?:(?!\bcards?\b)[^.])*\b(?:basic|lands?|plains|islands?|swamps?|"
-            r"mountains?|forests?|wastes|gates?|deserts?|caves?|locus|urza's)\b)"
+            # Other zones may sit either side of "library": "your graveyard, hand,
+            # and/or library for", "library and/or outside the game for". Only
+            # "your": an opponent's graveyard, hand and library is an exile effect.
+            r"\bsearch (?:your [\w ,/]{0,40}?\b|(?:target opponent's|a) )library"
+            r"[\w ,/]{0,40}? for "
+            r"(?!(?=" + _SEARCH_TARGET + _LAND_WORD + r")"
+            r"(?!" + _SEARCH_TARGET + _NONLAND_TYPE + r"))"
         ),
-        should_match=("Demonic Tutor", "Enlightened Tutor"),
+        should_match=(
+            "Demonic Tutor",
+            "Enlightened Tutor",
+            "Finale of Devastation",
+            "Doomsday",
+            "Eternal Dominion",
+            "Boonweaver Giant",
+        ),
         should_not_match=(
             "Lightning Bolt",
             "Llanowar Elves",
@@ -1726,6 +1756,8 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             "Farseek",
             "Evolving Wilds",
             "Ash Barrens",
+            "Expedition Map",
+            "Slaughter Games",
         ),
     ),
     # Creature-token creation. Oracle text uses both singular ("create a
@@ -1888,7 +1920,7 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             + _COUNT
             + r") cards?\b"
         ),
-        should_match=("Mind Stone", "Commander's Sphere"),
+        should_match=("Mind Stone", "Commander's Sphere", "Wrench"),
         should_not_match=("Lightning Bolt", "Tireless Tracker", "Ponder"),
     ),
     # Lifegain — gains life AS an effect, OR cares about gaining life as a
