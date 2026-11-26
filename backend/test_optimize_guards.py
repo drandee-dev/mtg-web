@@ -75,6 +75,17 @@ assert out["held_back_note"].endswith(": they would cut your Slivers."), out[
 ]
 print(f"ok: Sliver Swarm keeps every Sliver ({out['held_back_note']})")
 
+# Audit job 3.8: the tail names the theme cards and the cards free to cut.
+tail = sent[-1]
+theme_part = tail.split("Theme cards (cut one only")[1].split("\n\n")[0]
+free_part = tail.split("Nonland cards outside the theme, free to cut: ")[1].split(
+    "\n\n"
+)[0]
+assert "Diffusion Sliver" in theme_part and "Distant Melody" in theme_part, theme_part
+assert "Windfall" in free_part and "Sliver" not in free_part, free_part
+assert "Plains" not in free_part and "suggest 8 changes" in free_part, free_part
+print("ok: the prompt lists the theme cards and the cards free to cut")
+
 # --- Veloci-Ramp-Tor: never under the land floor ----------------------------- #
 out, ctx = replay("veloci-ramp-tor")
 audit = mana_audit(ctx["hd"])
