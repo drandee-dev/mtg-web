@@ -14,11 +14,10 @@ test("each place has a path", () => {
   assert.deepEqual(parse("/commanders"), at("commanders"));
   assert.deepEqual(parse("/commanders/atraxa-praetors-voice"), at("commanders", "atraxa-praetors-voice"));
   assert.deepEqual(parse("/cards"), at("cards"));
-  assert.deepEqual(parse("/rules"), at("rules"));
 });
 
 test("a trailing slash is the same address", () => {
-  assert.deepEqual(parse("/rules/"), at("rules"));
+  assert.deepEqual(parse("/cards/"), at("cards"));
   assert.deepEqual(parse("/commanders/"), at("commanders"));
   assert.deepEqual(parse("/commanders/atraxa-praetors-voice/"), at("commanders", "atraxa-praetors-voice"));
   assert.deepEqual(parse("/decks/abc-123/"), at("deck", null, "abc-123"));
@@ -43,7 +42,6 @@ test("only the first segment after /decks/ is the deck", () => {
 });
 
 test("old ?tab= links still parse", () => {
-  assert.deepEqual(parse("/?tab=rules"), at("rules"));
   assert.deepEqual(parse("/?tab=cards"), at("cards"));
   assert.deepEqual(parse("/?tab=commanders"), at("commanders"));
   assert.deepEqual(parse("/?tab=commanders&slug=atraxa-praetors-voice"), at("commanders", "atraxa-praetors-voice"));
@@ -54,7 +52,6 @@ test("old ?tab= links still parse", () => {
 
 test("an old link is replaced by its path", () => {
   const moved = (url) => buildPath(parse(url), url.slice(url.indexOf("?")));
-  assert.equal(moved("/?tab=rules"), "/rules");
   assert.equal(moved("/?tab=cards"), "/cards");
   assert.equal(moved("/?tab=decks"), "/");
   assert.equal(moved("/?tab=deck"), "/new");
@@ -70,10 +67,18 @@ test("unknown input falls back to Decks", () => {
   assert.deepEqual(parseLocation(), at("decks"));
 });
 
+test("the Rules page is gone: its old addresses land on Decks (audit job 5.5)", () => {
+  assert.deepEqual(parse("/rules"), at("decks"));
+  assert.deepEqual(parse("/rules/"), at("decks"));
+  assert.deepEqual(parse("/?tab=rules"), at("decks"));
+  const moved = (url) => buildPath(parse(url), url.slice(url.indexOf("?")));
+  assert.equal(moved("/?tab=rules"), "/");
+});
+
 test("a path wins over an old param", () => {
-  assert.deepEqual(parse("/rules?tab=cards"), at("rules"));
-  assert.deepEqual(parse("/decks/abc-123?tab=rules"), at("deck", null, "abc-123"));
-  assert.equal(buildPath({ tab: "rules" }, "?tab=cards&slug=x"), "/rules");
+  assert.deepEqual(parse("/cards?tab=commanders"), at("cards"));
+  assert.deepEqual(parse("/decks/abc-123?tab=cards"), at("deck", null, "abc-123"));
+  assert.equal(buildPath({ tab: "cards" }, "?tab=commanders&slug=x"), "/cards");
 });
 
 test("a malformed slug or id does not throw", () => {
@@ -84,7 +89,7 @@ test("a malformed slug or id does not throw", () => {
 test("a share link's params ride along until its deck is saved", () => {
   // Not saved yet: a reload has to find the deck in the address.
   assert.equal(buildPath(at("deck"), "?deck=QUJD&fmt=commander&cmd=X"), "/new?deck=QUJD&fmt=commander&cmd=X");
-  assert.equal(buildPath(at("rules"), "?deck=QUJD&tab=deck"), "/rules?deck=QUJD");
+  assert.equal(buildPath(at("cards"), "?deck=QUJD&tab=deck"), "/cards?deck=QUJD");
   // Saved: the address is the deck.
   assert.equal(buildPath(at("deck", null, "abc-123"), "?deck=QUJD&fmt=commander&cmd=X"), "/decks/abc-123");
   // Anything else in the query is not the share link's to drop.
@@ -102,11 +107,11 @@ test("a commander named for a new deck stays on /new and nowhere else", () => {
   const from = "?commander=Atraxa";
   assert.equal(buildPath(at("deck", null, "abc-123"), from), "/decks/abc-123");
   assert.equal(buildPath(at("decks"), from), "/");
-  assert.equal(buildPath(at("rules"), from), "/rules");
+  assert.equal(buildPath(at("cards"), from), "/cards");
   assert.equal(buildPath(at("deck"), from), "/new");
   assert.equal(buildPath({ ...at("deck"), seed: "Krenko, Mob Boss" }, from), "/new?commander=Krenko%2C+Mob+Boss");
   // Only /new reads it, and an empty or oversized one is no commander.
-  assert.deepEqual(parse("/rules?commander=Atraxa"), at("rules"));
+  assert.deepEqual(parse("/cards?commander=Atraxa"), at("cards"));
   assert.deepEqual(parse("/decks/abc-123?commander=Atraxa"), at("deck", null, "abc-123"));
   assert.deepEqual(parse("/new?commander="), at("deck"));
   assert.deepEqual(parse(`/new?commander=${"x".repeat(101)}`), at("deck"));
@@ -120,11 +125,10 @@ test("every route survives build then parse", () => {
     at("commanders"),
     at("commanders", "atraxa-praetors-voice"),
     at("cards"),
-    at("rules"),
   ];
   for (const route of routes) assert.deepEqual(parse(buildPath(route)), route);
   // A slug is only part of the address on Commanders, a deck id only on a deck.
-  assert.equal(buildPath(at("rules", "atraxa-praetors-voice", "abc-123")), "/rules");
+  assert.equal(buildPath(at("cards", "atraxa-praetors-voice", "abc-123")), "/cards");
 });
 
 test("a deck address waits for the right deck list before it can be missing", () => {

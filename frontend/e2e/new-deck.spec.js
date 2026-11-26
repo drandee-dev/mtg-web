@@ -439,9 +439,9 @@ test.describe("Leaving while a deck is being built", () => {
     // A running build has no Back of its own: leaving is the bar's job.
     await expect(page.locator(".gen-head button", { hasText: "Back" })).toHaveCount(0);
 
-    await navigateToTab(page, "Rules");
+    await navigateToTab(page, "Commanders");
     await expect.poll(async () => (await savedDecks(page)).length, { timeout: 15000 }).toBe(1);
-    await expect(page).toHaveURL(atPath("/rules"));
+    await expect(page).toHaveURL(atPath("/commanders"));
     await expect(grid(page)).toHaveCount(0);
     const toast = page.locator(".toast");
     await expect(toast).toContainText(`Saved as "${TEST_COMMANDER}".`);
@@ -489,8 +489,8 @@ test.describe("A commander named in the address", () => {
     // and not back to a fresh New deck.
     await page.getByRole("button", { name: /^Start from scratch/ }).click();
     await expect(page).toHaveURL(onADeck);
-    await navigateToTab(page, "Rules");
-    await expect(page).toHaveURL(atPath("/rules"));
+    await navigateToTab(page, "Commanders");
+    await expect(page).toHaveURL(atPath("/commanders"));
     await openNewDeck(page);
     await expect(page).toHaveURL(atPath("/new"));
     await expect(heading(page)).toBeVisible();

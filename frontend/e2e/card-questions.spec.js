@@ -31,7 +31,7 @@ test.describe("Card modal questions", () => {
     await modal.getByRole("button", { name: /^Rules with Atraxa/ }).click();
     await expect(modal.locator(".cdm-answer")).toContainText("Trample lets a creature");
     await expect(modal.locator(".cdm-citation")).toContainText("Rule 702.19");
-    // No hop to the Rules page, and the modal is still open.
+    // The answer stays in the modal: no change of address, and it is still open.
     expect(page.url()).toBe(url);
     await expect(modal).toBeVisible();
     expect(asked).toHaveLength(1);

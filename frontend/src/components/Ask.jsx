@@ -54,7 +54,7 @@ function saveHistory(key, messages) {
 // The Ask drawer (UX overhaul job 4.1, `Pick-Deck` and `C-Phone`): a docked
 // panel on the right that pushes the page on desktop, a sheet on phones,
 // opened from the Ask button in the bar. It sees the deck that is open. App
-// owns whether it is open and hides it on the Rules page.
+// owns whether it is open.
 export default function Ask({
   open, onClose,
   decklist, commander, format, bracket, aiAvailable, serverStatus,

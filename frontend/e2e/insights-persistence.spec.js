@@ -48,7 +48,7 @@ test.describe("Insights persistence", () => {
     await openCombos(page);
     expect(combosCalls.n).toBe(1);
 
-    await navigateToTab(page, "Rules");
+    await navigateToTab(page, "Commanders");
     await page.goBack();
 
     // The deck opens on Cards again; Stats still has Combos open, its cached
@@ -179,7 +179,7 @@ test.describe("Insights persistence", () => {
     await expect(page.locator(".insp-hidden-note")).toContainText("1 skipped");
 
     // Leave the deck and come back — verdicts survive the unmount.
-    await navigateToTab(page, "Rules");
+    await navigateToTab(page, "Commanders");
     await page.goBack();
     await openChanges(page);
     await expect(pane.locator(".opt-card:has-text('Lightning Bolt') .opt-cat")).toContainText("Pinned");
@@ -281,7 +281,7 @@ test.describe("Insights persistence", () => {
 
     // Leaving the deck and returning must not resurrect it — that would put
     // the second Apply click back within reach.
-    await navigateToTab(page, "Rules");
+    await navigateToTab(page, "Commanders");
     await page.goBack();
     await expect(oneCopy).toBeVisible();
     await expect(twoCopies).toHaveCount(0);

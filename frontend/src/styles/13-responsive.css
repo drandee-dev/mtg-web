@@ -45,22 +45,6 @@
   .card-list-type { display: none; }
   .hero-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .deck-card-body { padding: 10px 12px 12px; }
-  /* Rules Q&A mobile */
-  .rules-chips {
-    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
-    mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
-  }
-  .rules-chips::-webkit-scrollbar { display: none; }
-  .rules-chips button { white-space: nowrap; flex: none; }
-  /* The question box is the bottom of this column, so the column has to end
-     above the bottom bar: a taller bar would otherwise sit on top of it. */
-  .rules-chat { height: calc(100dvh - var(--topbar-h) - .2rem - var(--safe-top) - var(--tabbar-total) - 1rem); }
-  .rules-input-row input { border-color: rgba(201,138,58,.4); border-radius: 20px; }
-  .rules-ask-label { display: none; }
-  .rules-ask-icon { display: inline; }
-  .rules-ask-btn { border-radius: 50%; width: 44px; height: 44px; padding: 0; font-size: 17px;
-    display: flex; align-items: center; justify-content: center; }
   .card-modal img { width: min(85vw, calc(75vh * 63 / 88)); max-width: 85vw; max-height: 75vh; }
 }
 

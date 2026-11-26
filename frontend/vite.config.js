@@ -96,14 +96,6 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: /\/api\/rules\/search/,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'rules-search-api',
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
-            },
-          },
-          {
             urlPattern: /\/api\/deck\/(analyze|recommend|combos|composition|budget-swaps|export)/,
             handler: 'NetworkFirst',
             options: {

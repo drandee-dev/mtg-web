@@ -15,7 +15,7 @@ const WIDTHS = [360, 390, 700, 744, 768, 820, 899, 900, 1024, 1440, 1920];
 const TOUCH_WIDTHS = [744, 768, 820];
 const HEIGHT = 900;
 
-const SCREENS = ["/", "/new", "/commanders", "/cards", "/rules"];
+const SCREENS = ["/", "/new", "/commanders", "/cards"];
 const DECK = "1 Sol Ring\n1 Arcane Signet\n1 Command Tower";
 
 const desktopOnly = (testInfo) => test.skip(testInfo.project.name !== "desktop-chrome", "sizes its own viewport");
@@ -143,7 +143,7 @@ for (const w of TOUCH_WIDTHS) {
         small.push(...under.map(([name, px]) => `${where}: ${name} is ${px}px`));
       };
 
-      for (const path of ["/commanders", "/cards", "/rules"]) {
+      for (const path of ["/commanders", "/cards"]) {
         await openScreen(page, path);
         await measure(path);
       }

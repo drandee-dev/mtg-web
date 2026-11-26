@@ -4,7 +4,7 @@ import { buildPath, parseLocation } from "./routes";
 
 // Where the app is, and every move it makes (UX refactor R4b; this was a block
 // of App.jsx). The route is { tab, slug, deckId, seed? }, the shape lib/routes
-// reads from the address (/rules, /commanders/<slug>, /decks/<id>, /new),
+// reads from the address (/cards, /commanders/<slug>, /decks/<id>, /new),
 // kept in step with the browser's history through lib/backstack: the app's one
 // history mechanism, not a second router. The deck tab with no id is the New
 // deck screen, and `seed` there is a commander its address names.

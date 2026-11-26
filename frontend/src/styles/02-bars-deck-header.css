@@ -1,4 +1,4 @@
-/* ── Top bar: the four places, then New deck and the account menu ── */
+/* ── Top bar: the three places, then New deck and the account menu ── */
 .global-toolbar {
   position: fixed; top: 0; left: 0; right: 0; z-index: var(--z-nav);
   height: calc(var(--topbar-h) + var(--safe-top));

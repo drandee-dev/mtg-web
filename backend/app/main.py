@@ -2,7 +2,6 @@
 
 Endpoints:
   GET  /api/health                 — liveness + whether heavy data loaded
-  GET  /api/rules/search           — Comprehensive Rules lookup (rule | term | grep)
   GET  /api/cards/search           — card search over Scryfall bulk data
   POST /api/deck/analyze           — parse a decklist + run stats/mana/legality/bracket
 
@@ -360,37 +359,6 @@ def health() -> dict:
         # "down" means the two numbers above are zeros, not readings: no cap applies.
         "usage_tracking": tracking,
     }
-
-
-@app.get("/api/rules/search")
-def rules_search(
-    response: Response,
-    rule: Annotated[
-        str | None, Query(description="Exact rule number, e.g. 702.19a")
-    ] = None,
-    term: Annotated[
-        str | None, Query(description="Glossary term, e.g. trample")
-    ] = None,
-    grep: Annotated[str | None, Query(description="Regex over rule text")] = None,
-    limit: Annotated[int, Query(ge=1, le=50)] = 10,
-) -> dict:
-    if sum(bool(x) for x in (rule, term, grep)) != 1:
-        raise HTTPException(400, "Provide exactly one of: rule, term, grep")
-    if grep:
-        _safe_regex(grep, "grep pattern")
-    try:
-        result = mtg.rules_search(rule=rule, term=term, grep=grep, limit=limit)
-    except FileNotFoundError as e:
-        raise HTTPException(503, "Rules data not loaded.") from e
-    except TimeoutError as e:  # RegexBudgetError — pattern too slow (ReDoS guard)
-        raise HTTPException(
-            400, "That pattern is too slow to evaluate — simplify it."
-        ) from e
-    # Rules text changes a few times a year — safe to cache at the CDN for a day.
-    response.headers["Cache-Control"] = (
-        "public, s-maxage=86400, stale-while-revalidate=86400"
-    )
-    return result
 
 
 @app.get("/api/cards/search")

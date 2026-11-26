@@ -50,7 +50,6 @@ from mtg_utils.rules_lookup import (  # noqa: E402
     grep_rules,
     load_rules,
     lookup_rule,
-    lookup_term,
 )
 from mtg_utils.scryfall_lookup import _extract_fields  # noqa: E402
 
@@ -410,36 +409,6 @@ def mass_printings(
         else:
             unmatched.append(n)
     return {"matches": matches, "unmatched": unmatched}
-
-
-# --------------------------------------------------------------------------- #
-# Rules lookup (rules-lawyer core)
-# --------------------------------------------------------------------------- #
-def rules_search(
-    *,
-    rule: str | None = None,
-    term: str | None = None,
-    grep: str | None = None,
-    limit: int = 10,
-) -> dict[str, Any]:
-    parsed = _rules()
-    out: dict[str, Any] = {"effective_date": parsed.get("effective_date", "")}
-    if rule:
-        out["mode"] = "rule"
-        out["query"] = rule
-        out["match"] = lookup_rule(parsed, rule)
-    elif term:
-        out["mode"] = "term"
-        out["query"] = term
-        out["match"] = lookup_term(parsed, term)
-    elif grep:
-        out["mode"] = "grep"
-        out["query"] = grep
-        out["matches"] = grep_rules(parsed, grep, limit=limit)
-    else:
-        msg = "Provide exactly one of: rule, term, grep"
-        raise ValueError(msg)
-    return out
 
 
 # --------------------------------------------------------------------------- #

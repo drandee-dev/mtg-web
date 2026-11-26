@@ -22,7 +22,7 @@
 | Stack view component | Done | StackView.jsx — Archidekt-style overlapping columns, hover expand |
 | Deck builder 3-col layout | Existing | DeckView.jsx already has sidebar + main + search layout |
 | AI panel sections | Existing | DeckSidebar.jsx has analysis/suggestions/budget tabs |
-| Rules Q&A | Existing | Rules.jsx chat interface |
+| Rules Q&A | Removed | The Rules page went in audit job 5.5 (2026-11-26); rules questions go to the Ask drawer |
 | Mobile deck view | Existing | Responsive layout with bottom nav |
 
 ## Phase 3: Archidekt-style stack view + testing (June 2026)

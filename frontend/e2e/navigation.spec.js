@@ -17,8 +17,8 @@ test.describe("Navigation & Layout", () => {
     await expect(page).toHaveURL(atHome);
   });
 
-  test("all four places are navigable and render content", async ({ page }) => {
-    const tabs = ["Commanders", "Rules", "Card Search", "My Decks"];
+  test("all three places are navigable and render content", async ({ page }) => {
+    const tabs = ["Commanders", "Card Search", "My Decks"];
     for (const tabName of tabs) {
       await navigateToTab(page, tabName);
       await expect(page.locator("main#main-content")).toBeVisible();
@@ -27,9 +27,6 @@ test.describe("Navigation & Layout", () => {
   });
 
   test("each place has its own address", async ({ page }) => {
-    await navigateToTab(page, "Rules");
-    await expect(page).toHaveURL(/\/rules$/);
-
     await navigateToTab(page, "Card Search");
     await expect(page).toHaveURL(/\/cards$/);
 
@@ -40,44 +37,41 @@ test.describe("Navigation & Layout", () => {
     await expect(page).toHaveURL(atHome);
   });
 
-  test("a cold load of /rules opens Rules, and reload stays there", async ({ page }) => {
-    await page.goto("/rules");
-    await waitForAppReady(page);
-    await expect(page.locator(".rules-input-row input")).toBeVisible();
-    await expect(page).toHaveURL(/\/rules$/);
-
-    await page.reload();
-    await waitForAppReady(page);
-    await expect(page.locator(".rules-input-row input")).toBeVisible();
-    await expect(page).toHaveURL(/\/rules$/);
+  // The Rules page went in audit job 5.5; an old link to it lands on Decks.
+  test("an old /rules or ?tab=rules link lands on Decks", async ({ page }) => {
+    for (const url of ["/rules", "/?tab=rules"]) {
+      await page.goto(url);
+      await waitForAppReady(page);
+      await expect(page.locator('nav[aria-label="Main"]:visible [aria-current="page"]')).toHaveText("Decks");
+      await expect(page).toHaveURL(atHome);
+    }
   });
 
   test("an old ?tab= link is replaced by its path", async ({ page }) => {
     // The hash rides along: a sign-in link returns with its token in one.
-    await page.goto("/?tab=rules#x=1");
+    await page.goto("/?tab=cards#x=1");
     await waitForAppReady(page);
-    await expect(page.locator(".rules-input-row input")).toBeVisible();
-    await expect(page).toHaveURL((url) => url.pathname === "/rules" && url.search === "" && url.hash === "#x=1");
+    await expect(page).toHaveURL((url) => url.pathname === "/cards" && url.search === "" && url.hash === "#x=1");
 
     // Replaced, not stacked: Back leaves for the page before the old link.
     await page.goBack();
     await expect(page).toHaveURL(atHome);
   });
 
-  // The bars (UX overhaul job 2.1): four places as real links, New deck and
+  // The bars (UX overhaul job 2.1): the places as real links, New deck and
   // the account menu beside them as actions.
   const mainNav = (page) => page.locator('nav[aria-label="Main"]:visible');
 
   test("the bar's places are real links, and the current one is marked", async ({ page }) => {
     const links = await mainNav(page).getByRole("link")
       .evaluateAll((as) => as.map((a) => [a.textContent.trim(), a.getAttribute("href")]));
-    // The phone's bar carries New deck as a fifth item; the places are the same four.
+    // The phone's bar carries New deck as an extra item; the places are the same three.
     expect(links.filter(([label]) => label !== "New deck"))
-      .toEqual([["Decks", "/"], ["Commanders", "/commanders"], ["Cards", "/cards"], ["Rules", "/rules"]]);
+      .toEqual([["Decks", "/"], ["Commanders", "/commanders"], ["Cards", "/cards"]]);
     await expect(mainNav(page).locator('[aria-current="page"]')).toHaveText("Decks");
 
-    await navigateToTab(page, "Rules");
-    await expect(mainNav(page).locator('[aria-current="page"]')).toHaveText("Rules");
+    await navigateToTab(page, "Cards");
+    await expect(mainNav(page).locator('[aria-current="page"]')).toHaveText("Cards");
     await expect(page.getByText("Analyze & Build")).toHaveCount(0);
   });
 
@@ -85,11 +79,11 @@ test.describe("Navigation & Layout", () => {
     test.skip(isMobile, "a modifier click is a desktop gesture");
     const [opened] = await Promise.all([
       context.waitForEvent("page"),
-      mainNav(page).getByRole("link", { name: "Rules", exact: true }).click({ modifiers: ["ControlOrMeta"] }),
+      mainNav(page).getByRole("link", { name: "Commanders", exact: true }).click({ modifiers: ["ControlOrMeta"] }),
     ]);
     await opened.waitForSelector("main#main-content");
-    await expect(opened).toHaveURL(/\/rules$/);
-    await expect(opened.locator(".rules-input-row input")).toBeVisible();
+    await expect(opened).toHaveURL(/\/commanders$/);
+    await expect(opened.locator('nav[aria-label="Main"]:visible [aria-current="page"]')).toHaveText("Commanders");
     await expect(page).toHaveURL(atHome);
   });
 
@@ -98,7 +92,7 @@ test.describe("Navigation & Layout", () => {
     await page.reload();
     await waitForAppReady(page);
 
-    await navigateToTab(page, "Rules");
+    await navigateToTab(page, "Commanders");
     await openNewDeck(page);
     await expect(page).toHaveURL((url) => url.pathname === "/new");
     await expect(page.getByRole("heading", { name: "Start a new deck" })).toBeVisible();
@@ -131,7 +125,7 @@ test.describe("Navigation & Layout", () => {
     // The theme did switch: the page's own text is dark now.
     expect(await color(page.locator("main#main-content"))).toBe("rgb(26, 26, 30)");
     // The bars stay dark, so their labels stay light.
-    expect(await color(mainNav(page).getByRole("link", { name: "Rules", exact: true }))).toBe("rgb(176, 180, 190)");
+    expect(await color(mainNav(page).getByRole("link", { name: "Commanders", exact: true }))).toBe("rgb(176, 180, 190)");
     expect(await color(page.locator(".gt-brand"))).toBe("rgb(237, 237, 240)");
   });
 

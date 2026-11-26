@@ -69,22 +69,24 @@ test.describe("Ask drawer", () => {
     expect(after.x + after.width).toBeLessThanOrEqual(panel.x + 1);
   });
 
-  test("Ask is not offered on the Rules page", async ({ page }) => {
-    await page.goto("/rules");
-    await page.waitForSelector("main#main-content");
-    await expect(askButton(page)).toHaveCount(0);
-    await expect(page.locator(".ask-panel")).toHaveCount(0);
+  // Rules questions go to Ask since the Rules page went (audit job 5.5), so it is
+  // offered on every place in the top bar.
+  test("Ask is offered on every place", async ({ page, isMobile }) => {
+    test.skip(isMobile, "the phone's Ask lives in the deck bar");
+    for (const path of ["/commanders", "/cards"]) {
+      await page.goto(path);
+      await page.waitForSelector("main#main-content");
+      await expect(askButton(page)).toBeVisible();
+    }
   });
 
-  test("an open Ask closes on Rules and is open again on the way back", async ({ page, isMobile }) => {
+  test("an open Ask stays open across places", async ({ page, isMobile }) => {
     test.skip(isMobile, "the phone's sheet covers the bottom bar");
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await openChat(page);
-    await navigateToTab(page, "Rules");
-    await expect(page.locator(".ask-panel")).toHaveCount(0);
-    await expect(askButton(page)).toHaveCount(0);
+    await navigateToTab(page, "Cards");
+    await expect(page.locator(".ask-panel")).toBeVisible();
     await navigateToTab(page, "Decks");
-    await expect(askButton(page)).toBeVisible();
     await expect(page.locator(".ask-panel")).toBeVisible();
   });
 

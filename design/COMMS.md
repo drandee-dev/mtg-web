@@ -163,3 +163,12 @@ modal, the avatar menu's "Send feedback" row, and the account panel's "Send feed
 mailto link. The account panel footer now holds only Sign Out, right-aligned, and shows
 only when signed in. `README.md`'s "Footer row" spec (signed-in state) still describes
 the feedback link; please drop it from the spec when you next touch it.
+
+### Code → Design (2026-11-26, job 5.5)
+
+Audit job 5.5 removed the Rules page (`Rules.jsx`, `08-rules-chat.css`) on the owner's
+decision. The bars now carry three places: Decks, Commanders, Cards. On the phone's bottom
+bar "New deck" now sits third of four (after Decks and Commanders), so it is no longer
+centred; job 6 (Improve redesign and the phone pass) can settle its placement. Rules
+questions go to the Ask drawer, which is now offered on every place. `HANDOFF.md` item 12
+(Rules Q&A chat) is obsolete.

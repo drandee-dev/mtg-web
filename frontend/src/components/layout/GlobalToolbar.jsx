@@ -9,7 +9,7 @@ import { loadDirectory } from "../../lib/commanderDirectory";
 // Commanders.jsx); every other place's data is small or already loaded.
 const PREFETCH = { commanders: loadDirectory };
 
-// The bar names the four places. "New deck" and the account menu sit beside
+// The bar names the three places. "New deck" and the account menu sit beside
 // them as actions. `place` is the place the screen belongs to (a deck is a
 // page under Decks), or null on the New deck screen.
 export default function GlobalToolbar({
@@ -45,7 +45,7 @@ export default function GlobalToolbar({
       </nav>
 
       <div className="gt-right">
-        {/* Ask is an action, not a place: it opens the drawer. Hidden on Rules. */}
+        {/* Ask is an action, not a place: it opens the drawer. */}
         {onAsk && <AskButton className="gt-ask" onClick={onAsk} pressed={askOpen} />}
         {/* The gold button is the screen's main action: on a deck that is Save. */}
         <NavLink className={`gt-new${onDeck ? " gt-new-quiet" : ""}`} href="/new" onNavigate={onNewDeck}>

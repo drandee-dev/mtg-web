@@ -185,7 +185,7 @@ test.describe("Upgrade review — guided flow", () => {
     await expect(modal).toHaveCount(0);
 
     // Tab switch unmounts DeckView entirely; only the persisted cache survives it.
-    await navigateToTab(page, "Rules");
+    await navigateToTab(page, "Commanders");
     await page.goBack();
 
     // Empty the deck and paste the exact same list back in — the guide
