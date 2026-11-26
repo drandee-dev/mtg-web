@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { supabase, supabaseEnabled } from "./lib/supabase";
 import { api, assembleDecklist, assembleForStorage, disassembleDecklist, setAccessToken, warnIfBadAdd } from "./lib/api";
@@ -23,14 +23,39 @@ import GlobalToolbar from "./components/layout/GlobalToolbar";
 import TopProgress from "./components/layout/TopProgress";
 import BottomNav from "./components/layout/BottomNav";
 import ServerStatusBanner from "./components/ServerStatusBanner";
-import DeckView from "./components/deck/DeckView";
-import NewDeck from "./components/NewDeck";
 import MyDecks from "./components/MyDecks";
-import CardSearch from "./components/CardSearch";
-import AccountDropdown from "./components/AccountDropdown";
-import Playtest from "./components/Playtest";
 import Ask from "./components/Ask";
-import Commanders from "./components/Commanders";
+
+// Code splitting (audit job 5.10): Decks, the first screen, and Ask, always mounted,
+// load with the app; every other place and overlay is its own chunk, behind the same
+// placeholders the app shows while a deck loads. Once the first screen is up and the
+// browser is idle, all of them are fetched (PREFETCH), so a deck opened a moment later
+// opens at once. The service worker precaches every chunk for the installed app.
+const loadDeckView = () => import("./components/deck/DeckView");
+const loadNewDeck = () => import("./components/NewDeck");
+const loadCardSearch = () => import("./components/CardSearch");
+const loadCommanders = () => import("./components/Commanders");
+const loadPlaytest = () => import("./components/Playtest");
+const loadAccountDropdown = () => import("./components/AccountDropdown");
+const DeckView = lazy(loadDeckView);
+const NewDeck = lazy(loadNewDeck);
+const CardSearch = lazy(loadCardSearch);
+const Commanders = lazy(loadCommanders);
+const Playtest = lazy(loadPlaytest);
+const AccountDropdown = lazy(loadAccountDropdown);
+const PREFETCH = [loadDeckView, loadNewDeck, loadCardSearch, loadCommanders, loadPlaytest, loadAccountDropdown];
+
+function usePrefetchChunks() {
+  useEffect(() => {
+    const load = () => { for (const f of PREFETCH) f().catch(() => {}); }; // a miss retries on open
+    if ("requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(load, { timeout: 3000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = setTimeout(load, 1500);
+    return () => clearTimeout(id);
+  }, []);
+}
 
 // The three places the bars name: id, label, address. A deck is a page under
 // Decks, and the New deck screen is an action beside them, not a place. (The
@@ -81,6 +106,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [decks, setDecks] = useState([]);
   const { toast, notify, dismiss: dismissToast } = useToast();
+  usePrefetchChunks();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   // The Ask drawer (job 4.1), available on every page.
@@ -725,12 +751,14 @@ export default function App() {
 
       <main id="main-content">
         {playtesting && (
-          <Playtest
-            decklist={assembleDecklist(deckText, commander)}
-            commander={commander}
-            stage={playtestStage}
-            onClose={() => { setPlaytesting(false); setPlaytestStage(null); }}
-          />
+          <Suspense fallback={<PanelPlaceholder />}>
+            <Playtest
+              decklist={assembleDecklist(deckText, commander)}
+              commander={commander}
+              stage={playtestStage}
+              onClose={() => { setPlaytesting(false); setPlaytestStage(null); }}
+            />
+          </Suspense>
         )}
         {wanted && (deckMissing || (decksFailedFor === userId && decksLoadedFor !== userId) ? (
           <div className="panel">
@@ -757,6 +785,7 @@ export default function App() {
           <DeckPlaceholder />
         ))}
         {!playtesting && deckReady && (
+          <Suspense fallback={<DeckPlaceholder />}>
           <DeckView
             decklist={deckText}
             setDecklist={setDeckText}
@@ -787,6 +816,7 @@ export default function App() {
             onAsk={toggleAsk}
             askOpen={askOpen}
           />
+          </Suspense>
         )}
         {atNew && shared && (
           <div className="panel">
@@ -807,8 +837,10 @@ export default function App() {
         {/* Not before the sign-in check settles: until then the app reads as
             signed out, and a deck made now would be saved to this browser. */}
         {atNew && !shared && (authReady ? (
-          <NewDeck key={visit} seed={seed} onCreate={(deck) => createDeck(deck, visit, { keep: true })} notify={notify}
-            kept={kept} onRetryKept={retryKept} onDiscardKept={discardKept} />
+          <Suspense fallback={<PanelPlaceholder />}>
+            <NewDeck key={visit} seed={seed} onCreate={(deck) => createDeck(deck, visit, { keep: true })} notify={notify}
+              kept={kept} onRetryKept={retryKept} onDiscardKept={discardKept} />
+          </Suspense>
         ) : (
           <PanelPlaceholder />
         ))}
@@ -835,14 +867,17 @@ export default function App() {
           />
         )}
         {tab === "commanders" && (
-          <Commanders
-            slug={commanderSlug}
-            setSlug={setCommanderSlug}
-            onBuild={startNew}
-            notify={notify}
-          />
+          <Suspense fallback={<PanelPlaceholder />}>
+            <Commanders
+              slug={commanderSlug}
+              setSlug={setCommanderSlug}
+              onBuild={startNew}
+              notify={notify}
+            />
+          </Suspense>
         )}
         {tab === "cards" && (
+          <Suspense fallback={<PanelPlaceholder />}>
           <CardSearch
             // No deck in the editor, nothing to add to: every deck has an id
             // now, so there is no new deck in the making to catch the card.
@@ -852,18 +887,21 @@ export default function App() {
             deckHref={buildPath({ tab: "deck", deckId: currentDeck?.id || null })}
             onBackToDeck={() => setTab("deck")}
           />
+          </Suspense>
         )}
       </main>
 
       {settingsOpen && (
-        <AccountDropdown
-          session={session}
-          supabaseEnabled={supabaseEnabled}
-          cloud={cloud}
-          deckCount={decks.length}
-          onClose={() => setSettingsOpen(false)}
-          notify={notify}
-        />
+        <Suspense fallback={null}>
+          <AccountDropdown
+            session={session}
+            supabaseEnabled={supabaseEnabled}
+            cloud={cloud}
+            deckCount={decks.length}
+            onClose={() => setSettingsOpen(false)}
+            notify={notify}
+          />
+        </Suspense>
       )}
 
       {needRefresh && (
