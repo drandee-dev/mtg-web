@@ -27,8 +27,7 @@
 /* Alt text of a card image still loading must not show through. */
 .card-thumb img, .cmdr-print img, .stack-card-wrap img { color: transparent; }
 
-/* The three standalone card frames. */
-.bs-card-placeholder.ph-card { width: 220px; border-radius: var(--radius-lg); }
+/* The two standalone card frames. */
 .cdm-art-placeholder.ph-card { border-radius: var(--radius-lg); }
 /* The full-size preview: the same width as `.card-modal img` (04, 13), so the swap does not resize it. */
 .card-modal-ph { width: min(92vw, calc(86vh * 63 / 88)); max-width: 92vw; border-radius: var(--radius-lg); }
