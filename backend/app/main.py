@@ -248,8 +248,14 @@ def _check_ai_access(request: Request) -> None:
 
 def _validate_decklist(payload: dict) -> tuple[str, str]:
     """Validate and extract decklist + format from a POST body."""
-    decklist = (payload.get("decklist") or "").strip()
+    raw_decklist = payload.get("decklist") or ""
     fmt = payload.get("format") or "commander"
+    # A list or object here was a 500 (unhashable, no .strip); it is a bad request.
+    if not isinstance(raw_decklist, str):
+        raise HTTPException(400, "'decklist' must be a string.")
+    if not isinstance(fmt, str):
+        raise HTTPException(400, "'format' must be a string.")
+    decklist = raw_decklist.strip()
     if not decklist:
         raise HTTPException(400, "Body must include a non-empty 'decklist' string.")
     if len(decklist) > _MAX_DECKLIST_LEN:
@@ -616,7 +622,9 @@ def deck_optimize(request: Request, payload: Annotated[dict, Body()]) -> dict:
     _check_ai_access(request)
     decklist, fmt = _validate_decklist(payload)
     focus = payload.get("focus") or None
-    if focus is not None and focus not in mtg.OPTIMIZE_FOCUS:
+    if focus is not None and (
+        not isinstance(focus, str) or focus not in mtg.OPTIMIZE_FOCUS
+    ):
         raise HTTPException(400, "Invalid focus.")
     raw_changes = payload.get("recent_changes") or []
     if not isinstance(raw_changes, list):
@@ -1065,7 +1073,7 @@ def _planeswalker_prompt(payload: ChatPayload) -> tuple[str, list[dict], bool]:
 
     for m in messages:
         if m["role"] == "user":
-            m["content"] = f"<user_input>{m['content']}</user_input>"
+            m["content"] = mtg._wrap_user(m["content"])
 
     if goal_user:
         for m in reversed(messages):
@@ -1082,7 +1090,7 @@ def _planeswalker_prompt(payload: ChatPayload) -> tuple[str, list[dict], bool]:
             "a cut that was already made, suggest adding a card that was already "
             "added, or re-add something the user undid. Lines starting 'skip:' are "
             "proposals the user explicitly declined — do not suggest them again: "
-            f"<user_input>{digest}</user_input>"
+            + mtg._wrap_user(digest)
         )
         for m in reversed(messages):
             if m["role"] == "user":
@@ -1261,7 +1269,7 @@ def rules_ask_stream(
     if cards_text:
         sections.append(f"## Cards mentioned\n\n{cards_text}")
     sections.append(f"## Comprehensive Rules excerpts\n\n{rules_context}")
-    sections.append(f"## Question\n\n<user_input>{question}</user_input>")
+    sections.append(f"## Question\n\n{mtg._wrap_user(question)}")
     user_msg = "\n\n".join(sections)
 
     import json as _json
