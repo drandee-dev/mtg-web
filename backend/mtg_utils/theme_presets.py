@@ -62,9 +62,11 @@ _LAND_WORD = (
     r"\b(?:basic|lands?|plains|islands?|swamps?|mountains?|forests?|wastes|"
     r"gates?|deserts?|caves?|locus|urza's)\b"
 )
+# A type word that only describes a land ("artifact land card", Sojourner's
+# Companion) is not a nonland type (audit job 5.7).
 _NONLAND_TYPE = (
     r"\b(?:artifacts?|creatures?|enchantments?|instants?|sorcery|sorceries|"
-    r"planeswalkers?|battles?|kindred|tribal)\b"
+    r"planeswalkers?|battles?|kindred|tribal)\b(?! lands?\b)"
 )
 # Draw that is not real card draw: cycling's reminder text, or a one-shot
 # self-sacrifice (card-draw-light). Fixed-width lookbehinds, so the presets stay
@@ -1739,6 +1741,10 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             r"[\w ,/]{0,40}? for "
             r"(?!(?=" + _SEARCH_TARGET + _LAND_WORD + r")"
             r"(?!" + _SEARCH_TARGET + _NONLAND_TYPE + r"))"
+            # A search that exiles every copy of a name is removal, not a tutor (audit
+            # job 5.7: Grizzled Huntmaster, Unexpected Conversion). Searching cards to
+            # exile and use (Mangara's Tome, Parallel Thoughts) still counts.
+            r"(?![^.]*\bwith the same name\b[^.]*\bexile them\b)"
         ),
         should_match=(
             "Demonic Tutor",
@@ -1758,6 +1764,9 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
             "Ash Barrens",
             "Expedition Map",
             "Slaughter Games",
+            "Sojourner's Companion",
+            "Grizzled Huntmaster",
+            "Unexpected Conversion",
         ),
     ),
     # Creature-token creation. Oracle text uses both singular ("create a

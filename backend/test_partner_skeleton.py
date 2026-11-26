@@ -71,11 +71,15 @@ assert "Mountain" not in lands
 staples = names(r, "staples")
 # One colour staple from each half: W and B are Tymna's, G is Thrasios's.
 assert {"Swords to Plowshares", "Night's Whisper", "Cultivate"} <= set(staples)
+# The land floor reads both halves (audit job 5.7): Burgess 31 + 4 colours + the
+# higher mana value (Tymna's 3) = 38.
+assert r["land_target"] == 38, r["land_target"]
 
 # Solo still works, and still reads only its own identity.
 solo = skeleton(THRASIOS)
 assert solo["commander"]["color_identity"] == ["U", "G"]
 assert "Plains" not in names(solo, "suggested_lands")
+assert solo["land_target"] == 35, solo["land_target"]  # 31 + 2 colours + mana value 2
 
 bad = mtg.wizard_build_skeleton(f"{THRASIOS} && Not A Card")
 assert bad["error"] and "Not A Card" in bad["message"], bad
