@@ -23,6 +23,9 @@ export function statusParts(result, comp) {
     parts.push({
       text: `mana short (${v.mana_sources} of ${v.recommended_sources} sources)`, tone: toneOf(v.sources_status),
     });
+  } else if (v && v.status && v.status !== "PASS" && !v.land_status && !v.sources_status) {
+    // An older saved result without the two checks: trust its overall status.
+    parts.push({ text: "mana short", tone: toneOf(v.status) });
   } else if (v) {
     parts.push({ text: "mana ok", tone: "ok" });
   }

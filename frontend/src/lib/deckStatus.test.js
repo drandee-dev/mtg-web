@@ -37,6 +37,11 @@ test("not legal, short of cards, sources short, weak fixing, two thin roles", ()
     "Not legal:bad | 92 of 100 cards:warn | mana short (40 of 46 sources):bad | color fixing weak:warn | 2 thin roles:warn");
 });
 
+test("an older saved result with only an overall mana status never reads ok when it isn't", () => {
+  const r = { total_cards: 100, mana: { viability: { status: "WARN" } } };
+  assert.equal(line(r, null), "Legal:ok | mana short:warn");
+});
+
 test("a 60-card format counts against 60, and missing audits are left out", () => {
   assert.equal(line({ total_cards: 58, format: "standard" }, null), "Legal:ok | 58 of 60 cards:warn");
 });
