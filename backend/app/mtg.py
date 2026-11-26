@@ -984,7 +984,7 @@ _COMPOSITION = [
     # Target replaced per deck by mana_audit's land_count_floor (audit job 4.1).
     ("lands", "Lands", 36, None, ()),  # from deck_stats.land_count
     ("ramp", "Ramp", 10, None, ()),  # deck_stats.ramp_count / ramp_light_count
-    ("card-draw", "Card draw", 10, ("card-draw", "cantrip"), ()),
+    ("card-draw", "Card draw", 10, ("card-draw", "cantrip"), ("card-draw-light",)),
     ("removal", "Spot removal", 8, ("spot-removal",), ("spot-removal-light",)),
     (
         "board-wipe",
@@ -3294,6 +3294,7 @@ _ROLE_CHECKS = [
     ("board-wipe-light", "Board wipe"),
     ("card-draw", "Draw"),
     ("cantrip", "Draw"),
+    ("card-draw-light", "Draw"),  # both tiers, same as deck_composition's count
     ("counterspell", "Counter"),
     ("tutors", "Tutor"),
     ("tokens", "Tokens"),
