@@ -42,11 +42,9 @@ ROUTES = [
     ("post", "/api/deck/validate-cards", lambda f: {"decklist": DECK, "format": f, "names": ["Sol Ring"]}),
     ("post", "/api/deck/ai/fills", lambda f: {"decklist": DECK, "format": f}),
     ("post", "/api/deck/ai/explain", lambda f: {"decklist": DECK, "format": f, "card_names": ["Sol Ring"]}),
-    ("post", "/api/deck/ai/combos", lambda f: {"decklist": DECK, "format": f}),
     ("post", "/api/deck/ai/strategy", lambda f: {"decklist": DECK, "format": f}),
     ("post", "/api/deck/optimize", lambda f: {"decklist": DECK, "format": f}),
     ("post", "/api/deck/wizard/skeleton", lambda f: {"commander": "Silverquill, the Disputant", "format": f}),
-    ("post", "/api/deck/wizard/chat", lambda f: {"messages": MSG, "commander": "Silverquill, the Disputant", "format": f}),
     ("post", "/api/planeswalker/chat", lambda f: {"messages": MSG, "decklist": DECK, "format": f}),
     ("post", "/api/planeswalker/chat/stream", lambda f: {"messages": MSG, "decklist": DECK, "format": f}),
 ]

@@ -160,10 +160,6 @@ export const api = {
     }),
   wizardNarrate: (commander, category, card_names, decklist) =>
     post("/api/deck/wizard/narrate", { commander, category, card_names, decklist }),
-  // wizardChat / rulesAsk / aiCombos were removed 2026-09-20: duplicates of
-  // planeswalkerChat, rulesAskStream and combos respectively. The backend
-  // routes stay — someone may add a caller later — but nothing reaches them
-  // from the UI, and keeping two client methods for one job invited drift.
   rulesAskStream: (question, onChunk) =>
     postStream("/api/rules/ask/stream", { question }, onChunk),
   aiFills: (decklist, format, bracket, goals, maxCardPrice) =>

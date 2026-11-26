@@ -279,8 +279,7 @@ above re-triggers the Vercel build, which re-downloads bulk data.
 |--------|------|-------------|
 | GET | `/api/health` | Liveness check + `data_as_of` date, AI availability/budget status |
 | GET | `/api/rules/search` | Rules lookup (`?rule=`, `?term=`, or `?grep=`) |
-| POST | `/api/rules/ask` | AI Rules Q&A (body: `{question}`) |
-| POST | `/api/rules/ask/stream` | Same, streamed (SSE) |
+| POST | `/api/rules/ask/stream` | AI Rules Q&A, streamed (SSE; body: `{question}`) |
 | GET | `/api/cards/search` | Card search (name, oracle, type, colors, cmc, price, format) |
 | GET | `/api/cards/image` | Card image URL(s) (`?name=` or `?names=a\|b\|c`) |
 | GET | `/api/cards/prints` | All printings of a card |
@@ -298,13 +297,11 @@ above re-triggers the Vercel build, which re-downloads bulk data.
 | POST | `/api/deck/ai/cuts` | AI-suggested cuts with reasoning |
 | POST | `/api/deck/ai/fills` | AI-suggested additions (wizard) |
 | POST | `/api/deck/ai/explain` | AI explanation for why a card fits |
-| POST | `/api/deck/ai/combos` | AI-narrated combo lines |
 | POST | `/api/deck/ai/strategy` | Full strategy guide generation |
 | POST | `/api/deck/ai/upgrades` | AI power-level upgrade suggestions |
 | POST | `/api/deck/optimize` | Goal-aware changeset (cut/add) for the Optimize queue |
 | POST | `/api/deck/wizard/skeleton` | Guided-build starting skeleton for a commander |
 | POST | `/api/deck/wizard/narrate` | Guided-build category narration |
-| POST | `/api/deck/wizard/chat` | Guided-build conversational assist |
 | POST | `/api/planeswalker/chat` | Planeswalker chat bot |
 | POST | `/api/planeswalker/chat/stream` | Same, streamed (SSE) |
 
