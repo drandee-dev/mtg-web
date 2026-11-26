@@ -2161,16 +2161,18 @@ def ai_optimize(
     # still proposed four Sliver cuts and every change was held back. Name the cards:
     # which are theme (cut only for a same-theme card) and which are free to cut.
     if theme and (theme.tribe or theme.mechanics) and ctx.get("hd"):
-        free, kept = [], []
-        for e, card in ctx["hd"].entries(zones=("cards",)):
-            if not card or _land_flag(card):
-                continue
-            (kept if theme.reasons(card) else free).append(card["name"])
-        if kept:
+        free = [
+            card["name"]
+            for _, card in ctx["hd"].entries(zones=("cards",))
+            if card and not _land_flag(card) and not theme.reasons(card)
+        ]
+        # Audit job 3.9: the full theme-card list (56 names on Sliver Swarm) came back
+        # with no changes on both tribal precons (2026-11-26, paid re-run); name the
+        # tribe once instead and list only the cards outside the theme.
+        if theme.tribe:
             tail += (
-                "\n\nTheme cards (cut one only for a card in the same part of the theme): "
-                + "; ".join(kept)
-                + "."
+                f"\n\nEvery {theme.tribe.title()}, and every card that supports the "
+                "tribe, is a theme card: cut one only for another."
             )
         if free:
             tail += (

@@ -77,9 +77,10 @@ print(f"ok: Sliver Swarm keeps every Sliver ({out['held_back_note']})")
 
 # Audit job 3.8: the tail names the theme cards and the cards free to cut.
 tail = sent[-1]
-theme_part = tail.split("Theme cards (cut one only")[1].split("\n\n")[0]
+# Job 3.9: the tribe is named once; no per-card theme list (it emptied tribal answers).
+assert "Theme cards (cut one only" not in tail, tail[-800:]
+assert "\n\nEvery Sliver, and every card that supports the tribe" in tail, tail[-800:]
 free_part = tail.split("Nonland cards outside the theme: ")[1].split("\n\n")[0]
-assert "Diffusion Sliver" in theme_part and "Distant Melody" in theme_part, theme_part
 assert "Windfall" in free_part and "Sliver" not in free_part, free_part
 assert "Plains" not in free_part and "suggest 8 changes" in free_part, free_part
 print("ok: the prompt lists the theme cards and the cards outside the theme")
