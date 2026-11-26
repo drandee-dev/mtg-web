@@ -69,6 +69,8 @@ export default function Playtest({ decklist, commander, stage, onClose }) {
     setPhase("mulligan");
   }, [decklist, stage]);
 
+  // A new list or opening hand deals a fresh game (shuffled, so it can't be derived in render).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { reset(); }, [reset]);
 
   function mulligan() {

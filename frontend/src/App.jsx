@@ -313,7 +313,8 @@ export default function App() {
     }
   }, [store, notify, userId]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Reload the deck list when the account changes: the store is the outside system.
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
   useEffect(() => { refresh(); }, [userId]);
 
   // This browser's decks not yet in the signed-in account. Only once the

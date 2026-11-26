@@ -43,6 +43,8 @@ export function useCardImage(name, printing = null) {
   const pset = printing?.set || null;
   const pcn = printing?.cn || null;
   useEffect(() => {
+    // No name clears the image the fetch below fills.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!name) { setData(null); return; }
     let cancelled = false;
     getCardImage(name, pset ? { set: pset, cn: pcn } : null)

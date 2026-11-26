@@ -63,12 +63,13 @@ else:
     )
 
 
+# UTC, like the created_at timestamps they are compared with (and Vercel's clock).
 def _month_start() -> str:
-    return datetime.date.today().replace(day=1).isoformat()
+    return datetime.datetime.now(datetime.UTC).date().replace(day=1).isoformat()
 
 
 def _day_start() -> str:
-    return datetime.date.today().isoformat()
+    return datetime.datetime.now(datetime.UTC).date().isoformat()
 
 
 # A paused Supabase project answered each query after about 7 s (2026-11-25): the

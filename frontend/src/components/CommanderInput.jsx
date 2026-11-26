@@ -23,6 +23,8 @@ export default function CommanderInput({ commander, setCommander }) {
   useEffect(() => {
     clearTimeout(debounce.current);
     const q = query.trim();
+    // A query too short to search clears the last search's results (the search is the outside system).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (q.length < 2) { setResults([]); setError(""); setLoading(false); return; }
     setLoading(true);
     const myseq = ++seq.current;
