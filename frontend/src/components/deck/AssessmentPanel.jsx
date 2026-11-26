@@ -1,36 +1,6 @@
+import { Fragment } from "react";
 import { useInfoTip } from "../InfoTip";
-
-function statusScore(s) {
-  const u = (s || "").toUpperCase();
-  if (u === "PASS" || u === "OK") return 1;
-  if (u === "WARN") return 0.6;
-  return 0.3;
-}
-
-// A single 0–100 "deck health" read — the progress signal the sidebar was missing.
-// Weighs completeness, legality, mana viability, color fixing, and role coverage;
-// each input already comes from the deterministic audits, so the number moves the
-// moment the deck improves. Returns null until there's a deck to score.
-function computeHealth(result, comp) {
-  if (!result || !result.total_cards) return null;
-  const fmt = result.format || "commander";
-  const isCmdr = fmt === "commander" || fmt === "paupercommander";
-  const target = isCmdr ? 100 : 60;
-  const parts = [
-    { label: "Complete", w: 0.25, v: Math.min(1, (result.total_cards || 0) / target) },
-    { label: "Legal", w: 0.20, v: result.legality?.overall_status === "FAIL" ? 0.4 : 1 },
-    { label: "Mana", w: 0.20, v: statusScore(result.mana?.viability?.status) },
-    { label: "Fixing", w: 0.15, v: statusScore(result.mana?.color_balance_status) },
-  ];
-  const cats = comp?.categories?.filter((c) => c.target) || [];
-  if (cats.length) {
-    const thin = cats.filter((c) => c.status === "thin").length;
-    parts.push({ label: "Roles", w: 0.20, v: 1 - thin / cats.length });
-  }
-  const wsum = parts.reduce((a, p) => a + p.w, 0);
-  const score = Math.round((parts.reduce((a, p) => a + p.w * p.v, 0) / wsum) * 100);
-  return { score, parts };
-}
+import { statusParts } from "../../lib/deckStatus";
 
 function joinNames(list) {
   const names = list.map((c) => c.label.toLowerCase());
@@ -52,7 +22,7 @@ function verdictText({ thin, hasCats, detected, target }) {
 }
 
 // Improve's left column under Goals (UX overhaul job 3.5, `Improve`): the
-// Verdict, a score out of 100 with a sentence, and the Gaps, the roles under
+// Verdict, a status line with a sentence, and the Gaps, the roles under
 // target. A gap is a button: it asks the AI for cards that fill it (wired
 // through DeckView's runOptimize). The over-budget line sits beside them as
 // the same kind of one-tap route, to budget swaps.
@@ -66,33 +36,40 @@ export default function AssessmentPanel({
   const price = result?.breakdown?.price_usd ?? null;
   const ceiling = goals?.budgetCeiling ?? null;
   const overBy = price != null && ceiling != null && price > ceiling ? price - ceiling : 0;
-  const health = computeHealth(result, comp);
+  const status = statusParts(result, comp);
   const text = aiNote || verdictText({ thin, hasCats: Boolean(comp?.categories?.length), detected, target });
-  // Hooks before the early return. The score's breakdown used to be a hover-only title.
-  const scoreTip = useInfoTip("the score",
-    "A health score from the deck's own checks"
-    + (health ? `: ${health.parts.map((p) => `${p.label} ${Math.round(p.v * 100)}%`).join(", ")}. ` : ". ")
-    + "Complete counts cards against 100 (60 outside Commander)"
-    + (health?.parts.some((p) => p.label === "Roles") ? "; Roles is the share of roles at or above their target." : "."));
+  // Hooks before the early return.
+  const statusTip = useInfoTip("the status",
+    "The deck's own checks, in order: legality, then the card count when the deck is short, "
+    + "the mana base (lands against this deck's land floor, then lands plus ramp against its curve), "
+    + "color fixing when it is weak, and how many roles are under target.");
   const gapsTip = useInfoTip("gaps",
     "Roles with fewer cards than this deck should run; the number after \"of\" is the target. "
     + "Tap one to ask the AI for cards that fill it. Each tap uses an AI call.");
-  if (!health && !text && !thin.length && !overBy) return null;
+  if (!status && !text && !thin.length && !overBy) return null;
 
-  const tone = health ? (health.score >= 80 ? "good" : health.score >= 55 ? "warn" : "bad") : "";
   return (
     <div className="asmt-wrap">
       <section aria-labelledby="improve-verdict">
         <div className="info-tip-host info-tip-head">
           <h3 id="improve-verdict" className="improve-h">Verdict</h3>
-          {health && scoreTip.button}
-          {health && scoreTip.panel}
+          {status && statusTip.button}
+          {status && statusTip.panel}
         </div>
-        {health && (
-          <div className="asmt-score-row">
-            <span className={`hr-score hr-${tone}`}>{health.score}</span>
-            <span className="muted">out of 100</span>
-          </div>
+        {status && (
+          <p className="asmt-status">
+            {status.map((p, i) => (
+              <Fragment key={p.text}>
+                {i > 0 && (
+                  <>
+                    <span className="visually-hidden">, </span>
+                    <span className="asmt-status-sep" aria-hidden="true"> · </span>
+                  </>
+                )}
+                <span className={`asmt-status-${p.tone}`}>{p.text}</span>
+              </Fragment>
+            ))}
+          </p>
         )}
         {text && <p className="asmt-verdict">{text}</p>}
       </section>

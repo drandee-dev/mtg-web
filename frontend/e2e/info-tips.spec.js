@@ -21,13 +21,13 @@ const tip = (page, label) => page.getByRole("button", { name: `About ${label}`, 
 const panelOf = async (page, label) =>
   page.locator(`[id="${await tip(page, label).getAttribute("aria-controls")}"]`);
 
-test("every tip opens with its text, and the score's breakdown is no longer hover-only", async ({ page }) => {
+test("every tip opens with its text, and the status line's meaning is not hover-only", async ({ page }) => {
   await openImprove(page, { deep: true });
   const want = {
     bracket: "AI suggestions are told to steer toward it",
     budget: "AI suggestions are told to stay under it",
     pilot: "Simple avoids long chains",
-    "the score": "Complete ",
+    "the status": "this deck's land floor",
     gaps: "the number after \"of\" is the target",
     "budget swaps and power upgrades": "Both show the AI's changes",
     suggestions: "\"Played in N%\" is the share",
@@ -42,8 +42,8 @@ test("every tip opens with its text, and the score's breakdown is no longer hove
     await tip(page, label).click(); // the same button closes it
     await expect(p).toBeEmpty();
   }
-  // The live breakdown is in the tip now, not a title only a mouse could see.
-  await expect(page.locator(".asmt-score-row")).not.toHaveAttribute("title", /.*/);
+  // What the status line means is in the tip, not a title only a mouse could see.
+  await expect(page.locator(".asmt-status")).not.toHaveAttribute("title", /.*/);
   // The suggestion reasons say the real share of this commander's decks.
   await expect(page.locator(".opt-reason", { hasText: "Played in 64% of this commander's decks." })).toBeVisible();
 });
@@ -101,7 +101,7 @@ test("a tap or click elsewhere closes it", async ({ page }) => {
 // (on phones its own flex line used to add the row gap under every label; Holiday, 2026-11-06).
 test("a closed tip draws nothing and takes no room", async ({ page }) => {
   await openImprove(page, { deep: true });
-  for (const label of ["bracket", "budget", "pilot", "the score", "gaps", "budget swaps and power upgrades", "suggestions"]) {
+  for (const label of ["bracket", "budget", "pilot", "the status", "gaps", "budget swaps and power upgrades", "suggestions"]) {
     const p = await panelOf(page, label);
     await expect(p).toBeEmpty();
     const { area, grew } = await p.evaluate((el) => {

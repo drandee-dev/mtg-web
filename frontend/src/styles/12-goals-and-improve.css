@@ -166,11 +166,12 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 
 /* Verdict and Gaps (AssessmentPanel) */
 .asmt-wrap { display: flex; flex-direction: column; gap: 28px; }
-.asmt-score-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
-.hr-score { font-size: 52px; line-height: 1; font-weight: 600; font-variant-numeric: tabular-nums; }
-.hr-good { color: var(--good); }
-.hr-warn { color: var(--warn); }
-.hr-bad { color: var(--bad); }
+/* The Verdict's status line (audit job 4.3): words carry the state, tone is a second cue. */
+.asmt-status { margin: 0 0 8px; font-size: var(--fs-md); font-weight: 600; line-height: 1.4; color: var(--text); }
+.asmt-status-sep { color: var(--muted); font-weight: 400; }
+.asmt-status-ok, .asmt-status-warn, .asmt-status-bad { white-space: nowrap; } /* a phrase wraps whole */
+.asmt-status-warn { color: var(--warn); }
+.asmt-status-bad { color: var(--bad); }
 .asmt-verdict { margin: 0; color: var(--text-secondary); line-height: 1.5; }
 .asmt-gaps { display: flex; flex-direction: column; }
 .asmt-chip {

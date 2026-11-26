@@ -1,5 +1,5 @@
 // Bracket labels match the official WotC brackets (1-5), the deck header counts
-// the commander once, and the health score drops when legality fails.
+// the commander once, and the Verdict's status line says Not legal when legality fails.
 import { test, expect } from "./fixtures/test-base.js";
 import { loadSharedDeck, waitForAppReady, dismissColdStart, pickNewDeckCommander, openDeckSection } from "./fixtures/helpers.js";
 import { TEST_COMMANDER } from "./fixtures/test-data.js";
@@ -82,24 +82,25 @@ test("the header says Legal or Not legal from the analysis", async ({ page }) =>
   await expect(facts.getByText("Legal", { exact: true })).toHaveCount(0);
 });
 
-test("an illegal deck scores lower than the same deck when legal", async ({ page }) => {
+test("the Verdict's status line says Legal, then Not legal in the bad tone (audit job 4.3)", async ({ page }) => {
   let status = "PASS";
   await stubAnalyze(page, () => (status === "PASS"
     ? { overall_status: "PASS", violations: { deck_maximum: [] } }
     : { overall_status: "FAIL", violations: { deck_maximum: [{ total_cards: 101, maximum: 100, reason: "above_maximum" }] } }));
 
-  const ring = page.locator(".hr-score").first();
+  const line = page.locator(".asmt-status").first();
   await loadSharedDeck(page, NINETY_NINE, TEST_COMMANDER);
-  await openDeckSection(page, "Improve"); // the Assessment's ring
-  await expect(ring).toBeVisible({ timeout: 15000 });
-  const legal = Number(await ring.textContent());
+  await openDeckSection(page, "Improve");
+  await expect(line).toBeVisible({ timeout: 15000 });
+  await expect(line.locator("span").first()).toHaveText("Legal");
+  await expect(page.getByText("out of 100")).toHaveCount(0); // the score is gone
 
   status = "FAIL";
   await page.reload();
   await waitForAppReady(page);
   await openDeckSection(page, "Improve");
-  // Poll: a persisted result may paint first; the re-analyzed one must score lower.
-  await expect.poll(async () => Number(await ring.textContent()), { timeout: 15000 }).toBeLessThan(legal);
+  // A persisted result may paint first; the re-analyzed one must say Not legal.
+  await expect(line.locator(".asmt-status-bad").first()).toHaveText("Not legal", { timeout: 15000 });
 });
 
 test("a deck_maximum violation is listed under Legality issues", async ({ page }) => {
