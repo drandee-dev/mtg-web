@@ -2158,8 +2158,8 @@ def ai_optimize(
     if rules:
         tail += "\n\nThe server drops changes that break these rules: " + " ".join(rules)
     # Audit job 3.8: with only the rule above, a paid call on Sliver Swarm (2026-11-25)
-    # still proposed four Sliver cuts and every change was held back. Name the cards:
-    # which are theme (cut only for a same-theme card) and which are free to cut.
+    # still proposed four Sliver cuts and every change was held back. Name the cards
+    # outside the theme, where cuts should come from first (see 3.9 below).
     if theme and (theme.tribe or theme.mechanics) and ctx.get("hd"):
         free = [
             card["name"]
