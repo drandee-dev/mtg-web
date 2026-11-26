@@ -197,3 +197,15 @@ test("budget picks are drawn last, and only into slots the other lists left empt
   assert.deepEqual(picked(63), []); // 63 spell slots already full
   assert.deepEqual(picked(60), ["Pick 0", "Pick 1", "Pick 2"]);
 });
+
+test("the skeleton's land target replaces 36 in the build and the merge (audit job 4.1)", () => {
+  // Sliver Gravemother: five colours, mana value 5, so the mana audit's floor is 41.
+  const sk = { creatures: spells(80), _colors: ["W", "U", "B", "R", "G"], _landTarget: 41 };
+  const { cards, basics } = assembleSkeleton(sk, ["Sliver Gravemother"]);
+  assert.equal(cards.length, 58, "99 less 41 lands");
+  assert.equal(sum(basics), 41);
+  const r = mergeFills({ cards, basics, landFloor: 41, proposed: [fill("A"), fill("B")], thinLabels: ["Card draw"] });
+  assert.equal(r.cut.length, 2, "at the floor every fill cuts a spell");
+  assert.equal(lands(r), 41);
+  assert.equal(total(r), 99);
+});

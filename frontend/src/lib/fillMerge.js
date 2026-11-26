@@ -18,6 +18,8 @@ const STAPLES = "Format staples";
 
 const BASIC_FOR = { W: "Plains", U: "Island", B: "Swamp", R: "Mountain", G: "Forest" };
 const BASIC_NAMES = new Set(["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"]);
+// The skeleton's land_target (mana audit floor, per commander) wins; this is the
+// fallback for a response without it.
 export const LAND_TARGET = 36;
 
 function synergyReason(c) {
@@ -58,7 +60,7 @@ export function assembleSkeleton(skeleton, commanderNames, isOwned = () => false
   }
 
   const slots = 100 - commanderNames.length;
-  const chosenSpells = spells.slice(0, slots - LAND_TARGET);
+  const chosenSpells = spells.slice(0, slots - (skeleton?._landTarget ?? LAND_TARGET));
   // A thin skeleton leaves spell slots empty; they become basics for now and
   // ai/fills replaces them with real cards in the next step.
   const landSlots = slots - chosenSpells.length - utilLands.length;
@@ -98,7 +100,7 @@ const isLand = (c) => c.is_land ?? c.category === "Lands";
  *  spell carries `displaced: <name>`. `spare` is ai/fills' own field: how many
  *  cards each healthy category can lose before it reads thin, so closing one
  *  gap never opens another. */
-export function mergeFills({ cards, basics, proposed, thinLabels = [], commanders = [], landFloor = 36, spare = {} }) {
+export function mergeFills({ cards, basics, proposed, thinLabels = [], commanders = [], landFloor = LAND_TARGET, spare = {} }) {
   const kept = [...cards];
   const nextBasics = new Map(basics);
   const added = [];

@@ -455,7 +455,7 @@ function NewDeckSteps({ onCreate, notify, seed }) {
       const sk = await api.wizardSkeleton(commanderName, format, bracket, maxCardPrice);
       if (sk?.error) throw new Error(sk.message || "Commander not found.");
       const colors = sk.commander?.color_identity || [];
-      const { cards, basics } = assembleSkeleton({ ...sk.skeleton, _colors: colors }, cmdNames);
+      const { cards, basics } = assembleSkeleton({ ...sk.skeleton, _colors: colors, _landTarget: sk.land_target }, cmdNames);
       if (!cards.length) throw new Error("No suggestions came back for that commander.");
 
       const notes = {};
@@ -483,12 +483,12 @@ function NewDeckSteps({ onCreate, notify, seed }) {
       }
 
       // Close whatever composition gaps the deck still reports. mergeFills
-      // keeps the count at 100 and the lands at the 36 floor.
+      // keeps the count at 100 and the lands at the skeleton's land floor.
       setProgress({ label: "Closing category gaps", pct: 80 });
       let merged = { cards, basics, added: [], cut: [] };
       try {
         const fills = await api.aiFills(full, format, bracket, undefined, maxCardPrice);
-        merged = mergeFills({ cards, basics, commanders: cmdNames, ...fillProposals(fills) });
+        merged = mergeFills({ cards, basics, commanders: cmdNames, landFloor: sk.land_target, ...fillProposals(fills) });
       } catch { /* fills are optional — the skeleton deck stands on its own */ }
       noteFills(notes, merged);
 
@@ -576,7 +576,7 @@ function NewDeckSteps({ onCreate, notify, seed }) {
       const colors = sk.commander?.color_identity || [];
       const ownedFirst = ownedFirstSkeleton(sk.skeleton, ownedIndex);
       // The price cap is about what you'd have to buy: owned cards ignore it.
-      const { cards, basics } = assembleSkeleton({ ...ownedFirst, _colors: colors }, cmdNames,
+      const { cards, basics } = assembleSkeleton({ ...ownedFirst, _colors: colors, _landTarget: sk.land_target }, cmdNames,
         (name) => ownedQuantity(name, ownedIndex) > 0);
       if (!cards.length) throw new Error("No suggestions came back for that commander.");
 
@@ -608,7 +608,7 @@ function NewDeckSteps({ onCreate, notify, seed }) {
         const fills = await api.aiFills(full, format, bracket, undefined, maxCardPrice);
         const { proposed, thinLabels, spare } = fillProposals(fills);
         merged = mergeFills({
-          cards, basics, commanders: cmdNames, thinLabels, spare,
+          cards, basics, commanders: cmdNames, thinLabels, spare, landFloor: sk.land_target,
           proposed: partitionOwned(proposed, ownedIndex).flat(),
         });
       } catch { /* fills are optional — the skeleton deck stands on its own */ }
