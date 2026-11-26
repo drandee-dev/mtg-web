@@ -18,8 +18,8 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import (
     AfterValidator,
@@ -28,6 +28,7 @@ from pydantic import (
     StrictFloat,
     StrictInt,
     StringConstraints,
+    ValidationError,
     field_validator,
 )
 
@@ -134,8 +135,8 @@ def _parse_goals(payload: dict) -> dict | None:
         raise HTTPException(400, "goals must be an object.")
     try:
         return GoalsPayload(**raw).model_dump()
-    except Exception:
-        raise HTTPException(400, "Invalid goals object.")
+    except (ValidationError, TypeError):
+        raise HTTPException(400, "Invalid goals object.") from None
 
 
 class ChatPayload(BaseModel):
@@ -273,7 +274,7 @@ def _warm_in_background() -> None:
         mtg.warm()
         _warmed = True
         log.info("Warmed bulk index + rules.")
-    except Exception:  # noqa: BLE001 - boot resilience; endpoints re-raise with detail
+    except Exception:
         log.exception("Warm-up failed; endpoints will load lazily / error per-request.")
 
 
@@ -366,7 +367,7 @@ def cards_search(
     oracle: Annotated[str | None, Query(description="Regex over oracle text")] = None,
     type: Annotated[
         str | None, Query(alias="type", description="Type-line substring")
-    ] = None,  # noqa: A002
+    ] = None,
     color_identity: Annotated[
         str | None, Query(description="e.g. WUG; C for colorless")
     ] = None,
@@ -398,7 +399,7 @@ def cards_search(
             sort=sort,
             limit=limit,
         )
-    except Exception as e:  # noqa: BLE001 - surface filter/regex errors cleanly
+    except Exception as e:
         raise HTTPException(400, "Invalid search parameters.") from e
     # Short CDN cache: absorbs repeat queries while keeping price sorts fresh.
     response.headers["Cache-Control"] = (
@@ -421,7 +422,7 @@ def deck_analyze(
     decklist, fmt = _validate_decklist(payload)
     try:
         return mtg.analyze_deck(decklist, fmt=fmt)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         log.exception("deck_analyze failed")
         raise HTTPException(500, "Analysis failed.") from e
 
@@ -436,7 +437,7 @@ def deck_export(
     decklist, fmt = _validate_decklist(payload)
     try:
         return {"format": fmt, "text": mtg.export_deck_text(decklist, fmt=fmt)}
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         log.exception("deck_export failed")
         raise HTTPException(500, "Export failed.") from e
 
@@ -485,7 +486,7 @@ def deck_recommend(payload: Annotated[dict, Body()]) -> dict:
     decklist, fmt = _validate_decklist(payload)
     try:
         return mtg.deck_recommendations(decklist, fmt=fmt)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         log.exception("deck_recommend failed")
         raise HTTPException(500, "Recommendation failed.") from e
 
@@ -495,7 +496,7 @@ def deck_combos(payload: Annotated[dict, Body()]) -> dict:
     decklist, fmt = _validate_decklist(payload)
     try:
         return mtg.deck_combos(decklist, fmt=fmt)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         log.exception("deck_combos failed")
         raise HTTPException(500, "Combo search failed.") from e
 
@@ -505,7 +506,7 @@ def deck_composition(payload: Annotated[dict, Body()]) -> dict:
     decklist, fmt = _validate_decklist(payload)
     try:
         return mtg.deck_composition(decklist, fmt=fmt)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         log.exception("deck_composition failed")
         raise HTTPException(500, "Composition analysis failed.") from e
 
@@ -544,7 +545,7 @@ def deck_validate_cards(payload: ValidateCardsPayload) -> dict:
     not already in the deck. No model call, so no AI access check."""
     try:
         return mtg.validate_adds(payload.names, payload.decklist, payload.format)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         log.exception("validate_cards failed")
         raise HTTPException(500, "Card validation failed.") from e
 
@@ -588,7 +589,9 @@ class StrategyPayload(BaseModel):
 
     decklist: str = Field(min_length=1, max_length=_MAX_DECKLIST_LEN)
     format: str | None = Field(default="commander", max_length=30)  # null = commander
-    commander: str | None = Field(default=None, max_length=2 * _MAX_CARD_NAME_LEN + 4)  # "A && B"
+    commander: str | None = Field(
+        default=None, max_length=2 * _MAX_CARD_NAME_LEN + 4
+    )  # "A && B"
     bracket: int | None = Field(default=None, ge=1, le=5)
 
 
@@ -602,7 +605,9 @@ def deck_ai_strategy(request: Request, payload: StrategyPayload) -> dict:
     if fmt not in _WEB_FORMATS:
         raise HTTPException(400, f"Unknown format: {fmt}")
     commander = (payload.commander or "").strip() or None
-    return mtg.ai_strategy(decklist, fmt=fmt, commander=commander, bracket=payload.bracket)
+    return mtg.ai_strategy(
+        decklist, fmt=fmt, commander=commander, bracket=payload.bracket
+    )
 
 
 @app.post("/api/deck/optimize")
@@ -815,7 +820,7 @@ def deck_import_url(payload: ImportUrlPayload) -> dict:
         )
     except HTTPException:
         raise
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         log.exception("import-url failed")
         raise HTTPException(500, "Import failed.") from e
 
@@ -835,7 +840,7 @@ def import_precon(
     )
     try:
         matches = precons.search_precons(name)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         log.exception("precon index fetch failed")
         raise HTTPException(502, "Precon index unavailable — try again later.") from e
     if not matches:
@@ -843,7 +848,7 @@ def import_precon(
     best = matches[0]
     try:
         deck = precons.fetch_precon(best["fileName"])
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         log.exception("precon deck fetch failed")
         raise HTTPException(502, "Couldn't fetch that precon's decklist.") from e
     return {
@@ -929,6 +934,8 @@ def _planeswalker_prompt(payload: ChatPayload) -> tuple[str, list[dict], bool]:
             ctx = mtg._deck_context_cached(decklist, fmt, bracket=bracket)
             ctx_summary = ctx["summary"]
         except Exception:
+            # Best-effort grounding: the chat still answers without the deck summary.
+            log.exception("planeswalker: deck context failed")
             ctx_summary = f"Deck: {len(decklist)} chars, format={fmt}"
 
     system = (
@@ -955,14 +962,15 @@ def _planeswalker_prompt(payload: ChatPayload) -> tuple[str, list[dict], bool]:
 
     # Temporal grounding: the model must prefer server data over its own
     # (cutoff-limited) memory, and say so when neither covers the question.
-    from datetime import date
+    from datetime import UTC, datetime
 
     try:
         data_date = mtg.data_as_of()
     except Exception:
+        log.exception("planeswalker: data_as_of failed")
         data_date = None
     system += (
-        f"\n\nToday's date is {date.today().isoformat()}. Your training data has a "
+        f"\n\nToday's date is {datetime.now(UTC).date().isoformat()}. Your training data has a "
         "cutoff, so recent sets, products, bans, and bracket changes may be missing "
         "or misremembered. The server card database is current as of "
         f"{data_date or 'this week'} (refreshed weekly). Any SERVER CARD DATA below "
@@ -981,6 +989,7 @@ def _planeswalker_prompt(payload: ChatPayload) -> tuple[str, list[dict], bool]:
         try:
             mentioned = mtg._find_cards_in_question(last_user)
         except Exception:
+            log.exception("planeswalker: card grounding failed")
             mentioned = []
         if mentioned:
             card_lines = []
@@ -1009,6 +1018,7 @@ def _planeswalker_prompt(payload: ChatPayload) -> tuple[str, list[dict], bool]:
             try:
                 hit = precons.match_precon(m["content"])
             except Exception:
+                log.exception("planeswalker: precon match failed")
                 hit = None
             if hit:
                 break
@@ -1016,6 +1026,7 @@ def _planeswalker_prompt(payload: ChatPayload) -> tuple[str, list[dict], bool]:
             try:
                 pre = precons.fetch_precon(hit["fileName"])
             except Exception:
+                log.exception("planeswalker: precon fetch failed")
                 pre = None
             if pre and pre["decklist"]:
                 cmd = (
@@ -1033,11 +1044,12 @@ def _planeswalker_prompt(payload: ChatPayload) -> tuple[str, list[dict], bool]:
                 )
 
         # Rules routing: rules-shaped questions get real CR excerpts — the same
-        # retrieval the Rules Q&A tab uses — instead of parametric memory.
+        # retrieval the card modal's rules answer uses — instead of parametric memory.
         if mtg.looks_like_rules_question(last_user):
             try:
                 rules_ctx, _cited, _ct = mtg._gather_rules_context(last_user, mentioned)
             except Exception:
+                log.exception("planeswalker: rules grounding failed")
                 rules_ctx = ""
             if rules_ctx:
                 system += (
@@ -1283,7 +1295,7 @@ def commanders_search(
                 q, limit=limit, partner_of=partner_of or None
             )
         }
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         raise HTTPException(400, "Commander search failed.") from e
 
 
@@ -1302,7 +1314,7 @@ def commanders_synergies(
     )
     try:
         return {"cards": mtg.commander_synergies(name)}
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         raise HTTPException(400, "Commander synergies failed.") from e
 
 
@@ -1313,5 +1325,5 @@ def commanders_directory() -> dict:
     Fetched once by the frontend and filtered/paginated client-side."""
     try:
         return {"commanders": mtg.commander_directory(), "as_of": mtg.data_as_of()}
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         raise HTTPException(400, "Commander directory failed.") from e

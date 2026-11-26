@@ -143,6 +143,8 @@ export default function DeckView({
 
   // Resolve commander card image (honoring a pinned printing on the primary)
   useEffect(() => {
+    // No commander clears the art the fetch below fills.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!commander) { setCmdrData(null); return; }
     const primary = splitCommanders(commander)[0];
     if (!primary) { setCmdrData(null); return; }

@@ -17,7 +17,7 @@ from pathlib import Path
 
 # This file is .../mtg-web/backend/app/config.py
 _BACKEND = Path(__file__).resolve().parents[1]  # .../mtg-web/backend/
-_REPO_ROOT = _BACKEND.parents[1]                # .../Claude/ (parent of mtg-web/)
+_REPO_ROOT = _BACKEND.parents[1]  # .../Claude/ (parent of mtg-web/)
 _MTG = _REPO_ROOT / "mtg-deck-builder"
 
 
@@ -39,7 +39,9 @@ MTG_UTILS_SRC = _env_path("MTG_UTILS_SRC", _DEFAULT_SRC)
 # at deploy time) > sibling mtg-deck-builder repo (local dev).
 # On Render: set MTG_DATA_DIR to the persistent disk mount (e.g. /data).
 _BUNDLED_DATA = _BACKEND / "data"
-_DEFAULT_DATA = _BUNDLED_DATA if (_BUNDLED_DATA / "default-cards.json").is_file() else _MTG / "data"
+_DEFAULT_DATA = (
+    _BUNDLED_DATA if (_BUNDLED_DATA / "default-cards.json").is_file() else _MTG / "data"
+)
 DATA_DIR = _env_path("MTG_DATA_DIR", _DEFAULT_DATA)
 BULK_PATH = _env_path("MTG_BULK_PATH", DATA_DIR / "default-cards.json")
 

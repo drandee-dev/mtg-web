@@ -22,9 +22,9 @@ from app.theme import read_theme
 config.bootstrap_mtg_utils()
 
 # Imports below resolve through the bootstrapped sys.path entry.
-from mtg_utils._name_index import build_name_index, keep_cheaper  # noqa: E402
-from mtg_utils.bulk_loader import bulk_mtime, load_bulk_cards  # noqa: E402
-from mtg_utils.card_classify import (  # noqa: E402
+from mtg_utils._name_index import build_name_index, keep_cheaper
+from mtg_utils.bulk_loader import bulk_mtime, load_bulk_cards
+from mtg_utils.card_classify import (
     RAMP_PREFILTER,
     extract_price,
     get_oracle_text,
@@ -34,24 +34,27 @@ from mtg_utils.card_classify import (  # noqa: E402
     ramp_tier,
     valid_partner_search,
 )
-from mtg_utils.card_search import search_cards as _search_cards  # noqa: E402
-from mtg_utils.combo_search import combo_search  # noqa: E402
-from mtg_utils.commander_directory import build_commander_directory, load_chips  # noqa: E402
-from mtg_utils.deck_stats import deck_stats, detect_bracket  # noqa: E402
-from mtg_utils.edhrec_lookup import edhrec_lookup  # noqa: E402
-from mtg_utils.format_config import FORMAT_CONFIGS  # noqa: E402
-from mtg_utils.theme_presets import get_preset  # noqa: E402
-from mtg_utils.export_deck import export_moxfield  # noqa: E402
-from mtg_utils.hydrated_deck import HydratedDeck  # noqa: E402
-from mtg_utils.legality_audit import legality_audit  # noqa: E402
-from mtg_utils.mana_audit import mana_audit  # noqa: E402
-from mtg_utils.parse_deck import parse_deck_text  # noqa: E402
-from mtg_utils.rules_lookup import (  # noqa: E402
+from mtg_utils.card_search import search_cards as _search_cards
+from mtg_utils.combo_search import combo_search
+from mtg_utils.commander_directory import (
+    build_commander_directory,
+    load_chips,
+)
+from mtg_utils.deck_stats import deck_stats, detect_bracket
+from mtg_utils.edhrec_lookup import edhrec_lookup
+from mtg_utils.export_deck import export_moxfield
+from mtg_utils.format_config import FORMAT_CONFIGS
+from mtg_utils.hydrated_deck import HydratedDeck
+from mtg_utils.legality_audit import legality_audit
+from mtg_utils.mana_audit import mana_audit
+from mtg_utils.parse_deck import parse_deck_text
+from mtg_utils.rules_lookup import (
     grep_rules,
     load_rules,
     lookup_rule,
 )
-from mtg_utils.scryfall_lookup import _extract_fields  # noqa: E402
+from mtg_utils.scryfall_lookup import _extract_fields
+from mtg_utils.theme_presets import get_preset
 
 # Register Pauper + Pauper Commander for the web app WITHOUT editing the shared
 # mtg_utils library (which the local Claude Code skills also use). This mutates the
@@ -107,7 +110,7 @@ def data_as_of() -> str | None:
         ts = config.BULK_PATH.stat().st_mtime
     except OSError:
         return None
-    return datetime.date.fromtimestamp(ts).isoformat()
+    return datetime.datetime.fromtimestamp(ts, datetime.UTC).date().isoformat()
 
 
 def warm() -> None:
@@ -626,7 +629,7 @@ def deck_recommendations(text: str, *, fmt: str = "commander") -> dict[str, Any]
             for k, v in _edhrec_cardlists(commanders).items()
             if k != "themes"  # theme tags, not cards: they feed the AI context instead
         }
-    except Exception:  # noqa: BLE001 - external service; degrade, don't 500
+    except Exception:
         # The exception can carry URLs and internals: log it, never return it.
         log.exception("EDHREC lookup failed for %s", commanders)
         return {
@@ -818,7 +821,7 @@ def _commander_profile(
     them weigh a commander's real strategy rather than only its rules text."""
     try:
         return _commander_profile_text(commanders, idx, in_deck, fmt)
-    except Exception:  # noqa: BLE001 - external service and its data; optional
+    except Exception:
         log.warning("deck context: no EDHREC section for %s", commanders, exc_info=True)
         return ""
 
@@ -1254,8 +1257,9 @@ def _ai_call_stream(
     the complete text and token usage. Supports multi-turn via the messages param,
     or single-turn via user_msg (mirrors _ai_call).
     """
-    import anthropic
     import json as _json
+
+    import anthropic
 
     key = api_key or os.environ.get("ANTHROPIC_API_KEY")
     if not key:
@@ -1425,7 +1429,6 @@ def _protected_set(goals: dict | None) -> set[str]:
 
 import hashlib
 import time as _time
-from concurrent.futures import ThreadPoolExecutor as _TPE
 
 _ctx_cache: dict[str, tuple[float, dict]] = {}
 _CTX_TTL = 30  # seconds
@@ -1598,7 +1601,8 @@ def _deck_context(
                 combo_lines
             )
     except Exception:
-        pass
+        # Best-effort context: the prompt goes without the combo section.
+        log.exception("deck context: combo search failed")
 
     # Composition
     comp_text = ""
@@ -1612,7 +1616,7 @@ def _deck_context(
         if comp_lines:
             comp_text = "\n## Composition\n" + "\n".join(comp_lines)
     except Exception:
-        pass
+        log.exception("deck context: composition failed")
 
     return {
         "deck": deck,
@@ -2758,7 +2762,8 @@ def budget_swaps(
                             in_deck.add(cn)
                             break
                 except Exception:
-                    pass
+                    # One failed role search leaves that card without a swap.
+                    log.exception("budget swaps: candidate search failed")
             if alt:
                 break
         if alt:
@@ -2956,6 +2961,7 @@ def ai_composition_fills(
                 price_max=max_card_price,
             )
         except Exception:
+            log.exception("fills: candidate search failed")
             candidates = []
 
         # Filter out cards already in the deck
@@ -3146,6 +3152,9 @@ def ai_explain_recommendations(
 # --------------------------------------------------------------------------- #
 # AI Deck Wizard — guided step-by-step builder
 # --------------------------------------------------------------------------- #
+# Presets whose failure _classify_roles has already logged (once each per process).
+_ROLE_FAILURES_LOGGED: set[str] = set()
+
 _ROLE_CHECKS = [
     ("spot-removal", "Removal"),  # both tiers, same as deck_composition's count
     ("spot-removal-light", "Removal"),
@@ -3224,12 +3233,16 @@ def _classify_roles(card: dict | None) -> list[str]:
     # 1. Theme preset matchers (from composition system)
     for preset_key, label in _ROLE_CHECKS:
         try:
-            matcher = get_preset(preset_key)
-            if matcher.matches(card):
-                if label not in roles:
-                    roles.append(label)
+            if label not in roles and get_preset(preset_key).matches(card):
+                roles.append(label)
         except Exception:
-            pass
+            # One odd card must not break the response; the role is just missing.
+            # Logged once per preset per process: this runs per card and per check.
+            if preset_key not in _ROLE_FAILURES_LOGGED:
+                _ROLE_FAILURES_LOGGED.add(preset_key)
+                log.exception(
+                    "roles: preset %s failed on %s", preset_key, card.get("name")
+                )
 
     # 2. Oracle text pattern matching for roles without presets — face-aware
     # so transform/MDFC cards (top-level oracle_text is empty) still classify.
@@ -3401,7 +3414,8 @@ def wizard_build_skeleton(
                 if enriched:
                     skeleton[cat_key] = enriched
     except Exception:
-        pass
+        # EDHREC down or changed: the skeleton still builds from staples.
+        log.exception("skeleton: EDHREC lists failed")
     edhrec_answered = bool(skeleton)
 
     # 2. Mana base: basic lands + command tower + color-fixing
@@ -3739,7 +3753,6 @@ _STOP_WORDS = {
     "could",
     "should",
     "will",
-    "does",
     "did",
     "was",
     "were",
@@ -3749,10 +3762,10 @@ _STOP_WORDS = {
 _RULES_CHAT_HINT = re.compile(
     r"\brules?\b|\bruling|\bjudge\b|\blegal(?:ity|ly)?\b|\binteract|\bthe stack\b|"
     r"\bin response\b|\bstate[- ]based",
-    re.I,
+    re.IGNORECASE,
 )
 _RULES_QUESTION_SHAPE = re.compile(
-    r"\?|\bhow\b|\bwhy\b|\bcan\b|\bdoes\b|\bwhat happens\b", re.I
+    r"\?|\bhow\b|\bwhy\b|\bcan\b|\bdoes\b|\bwhat happens\b", re.IGNORECASE
 )
 
 
@@ -3784,7 +3797,9 @@ def _find_cards_in_question(question: str) -> list[dict]:
     Strategy: try progressively shorter multi-word windows from the question
     against the card search. Return cards found with their oracle text.
     """
-    idx = _bulk_index()
+    # Load the index first, so a missing or broken bulk file fails here, loudly,
+    # instead of inside the per-window search below, which skips quietly.
+    _bulk_index()
     words = re.findall(r"[A-Za-z',]+", question)
     found: dict[str, dict] = {}
 
@@ -3799,7 +3814,8 @@ def _find_cards_in_question(question: str) -> list[dict]:
                 continue
             try:
                 results = _search_cards(config.BULK_PATH, name=candidate, limit=1)
-            except Exception:
+            except (ValueError, TimeoutError, OSError):
+                # A window that is no usable name (bad pattern, regex budget, file).
                 continue
             for card in results:
                 name = card.get("name", "")
