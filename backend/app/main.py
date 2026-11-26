@@ -248,8 +248,14 @@ def _check_ai_access(request: Request) -> None:
 
 def _validate_decklist(payload: dict) -> tuple[str, str]:
     """Validate and extract decklist + format from a POST body."""
-    decklist = (payload.get("decklist") or "").strip()
+    raw_decklist = payload.get("decklist") or ""
     fmt = payload.get("format") or "commander"
+    # A list or object here was a 500 (unhashable, no .strip); it is a bad request.
+    if not isinstance(raw_decklist, str):
+        raise HTTPException(400, "'decklist' must be a string.")
+    if not isinstance(fmt, str):
+        raise HTTPException(400, "'format' must be a string.")
+    decklist = raw_decklist.strip()
     if not decklist:
         raise HTTPException(400, "Body must include a non-empty 'decklist' string.")
     if len(decklist) > _MAX_DECKLIST_LEN:
@@ -448,8 +454,8 @@ def _target_bracket(payload: dict) -> int | None:
         return None
     try:
         val = int(b)
-    except (ValueError, TypeError):
-        raise HTTPException(400, "bracket must be an integer (1-5).")
+    except (ValueError, TypeError, OverflowError):  # Infinity parses from JSON
+        raise HTTPException(400, "bracket must be an integer (1-5).") from None
     if not 1 <= val <= 5:
         raise HTTPException(400, "bracket must be 1-5.")
     return val
@@ -569,11 +575,15 @@ def deck_ai_explain(request: Request, payload: Annotated[dict, Body()]) -> dict:
     _check_ai_access(request)
     decklist, fmt = _validate_decklist(payload)
     card_names = payload.get("card_names") or []
-    if not card_names or len(card_names) > _MAX_CARD_NAMES:
+    if (
+        not isinstance(card_names, list)
+        or not card_names
+        or len(card_names) > _MAX_CARD_NAMES
+    ):
         raise HTTPException(400, f"Provide 1-{_MAX_CARD_NAMES} card names.")
     for cn in card_names:
-        if len(cn) > _MAX_CARD_NAME_LEN:
-            raise HTTPException(400, f"Card name too long: {cn[:30]}…")
+        if not isinstance(cn, str) or len(cn) > _MAX_CARD_NAME_LEN:
+            raise HTTPException(400, "Invalid card name.")
     return mtg.ai_explain_recommendations(
         decklist,
         card_names,
@@ -616,7 +626,9 @@ def deck_optimize(request: Request, payload: Annotated[dict, Body()]) -> dict:
     _check_ai_access(request)
     decklist, fmt = _validate_decklist(payload)
     focus = payload.get("focus") or None
-    if focus is not None and focus not in mtg.OPTIMIZE_FOCUS:
+    if focus is not None and (
+        not isinstance(focus, str) or focus not in mtg.OPTIMIZE_FOCUS
+    ):
         raise HTTPException(400, "Invalid focus.")
     raw_changes = payload.get("recent_changes") or []
     if not isinstance(raw_changes, list):
@@ -901,15 +913,19 @@ def wizard_narrate(request: Request, payload: Annotated[dict, Body()]) -> dict:
     _check_ai_access(request)
     commander = _commander_field(payload.get("commander"))
     card_names = payload.get("card_names") or []
-    if not card_names:
+    if not isinstance(card_names, list) or not card_names:
         raise HTTPException(400, "Provide 'commander' and 'card_names'.")
     if len(card_names) > _MAX_CARD_NAMES:
         raise HTTPException(400, f"Too many card names (max {_MAX_CARD_NAMES}).")
     for cn in card_names:
         if not isinstance(cn, str) or len(cn) > _MAX_CARD_NAME_LEN:
             raise HTTPException(400, "Invalid card name.")
-    category = (payload.get("category") or "")[:100]
-    decklist = (payload.get("decklist") or "")[:_MAX_DECKLIST_LEN]
+    category = payload.get("category") or ""
+    decklist = payload.get("decklist") or ""
+    if not isinstance(category, str) or not isinstance(decklist, str):
+        raise HTTPException(400, "'category' and 'decklist' must be strings.")
+    category = category[:100]
+    decklist = decklist[:_MAX_DECKLIST_LEN]
     # Optional; a known format key or Commander. It filters the commander profile's
     # card list to what the format allows.
     fmt = payload.get("format")
@@ -1065,7 +1081,7 @@ def _planeswalker_prompt(payload: ChatPayload) -> tuple[str, list[dict], bool]:
 
     for m in messages:
         if m["role"] == "user":
-            m["content"] = f"<user_input>{m['content']}</user_input>"
+            m["content"] = mtg._wrap_user(m["content"])
 
     if goal_user:
         for m in reversed(messages):
@@ -1082,7 +1098,7 @@ def _planeswalker_prompt(payload: ChatPayload) -> tuple[str, list[dict], bool]:
             "a cut that was already made, suggest adding a card that was already "
             "added, or re-add something the user undid. Lines starting 'skip:' are "
             "proposals the user explicitly declined — do not suggest them again: "
-            f"<user_input>{digest}</user_input>"
+            + mtg._wrap_user(digest)
         )
         for m in reversed(messages):
             if m["role"] == "user":
@@ -1250,7 +1266,10 @@ def rules_ask_stream(
 ):
     """Streaming AI Rules Q&A — answer appears word-by-word via SSE."""
     _check_ai_access(request)
-    question = (payload.get("question") or "").strip()
+    question = payload.get("question") or ""
+    if not isinstance(question, str):
+        raise HTTPException(400, "'question' must be a string.")
+    question = question.strip()
     if not question or len(question) > _MAX_QUESTION_LEN:
         raise HTTPException(400, f"Question must be 1-{_MAX_QUESTION_LEN} characters.")
 
@@ -1261,7 +1280,7 @@ def rules_ask_stream(
     if cards_text:
         sections.append(f"## Cards mentioned\n\n{cards_text}")
     sections.append(f"## Comprehensive Rules excerpts\n\n{rules_context}")
-    sections.append(f"## Question\n\n<user_input>{question}</user_input>")
+    sections.append(f"## Question\n\n{mtg._wrap_user(question)}")
     user_msg = "\n\n".join(sections)
 
     import json as _json
