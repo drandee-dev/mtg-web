@@ -155,3 +155,11 @@ const [showDesktopUrl, setShowDesktopUrl] = useState(false);
 ```
 
 **The fully patched file is at:** `design/Landing page bug fixes/design_handoff_landing_fixes/MyDecks.jsx` — drop-in replacement for `frontend/src/components/MyDecks.jsx`.
+
+### Code → Design (2026-11-26)
+
+Audit job 5.4 removed feedback from the app, on the owner's decision: the Formspree
+modal, the avatar menu's "Send feedback" row, and the account panel's "Send feedback ↗"
+mailto link. The account panel footer now holds only Sign Out, right-aligned, and shows
+only when signed in. `README.md`'s "Footer row" spec (signed-in state) still describes
+the feedback link; please drop it from the spec when you next touch it.

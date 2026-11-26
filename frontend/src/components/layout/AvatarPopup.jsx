@@ -1,10 +1,10 @@
 import { useRef, useEffect } from "react";
 
-// The account menu: sign in, settings, feedback. Nothing about decks lives
+// The account menu: sign in, settings, sign out. Nothing about decks lives
 // here; those have their own places in the bar. It is a plain group of
 // buttons under a disclosure button, not an ARIA menu: Tab reaches each one,
 // and a menu role would promise arrow keys it does not have.
-export default function AvatarPopup({ session, triggerRef, onAccountSettings, onSignOut, onFeedback, onClose }) {
+export default function AvatarPopup({ session, triggerRef, onAccountSettings, onSignOut, onClose }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -38,12 +38,6 @@ export default function AvatarPopup({ session, triggerRef, onAccountSettings, on
           {/* One panel holds both, and signed out it is the only way to the theme switch. */}
           <span>{session ? "Account settings" : "Sign in or settings"}</span>
         </button>
-        {onFeedback && (
-          <button className="avp-row" onClick={() => { onFeedback(); onClose(); }}>
-            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M14 10a1.5 1.5 0 0 1-1.5 1.5H6l-3.5 3V3.5A1.5 1.5 0 0 1 4 2h8.5A1.5 1.5 0 0 1 14 3.5V10z"/><path d="M5.5 6h5M5.5 8.5h3"/></svg>
-            <span>Send feedback</span>
-          </button>
-        )}
         {session && (
           <button className="avp-row avp-row-danger" onClick={() => { onSignOut?.(); onClose(); }}>
             <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M10 3h3.5A1.5 1.5 0 0 1 15 4.5v7A1.5 1.5 0 0 1 13.5 13H10M7 10l3-2-3-2M1 8h10"/></svg>

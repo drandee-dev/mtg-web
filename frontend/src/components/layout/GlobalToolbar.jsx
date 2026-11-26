@@ -15,7 +15,7 @@ const PREFETCH = { commanders: loadDirectory };
 export default function GlobalToolbar({
   places, place, setTab, cloud, session,
   setSettingsOpen, onNewDeck, onDeck, onAsk, askOpen, onSignOut,
-  avatarMenuOpen, setAvatarMenuOpen, onFeedback,
+  avatarMenuOpen, setAvatarMenuOpen,
 }) {
   const avatarRef = useRef(null);
   const initials = cloud
@@ -68,7 +68,6 @@ export default function GlobalToolbar({
               triggerRef={avatarRef}
               onAccountSettings={() => { setAvatarMenuOpen(false); setSettingsOpen(true); }}
               onSignOut={onSignOut}
-              onFeedback={onFeedback}
               onClose={() => setAvatarMenuOpen(false)}
             />
           )}

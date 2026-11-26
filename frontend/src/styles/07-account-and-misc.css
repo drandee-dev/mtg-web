@@ -106,12 +106,8 @@
   accent-color: var(--accent);
 }
 .account-footer {
-  display: flex; gap: 8px; align-items: center;
+  display: flex; gap: 8px; align-items: center; justify-content: flex-end;
   padding-top: 14px; border-top: 1px solid var(--border);
-}
-.account-feedback-link {
-  flex: 1; text-align: left; font-size: var(--fs-xs); color: var(--accent-2);
-  background: none; border: none; cursor: pointer; padding: 0; min-height: auto;
 }
 .account-signout-btn {
   width: auto; display: flex; align-items: center; gap: 6px;
@@ -134,18 +130,6 @@
   background: var(--panel-2); color: var(--text);
   box-shadow: var(--shadow-sm);
 }
-
-/* Feedback modal — opened from the avatar menu (floating button removed) */
-.feedback-modal {
-  position: fixed; inset: 0; z-index: var(--z-modal);
-  background: rgba(0,0,0,.65); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center;
-}
-.feedback-panel {
-  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
-  padding: 1.2rem; width: min(400px, 90vw); box-shadow: var(--shadow-lg);
-  max-height: calc(100dvh - 2rem); overflow: auto; /* a long message scrolls the panel, not off the screen */
-}
-.feedback-panel textarea { --ta-min: 4; --ta-max: 12; font-family: inherit; } /* prose, not a list */
 
 /* Utility classes */
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

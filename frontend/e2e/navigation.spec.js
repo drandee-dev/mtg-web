@@ -111,12 +111,12 @@ test.describe("Navigation & Layout", () => {
     await expect(mainNav(page).locator('[aria-current="page"]')).toHaveText("Decks");
   });
 
-  test("the account menu is sign in and feedback, with nothing about decks", async ({ page }) => {
+  test("the account menu is sign in and settings, with nothing about decks or feedback", async ({ page }) => {
     await page.getByRole("button", { name: "Account menu" }).click();
     const menu = page.getByRole("group", { name: "Account" });
     await expect(page.getByRole("button", { name: "Account menu" })).toHaveAttribute("aria-expanded", "true");
     await expect(menu.getByRole("button").first()).toHaveText("Sign in or settings");
-    await expect(menu).not.toContainText(/New Deck|Import|Paste|Recent|Search/i);
+    await expect(menu).not.toContainText(/New Deck|Import|Paste|Recent|Search|feedback/i);
 
     // Escape from a row inside it closes it and hands focus back to its button.
     await menu.getByRole("button").first().focus();

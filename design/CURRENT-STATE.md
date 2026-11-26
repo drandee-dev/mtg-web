@@ -31,7 +31,6 @@
 | Account settings | Avatar → Account Settings | Sign in/out, API key, theme toggle |
 | Playtest mode | Deck view → Playtest button | Full-screen card-draw simulation |
 | Planeswalker chat | Floating button (bottom-right) | AI chat assistant, always available |
-| Feedback widget | "?" button (bottom-right, behind Planeswalker) | Formspree form |
 
 ## How to regenerate screenshots
 

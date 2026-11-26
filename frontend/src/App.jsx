@@ -29,9 +29,6 @@ import MyDecks from "./components/MyDecks";
 import Rules from "./components/Rules";
 import CardSearch from "./components/CardSearch";
 import AccountDropdown from "./components/AccountDropdown";
-import Feedback from "./components/Feedback";
-
-const FEEDBACK_ENABLED = Boolean(import.meta.env.VITE_FORMSPREE_ID);
 import Playtest from "./components/Playtest";
 import Ask from "./components/Ask";
 import Commanders from "./components/Commanders";
@@ -87,7 +84,6 @@ export default function App() {
   const { toast, notify, dismiss: dismissToast } = useToast();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
   // The Ask drawer (job 4.1). It is hidden on the Rules page, which is its own
   // AI chat, so "open" there means closed; it is open again on the way back.
   const [askWanted, setAskWanted] = useState(false);
@@ -204,7 +200,6 @@ export default function App() {
   // Playtest shows its own address over the deck's while it is open.
   useBackClose(playtesting, () => setPlaytesting(false), playtesting && deckId ? playtestPath(deckId) : null);
   useBackClose(settingsOpen, () => setSettingsOpen(false));
-  useBackClose(feedbackOpen, () => setFeedbackOpen(false));
 
   useEffect(() => {
     function handler(e) {
@@ -728,7 +723,6 @@ export default function App() {
         onSignOut={() => { supabase.auth.signOut(); notify("Signed out."); }}
         avatarMenuOpen={avatarMenuOpen}
         setAvatarMenuOpen={setAvatarMenuOpen}
-        onFeedback={FEEDBACK_ENABLED ? () => setFeedbackOpen(true) : null}
       />
 
       <main id="main-content">
@@ -923,7 +917,6 @@ export default function App() {
         deckName={currentDeck ? currentDeck.name || UNTITLED : null}
         goals={goals}
       />
-      <Feedback open={feedbackOpen} onClose={() => setFeedbackOpen(false)} notify={notify} />
     </div>
   );
 }
