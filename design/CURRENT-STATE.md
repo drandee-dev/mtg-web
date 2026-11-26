@@ -18,9 +18,9 @@
 
 ## Navigation
 
-- **Desktop:** Top toolbar tabs (My Decks, Analyze & Build, Rules, Card Search) + avatar dropdown menu
-- **Mobile (<700px):** Bottom nav bar (Decks, Build, Rules, Cards) — top toolbar tabs are hidden
-- **Tab state:** SPA with path addresses (`/`, `/commanders`, `/commanders/<slug>`, `/cards`, `/rules`; `frontend/src/lib/routes.js`), no react-router. A saved deck is `/decks/<id>` and the editor with no saved deck in it is `/new`; an unknown id shows "Deck not found". Old `?tab=` links are replaced by the path on load, including the aliases `?tab=analyze` and `?tab=build` → deck
+- **Desktop:** Top bar links to the three places (Decks, Commanders, Cards), then Ask, New deck and the avatar menu
+- **Mobile (<700px):** Bottom nav bar (Decks, Commanders, New deck, Cards) — top bar links are hidden
+- **Tab state:** SPA with path addresses (`/`, `/commanders`, `/commanders/<slug>`, `/cards`; `frontend/src/lib/routes.js`), no react-router. A saved deck is `/decks/<id>` and the editor with no saved deck in it is `/new`; an unknown id shows "Deck not found". Old `?tab=` links are replaced by the path on load, including the aliases `?tab=analyze` and `?tab=build` → deck. The Rules page went in audit job 5.5: `/rules` and `?tab=rules` land on Decks
 
 ## Overlays / Modals
 
