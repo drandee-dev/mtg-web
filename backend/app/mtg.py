@@ -2246,25 +2246,11 @@ def ai_optimize(
     base_recs = [r for r in (ctx["hd"].records if ctx.get("hd") else []) if r]
     kept_adds: list[dict] = []  # cards the kept changes add, as if all were applied
 
-    def _bracket_of(recs: list[dict]) -> tuple[int, int]:
-        """detect_bracket's bracket and how many cards push it up (Game Changers
-        plus mass land denial)."""
-        b = detect_bracket(recs, 0.0)
-        signals = len(b.get("game_changers") or []) + len(b.get("mass_land_denial") or [])
-        return int(b.get("bracket") or 2), signals
-
     def _lifts_bracket(add_rec: dict | None, cut_rec: dict | None) -> bool:
-        """Does this change leave the deck above the ceiling while adding a card that
-        pushes the bracket up? Judged with detect_bracket on the deck plus the adds kept
-        so far, so Game Changers and mass land denial both count, and a one-for-one
-        trade of such cards still passes."""
-        if not (has_brackets and add_rec and b_ceiling < 5):
-            return False
-        before = base_recs + kept_adds
-        cut_name = (cut_rec or {}).get("name")
-        after = [r for r in before if r.get("name") != cut_name] + [add_rec]
-        bracket_after, signals_after = _bracket_of(after)
-        return bracket_after > b_ceiling and signals_after > _bracket_of(before)[1]
+        """_lifts_past on the deck plus the adds kept so far."""
+        return has_brackets and _lifts_past(
+            base_recs + kept_adds, add_rec, cut_rec, b_ceiling
+        )
     # Every add goes through the shared gate: exact name, legal (bans), inside the
     # deck's identity (inferred when no commander is set), not already in.
     add_names = [
@@ -2296,6 +2282,19 @@ def ai_optimize(
         if land_floor and delta < 0 and lands + delta < land_floor:
             return "lands"
         return None
+
+    # Weaker-for-cheaper (audit job 3.6, his choice 2026-11-25): a swap whose new card
+    # is cheaper AND played in fewer of this commander's EDHREC decks is held back,
+    # unless his goals chose savings. Without EDHREC there is nothing to judge by.
+    savings = (goals or {}).get("over_budget") == "savings"
+    incl: dict[str, float] = {}
+    if not savings and ctx.get("commanders"):
+        try:
+            incl = _commander_inclusion(
+                _edhrec_cardlists(ctx["commanders"], timeout=3), idx
+            )
+        except Exception:  # noqa: BLE001 - external service; skip the check then
+            log.warning("optimize: EDHREC unavailable, weaker-for-cheaper not checked")
 
     held: list[dict] = []
     changes: list[dict] = []
@@ -2352,6 +2351,17 @@ def ai_optimize(
 
         add_price = extract_price(add_rec) if add_rec else None
         cut_price = extract_price(cut_rec) if cut_rec else None
+        if (
+            incl
+            and action == "swap"
+            and add_price is not None
+            and cut_price is not None
+            and add_price < cut_price
+            and incl.get(add, 0.0) < incl.get(cut, 0.0)
+        ):
+            log.info("optimize: %r -> %r held back (weaker for cheaper)", cut, add)
+            held.append({"cut": cut, "add": add, "reason": "weaker"})
+            continue
         impact = str(ch.get("impact") or "").strip().lower()
         if impact not in ("high", "medium", "low"):
             impact = "medium"
@@ -2432,6 +2442,38 @@ def ai_optimize(
     }
 
 
+def _bracket_signals(recs: list[dict]) -> tuple[int, int]:
+    """detect_bracket's bracket and how many cards push it up (Game Changers plus
+    mass land denial)."""
+    b = detect_bracket(recs, 0.0)
+    signals = len(b.get("game_changers") or []) + len(b.get("mass_land_denial") or [])
+    return int(b.get("bracket") or 2), signals
+
+
+def _lifts_past(
+    before: list[dict],
+    add_rec: dict | None,
+    cut_rec: dict | None,
+    ceiling: int,
+    before_signals: int | None = None,
+) -> bool:
+    """Does adding `add_rec` (for `cut_rec`, if any) leave the deck above `ceiling`
+    while adding a card that pushes the bracket up? detect_bracket on the deck after,
+    so Game Changers and mass land denial both count, and a one-for-one trade of such
+    cards still passes. Shared by Optimize, fills and budget swaps (audit job 3.6);
+    pass `before_signals` when judging many cards against one deck."""
+    if not add_rec or ceiling >= 5:
+        return False
+    cut_name = (cut_rec or {}).get("name")
+    after = [r for r in before if r.get("name") != cut_name] + [add_rec]
+    bracket_after, signals_after = _bracket_signals(after)
+    if bracket_after <= ceiling:
+        return False
+    if before_signals is None:
+        before_signals = _bracket_signals(before)[1]
+    return signals_after > before_signals
+
+
 def _held_back_note(held: list[dict], theme: Any, land_floor: int) -> str | None:
     """One line for the page (his answer, 2026-11-25: a count, no rows until job 6),
     e.g. "7 changes held back: they would cut your Slivers." or "6 changes held back:
@@ -2445,6 +2487,7 @@ def _held_back_note(held: list[dict], theme: Any, land_floor: int) -> str | None
         ),
         "theme": "would cut cards on the deck's theme",
         "lands": f"would leave fewer than {land_floor} lands",
+        "weaker": "would swap in a cheaper card this commander's decks play less",
     }
     n = len(held)
     if len(counts) == 1:  # one reason: "they would cut your Slivers", as he wrote it
@@ -2554,6 +2597,11 @@ def budget_swaps(
         [r for r in (idx.get(e["name"]) for e in deck.get("commanders", [])) if r],
         [c for _, c in hd.entries(zones=("commanders", "cards")) if c],
     )
+    # Optimize's bracket check (audit job 3.6): a cheaper card must not lift the
+    # deck past the bracket it is in now.
+    has_brackets = bool((FORMAT_CONFIGS.get(fmt) or {}).get("has_commander"))
+    base_recs = [r for r in hd.records if r]
+    b_ceiling, base_signals = _bracket_signals(base_recs) if has_brackets else (5, 0)
 
     # This commander's own decks first: the cheap card they actually play, not one
     # that is merely popular everywhere. EDHREC gets 3 seconds per request (a partner
@@ -2640,6 +2688,12 @@ def budget_swaps(
                             and cp < price * 0.5
                             and (ptype != "land" or _land_swap_ok(card, c))
                             and theme.keeps_theme(card, c)
+                            and not (
+                                has_brackets
+                                and _lifts_past(
+                                    base_recs, c, card, b_ceiling, base_signals
+                                )
+                            )
                         ):
                             alt = {
                                 "name": cn,
@@ -2815,6 +2869,18 @@ def ai_composition_fills(
         except Exception:  # noqa: BLE001 - external service; global ranking then
             log.warning("fills: EDHREC unavailable for %s, global ranking", commanders)
 
+    # Optimize's bracket check (audit job 3.6): the target bracket, else the one the
+    # deck is in now, so a fill can't add the mass land denial that lifts it.
+    has_brackets = bool((FORMAT_CONFIGS.get(fmt) or {}).get("has_commander"))
+    base_recs = [r for r in (hd.records if hd else []) if r]
+    try:
+        b_ceiling = int(bracket or (ctx.get("bracket") or {}).get("bracket") or 5)
+    except (TypeError, ValueError):
+        b_ceiling = 5
+    base_signals = (
+        _bracket_signals(base_recs)[1] if has_brackets and b_ceiling < 5 else 0
+    )
+
     fills = []
     for cat in thin:
         key = cat["key"]
@@ -2846,7 +2912,12 @@ def ai_composition_fills(
         candidates = [
             c
             for c in candidates
-            if c.get("name") not in in_deck and not (no_gc and c.get("game_changer"))
+            if c.get("name") not in in_deck
+            and not (no_gc and c.get("game_changer"))
+            and not (
+                has_brackets
+                and _lifts_past(base_recs, c, None, b_ceiling, base_signals)
+            )
         ]
         # Stable: on-theme cards first (audit job 3.3; not for lands, which are mana:
         # a spell//land MDFC would rank on its spell side), then this commander's
