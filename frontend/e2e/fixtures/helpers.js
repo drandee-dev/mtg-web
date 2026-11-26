@@ -47,12 +47,21 @@ export const newDeckDoor = (page, name) => page.locator(".nd-door", { hasText: n
 
 // A new deck from a pasted list: the "Paste or import" door. The deck opens
 // saved, at its own address, with the upgrade guide over it.
+// The deck page loads as its own chunk (audit job 5.10), so the app shell is up a
+// moment before the deck is: wait until the deck address has settled, on the deck's
+// header or on one of the panels that stand in for it ("Deck not found", a shared
+// deck that didn't save, a deck list that didn't load).
+export async function waitForDeckPage(page) {
+  await page.locator(".dh-format, main .panel > h2").first().waitFor({ timeout: 15000 });
+}
+
 export async function pasteNewDeck(page, text) {
   await openNewDeck(page);
   await newDeckDoor(page, "Paste or import").click();
   await page.locator("#nd-paste").fill(text);
   await page.getByRole("button", { name: "Create the deck →" }).click();
   await page.waitForURL((url) => url.pathname.startsWith("/decks/"));
+  await waitForDeckPage(page);
 }
 
 // The same door's other half: a Moxfield or Archidekt link.
@@ -62,6 +71,7 @@ export async function importNewDeck(page, url = "https://archidekt.com/decks/123
   await page.locator("#nd-url").fill(url);
   await page.getByRole("button", { name: "Import the deck →" }).click();
   await page.waitForURL((u) => u.pathname.startsWith("/decks/"));
+  await waitForDeckPage(page);
 }
 
 // The commander door as far as its choice: "Build the 99" or "Start from scratch".
@@ -87,6 +97,7 @@ export async function loadSharedDeck(page, deckText, commander = "") {
   await page.goto(`/?${q.toString()}`);
   await waitForAppReady(page);
   await dismissColdStart(page);
+  await waitForDeckPage(page);
 }
 
 // "Add a card by name" on the deck's strip (job 3.3), on every size.
@@ -97,6 +108,8 @@ export const addCardField = (page) => page.getByPlaceholder("Add a card by name"
 // always inside View. A click on the strip closes an open View (outside
 // click), so the switch is used before View is opened.
 export async function setCardView(page, { mode, group, stackAs } = {}) {
+  // The strip-or-View choice below reads visibility at once: let the deck page render.
+  await waitForDeckPage(page);
   const panel = page.locator("#ct-view-panel");
   const openView = async () => {
     if (!(await panel.count())) await page.locator(".ct-view-btn").click();
@@ -125,6 +138,7 @@ export async function openAddress(page, path) {
   await page.goto(path);
   await waitForAppReady(page);
   await dismissColdStart(page);
+  if (path.startsWith("/decks/")) await waitForDeckPage(page);
 }
 
 // Open the deck view's ⋯ menu (the visible one for this viewport) and click an item.

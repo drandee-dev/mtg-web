@@ -145,6 +145,7 @@ for (const retired of ["brawl", "modern"]) {
 
 test("the deck's format menu offers only Commander and Pauper Commander", async ({ page }) => {
   await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-  const options = await page.locator(".dh-format option").evaluateAll((os) => os.map((o) => o.value));
+  await expect(page.locator(".dh-format").first()).toBeVisible();
+  const options = await page.locator(".dh-format").first().locator("option").evaluateAll((os) => os.map((o) => o.value));
   expect(options).toEqual(["commander", "paupercommander"]);
 });
