@@ -5,11 +5,13 @@
 // /api/planeswalker/chat/stream replies with a [[Lightning Bolt]] chip).
 
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, navigateToTab } from "./fixtures/helpers.js";
+import { loadSharedDeck, navigateToTab, waitForDeckPage } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
-// The bar's Ask on a desktop, the deck bar's on a phone: one is showing.
-const askButton = (page) => page.getByRole("button", { name: "Ask", exact: true });
+// The bar's Ask on a desktop, the deck bar's on a phone: one is showing. Only the
+// visible one: right after a reload the phone's deck bar is not up yet, and the
+// hidden top-bar button would otherwise be waited on for the whole timeout (job 5.9).
+const askButton = (page) => page.getByRole("button", { name: "Ask", exact: true }).filter({ visible: true });
 
 async function openChat(page) {
   await askButton(page).click();
@@ -108,6 +110,7 @@ test.describe("Ask drawer", () => {
     await expect(page.locator(".pw-cardchip-name").first()).toBeVisible();
 
     await page.reload();
+    await waitForDeckPage(page); // the deck bar (the phone's Ask) arrives with the deck page
     await openChat(page);
     await expect(page.locator(".pw-divider")).toContainText("Find combos");
   });
@@ -196,6 +199,7 @@ test.describe("Ask drawer", () => {
     await expect(page.locator('.pw-cardchip-btn[aria-label="Add Lightning Bolt to deck"]')).toBeVisible();
 
     await page.reload();
+    await waitForDeckPage(page); // the deck bar (the phone's Ask) arrives with the deck page
     await openChat(page);
     const reply = page.locator(".pw-msg.pw-assistant").last();
     await expect(reply.locator(".pw-cardname", { hasText: "Lightning Bolt" })).toBeVisible();
@@ -235,6 +239,7 @@ test.describe("Ask drawer", () => {
     await expect(page.locator(".ask-panel")).toHaveClass(/pw-textlg/);
 
     await page.reload();
+    await waitForDeckPage(page); // the deck bar (the phone's Ask) arrives with the deck page
     await openChat(page);
     await expect(page.locator(".ask-panel")).toHaveClass(/pw-textlg/);
   });
