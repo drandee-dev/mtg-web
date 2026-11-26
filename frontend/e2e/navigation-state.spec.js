@@ -15,58 +15,37 @@ test.describe("Navigation & state persistence", () => {
     await dismissColdStart(page);
   });
 
+  const litPlace = (page) => page.locator('nav[aria-label="Main"]:visible [aria-current="page"]');
+
   test("browser back returns to the previous tab", async ({ page }) => {
-    await navigateToTab(page, "Rules");
-    await expect(page).toHaveURL(/\/rules$/);
+    await navigateToTab(page, "Commanders");
+    await expect(page).toHaveURL(/\/commanders$/);
     await navigateToTab(page, "Card Search");
     await expect(page).toHaveURL(/\/cards$/);
 
     await page.goBack();
-    await expect(page).toHaveURL(/\/rules$/);
-    await expect(page.locator(".rules-input-row input")).toBeVisible();
+    await expect(page).toHaveURL(/\/commanders$/);
+    await expect(litPlace(page)).toHaveText("Commanders");
     await page.goBack();
     await expect(page).toHaveURL((url) => url.pathname === "/" && url.search === ""); // decks (default) again
 
     await page.goForward();
-    await expect(page).toHaveURL(/\/rules$/);
-    await expect(page.locator(".rules-input-row input")).toBeVisible();
+    await expect(page).toHaveURL(/\/commanders$/);
+    await expect(litPlace(page)).toHaveText("Commanders");
   });
 
   // A pop that changes neither tab nor commander (the skip link's #main-content
   // jump fires one) must not leave the next navigation without an address.
   test("an in-page jump does not swallow the next navigation", async ({ page }) => {
-    await navigateToTab(page, "Rules");
-    await expect(page).toHaveURL(/\/rules$/);
+    await navigateToTab(page, "Commanders");
+    await expect(page).toHaveURL(/\/commanders$/);
     await page.evaluate(() => { window.location.hash = "main-content"; });
-    await expect(page).toHaveURL(/\/rules#main-content$/);
+    await expect(page).toHaveURL(/\/commanders#main-content$/);
 
     await navigateToTab(page, "Card Search");
     await expect(page).toHaveURL((url) => url.pathname === "/cards");
     await page.goBack();
-    await expect(page).toHaveURL((url) => url.pathname === "/rules");
-  });
-
-  test("rules Q&A history survives a tab switch", async ({ page }) => {
-    // Seed a completed exchange the way Rules.jsx persists one.
-    await page.evaluate(() => {
-      localStorage.setItem("mtgweb:ruleschat", JSON.stringify([
-        { role: "user", text: "Does deathtouch kill planeswalkers?" },
-        { role: "ai", text: "Deathtouch only applies to damage dealt to creatures.", citations: [] },
-      ]));
-    });
-    await page.reload();
-    await waitForAppReady(page);
-    await navigateToTab(page, "Rules");
-    await expect(page.locator(".rules-msg-user-bubble")).toContainText("deathtouch");
-
-    await navigateToTab(page, "Card Search");
-    await navigateToTab(page, "Rules");
-    await expect(page.locator(".rules-msg-user-bubble")).toContainText("deathtouch");
-
-    // Clear history empties the thread and restores the quick-ask chips.
-    await page.locator(".rules-header button", { hasText: "Clear history" }).click();
-    await expect(page.locator(".rules-msg-user-bubble")).toHaveCount(0);
-    await expect(page.locator(".rules-chips button").first()).toBeVisible();
+    await expect(page).toHaveURL((url) => url.pathname === "/commanders");
   });
 
   test("card search results survive a tab switch", async ({ page }) => {
@@ -76,7 +55,7 @@ test.describe("Navigation & state persistence", () => {
     await nameInput.press("Enter");
     await expect(page.locator(".results-table tbody tr").first()).toBeVisible({ timeout: 10000 });
 
-    await navigateToTab(page, "Rules");
+    await navigateToTab(page, "Commanders");
     await navigateToTab(page, "Card Search");
     await expect(page.locator(".results-table tbody tr").first()).toBeVisible();
     await expect(nameInput).toHaveValue("bolt");

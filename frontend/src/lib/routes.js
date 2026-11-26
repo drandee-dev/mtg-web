@@ -1,21 +1,21 @@
 // Addresses ⇄ app state. Pure (no window) so `node --test` can run it.
 //
-// The four places have real paths: / (decks), /commanders, /commanders/<slug>,
-// /cards, /rules. A saved deck is /decks/<id> and the editor with no saved deck
-// in it is /new. Links from before paths existed (?tab=rules,
-// ?tab=commanders&slug=x, ?tab=deck) still parse, and App replaces them with
-// the path on load.
+// The places have real paths: / (decks), /commanders, /commanders/<slug>,
+// /cards. A saved deck is /decks/<id> and the editor with no saved deck in it
+// is /new. Links from before paths existed (?tab=commanders&slug=x, ?tab=deck)
+// still parse, and App replaces them with the path on load. The Rules page went
+// in audit job 5.5: /rules and ?tab=rules fall back to Decks like any unknown
+// address.
 
 const PLACE_PATHS = new Map([
   ["commanders", "/commanders"],
   ["cards", "/cards"],
-  ["rules", "/rules"],
 ]);
 const PATH_PLACES = new Map([...PLACE_PATHS].map(([tab, path]) => [path, tab]));
 // Every ?tab= value ever linked to, including two older names for the editor.
 const OLD_TABS = new Map([
   ["decks", "decks"], ["deck", "deck"], ["commanders", "commanders"],
-  ["rules", "rules"], ["cards", "cards"], ["analyze", "deck"], ["build", "deck"],
+  ["cards", "cards"], ["analyze", "deck"], ["build", "deck"],
 ]);
 // What a share link carries (see lib/sharedDeck.js).
 const SHARE_PARAMS = ["deck", "fmt", "cmd"];

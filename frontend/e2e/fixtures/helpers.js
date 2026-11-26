@@ -18,15 +18,15 @@ export async function dismissColdStart(page) {
   }
 }
 
-// The four places are links in the top bar (desktop) and the bottom bar
+// The three places are links in the top bar (desktop) and the bottom bar
 // (phone), under the same labels. The older names specs use still resolve.
+// Rules is not a place since audit job 5.5, so asking for it throws.
 const PLACE_LABELS = {
   "My Decks": "Decks",
   "Decks": "Decks",
   "Commanders": "Commanders",
   "Card Search": "Cards",
   "Cards": "Cards",
-  "Rules": "Rules",
 };
 
 export async function navigateToTab(page, tabName) {

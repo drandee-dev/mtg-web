@@ -20,11 +20,6 @@ const ICONS = {
       <line x1="10" y1="10" x2="14.5" y2="14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
     </svg>
   ),
-  rules: (
-    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 16 16" fill="none">
-      <path d="M8 3.5v10M8 3.5C8 3.5 6.5 2 3 2v10c3.5 0 5 1.5 5 1.5M8 3.5C8 3.5 9.5 2 13 2v10c-3.5 0-5 1.5-5 1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  ),
 };
 
 const PLUS = (
@@ -33,7 +28,7 @@ const PLUS = (
   </svg>
 );
 
-// The phone's bar: the four places with "New deck" in the middle. `place` is
+// The phone's bar: the places with "New deck" after the first two. `place` is
 // the place the screen belongs to, so Decks stays lit inside a deck.
 export default function BottomNav({ places, place, setTab, onNewDeck, onNew }) {
   const link = ([id, label, href]) => (

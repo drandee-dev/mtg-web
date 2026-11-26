@@ -26,20 +26,19 @@ import ServerStatusBanner from "./components/ServerStatusBanner";
 import DeckView from "./components/deck/DeckView";
 import NewDeck from "./components/NewDeck";
 import MyDecks from "./components/MyDecks";
-import Rules from "./components/Rules";
 import CardSearch from "./components/CardSearch";
 import AccountDropdown from "./components/AccountDropdown";
 import Playtest from "./components/Playtest";
 import Ask from "./components/Ask";
 import Commanders from "./components/Commanders";
 
-// The four places the bars name: id, label, address. A deck is a page under
-// Decks, and the New deck screen is an action beside them, not a place.
+// The three places the bars name: id, label, address. A deck is a page under
+// Decks, and the New deck screen is an action beside them, not a place. (The
+// Rules page went in audit job 5.5; rules questions go to the Ask drawer.)
 const PLACES = [
   ["decks", "Decks", "/"],
   ["commanders", "Commanders", "/commanders"],
   ["cards", "Cards", "/cards"],
-  ["rules", "Rules", "/rules"],
 ];
 
 // The name a blank deck is made with (NewDeck's BLANK). Its first commander
@@ -84,8 +83,7 @@ export default function App() {
   const { toast, notify, dismiss: dismissToast } = useToast();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
-  // The Ask drawer (job 4.1). It is hidden on the Rules page, which is its own
-  // AI chat, so "open" there means closed; it is open again on the way back.
+  // The Ask drawer (job 4.1), available on every page.
   const [askWanted, setAskWanted] = useState(false);
   const closeAsk = useCallback(() => setAskWanted(false), []);
   const toggleAsk = useCallback(() => setAskWanted((v) => !v), []);
@@ -370,8 +368,7 @@ export default function App() {
   const atNew = tab === "deck" && !deckId;
   // The place the bars light: a deck is a page under Decks, /new is no place.
   const place = tab === "deck" ? (deckId ? "decks" : null) : tab;
-  const askAvailable = tab !== "rules";
-  const askOpen = askWanted && askAvailable;
+  const askOpen = askWanted;
   const wanted = tab === "deck" && deckId && !deckReady
     ? resolveDeckRoute({ deckId, decks, decksLoadedFor, authReady, userId })
     : null;
@@ -390,7 +387,7 @@ export default function App() {
   // The browser title names the place, and on a deck address the deck.
   const deckMissing = wanted?.status === "missing";
   useEffect(() => {
-    const names = { decks: "Decks", commanders: "Commanders", rules: "Rules", cards: "Card Search" };
+    const names = { decks: "Decks", commanders: "Commanders", cards: "Card Search" };
     const deckTitle = atNew ? "New deck" : deckMissing ? "Deck not found" : currentDeck?.name || "Deck";
     document.title = `${tab === "deck" ? deckTitle : names[tab] || "MTG Workshop"} · MTG Workshop`;
   }, [tab, atNew, deckMissing, currentDeck?.name]);
@@ -718,7 +715,7 @@ export default function App() {
         setSettingsOpen={setSettingsOpen}
         onNewDeck={startNew}
         onDeck={deckReady}
-        onAsk={askAvailable ? toggleAsk : null}
+        onAsk={toggleAsk}
         askOpen={askOpen}
         onSignOut={() => { supabase.auth.signOut(); notify("Signed out."); }}
         avatarMenuOpen={avatarMenuOpen}
@@ -786,7 +783,7 @@ export default function App() {
             serverWarmed={serverWarmed}
             goals={goals}
             setGoals={setGoals}
-            onAsk={askAvailable ? toggleAsk : null}
+            onAsk={toggleAsk}
             askOpen={askOpen}
           />
         )}
@@ -841,12 +838,6 @@ export default function App() {
             slug={commanderSlug}
             setSlug={setCommanderSlug}
             onBuild={startNew}
-            notify={notify}
-          />
-        )}
-        {tab === "rules" && (
-          <Rules
-            aiAvailable={aiAvailable}
             notify={notify}
           />
         )}

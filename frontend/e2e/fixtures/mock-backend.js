@@ -128,9 +128,6 @@ export async function mockBackend(page) {
         `data: ${JSON.stringify({ status: "citations", citations: [{ number: "702.19", text: "Trample is a static ability." }], cards: [] })}\n\n`;
       return route.fulfill({ status: 200, contentType: "text/event-stream", body });
     }
-    if (path.endsWith("/api/rules/search")) {
-      return json({ count: 1, results: [{ rule: "702.19", text: "Trample is a static ability." }] });
-    }
     if (path.endsWith("/api/planeswalker/chat/stream")) {
       const reply = "Consider adding [[Lightning Bolt]] for cheap interaction.";
       const body =

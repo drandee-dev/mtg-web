@@ -53,8 +53,8 @@ serverless cutover and was retired once Vercel proved stable.
 - **Planeswalker chat** — a persistent chat bot (streamed responses) for open-ended questions
   about the deck, with tappable `[[Card Name]]` chips (+ Add / ☆ Consider) and a pinned session
   log of changes it makes.
-- **Rules Q&A** — plain-English rules questions, streamed, with cited rule numbers (lightweight
-  RAG over the Comprehensive Rules).
+- **Rules questions** — ask in the Ask drawer, or on a card ("Rules with <commander>"); answers
+  stream with cited rule numbers (lightweight RAG over the Comprehensive Rules).
 
 ### Everything else
 - **Card search** over Scryfall bulk data (name/type/oracle/colors/CMC/price) with predictive
@@ -277,7 +277,6 @@ above re-triggers the Vercel build, which re-downloads bulk data.
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/health` | Liveness check + `data_as_of` date, AI availability/budget status |
-| GET | `/api/rules/search` | Rules lookup (`?rule=`, `?term=`, or `?grep=`) |
 | POST | `/api/rules/ask/stream` | AI Rules Q&A, streamed (SSE; body: `{question}`) |
 | GET | `/api/cards/search` | Card search (name, oracle, type, colors, cmc, price, format) |
 | GET | `/api/cards/image` | Card image URL(s) (`?name=` or `?names=a\|b\|c`) |

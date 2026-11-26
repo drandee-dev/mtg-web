@@ -8,9 +8,9 @@
 // { mtgwebLayer: id }) when the layer opens. Closing via back pops it
 // naturally. Closing any other way (Esc / ✕ / backdrop) just deregisters the
 // layer, leaving a GHOST entry — deliberately, because history.back() is
-// async and races any pushState from a close-and-navigate action (e.g. the
-// card modal's "Rules" button closes the modal AND switches tabs in the same
-// commit). Ghosts are harmless and short-lived:
+// async and races any pushState from a close-and-navigate action (one that
+// closes a layer AND switches tabs in the same commit). Ghosts are harmless
+// and short-lived:
 //   - the tab effect recycles a top-of-stack ghost via replaceState
 //     (historyTopIsGhost) instead of pushing on top of it;
 //   - the pop handler skips over ghosts with a chained back(), so a user

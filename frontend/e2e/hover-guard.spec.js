@@ -40,11 +40,11 @@ test.describe("hover only where hover exists", () => {
     expect(guarded).toBeGreaterThan(80);
   });
 
-  test("a mouse still hovers: the top bar's Rules link changes colour", async ({ page }, testInfo) => {
+  test("a mouse still hovers: the top bar's Commanders link changes colour", async ({ page }, testInfo) => {
     desktopOnly(testInfo);
     await page.setViewportSize({ width: 1440, height: 900 });
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    const link = page.locator(".gt-link", { hasText: "Rules" });
+    const link = page.locator(".gt-link", { hasText: "Commanders" });
     const colour = () => link.evaluate((el) => getComputedStyle(el).color);
     await page.mouse.move(5, 500);
     const before = await colour();

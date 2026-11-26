@@ -184,8 +184,8 @@ test.describe("Deck addresses", () => {
     await onPastedDeck(page, id);
 
     // Leaving and coming Back lands on the deck, not on the /new it started as.
-    await navigateToTab(page, "Rules");
-    await expect(page).toHaveURL(atPath("/rules"));
+    await navigateToTab(page, "Commanders");
+    await expect(page).toHaveURL(atPath("/commanders"));
     await page.goBack();
     await onPastedDeck(page, id);
     // One more Back leaves the deck: the guide's entry did not pile up under it.
@@ -201,8 +201,8 @@ test.describe("Deck addresses", () => {
     await expect(page.locator('[aria-label="Upgrade this deck"]')).toHaveCount(0);
     await onPastedDeck(page, id);
 
-    await navigateToTab(page, "Rules");
-    await expect(page).toHaveURL(atPath("/rules"));
+    await navigateToTab(page, "Commanders");
+    await expect(page).toHaveURL(atPath("/commanders"));
     await page.goBack();
     await onPastedDeck(page, id);
 
@@ -346,11 +346,11 @@ test("a share link lands on its deck's address, and Back returns to it in one pr
   const [{ id }] = await savedDecks(page);
   await expect(page).toHaveURL(atPath(`/decks/${id}`));
 
-  await navigateToTab(page, "Rules");
-  await expect(page).toHaveURL(atPath("/rules"));
+  await navigateToTab(page, "Commanders");
+  await expect(page).toHaveURL(atPath("/commanders"));
   await page.reload();
   await waitForAppReady(page);
-  await expect(page).toHaveURL(atPath("/rules"));
+  await expect(page).toHaveURL(atPath("/commanders"));
 
   await page.goBack();
   await expect(page).toHaveURL(atPath(`/decks/${id}`));

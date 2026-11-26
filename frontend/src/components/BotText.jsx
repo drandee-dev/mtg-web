@@ -1,4 +1,4 @@
-// Shared renderer for AI bot answers (the Ask drawer + Rules Q&A).
+// Shared renderer for AI bot answers (the Ask drawer and the card modal's rules answer).
 // The models emit lightweight markdown — paragraphs, bullet/numbered lists,
 // **bold**, `code`, and [[Card Name]] mentions. This turns that into real
 // nodes so multi-step answers (sequences, layer walk-throughs) render with

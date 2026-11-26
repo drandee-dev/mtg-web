@@ -95,7 +95,7 @@ for (const w of [390, 768]) {
 
     test("the account panel's close", async ({ page }) => {
       test.skip(!cloudOrigin, "no frontend/.env, so this build has no account panel");
-      await openAddress(page, "/rules"); // the phone's deck bar has no account button
+      await openAddress(page, "/cards"); // the phone's deck bar has no account button
       await page.locator('[aria-label="Account menu"]').click();
       await page.locator(".avp-row", { hasText: /settings/i }).click();
       await expectHitAreas(page, [".account-close"]);

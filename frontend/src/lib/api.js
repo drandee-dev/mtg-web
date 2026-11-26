@@ -136,7 +136,6 @@ async function quickGet(path) {
 
 export const api = {
   health: () => quickGet("/api/health"),
-  rules: (params) => get("/api/rules/search", params),
   cards: (params) => get("/api/cards/search", params),
   analyze: (decklist, format) => post("/api/deck/analyze", { decklist, format }),
   exportText: (decklist, format) => post("/api/deck/export", { decklist, format }),

@@ -144,8 +144,6 @@ for (const theme of THEMES) {
         await audit("commanders");
         await openAddress(page, "/cards");
         await audit("cards");
-        await openAddress(page, "/rules");
-        await audit("rules");
         await openAddress(page, "/");
         await page.getByRole("button", { name: "Account menu" }).click();
         await audit("account menu");
