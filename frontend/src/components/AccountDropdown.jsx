@@ -272,21 +272,15 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
             <ThemeSwitcher />
           </div>
 
-          {/* Footer */}
-          <div className="account-footer">
-            <button
-              className="account-feedback-link"
-              onClick={() => window.open("mailto:ANDRES.J.MARTINEZ@outlook.com?subject=MTG%20Workshop%20Feedback", "_blank")}
-            >
-              Send feedback ↗
-            </button>
-            {signedIn && (
+          {/* Footer: only Sign Out lives here, so it shows only when signed in. */}
+          {signedIn && (
+            <div className="account-footer">
               <button onClick={signOut} className="account-signout-btn">
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M10 3h3.5A1.5 1.5 0 0 1 15 4.5v7A1.5 1.5 0 0 1 13.5 13H10M7 10l3-2-3-2M1 8h10"/></svg>
                 Sign Out
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

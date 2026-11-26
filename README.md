@@ -253,7 +253,6 @@ picks up new prices/cards.
 | `VITE_API_BASE` | `https://your-backend.vercel.app` |
 | `VITE_SUPABASE_URL` | Your Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Your Supabase anon/public key |
-| `VITE_FORMSPREE_ID` | Formspree form ID for the feedback button (optional) |
 
 ### Pricing refresh
 
