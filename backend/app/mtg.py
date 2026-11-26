@@ -2165,7 +2165,7 @@ def ai_optimize(
         for e, card in ctx["hd"].entries(zones=("cards",)):
             if not card or _land_flag(card):
                 continue
-            (kept if theme.reasons(card) else free).append(e["name"])
+            (kept if theme.reasons(card) else free).append(card["name"])
         if kept:
             tail += (
                 "\n\nTheme cards (cut one only for a card in the same part of the theme): "
@@ -2174,9 +2174,10 @@ def ai_optimize(
             )
         if free:
             tail += (
-                "\n\nNonland cards outside the theme, free to cut: "
+                "\n\nNonland cards outside the theme: "
                 + "; ".join(free)
-                + ". Take cuts from this list first, and suggest 8 changes."
+                + ". Take cuts from this list first (still judging each card on its "
+                "own merits), and suggest 8 changes."
             )
     # Audit job 3.2: Strategy said "Tribal Aggro (Slivers)" while Optimize cut seven
     # Slivers; the two calls shared nothing. Per deck and free text, so the tail.
