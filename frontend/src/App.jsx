@@ -751,17 +751,21 @@ export default function App() {
       />
 
       <main id="main-content">
-        <ChunkBoundary key={tab}>
+        {/* Playtest can sit over any place, so its boundary is not reset by a place change
+            (a reset would remount it and lose the game in progress). */}
         {playtesting && (
-          <Suspense fallback={<PanelPlaceholder />}>
-            <Playtest
-              decklist={assembleDecklist(deckText, commander)}
-              commander={commander}
-              stage={playtestStage}
-              onClose={() => { setPlaytesting(false); setPlaytestStage(null); }}
-            />
-          </Suspense>
+          <ChunkBoundary>
+            <Suspense fallback={<PanelPlaceholder />}>
+              <Playtest
+                decklist={assembleDecklist(deckText, commander)}
+                commander={commander}
+                stage={playtestStage}
+                onClose={() => { setPlaytesting(false); setPlaytestStage(null); }}
+              />
+            </Suspense>
+          </ChunkBoundary>
         )}
+        <ChunkBoundary key={tab}>
         {wanted && (deckMissing || (decksFailedFor === userId && decksLoadedFor !== userId) ? (
           <div className="panel">
             {deckMissing ? (
