@@ -56,33 +56,16 @@ test.describe("URL import + Considering + rename", () => {
     await expect(page.locator(".deck-head-count")).toHaveText("3 / 100 cards");
   });
 
-  // Constructed keeps its sideboard (Andres, 2026-11-06: "depends on format"): it
-  // stays in the deck text, so export and legality see it, and it isn't counted.
-  test("a constructed deck keeps a typed sideboard, uncounted", async ({ page }) => {
+  // Audit job 5.6: only Commander formats are served, so a constructed link (here
+  // fmt=legacy) opens as Commander, and its sideboard goes to Considering like any
+  // Commander deck's.
+  test("a constructed deck link opens as Commander with its sideboard in Considering", async ({ page }) => {
     const text = "56 Island\n4 Brainstorm\nSideboard\n15 Pyroblast";
     const q = new URLSearchParams({ deck: Buffer.from(text, "utf8").toString("base64"), fmt: "legacy" });
     await page.goto(`/?${q.toString()}`);
     await waitForAppReady(page);
     await dismissColdStart(page);
-    await expect(page.locator(".deck-head-count")).toHaveText("60 / 60+ cards");
-    await deckMenuAction(page, "Edit as text");
-    const editor = page.locator(".deck-text-editor");
-    await expect(editor).toHaveValue(text);
-    await editor.fill(`${text}\n1 Red Elemental Blast`);
-    await editor.blur();
-    await expect(editor).toHaveValue(`${text}\n1 Red Elemental Blast`);
-    await expect(page.locator(".deck-head-count")).toHaveText("60 / 60+ cards");
-  });
-
-  // 2026-11-06: switching Legacy to Commander left the sideboard in the deck text
-  // until a reload moved it; the switch now moves it to Considering straight away.
-  test("switching a constructed deck to Commander moves its sideboard to Considering", async ({ page }) => {
-    const text = "56 Island\n4 Brainstorm\nSideboard\n15 Pyroblast";
-    const q = new URLSearchParams({ deck: Buffer.from(text, "utf8").toString("base64"), fmt: "legacy" });
-    await page.goto(`/?${q.toString()}`);
-    await waitForAppReady(page);
-    await dismissColdStart(page);
-    await page.locator(".dh-format").selectOption("commander");
+    await expect(page.locator(".dh-format")).toHaveValue("commander");
     const considering = page.locator(".considering-group, .stack-column-considering");
     await expect(considering.locator('[aria-label*="Pyroblast"]').first()).toBeVisible();
     await deckMenuAction(page, "Edit as text");

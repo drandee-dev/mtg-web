@@ -1,4 +1,5 @@
-"""Self-check: the web app serves no Brawl. Run: python test_web_formats.py
+"""Self-check: the web app serves Commander and Pauper Commander only (Brawl went on
+2026-10-24, every other format in audit job 5.6). Run: python test_web_formats.py
 
 Andres, 2026-10-24: "You can completely remove brawl from the web app". The UI never
 offered it; the API still accepted "brawl" and "historic_brawl" because it checked
@@ -58,27 +59,29 @@ def refused_for_format(r):
     return r.status_code in (400, 422) and "format" in r.text.lower()
 
 
-for fmt in ("brawl", "historic_brawl"):
+# Brawl went on 2026-10-24; every other non-Commander format in audit job 5.6.
+REFUSED = ("brawl", "historic_brawl", "standard", "modern", "legacy", "pauper", "pioneer")
+for fmt in REFUSED:
     for method, url, body in ROUTES:
         r = call(method, url, body(fmt))
         assert refused_for_format(r), f"{url} accepted {fmt}: {r.status_code} {r.text[:200]}"
     r = client.get("/api/cards/search", params={"name": "Sol", "format": fmt})
     assert r.status_code == 400, f"cards/search accepted {fmt}: {r.status_code}"
-print(f"ok: {len(ROUTES) + 1} routes refuse brawl and historic_brawl")
+print(f"ok: {len(ROUTES) + 1} routes refuse {', '.join(REFUSED)}")
 
-# The UI's formats still get through format validation on every route.
-for fmt in ("commander", "paupercommander", "standard", "modern", "legacy"):
+# The two served formats still get through format validation on every route.
+for fmt in ("commander", "paupercommander"):
     for method, url, body in ROUTES:
         r = call(method, url, body(fmt))
         assert not refused_for_format(r), f"{url} refused {fmt}: {r.status_code} {r.text[:200]}"
-print("ok: commander, pauper commander, standard, modern and legacy still pass")
+print("ok: commander and pauper commander still pass")
 
 # The narrate route falls back to Commander for anything it does not serve.
 seen = []
 real_narrate = mtg.wizard_narrate
 mtg.wizard_narrate = lambda *a, **k: (seen.append(k.get("fmt")), {"error": False})[1]
-for fmt in ("brawl", "historic_brawl", "paupercommander"):
+for fmt in ("brawl", "historic_brawl", "modern", "paupercommander"):
     client.post("/api/deck/wizard/narrate", json={"commander": "Silverquill, the Disputant", "card_names": ["Sol Ring"], "format": fmt})
 mtg.wizard_narrate = real_narrate
-assert seen == ["commander", "commander", "paupercommander"], seen
-print("ok: narrate treats Brawl as Commander")
+assert seen == ["commander", "commander", "commander", "paupercommander"], seen
+print("ok: narrate treats any other format as Commander")

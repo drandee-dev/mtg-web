@@ -200,9 +200,9 @@ test.describe("New deck screen", () => {
     expect(deck.decklist_text).toBe(`Commander\n1 ${TEST_COMMANDER}\nDeck\n1 Sol Ring\n1 Counterspell\nMaybeboard\n1 Lightning Bolt`);
   });
 
-  // The sideboard depends on format (Andres, 2026-11-06): a constructed link keeps
-  // its Sideboard section in the deck; the maybeboard still goes to Considering.
-  test("a constructed deck link keeps its sideboard in the deck", async ({ page }) => {
+  // Audit job 5.6: a constructed link (Moxfield says modern) opens as Commander, so its
+  // Sideboard section goes to Considering with the maybeboard, as in any Commander deck.
+  test("a constructed deck link is kept as Commander, sideboard in Considering", async ({ page }) => {
     await page.route("**/api/deck/import-url", (route) => route.fulfill({
       json: { name: "Modern Deck", decklist: "56 Island\n4 Brainstorm\nSideboard\n15 Pyroblast",
               sideboard: "1 Ponder", format: "modern", source: "moxfield" },
@@ -213,8 +213,8 @@ test.describe("New deck screen", () => {
     await page.getByRole("button", { name: "Import the deck →" }).click();
     await expect(page).toHaveURL(onADeck);
     const [deck] = await savedDecks(page);
-    expect(deck.format).toBe("modern");
-    expect(deck.decklist_text).toBe("56 Island\n4 Brainstorm\nSideboard\n15 Pyroblast\nMaybeboard\n1 Ponder");
+    expect(deck.format).toBe("commander");
+    expect(deck.decklist_text).toBe("56 Island\n4 Brainstorm\nMaybeboard\n1 Ponder\n15 Pyroblast");
   });
 
   // Enter in the link field imports too, and a held key repeats: the button

@@ -1,6 +1,7 @@
-// Brawl was removed from the web app (Andres, 2026-10-24) and the API refuses the
-// Brawl formats. A deck that still says "brawl" (saved before, or on a share link)
-// must open as Commander, so its panels ask the API for Commander, not Brawl.
+// Brawl was removed from the web app (Andres, 2026-10-24), and every other format but
+// Commander and Pauper Commander in audit job 5.6 (2026-11-26); the API refuses them.
+// A deck that still says one (saved before, or on a share link) must open as
+// Commander, so its panels ask the API for Commander.
 import { test, expect } from "./fixtures/test-base.js";
 import {
   waitForAppReady, dismissColdStart, seedLocalDecks, importNewDeck, loadSharedDeck, deckMenuAction,
@@ -16,7 +17,7 @@ const analyzeFormat = (page) =>
     try { return typeof r.postDataJSON()?.format === "string"; } catch { return false; }
   }, { timeout: 15000 }).then((r) => r.postDataJSON().format);
 
-for (const retired of ["brawl", "historic_brawl"]) {
+for (const retired of ["brawl", "historic_brawl", "standard", "modern", "legacy"]) {
   test(`a saved ${retired} deck opens as Commander`, async ({ page }) => {
     await page.goto("/");
     await waitForAppReady(page);
@@ -132,10 +133,18 @@ test.describe("a URL import that says brawl", () => {
   });
 });
 
-test("a share link that says fmt=brawl opens as Commander", async ({ page }) => {
-  const deckStr = `Commander\n1 ${TEST_COMMANDER}\n\nDeck\n${TEST_DECK_TEXT}`;
-  const encoded = Buffer.from(deckStr, "utf8").toString("base64");
-  const sent = analyzeFormat(page);
-  await page.goto(`/?deck=${encodeURIComponent(encoded)}&fmt=brawl&cmd=${encodeURIComponent(TEST_COMMANDER)}`);
-  expect(await sent).toBe("commander");
+for (const retired of ["brawl", "modern"]) {
+  test(`a share link that says fmt=${retired} opens as Commander`, async ({ page }) => {
+    const deckStr = `Commander\n1 ${TEST_COMMANDER}\n\nDeck\n${TEST_DECK_TEXT}`;
+    const encoded = Buffer.from(deckStr, "utf8").toString("base64");
+    const sent = analyzeFormat(page);
+    await page.goto(`/?deck=${encodeURIComponent(encoded)}&fmt=${retired}&cmd=${encodeURIComponent(TEST_COMMANDER)}`);
+    expect(await sent).toBe("commander");
+  });
+}
+
+test("the deck's format menu offers only Commander and Pauper Commander", async ({ page }) => {
+  await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+  const options = await page.locator(".dh-format option").evaluateAll((os) => os.map((o) => o.value));
+  expect(options).toEqual(["commander", "paupercommander"]);
 });

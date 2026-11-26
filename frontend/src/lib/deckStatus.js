@@ -8,8 +8,7 @@ const toneOf = (s) => (s === "FAIL" ? "bad" : "warn");
 
 export function statusParts(result, comp) {
   if (!result || !result.total_cards) return null;
-  const fmt = result.format || "commander";
-  const size = fmt === "commander" || fmt === "paupercommander" ? 100 : 60;
+  const size = 100; // both served formats are 100-card ones (audit job 5.6)
   const parts = [
     result.legality?.overall_status === "FAIL"
       ? { text: "Not legal", tone: "bad" }
