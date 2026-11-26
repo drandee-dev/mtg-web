@@ -3152,6 +3152,9 @@ def ai_explain_recommendations(
 # --------------------------------------------------------------------------- #
 # AI Deck Wizard — guided step-by-step builder
 # --------------------------------------------------------------------------- #
+# Presets whose failure _classify_roles has already logged (once each per process).
+_ROLE_FAILURES_LOGGED: set[str] = set()
+
 _ROLE_CHECKS = [
     ("spot-removal", "Removal"),  # both tiers, same as deck_composition's count
     ("spot-removal-light", "Removal"),
@@ -3234,7 +3237,12 @@ def _classify_roles(card: dict | None) -> list[str]:
                 roles.append(label)
         except Exception:
             # One odd card must not break the response; the role is just missing.
-            log.exception("roles: preset %s failed on %s", preset_key, card.get("name"))
+            # Logged once per preset per process: this runs per card and per check.
+            if preset_key not in _ROLE_FAILURES_LOGGED:
+                _ROLE_FAILURES_LOGGED.add(preset_key)
+                log.exception(
+                    "roles: preset %s failed on %s", preset_key, card.get("name")
+                )
 
     # 2. Oracle text pattern matching for roles without presets — face-aware
     # so transform/MDFC cards (top-level oracle_text is empty) still classify.
@@ -3789,6 +3797,9 @@ def _find_cards_in_question(question: str) -> list[dict]:
     Strategy: try progressively shorter multi-word windows from the question
     against the card search. Return cards found with their oracle text.
     """
+    # Load the index first, so a missing or broken bulk file fails here, loudly,
+    # instead of inside the per-window search below, which skips quietly.
+    _bulk_index()
     words = re.findall(r"[A-Za-z',]+", question)
     found: dict[str, dict] = {}
 
