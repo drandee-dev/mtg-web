@@ -197,6 +197,7 @@ use(page())
 sent.clear()
 mtg.wizard_narrate("Silverquill, the Disputant", "Removal", ["Swords to Plowshares"], "", api_key="t")
 assert sent and "Tokens (920 decks)" in sent[0], "wizard_narrate sent no commander strategy"
+assert "Oracle:" in sent[0], "wizard_narrate lacks the commander's text"
 mtg._ai_call = real_ai_call
 print("ok: the wizard's narration sends the commander's strategy")
 
