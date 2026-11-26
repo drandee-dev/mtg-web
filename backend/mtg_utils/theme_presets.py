@@ -44,6 +44,15 @@ from mtg_utils.card_classify import get_oracle_text
 # Matches a count in digit form, word form (one..twelve), or X. IGNORECASE
 # is applied at pattern compile time, so word forms match "Three" too.
 _COUNT = r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|X)"
+# What a card sacrifices to draw once ("Sacrifice this artifact: Draw a card").
+# A token ("Sacrifice this token:", a Clue) is repeatable draw and stays full.
+_SELF_SAC_TYPES = ("artifact", "creature", "enchantment", "land")
+# Draw that is not real card draw: cycling's reminder text, or a one-shot
+# self-sacrifice (card-draw-light). Fixed-width lookbehinds, so the presets stay
+# plain `patterns` for the readers that use those directly.
+_DRAW_NOT_AFTER = "(?<!discard this card: )" + "".join(
+    f"(?<!sacrifice this {t}: )" for t in _SELF_SAC_TYPES
+)
 
 
 @dataclass(frozen=True)
@@ -1697,15 +1706,27 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
         should_match=(),  # fixture cards added if Thoughtseize etc. exist in test data
         should_not_match=("Lightning Bolt",),
     ),
-    # Tutors — search your library for a card.
+    # Tutors — search your library for a nonland card. A search whose target
+    # names a land before the word "card" (basic land, Forest, Plains or Island)
+    # is ramp or fixing, not a tutor (audit job 4.2: Cultivate, fetch lands).
     Preset(
         name="tutors",
-        description=(
-            "Searches your library for a card (BANNED in shared-library format)."
+        description="Searches your library for a nonland card.",
+        patterns=_rx(
+            r"\bsearch (?:your|target opponent's|a) library for "
+            r"(?!(?:(?!\bcards?\b)[^.])*\b(?:basic|lands?|plains|islands?|swamps?|"
+            r"mountains?|forests?|wastes|gates?|deserts?|caves?|locus|urza's)\b)"
         ),
-        patterns=_rx(r"\bsearch (?:your|target opponent's|a) library\b"),
-        should_match=("Sakura-Tribe Elder", "Cultivate"),
-        should_not_match=("Lightning Bolt", "Llanowar Elves"),
+        should_match=("Demonic Tutor", "Enlightened Tutor"),
+        should_not_match=(
+            "Lightning Bolt",
+            "Llanowar Elves",
+            "Sakura-Tribe Elder",
+            "Cultivate",
+            "Farseek",
+            "Evolving Wilds",
+            "Ash Barrens",
+        ),
     ),
     # Creature-token creation. Oracle text uses both singular ("create a
     # 1/1 ... creature token") and plural ("create two 1/1 ... creature
@@ -1826,9 +1847,22 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
         # card", most spells), the third-person trigger form ("draws a
         # card", Cephalid Broker-style), and the group-hug phrasing ("draws
         # an additional card", Howling Mine / Kami of the Crescent Moon).
-        patterns=_rx(r"\bdraws? (?:a|an additional) card\b"),
-        should_match=("Ponder", "Remand", "Rhystic Study", "Howling Mine"),
-        should_not_match=("Lightning Bolt", "Llanowar Elves"),
+        # Not after cycling's "Discard this card:" or a one-shot self-sacrifice
+        # (those are card-draw-light); a Clue's "Sacrifice this token:" still counts.
+        patterns=_rx(_DRAW_NOT_AFTER + r"\bdraws? (?:a|an additional) card\b"),
+        should_match=(
+            "Ponder",
+            "Remand",
+            "Rhystic Study",
+            "Howling Mine",
+            "Tireless Tracker",
+        ),
+        should_not_match=(
+            "Lightning Bolt",
+            "Llanowar Elves",
+            "Ketria Triome",
+            "Mind Stone",
+        ),
     ),
     # Card draw (multi-card effects): draws 2+ cards in a single effect.
     # Does not overlap with cantrip.
@@ -1836,11 +1870,26 @@ _FUNCTIONAL_PRESETS: tuple[Preset, ...] = (
         name="card-draw",
         description="Draws two or more cards in a single effect.",
         patterns=_rx(
-            r"\bdraws? " + _COUNT + r" cards?\b",
-            r"\bdraw cards equal to\b",
+            _DRAW_NOT_AFTER + r"\bdraws? " + _COUNT + r" cards?\b",
+            _DRAW_NOT_AFTER + r"\bdraw cards equal to\b",
         ),
         should_match=("Mulldrifter", "Deep Analysis", "Brainstorm"),
         should_not_match=("Lightning Bolt", "Llanowar Elves"),
+    ),
+    # Light draw: the card sacrifices itself to draw once (Mind Stone,
+    # Commander's Sphere). Counts in Card draw, reported as light (audit job 4.2).
+    Preset(
+        name="card-draw-light",
+        description="Sacrifices itself to draw (a one-shot rider on a mana rock).",
+        patterns=_rx(
+            r"(?:"
+            + "|".join(f"(?<=sacrifice this {t}: )" for t in _SELF_SAC_TYPES)
+            + r")draws? (?:a|an additional|"
+            + _COUNT
+            + r") cards?\b"
+        ),
+        should_match=("Mind Stone", "Commander's Sphere"),
+        should_not_match=("Lightning Bolt", "Tireless Tracker", "Ponder"),
     ),
     # Lifegain — gains life AS an effect, OR cares about gaining life as a
     # payoff (whenever-trigger). Typed broadly because lifegain as an

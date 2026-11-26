@@ -29,7 +29,7 @@ from mtg_utils.theme_presets import get_preset  # noqa: E402
 idx = mtg._bulk_index()
 COMP = {key: (full, light) for key, _, _, full, light in mtg._COMPOSITION if full}
 assert COMP["board-wipe"] == (("board-wipe", "mass-bounce"), ("board-wipe-light",))
-assert COMP["card-draw"] == (("card-draw", "cantrip"), ())
+assert COMP["card-draw"] == (("card-draw", "cantrip"), ("card-draw-light",))
 FULL_WIPE, LIGHT_WIPE, BOUNCE = (
     get_preset(n) for n in ("board-wipe", "board-wipe-light", "mass-bounce")
 )
@@ -42,7 +42,15 @@ def card(name):
 
 
 # --- preset fixtures hold against real cards ------------------------------- #
-for name in ("board-wipe", "board-wipe-light", "mass-bounce", "card-draw", "cantrip"):
+for name in (
+    "board-wipe",
+    "board-wipe-light",
+    "mass-bounce",
+    "card-draw",
+    "cantrip",
+    "card-draw-light",
+    "tutors",
+):
     p = get_preset(name)
     assert p.should_match and p.should_not_match, name
     for card_name in p.should_match:
