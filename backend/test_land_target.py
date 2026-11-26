@@ -36,4 +36,13 @@ assert via["land_status"] == "WARN", via  # 37 of 41 is within the warn band
 sk = mtg.wizard_build_skeleton("Sliver Gravemother")
 assert sk["land_target"] == floor, sk.get("land_target")
 
+# A Commander deck is always the format's 100, even if it declares another size, so
+# the floor and the Sources check agree (audit job 5.7; it used to scale to 33).
+from mtg_utils.mana_audit import mana_audit
+
+odd = mtg.HydratedDeck.from_parsed(
+    mtg.parse_deck_text(text, format="commander", deck_size=80), mtg._bulk_index()
+)
+assert mana_audit(odd)["land_count_floor"] == floor, mana_audit(odd)["land_count_floor"]
+
 print("ok: one land target,", floor)

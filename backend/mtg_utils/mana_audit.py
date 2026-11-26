@@ -16,7 +16,7 @@ from mtg_utils.card_classify import (
     is_land,
     is_ramp,
 )
-from mtg_utils.format_config import get_format_config
+from mtg_utils.format_config import FORMAT_CONFIGS, get_format_config
 from mtg_utils.hydrated_deck import HydratedDeck
 
 _PIP_PATTERN = re.compile(r"\{([WUBRG])\}")
@@ -336,11 +336,19 @@ def mana_audit(hd: HydratedDeck) -> dict:
     card_lookup = hd.by_name
 
     config = get_format_config(hd.deck)
-    # Honor an explicit deck-size on the deck (e.g. a 60-card paper Historic Brawl, or
-    # an 80-card Yorion deck) so the Burgess/Karsten/constructed land math scales to the
-    # real size — falling back to the format default when the deck doesn't declare one.
-    deck_size = hd.deck.get("deck_size") or config["deck_size"]
     has_commander = config.get("has_commander", True)
+    # A commander format is always its own size (audit job 5.7: the web app's Sources
+    # check uses the format's size, so the land floor must too). Otherwise honor an
+    # explicit deck-size on the deck (e.g. an 80-card Yorion deck) so the constructed
+    # land math scales to the real size, falling back to the format default.
+    # get_format_config has already copied the deck's own size over the format's, so
+    # read the format's size from FORMAT_CONFIGS.
+    fmt = hd.deck.get("format", "commander")
+    deck_size = (
+        FORMAT_CONFIGS[fmt]["deck_size"]
+        if has_commander
+        else hd.deck.get("deck_size") or config["deck_size"]
+    )
 
     commanders = hd.commanders
     # Only analyze mainboard cards (sideboard doesn't affect mana base)
