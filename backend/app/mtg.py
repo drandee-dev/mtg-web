@@ -2157,6 +2157,28 @@ def ai_optimize(
         )
     if rules:
         tail += "\n\nThe server drops changes that break these rules: " + " ".join(rules)
+    # Audit job 3.8: with only the rule above, a paid call on Sliver Swarm (2026-11-25)
+    # still proposed four Sliver cuts and every change was held back. Name the cards:
+    # which are theme (cut only for a same-theme card) and which are free to cut.
+    if theme and (theme.tribe or theme.mechanics) and ctx.get("hd"):
+        free, kept = [], []
+        for e, card in ctx["hd"].entries(zones=("cards",)):
+            if not card or _land_flag(card):
+                continue
+            (kept if theme.reasons(card) else free).append(card["name"])
+        if kept:
+            tail += (
+                "\n\nTheme cards (cut one only for a card in the same part of the theme): "
+                + "; ".join(kept)
+                + "."
+            )
+        if free:
+            tail += (
+                "\n\nNonland cards outside the theme: "
+                + "; ".join(free)
+                + ". Take cuts from this list first (still judging each card on its "
+                "own merits), and suggest 8 changes."
+            )
     # Audit job 3.2: Strategy said "Tribal Aggro (Slivers)" while Optimize cut seven
     # Slivers; the two calls shared nothing. Per deck and free text, so the tail.
     archetype = (archetype or "").strip()[:60]
