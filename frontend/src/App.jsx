@@ -25,6 +25,7 @@ import BottomNav from "./components/layout/BottomNav";
 import ServerStatusBanner from "./components/ServerStatusBanner";
 import MyDecks from "./components/MyDecks";
 import Ask from "./components/Ask";
+import ChunkBoundary from "./components/ChunkBoundary";
 
 // Code splitting (audit job 5.10): Decks, the first screen, and Ask, always mounted,
 // load with the app; every other place and overlay is its own chunk, behind the same
@@ -750,6 +751,7 @@ export default function App() {
       />
 
       <main id="main-content">
+        <ChunkBoundary key={tab}>
         {playtesting && (
           <Suspense fallback={<PanelPlaceholder />}>
             <Playtest
@@ -889,9 +891,11 @@ export default function App() {
           />
           </Suspense>
         )}
+        </ChunkBoundary>
       </main>
 
       {settingsOpen && (
+        <ChunkBoundary quiet>
         <Suspense fallback={null}>
           <AccountDropdown
             session={session}
@@ -902,6 +906,7 @@ export default function App() {
             notify={notify}
           />
         </Suspense>
+        </ChunkBoundary>
       )}
 
       {needRefresh && (
