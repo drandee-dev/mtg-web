@@ -1664,8 +1664,12 @@ def _wrap_user(text: str) -> str:
     """Wrap user-supplied text in <user_input> tags (.claude/rules/ai-prompts.md).
     A literal tag inside the text is defused first, so the text cannot close its own
     wrapper and continue as if it were the app's prompt (audit job 5.11)."""
+    # Also "</user_input >", "< /user_input>" and "<user_input x>" (5.11 review).
     safe = re.sub(
-        r"<(/?)user_input>", r"[\1user_input]", str(text), flags=re.IGNORECASE
+        r"<\s*(/?)\s*user_input\b[^>]*>",
+        r"[\1user_input]",
+        str(text),
+        flags=re.IGNORECASE,
     )
     return f"<user_input>{safe}</user_input>"
 
@@ -1800,7 +1804,9 @@ def ai_strategy(
     # fallback, in the uncached tail so it costs nothing when unused, for the
     # narrow case a caller supplies a decklist with no parseable commander.
     tail = (
-        "" if ctx["commanders"] else (f"\nCommander: {commander}" if commander else "")
+        ""
+        if ctx["commanders"]
+        else (f"\nCommander: {_wrap_user(commander)}" if commander else "")
     )
 
     resp = _ai_call(
@@ -3126,7 +3132,8 @@ def ai_explain_recommendations(
     api_key: str | None = None,
 ) -> dict[str, Any]:
     ctx = _deck_context_cached(text, fmt, bracket=bracket)
-    cards_list = "\n".join(f"- {n}" for n in card_names[:15])
+    # Client-sent names, not checked against the bulk: wrapped as user text (job 5.11).
+    cards_list = "\n".join(f"- {_wrap_user(n)}" for n in card_names[:15])
     # Without a stated game plan the model can only guess intent from the
     # list alone — goals (esp. the flavor note) are what make a rating land
     # on "why this fits THIS deck" instead of a generic card summary.
@@ -3595,7 +3602,7 @@ def wizard_narrate(
         if rec:
             card_details.append(f"- {rec.get('name', name)}: {_full_oracle(rec)}")
         else:
-            card_details.append(f"- {name}")
+            card_details.append(f"- {_wrap_user(name)}")  # not a known card: user text
 
     user_msg = (
         "\n".join(cmd_lines) + "\n\n"

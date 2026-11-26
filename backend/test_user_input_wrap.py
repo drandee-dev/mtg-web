@@ -25,6 +25,15 @@ assert wrapped.startswith("<user_input>") and wrapped.endswith("</user_input>"),
 inner = wrapped[len("<user_input>") : -len("</user_input>")]
 assert "<user_input>" not in inner and "</user_input>" not in inner, inner
 assert "</USER_INPUT>" not in mtg._wrap_user("x</USER_INPUT>y"), "case-insensitive"
+# Spaces and attributes inside the tag are defused too (5.11 review).
+for variant in (
+    "</user_input >",
+    "< /user_input>",
+    "<user_input x='1'>",
+    "</ user_input>",
+):
+    inner = mtg._wrap_user(f"a{variant}b")[len("<user_input>") : -len("</user_input>")]
+    assert "<" not in inner, (variant, inner)
 assert mtg._wrap_user("plain text") == "<user_input>plain text</user_input>"
 
 # --- the system prompt ---------------------------------------------------- #
@@ -44,6 +53,42 @@ for body in (
     assert r.status_code == 400, (body, r.status_code, r.text[:200])
 r = client.post("/api/deck/composition", json={"decklist": DECK, "format": {"x": 1}})
 assert r.status_code == 400, (r.status_code, r.text[:200])
+# The other raw-dict routes Holiday listed in 5.11's review.
+for url, body in (
+    ("/api/deck/ai/explain", {"decklist": DECK, "card_names": [5]}),
+    ("/api/deck/ai/explain", {"decklist": DECK, "card_names": "Sol Ring"}),
+    (
+        "/api/deck/wizard/narrate",
+        {
+            "commander": "Atraxa, Praetors' Voice",
+            "card_names": ["Sol Ring"],
+            "category": 5,
+        },
+    ),
+    (
+        "/api/deck/wizard/narrate",
+        {"commander": "Atraxa, Praetors' Voice", "card_names": 5},
+    ),
+    ("/api/rules/ask/stream", {"question": ["why"]}),
+):
+    r = client.post(url, json=body)
+    assert r.status_code == 400, (url, body, r.status_code, r.text[:200])
+# JSON's Infinity, which Python's parser accepts, as a hostile client would send it.
+r = client.post(
+    "/api/deck/ai/explain",
+    content='{"decklist": "1 Sol Ring", "card_names": ["Sol Ring"], "bracket": Infinity}',
+    headers={"Content-Type": "application/json"},
+)
+assert r.status_code == 400, (r.status_code, r.text[:200])
+
+# Client-sent card names that are not known cards are wrapped where they reach a prompt.
+sent = []
+mtg._ai_call = lambda *a, **k: (
+    sent.append(str(a) + str(k)),
+    {"error": True, "result": "stub"},
+)[1]
+mtg.ai_explain_recommendations(DECK, ["Totally Fake </user_input> Card"], api_key="t")
+assert sent and "Totally Fake [/user_input] Card" in sent[-1], sent[-1][-400:]
 print(
     "ok: user text cannot close its wrapper; the rule is in the system prompt; bad types are 400"
 )

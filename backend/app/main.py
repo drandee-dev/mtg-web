@@ -454,8 +454,8 @@ def _target_bracket(payload: dict) -> int | None:
         return None
     try:
         val = int(b)
-    except (ValueError, TypeError):
-        raise HTTPException(400, "bracket must be an integer (1-5).")
+    except (ValueError, TypeError, OverflowError):  # Infinity parses from JSON
+        raise HTTPException(400, "bracket must be an integer (1-5).") from None
     if not 1 <= val <= 5:
         raise HTTPException(400, "bracket must be 1-5.")
     return val
@@ -575,11 +575,15 @@ def deck_ai_explain(request: Request, payload: Annotated[dict, Body()]) -> dict:
     _check_ai_access(request)
     decklist, fmt = _validate_decklist(payload)
     card_names = payload.get("card_names") or []
-    if not card_names or len(card_names) > _MAX_CARD_NAMES:
+    if (
+        not isinstance(card_names, list)
+        or not card_names
+        or len(card_names) > _MAX_CARD_NAMES
+    ):
         raise HTTPException(400, f"Provide 1-{_MAX_CARD_NAMES} card names.")
     for cn in card_names:
-        if len(cn) > _MAX_CARD_NAME_LEN:
-            raise HTTPException(400, f"Card name too long: {cn[:30]}…")
+        if not isinstance(cn, str) or len(cn) > _MAX_CARD_NAME_LEN:
+            raise HTTPException(400, "Invalid card name.")
     return mtg.ai_explain_recommendations(
         decklist,
         card_names,
@@ -909,15 +913,19 @@ def wizard_narrate(request: Request, payload: Annotated[dict, Body()]) -> dict:
     _check_ai_access(request)
     commander = _commander_field(payload.get("commander"))
     card_names = payload.get("card_names") or []
-    if not card_names:
+    if not isinstance(card_names, list) or not card_names:
         raise HTTPException(400, "Provide 'commander' and 'card_names'.")
     if len(card_names) > _MAX_CARD_NAMES:
         raise HTTPException(400, f"Too many card names (max {_MAX_CARD_NAMES}).")
     for cn in card_names:
         if not isinstance(cn, str) or len(cn) > _MAX_CARD_NAME_LEN:
             raise HTTPException(400, "Invalid card name.")
-    category = (payload.get("category") or "")[:100]
-    decklist = (payload.get("decklist") or "")[:_MAX_DECKLIST_LEN]
+    category = payload.get("category") or ""
+    decklist = payload.get("decklist") or ""
+    if not isinstance(category, str) or not isinstance(decklist, str):
+        raise HTTPException(400, "'category' and 'decklist' must be strings.")
+    category = category[:100]
+    decklist = decklist[:_MAX_DECKLIST_LEN]
     # Optional; a known format key or Commander. It filters the commander profile's
     # card list to what the format allows.
     fmt = payload.get("format")
@@ -1258,7 +1266,10 @@ def rules_ask_stream(
 ):
     """Streaming AI Rules Q&A — answer appears word-by-word via SSE."""
     _check_ai_access(request)
-    question = (payload.get("question") or "").strip()
+    question = payload.get("question") or ""
+    if not isinstance(question, str):
+        raise HTTPException(400, "'question' must be a string.")
+    question = question.strip()
     if not question or len(question) > _MAX_QUESTION_LEN:
         raise HTTPException(400, f"Question must be 1-{_MAX_QUESTION_LEN} characters.")
 
