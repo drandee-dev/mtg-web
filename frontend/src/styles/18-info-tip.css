@@ -32,7 +32,7 @@
    would not watch. Absolute even on phones, or its own flex line adds the row gap. */
 .info-tip:empty { position: absolute; padding: 0; border: 0; box-shadow: none; background: none; margin: 0; }
 
-/* A heading with its help button beside it (Verdict, Gaps). */
+/* A heading with its help button beside it (Health). */
 .info-tip-head { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-bottom: .5rem; }
 .info-tip-head .improve-h { margin-bottom: 0; }
 

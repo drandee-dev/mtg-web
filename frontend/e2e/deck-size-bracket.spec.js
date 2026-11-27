@@ -1,5 +1,5 @@
 // Bracket labels match the official WotC brackets (1-5), the deck header counts
-// the commander once, and the Verdict's status line says Not legal when legality fails.
+// the commander once, and Health says Not legal when legality fails.
 import { test, expect } from "./fixtures/test-base.js";
 import { loadSharedDeck, waitForAppReady, dismissColdStart, pickNewDeckCommander, openDeckSection } from "./fixtures/helpers.js";
 import { TEST_COMMANDER } from "./fixtures/test-data.js";
@@ -82,7 +82,7 @@ test("the header says Legal or Not legal from the analysis", async ({ page }) =>
   await expect(facts.getByText("Legal", { exact: true })).toHaveCount(0);
 });
 
-test("the Verdict's status line says Legal, then Not legal in the bad tone (audit job 4.3)", async ({ page }) => {
+test("Health says Legal, then Not legal in the bad tone (audit job 4.3)", async ({ page }) => {
   let status = "PASS";
   await stubAnalyze(page, () => (status === "PASS"
     ? { overall_status: "PASS", violations: { deck_maximum: [] } }
