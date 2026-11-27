@@ -266,9 +266,9 @@ def _type_word(t: str) -> str:
 class Theme:
     tribe: str | None = None
     tribe_named: bool = False  # True when a commander's text names it
-    tribe_creatures: int = (
-        0  # creatures of the type; the tribe role also holds its support
-    )
+    # Cards of the tribe's type (changelings and Kindred spells included); the
+    # tribe role also holds the cards that make or support them.
+    tribe_creatures: int = 0
     mechanics: list[Mechanic] = field(default_factory=list)
     roles: dict[str, list[str]] = field(default_factory=dict)
     _pats: dict[str, re.Pattern] = field(default_factory=dict, repr=False)

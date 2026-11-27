@@ -40,8 +40,10 @@ assert zombie["label"] == "Zombies" and 0 < zombie["creatures"] < zombie["count"
 breena = theme("silverquill-statement")
 assert breena and all(g["creatures"] is None for g in breena), breena
 
-# Not a commander format's concern, and never a crash on an empty list.
+# Never a crash on an empty list, and no theme outside the commander formats.
 assert mtg.deck_composition("")["theme"] == []
+sliver_text = (PRECONS / "sliver-swarm.txt").read_text()
+assert mtg.deck_composition(sliver_text, fmt="modern")["theme"] == []
 
 # Recommend rows: a Sliver reads "Sliver", a tribe-support card too, a staple nothing.
 mtg._edhrec_cardlists = lambda commanders: {
