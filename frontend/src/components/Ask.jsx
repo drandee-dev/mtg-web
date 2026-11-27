@@ -469,7 +469,6 @@ export default function Ask({
               // keyboard's focus, and the next question had to start with a click.
               // send() itself does nothing while busy.
               readOnly={busy}
-              aria-busy={busy || undefined}
             />
             <button className="primary" onClick={() => send()} disabled={busy || !input.trim()}>
               Send

@@ -30,7 +30,7 @@
   max-height: min(60dvh, calc(40 * 1lh + 1.2rem + 2px));
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-base);
   background: var(--bg-raised); color: var(--text);
-  border: 1px solid var(--border); border-radius: var(--radius); padding: .6rem .7rem;
+  border: 1px solid var(--field-edge); border-radius: var(--radius); padding: .6rem .7rem;
 }
 .icm-body textarea:focus, .icm-body input:focus { outline: none; border-color: var(--accent); }
 .icm-body input { width: 100%; }
@@ -117,7 +117,7 @@
   max-height: min(60dvh, calc(40 * 1lh + 1.2rem + 2px));
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-base);
   background: var(--bg-raised); color: var(--text);
-  border: 1px solid var(--border); border-radius: var(--radius); padding: .6rem .7rem;
+  border: 1px solid var(--field-edge); border-radius: var(--radius); padding: .6rem .7rem;
 }
 .edm-body textarea:focus { outline: none; border-color: var(--accent); }
 .edm-hint { margin-top: .5rem; font-size: var(--fs-xs); color: var(--muted); }

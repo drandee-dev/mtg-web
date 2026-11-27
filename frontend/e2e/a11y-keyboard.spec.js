@@ -5,15 +5,14 @@
 import { test, expect } from "./fixtures/test-base.js";
 import {
   waitForAppReady, dismissColdStart, loadSharedDeck, openDeckSection, setCardView, openNewDeck, addCardField,
+  seedLocalDecks, deckMenuAction,
 } from "./fixtures/helpers.js";
-import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
+import { TEST_DECK_TEXT, TEST_COMMANDER, TEST_DECK_STORAGE } from "./fixtures/test-data.js";
 
 const deckTab = (page, name) => page.locator("#deck-sections").getByRole("tab", { name, exact: true });
 
 test("arrow keys move along the deck's tabs without opening them, and Enter opens", async ({ page, isMobile }) => {
   test.skip(isMobile, "keyboard");
-  let strategyCalls = 0;
-  page.on("request", (r) => { if (new URL(r.url()).pathname.endsWith("/api/deck/ai/strategy")) strategyCalls += 1; });
   await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
 
   // One Tab stop for the strip: the open tab.
@@ -21,8 +20,12 @@ test("arrow keys move along the deck's tabs without opening them, and Enter open
   await deckTab(page, "Cards").focus();
   await page.keyboard.press("ArrowRight");
   await expect(deckTab(page, "How to play")).toBeFocused();
-  // Focus moved; nothing opened, and passing "How to play" asked the AI for nothing.
+  // Focus moved and nothing opened: Cards is still the open tab. This is the guard
+  // against opening on arrow, which on "How to play" could start a paid write-up. (A
+  // request count would prove nothing here: this deck is under the 20 cards that
+  // write-up needs, so even a click asks for none.)
   await expect(deckTab(page, "Cards")).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#deck-panel-play")).toBeHidden();
   await page.keyboard.press("End");
   await expect(deckTab(page, "Stats")).toBeFocused();
   await page.keyboard.press("ArrowRight"); // wraps
@@ -31,7 +34,7 @@ test("arrow keys move along the deck's tabs without opening them, and Enter open
   await expect(deckTab(page, "Stats")).toBeFocused();
   await page.keyboard.press("Home");
   await expect(deckTab(page, "Cards")).toBeFocused();
-  expect(strategyCalls).toBe(0);
+  await expect(deckTab(page, "Cards")).toHaveAttribute("aria-selected", "true");
 
   await page.keyboard.press("End");
   await page.keyboard.press("Enter");
@@ -180,12 +183,35 @@ for (const theme of ["dark", "light"]) {
       await dismissColdStart(page);
       await measure(path);
     }
+    // Decks home shows its search, format and sort fields from nine decks.
+    await seedLocalDecks(page, Array.from({ length: 9 }, (_, i) => ({ ...TEST_DECK_STORAGE, id: `edge${i}`, name: `Edge deck ${i}` })));
+    await page.goto("/");
+    await waitForAppReady(page);
+    await dismissColdStart(page);
+    await measure("Decks home, nine decks");
     await openNewDeck(page);
+    await measure("/new");
     await page.locator(".nd-door", { hasText: "Paste or import" }).click();
     await measure("/new, paste door");
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
     await expect(addCardField(page)).toBeVisible();
     await measure("a deck, Cards");
+    // A dialog and the drawer focus their field on opening, and a focused field shows
+    // the accent ring, not its resting edge: blur it before measuring.
+    const blur = () => page.evaluate(() => document.activeElement?.blur());
+    await deckMenuAction(page, "Import cards");
+    await expect(page.locator(".icm-panel")).toBeVisible();
+    await blur();
+    await measure("the import dialog");
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".icm-panel")).toHaveCount(0);
+    // The Ask drawer keeps its dark colours in both themes, so its edge has to as well.
+    await page.getByRole("button", { name: "Ask", exact: true }).filter({ visible: true }).click();
+    await expect(page.locator(".ask-panel")).toBeVisible();
+    await blur();
+    await measure("a deck with the Ask drawer open");
+    await page.locator(".ask-panel").getByRole("button", { name: /close/i }).first().click();
+    await expect(page.locator(".ask-panel")).toHaveCount(0);
     await openDeckSection(page, "Improve");
     await page.locator(".dg-head").click();
     await expect(page.getByLabel("Custom budget ceiling in dollars")).toBeVisible();

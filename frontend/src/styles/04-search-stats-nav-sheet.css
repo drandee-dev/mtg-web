@@ -10,7 +10,7 @@
 .cta-input-wrap input { width: 100%; padding-right: 1.8rem; }
 .card-typeahead.compact .cta-input-wrap input {
   width: 170px; min-height: auto; padding: 7px 1.6rem 7px 10px; font-size: var(--fs-xs);
-  background: var(--bg-raised); border: 1px solid var(--border); border-radius: 7px;
+  background: var(--bg-raised); border: 1px solid var(--field-edge); border-radius: 7px;
 }
 .cta-spinner {
   position: absolute; right: .55rem; width: 11px; height: 11px; border-radius: 50%;
