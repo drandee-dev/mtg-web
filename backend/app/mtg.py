@@ -1513,7 +1513,7 @@ def _deck_context(
             )
 
     if commanders:
-        lines.append(f"Commander(s): {', '.join(commanders)}")
+        lines.append(f"Commander(s): {_names_for_prompt(commanders)}")
     identity, identity_source = deck_identity(deck, idx, fmt)
     if identity is not None:
         colors = _wubrg(identity) or "colorless: only colorless cards"
@@ -1693,6 +1693,14 @@ def _wrap_user(text: str) -> str:
         flags=re.IGNORECASE,
     )
     return f"<user_input>{safe}</user_input>"
+
+
+def _names_for_prompt(names: list[str]) -> str:
+    """Card names from a decklist, joined for a prompt. A name that is a known card
+    is left as it is; one that is not is the user's own text and is wrapped
+    (audit job 6.9: an unknown commander reached the cached block raw)."""
+    idx = _bulk_index()
+    return ", ".join(n if idx.get(n) else _wrap_user(n) for n in names)
 
 
 def _cached_deck_messages(
@@ -3054,7 +3062,7 @@ def ai_composition_fills(
         # Every commander's text (the first one only, before, so a partner's half of
         # the deck was invisible) and how this commander is played.
         user_msg = (
-            f"Commander: {', '.join(commanders)}\n"
+            f"Commander: {_names_for_prompt(commanders)}\n"
             f"{ctx.get('commander_text') or ''}\n"
             f"{ctx.get('commander_notes') or ''}\n"
             f"Category to fill: {label} ({cat['count']}/{cat['target']})\n"
