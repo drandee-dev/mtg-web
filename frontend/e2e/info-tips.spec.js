@@ -27,8 +27,7 @@ test("every tip opens with its text, and the status line's meaning is not hover-
     bracket: "AI suggestions are told to steer toward it",
     budget: "AI suggestions are told to stay under it",
     pilot: "Simple avoids long chains",
-    "the status": "this deck's land floor",
-    gaps: "the number after \"of\" is the target",
+    health: "the number after “of” is the target",
     "budget swaps and power upgrades": "Both show the AI's changes",
     suggestions: "\"Played in N%\" is the share",
   };
@@ -54,7 +53,7 @@ test("the text arrives in a status region, and the headings keep their own names
   await expect(p).toHaveAttribute("role", "status"); // announced when its text appears
   await tip(page, "budget").click();
   await expect(p).toHaveText(/The most the whole deck may cost/);
-  for (const h of ["Verdict", "Gaps"]) {
+  for (const h of ["This deck is", "Health"]) {
     await expect(page.getByRole("heading", { name: h, exact: true })).toBeVisible();
   }
 });
@@ -93,7 +92,7 @@ test("a tap or click elsewhere closes it", async ({ page }) => {
   const p = await panelOf(page, "budget");
   await tip(page, "budget").click();
   await expect(p).not.toBeEmpty();
-  await page.locator(".improve-h", { hasText: "Verdict" }).click();
+  await page.locator(".improve-h", { hasText: "Health" }).click();
   await expect(p).toBeEmpty();
 });
 
@@ -101,7 +100,7 @@ test("a tap or click elsewhere closes it", async ({ page }) => {
 // (on phones its own flex line used to add the row gap under every label; Holiday, 2026-11-06).
 test("a closed tip draws nothing and takes no room", async ({ page }) => {
   await openImprove(page, { deep: true });
-  for (const label of ["bracket", "budget", "pilot", "the status", "gaps", "budget swaps and power upgrades", "suggestions"]) {
+  for (const label of ["bracket", "budget", "pilot", "health", "budget swaps and power upgrades", "suggestions"]) {
     const p = await panelOf(page, label);
     await expect(p).toBeEmpty();
     const { area, grew } = await p.evaluate((el) => {

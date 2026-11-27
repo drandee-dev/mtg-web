@@ -1,7 +1,7 @@
 import DeckGoals from "./DeckGoals";
 import AssessmentPanel from "./AssessmentPanel";
 
-// Improve's left column (job 3.5): Goals, then the Verdict and Gaps. DeckView
+// Improve's left column (job 3.5): Goals, then "This deck is" and Health. DeckView
 // renders it once, beside the Suggested changes list.
 export default function DeckGoalsAssessment({
   goals, setGoals, deckCardNames, goalSuggestion,

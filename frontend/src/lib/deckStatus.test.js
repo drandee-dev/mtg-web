@@ -18,6 +18,8 @@ test("Sliver Swarm: legal, 37 of 41 lands, one thin role (the audit's example)",
     mana: { viability: via({ land_status: "WARN", land_count: 37, land_floor: 41 }), color_balance_status: "PASS" },
   };
   assert.equal(line(r, cats("thin", "ok")), "Legal:ok | mana short (37 of 41 lands):warn | 1 thin role:warn");
+  // Health leaves out the two its role rows already show, by key.
+  assert.deepEqual(statusParts(r, cats("thin", "ok")).map((p) => p.key), ["legal", "lands", "roles"]);
 });
 
 test("a healthy deck says so in words", () => {

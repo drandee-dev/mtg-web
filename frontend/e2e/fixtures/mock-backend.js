@@ -165,6 +165,8 @@ export async function mockBackend(page) {
           { key: "removal", label: "Spot removal", count: 7, light: 0, target: 8, status: "ok" },
           { key: "board-wipe", label: "Board wipes", count: 1, light: 1, target: 3, status: "thin" },
         ],
+        // The theme reading (audit job 6.1): no tribe for Atraxa, one mechanic group.
+        theme: [{ label: "Counters/proliferate synergy", count: 3, creatures: null }],
       });
     }
     if (path.endsWith("/api/deck/import-url")) {
@@ -180,7 +182,14 @@ export async function mockBackend(page) {
       return json({
         format: "commander", total_cards: 11,
         stats: { avg_cmc: 2.5 },
-        mana: { overall_status: "OK", pip_demand_pct: {} },
+        // The land floor agrees with composition's Lands target below (audit job 4.1).
+        mana: {
+          overall_status: "OK", pip_demand_pct: {}, color_balance_status: "PASS",
+          viability: {
+            status: "PASS", land_status: "PASS", land_count: 36, land_floor: 36,
+            sources_status: "PASS", mana_sources: 45, recommended_sources: 44, ramp_count: 9, avg_mv: 2.5,
+          },
+        },
         legality: { overall_status: "PASS", violations: {} }, // real shape: dict of lists
         bracket: { bracket: 2, name: "Core", game_changers: [], mass_land_denial: [] },
         breakdown: { price_usd: 68.93, prices_as_of: "2026-07-01" },

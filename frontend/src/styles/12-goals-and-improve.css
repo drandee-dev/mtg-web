@@ -164,16 +164,38 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .opt-delta.down { color: var(--good); }
 .asmt-chip-budget .asmt-chip-count { color: var(--bad); }
 
-/* Verdict and Gaps (AssessmentPanel) */
+/* "This deck is" and Health (AssessmentPanel, layout A, audit job 6.2) */
 .asmt-wrap { display: flex; flex-direction: column; gap: 28px; }
-/* The Verdict's status line (audit job 4.3): words carry the state, tone is a second cue. */
-.asmt-status { margin: 0 0 8px; font-size: var(--fs-md); font-weight: 600; line-height: 1.4; color: var(--text); }
-.asmt-status-sep { color: var(--muted); font-weight: 400; }
-.asmt-status-ok, .asmt-status-warn, .asmt-status-bad { white-space: nowrap; } /* a phrase wraps whole */
+/* What the deck is built around: statements, not controls, so no accent colour. */
+.asmt-theme { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; padding: 0; list-style: none; }
+.asmt-theme-chip {
+  display: inline-flex; align-items: baseline; gap: 6px; max-width: 100%; padding: 5px 10px;
+  border: 1px solid var(--border-strong); border-radius: 999px;
+  font-size: var(--fs-sm); white-space: nowrap;
+}
+/* shortcut: a label wider than the rail is cut with no way to read the rest; the
+   server's labels are a short fixed list, so revisit if they become free text. */
+.asmt-theme-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.asmt-theme-count { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+/* The tribe is the one thing in the rail that stands out. */
+.asmt-theme-tribe { padding: 7px 14px; background: var(--panel-2); border-color: var(--text-secondary); font-size: var(--fs-md); }
+.asmt-note { margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.5; }
+/* Health's checks, one per line: words carry the state, tone is a second cue. */
+.asmt-status {
+  display: flex; flex-direction: column; gap: 2px; margin: 0 0 8px; padding: 0; list-style: none;
+  font-size: var(--fs-md); font-weight: 600; line-height: 1.4; color: var(--text);
+}
 .asmt-status-warn { color: var(--warn); }
 .asmt-status-bad { color: var(--bad); }
-.asmt-verdict { margin: 0; color: var(--text-secondary); line-height: 1.5; }
+.asmt-verdict { margin: 0 0 12px; color: var(--text-secondary); line-height: 1.5; }
 .asmt-gaps { display: flex; flex-direction: column; }
+/* A role at its target: the same line as a gap, but nothing to tap. */
+.asmt-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 44px; padding: 10px 0; border-top: 1px solid var(--border);
+}
+/* The right margin is a gap's lightning icon and its gap, so the counts share a column. */
+.asmt-row-count { margin: 0 22px 0 auto; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .asmt-chip {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;
   min-height: 44px; padding: 10px 0; text-align: left;
