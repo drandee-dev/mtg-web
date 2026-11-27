@@ -6,14 +6,22 @@ import { useCallback, useRef, useState } from "react";
 export function useToast() {
   const [toast, setToast] = useState("");
   const timer = useRef(null);
+  const life = useRef(3500);
+  const start = useCallback(() => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setToast(""), life.current);
+  }, []);
   const notify = useCallback((msg, action) => {
     setToast(msg ? { text: msg, action: action || null } : "");
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => setToast(""), action ? 6500 : 3500);
-  }, []);
+    life.current = action ? 6500 : 3500;
+    start();
+  }, [start]);
   const dismiss = useCallback(() => {
     clearTimeout(timer.current);
     setToast("");
   }, []);
-  return { toast, notify, dismiss };
+  // The pointer or keyboard focus on the toast stops its clock (its Undo is in
+  // there); leaving starts a full one again (audit job 6.4).
+  const hold = useCallback(() => clearTimeout(timer.current), []);
+  return { toast, notify, dismiss, hold, release: start };
 }

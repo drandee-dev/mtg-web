@@ -39,6 +39,12 @@ export default function DeckGoals({
     "How much the deck asks of whoever plays it. Simple avoids long chains of triggers and stack tricks; Moderate allows some; Any sets no limit.");
 
   const set = (patch) => setGoals({ ...goals, ...patch });
+  // Enter, or leaving the field: a phone's number pad has no Enter (audit job 6.4).
+  const commitCustomBudget = () => {
+    const dollars = parseInt(customBudget, 10);
+    if (dollars > 0) set({ budgetCeiling: dollars }); // "" and "0" are not a budget
+    setCustomBudget("");
+  };
   // What the closed card shows (`Improve`): bracket and budget always, the
   // rest only once set.
   const rows = [
@@ -145,12 +151,10 @@ export default function DeckGoals({
                 placeholder="$…"
                 value={customBudget}
                 onChange={(e) => setCustomBudget(e.target.value.replace(/[^\d]/g, ""))}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && customBudget) {
-                    set({ budgetCeiling: parseInt(customBudget, 10) });
-                    setCustomBudget("");
-                  }
-                }}
+                onKeyDown={(e) => { if (e.key === "Enter") commitCustomBudget(); }}
+                // Leaving for one of the preset chips means the chip decides: saving
+                // the typed value first made a matching chip toggle the budget off.
+                onBlur={(e) => (e.relatedTarget?.closest?.(".dg-chip") ? setCustomBudget("") : commitCustomBudget())}
                 aria-label="Custom budget ceiling in dollars"
               />
             </div>
