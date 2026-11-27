@@ -111,12 +111,18 @@ test.describe("Insights persistence", () => {
     const deep = page.locator(".insp-deep");
     await expect(deep).toContainText("Uses AI");
     expect(optimizeCalls.n).toBe(0);
+    // Look again only re-runs what is loaded: free so far, and it says nothing about AI.
+    const again = page.getByRole("button", { name: /Look again/ });
+    await expect(again).not.toContainText("Uses AI");
     await deep.click();
     await expect(improve(page).locator('.insp-body .opt-card[data-action="swap"]:has-text("Cultivate")')).toHaveCount(1, { timeout: 10000 });
     expect(optimizeCalls.n).toBe(1);
     expect(swapCalls.n).toBe(1); // the AI review bought no second swaps call
     expect(recCalls.n).toBe(1); // the free source was not re-bought
     await expect(deep).toHaveCount(0);
+    // With the AI review loaded, Look again will run it again, from any list: it says so.
+    await openChangeList(page, "For this commander");
+    await expect(again).toContainText("Uses AI");
   });
 
   // Regression (Holiday on 3.1): reopening Improve while the paid pass was

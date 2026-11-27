@@ -113,7 +113,7 @@ test("Goals: Over budget is Strongest first until the user picks Savings first",
   await expect(page.locator('.dg-opts[aria-label="Pilot complexity"] [aria-pressed]')).not.toHaveCount(0);
   await expect(row.getByRole("button", { name: "Strongest first", exact: true })).toHaveAttribute("aria-pressed", "true");
   expect(sent.at(-1)?.goals?.over_budget).toBeUndefined(); // the first pass: no budget yet
-  const lookAgain = page.getByRole("button", { name: "Look again", exact: true });
+  const lookAgain = page.getByRole("button", { name: /^Look again/ });
   await lookAgain.click();
   await expect.poll(() => sent.at(-1)?.goals?.budget_ceiling).toBe(50);
   expect(sent.at(-1).goals.over_budget).toBeUndefined(); // the default sends nothing

@@ -209,7 +209,9 @@ export function useAiChanges({
     // AI pass (runOptimize) produces — sourcing the Changes
     // tab's cuts/swaps from it instead of separate ai/cuts + ai/upgrades
     // calls is the whole point of this pass.
-    if ((deep && (!optimize || stale("optimize"))) || (force && optimize)) {
+    // Never while a pass is already out (a short role's button starts one
+    // without the busy flag): a second press would buy a second call.
+    if (!optimizing && ((deep && (!optimize || stale("optimize"))) || (force && optimize))) {
       jobs.push(runOptimize());
     }
     if ((wantMode === "budget" && (!budgetSwaps || stale("budgetSwaps"))) || (force && budgetSwaps)) {

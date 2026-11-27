@@ -63,9 +63,14 @@ test.describe("Activation flows", () => {
     await expect(chip).toBeVisible({ timeout: 15000 }); // waits out analyze debounce
     await expect(chip).toContainText("$19 over your $50 budget");
 
+    let optimizeCalls = 0;
+    page.on("request", (r) => { if (new URL(r.url()).pathname.endsWith("/api/deck/optimize")) optimizeCalls += 1; });
     await chip.click();
     await expect(page.getByRole("tabpanel", { name: "Improve", exact: true }).locator(".insp-body"))
       .toContainText("Rhystic Study", { timeout: 10000 });
+    // Swaps are free: the line opens their list and buys no AI call (audit job 6.3).
+    await expect(page.locator(".insp-sources button").nth(1)).toHaveAttribute("aria-pressed", "true");
+    expect(optimizeCalls).toBe(0);
   });
 
   // Regression: the chip sets budget mode and loads in the same handler, so

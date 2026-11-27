@@ -14,7 +14,6 @@ test("an empty suggestion list falls back to the first list with cards", () => {
 });
 
 const swapsOf = (alternative) => buildChanges({
-  upgradeMode: "budget",
   budgetSwaps: { v: 2, swaps: [{ card: "Charismatic Conqueror", price: 23.79, alternative }] },
 });
 

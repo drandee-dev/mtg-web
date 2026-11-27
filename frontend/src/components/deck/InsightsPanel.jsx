@@ -470,6 +470,8 @@ function emptyText({ mode, hasRecs, budgetSwaps, optimize }) {
       : "No cheaper swaps found for this deck.";
   }
   if (!optimize) return null;
+  // A failed run is not an empty answer. The error itself is above the list.
+  if (optimize.error) return "The AI review did not finish. Press Look again to run it once more; that uses an AI call.";
   if (optimize.changes?.length) return "Nothing left in this list. Every change is applied or skipped.";
   // Every change the AI proposed was held back by the deck's own rules (the note
   // above this line says which): say what the person can do next.
@@ -527,7 +529,7 @@ function ChangesPane({
       </div>
 
       {/* The only thing here that spends an AI call, and only when pressed. */}
-      {mode === "power" && !optimize && onLoadDeepChanges && (
+      {mode === "power" && !optimize && !optimizing && onLoadDeepChanges && (
         <>
           <p className="improve-sub insp-source-intro">Cuts, adds and swaps toward your Goals. Nothing runs until you ask.</p>
           <button type="button" className="insp-deep" onClick={onLoadDeepChanges}>

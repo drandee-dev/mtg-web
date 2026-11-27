@@ -37,11 +37,13 @@ export default function DeckTools({
             </div>
             <div className="improve-head-act">
               {stalePanels?.has("Changes") && <span className="insp-stale-badge">Deck changed</span>}
-              {/* Looking again re-runs the AI pass too, if it has been run. */}
-              <button type="button" className="ghost" onClick={() => onRefreshPanel("Changes")}
+              {/* Looking again re-runs the AI review too, if it has been run: a paid
+                  call from whichever list is showing, so the button says so itself. */}
+              <button type="button" className="ghost improve-again" onClick={() => onRefreshPanel("Changes")}
                 disabled={busy === "Changes" || Boolean(optimizing)}
-                title={optimize ? "Fetches fresh suggestions and runs the AI pass again" : "Fetches fresh suggestions"}>
+                title={optimize ? "Fetches fresh suggestions and runs the AI review again" : "Fetches fresh suggestions"}>
                 Look again
+                {optimize && <span className="insp-deep-badge">Uses AI</span>}
               </button>
             </div>
           </div>

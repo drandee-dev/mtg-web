@@ -176,10 +176,15 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .improve .insp { background: none; border: 0; padding: 0; box-shadow: none; }
 .improve-h { margin: 0 0 .5rem; font-size: var(--fs-lg); font-weight: 600; }
 .improve-sub { margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); }
-.improve-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+/* Wraps: with "Deck changed" and "Uses AI" both showing, the buttons do not fit beside
+   the heading on a phone and pushed the page 30px wider than the screen. */
+.improve-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.improve-head > div:first-child { flex: 1 1 12rem; min-width: 0; }
 .improve-head .improve-h { margin-bottom: 0; }
 .improve-head-act { display: flex; align-items: center; gap: .6rem; flex: none; }
 .improve-head-act button { min-height: 44px; padding: 0 16px; border-radius: var(--radius-md); font-weight: 500; }
+/* "Look again" carries the "Uses AI" badge once the AI review is part of what it re-runs. */
+.improve-again { display: inline-flex; align-items: center; gap: 8px; }
 .deck-section-count {
   margin-left: 8px; padding: 1px 8px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 700;
   background: rgba(229,184,76,.16); color: var(--warn);
