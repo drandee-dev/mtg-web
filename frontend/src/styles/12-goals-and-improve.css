@@ -128,6 +128,31 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
   .opt-card { grid-template-columns: auto 1fr auto; }
   .opt-actions { grid-column: auto; }
 }
+/* A suggestion that is on the deck's theme (audit job 6.3): a statement, so no accent. */
+.chg-theme {
+  margin-left: 8px; padding: 1px 8px; border: 1px solid var(--border-strong); border-radius: 999px;
+  font-size: var(--fs-xs); font-weight: 600; color: var(--text-secondary); white-space: nowrap;
+}
+/* Suggested changes: one switch for its three lists (audit job 6.3). It takes the
+   row's width; a label wraps inside its button on a narrow screen. */
+.insp-sources { flex: 1; min-width: 0; padding: 3px; gap: 2px; border-radius: var(--radius-md); }
+.insp-sources button {
+  flex: 1 1 0; min-width: 0; min-height: 36px; padding: 6px 8px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: var(--fs-sm); line-height: 1.2; text-align: center; color: var(--text-secondary);
+}
+.insp-source-count {
+  flex: none; padding: 0 6px; border-radius: 999px; background: var(--hover);
+  font-size: var(--fs-xs); font-variant-numeric: tabular-nums;
+}
+/* Lighter than the gold, never darker: dark ink on a darkened gold measured 4.42 to 1. */
+.insp-sources button.active .insp-source-count { background: rgba(255,255,255,.3); }
+.insp-source-intro { margin: 0 0 8px; }
+/* Why the AI review's changes were held back: the server's own sentence. */
+.insp-held {
+  margin: 0 0 10px; padding: 6px 0 6px 12px; border-left: 2px solid var(--warn);
+  font-size: var(--fs-sm); color: var(--text); line-height: 1.5;
+}
 .opt-log { margin-top: .55rem; border-top: 1px solid var(--border); padding-top: .4rem; }
 .opt-log-summary { font-size: var(--fs-2xs); color: var(--muted); cursor: pointer; font-weight: 600; }
 .opt-log-body { margin-top: .3rem; }
@@ -151,10 +176,15 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .improve .insp { background: none; border: 0; padding: 0; box-shadow: none; }
 .improve-h { margin: 0 0 .5rem; font-size: var(--fs-lg); font-weight: 600; }
 .improve-sub { margin: 0; font-size: var(--fs-sm); color: var(--text-secondary); }
-.improve-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+/* Wraps: with "Deck changed" and "Uses AI" both showing, the buttons do not fit beside
+   the heading on a phone and pushed the page 30px wider than the screen. */
+.improve-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.improve-head > div:first-child { flex: 1 1 12rem; min-width: 0; }
 .improve-head .improve-h { margin-bottom: 0; }
 .improve-head-act { display: flex; align-items: center; gap: .6rem; flex: none; }
 .improve-head-act button { min-height: 44px; padding: 0 16px; border-radius: var(--radius-md); font-weight: 500; }
+/* "Look again" carries the "Uses AI" badge once the AI review is part of what it re-runs. */
+.improve-again { display: inline-flex; align-items: center; gap: 8px; }
 .deck-section-count {
   margin-left: 8px; padding: 1px 8px; border-radius: 999px; font-size: var(--fs-xs); font-weight: 700;
   background: rgba(229,184,76,.16); color: var(--warn);

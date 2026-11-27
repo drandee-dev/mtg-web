@@ -6,15 +6,12 @@ import { test, expect } from "./fixtures/test-base.js";
 import { loadSharedDeck, openDeckSection } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
-async function openImprove(page, { deep = false } = {}) {
+async function openImprove(page) {
   await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
   await openDeckSection(page, "Improve");
   await page.locator(".dg-head").click(); // the Goals editor
-  if (deep) {
-    const btn = page.locator(".insp-deep");
-    if (await btn.count()) await btn.click(); // the mode toggle needs the AI pass loaded
-    await expect(page.locator(".insp-mode-toggle")).toBeVisible({ timeout: 10000 });
-  }
+  // The lists' switch arrives with the free suggestions; nothing paid is needed.
+  await expect(page.locator(".insp-sources")).toBeVisible({ timeout: 10000 });
 }
 
 const tip = (page, label) => page.getByRole("button", { name: `About ${label}`, exact: true });
@@ -22,14 +19,14 @@ const panelOf = async (page, label) =>
   page.locator(`[id="${await tip(page, label).getAttribute("aria-controls")}"]`);
 
 test("every tip opens with its text, and the status line's meaning is not hover-only", async ({ page }) => {
-  await openImprove(page, { deep: true });
+  await openImprove(page);
   const want = {
     bracket: "AI suggestions are told to steer toward it",
     budget: "AI suggestions are told to stay under it",
     pilot: "Simple avoids long chains",
     health: "the number after “of” is the target",
-    "budget swaps and power upgrades": "Both show the AI's changes",
-    suggestions: "\"Played in N%\" is the share",
+    "the three lists": "It uses an AI call each time it runs",
+    suggestions: "“Played in N%” is the share",
   };
   for (const [label, text] of Object.entries(want)) {
     const p = await panelOf(page, label);
@@ -99,8 +96,8 @@ test("a tap or click elsewhere closes it", async ({ page }) => {
 // A closed tip is an empty live region: no box to draw or tap, and no room in its row
 // (on phones its own flex line used to add the row gap under every label; Holiday, 2026-11-06).
 test("a closed tip draws nothing and takes no room", async ({ page }) => {
-  await openImprove(page, { deep: true });
-  for (const label of ["bracket", "budget", "pilot", "health", "budget swaps and power upgrades", "suggestions"]) {
+  await openImprove(page);
+  for (const label of ["bracket", "budget", "pilot", "health", "the three lists", "suggestions"]) {
     const p = await panelOf(page, label);
     await expect(p).toBeEmpty();
     const { area, grew } = await p.evaluate((el) => {
@@ -144,7 +141,7 @@ test("phone: the text opens in place and covers no control", async ({ page, isMo
 // The button's tap area reaches past its circle, but never into a neighbour's edge:
 // a 44px box reached 13px and took taps from the select, the toggle and first chips.
 test("the button is small, reaches past its edge, and leaves its neighbours their taps", async ({ page }) => {
-  await openImprove(page, { deep: true });
+  await openImprove(page);
   const btn = tip(page, "budget");
   const box = await btn.boundingBox();
   expect(box.height, "the touch rule must not stretch it").toBeLessThan(24);
@@ -164,7 +161,7 @@ test("the button is small, reaches past its edge, and leaves its neighbours thei
     }, side);
   };
   expect(await owns(page.locator(".insp-select"), "right"), "select").toBe(true);
-  expect(await owns(page.locator(".insp-mode-toggle"), "right"), "mode toggle").toBe(true);
+  expect(await owns(page.locator(".insp-sources"), "right"), "lists switch").toBe(true);
   for (const group of ["Target bracket", "Budget ceiling", "Pilot complexity"]) {
     expect(await owns(page.locator(`[aria-label="${group}"] .dg-chip`).first(), "left"), group).toBe(true);
   }

@@ -5,7 +5,7 @@
 // Changes is in Improve, Combos in Stats; the card grid is in Cards, so every
 // check on the deck's cards opens Cards first.
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, navigateToTab, openDeckSection, addCardField } from "./fixtures/helpers.js";
+import { loadSharedDeck, navigateToTab, openDeckSection, addCardField, runAiReview, openChangeList } from "./fixtures/helpers.js";
 
 const DECK = ["1 Sol Ring", "1 Cultivate", "1 Kodama's Reach", "1 Counterspell", "10 Forest", "10 Plains"].join("\n");
 
@@ -24,7 +24,7 @@ test.describe("Insights persistence", () => {
   // are metered, so a test that needs them asks for them the way a user does.
   async function openChanges(page, { deep = false } = {}) {
     await openDeckSection(page, "Improve");
-    if (deep) await improve(page).locator(".insp-deep").click();
+    if (deep) await runAiReview(page);
   }
 
   async function quickAdd(page, name) {
@@ -97,19 +97,32 @@ test.describe("Insights persistence", () => {
     expect(recCalls.n).toBe(1);
     expect(optimizeCalls.n).toBe(0);
     expect(swapCalls.n).toBe(0);
-    // Nothing to toggle between yet, so the upgrade-mode switch stays hidden.
-    await expect(page.locator(".insp-mode-toggle")).toHaveCount(0);
+    // The three lists' switch is there from the start (audit job 6.3).
+    await expect(page.locator(".insp-sources button")).toHaveText([/^For this commander/, /^Cheaper swaps/, /^AI review/]);
+    await expect(page.locator(".insp-deep")).toHaveCount(0); // the AI button lives in its own list
 
-    // The labelled button is the only thing that spends a call.
+    // Cheaper swaps are free: opening their list fetches them and no AI call.
+    await openChangeList(page, "Cheaper swaps");
+    await expect.poll(() => swapCalls.n).toBe(1);
+    expect(optimizeCalls.n).toBe(0);
+
+    // Opening the AI review's list spends nothing either; its labelled button does.
+    await openChangeList(page, "AI review");
     const deep = page.locator(".insp-deep");
     await expect(deep).toContainText("Uses AI");
+    expect(optimizeCalls.n).toBe(0);
+    // Look again only re-runs what is loaded: free so far, and it says nothing about AI.
+    const again = page.getByRole("button", { name: /Look again/ });
+    await expect(again).not.toContainText("Uses AI");
     await deep.click();
     await expect(improve(page).locator('.insp-body .opt-card[data-action="swap"]:has-text("Cultivate")')).toHaveCount(1, { timeout: 10000 });
     expect(optimizeCalls.n).toBe(1);
-    expect(swapCalls.n).toBe(1);
+    expect(swapCalls.n).toBe(1); // the AI review bought no second swaps call
     expect(recCalls.n).toBe(1); // the free source was not re-bought
-    await expect(page.locator(".insp-mode-toggle")).toHaveCount(1);
     await expect(deep).toHaveCount(0);
+    // With the AI review loaded, Look again will run it again, from any list: it says so.
+    await openChangeList(page, "For this commander");
+    await expect(again).toContainText("Uses AI");
   });
 
   // Regression (Holiday on 3.1): reopening Improve while the paid pass was
@@ -196,7 +209,7 @@ test.describe("Insights persistence", () => {
     await expect(pane.locator('.opt-card:has-text("Rhystic Study")')).toHaveCount(1);
 
     // Applying a pinned proposal consumes the pin and logs the change.
-    await pane.locator('.opt-card:has-text("Lightning Bolt") button:has-text("Apply")').click();
+    await pane.locator('.opt-card:has-text("Lightning Bolt")').getByRole("button", { name: "Add Lightning Bolt", exact: true }).click();
     await expect(pane.locator('.opt-card .opt-cat:has-text("Pinned")')).toHaveCount(0);
     await expect(page.locator(".opt-log-summary")).toContainText("Session log (1)");
   });
@@ -206,29 +219,34 @@ test.describe("Insights persistence", () => {
   // suggestions' "Show again" silently revive every declined upgrade.
   test("declining an upgrade is separate from skipping a suggestion", async ({ page }) => {
     await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
-    await openChanges(page, { deep: true });
+    await openChanges(page);
     const pane = improve(page).locator(".insp-body");
 
+    // Each list is its own view since audit job 6.3, and keeps its own counter.
+    await openChangeList(page, "Cheaper swaps");
     const budgetCard = pane.locator('.opt-card:has(.opt-cat:text-is("Budget"))');
     await expect(budgetCard).toHaveCount(1, { timeout: 10000 });
 
-    // Decline the upgrade — it gets its own counter, not the skipped one.
+    // Decline the swap — it gets its own counter, not the skipped one.
     await budgetCard.locator('button:has-text("Skip")').click();
     await expect(budgetCard).toHaveCount(0);
-    await expect(pane.locator(".insp-note-upgrades")).toContainText("1 upgrades declined");
+    await expect(pane.locator(".insp-note-upgrades")).toContainText("1 swap declined");
     await expect(pane.locator(".insp-note-skipped")).toHaveCount(0);
 
-    // Skip an ordinary suggestion — different counter again.
+    // Skip an ordinary suggestion — different counter again, under its own list.
+    await openChangeList(page, "For this commander");
     await pane.locator('.opt-card:has(.opt-cat:text-is("High synergy")):has-text("Rhystic Study") button:has-text("Skip")').click();
     await expect(pane.locator(".insp-note-skipped")).toContainText("1 skipped");
+    await expect(pane.locator(".insp-note-upgrades")).toHaveCount(0);
 
-    // Restoring skipped suggestions must NOT restore the declined upgrade.
+    // Restoring skipped suggestions must NOT restore the declined swap.
     await pane.locator('.insp-note-skipped button:has-text("Show again")').click();
     await expect(pane.locator('.opt-card:has-text("Rhystic Study")')).toHaveCount(1);
+    await openChangeList(page, "Cheaper swaps");
     await expect(budgetCard).toHaveCount(0);
-    await expect(pane.locator(".insp-note-upgrades")).toContainText("1 upgrades declined");
+    await expect(pane.locator(".insp-note-upgrades")).toContainText("1 swap declined");
 
-    // The upgrade's own "Show again" is what brings it back.
+    // The swap's own "Show again" is what brings it back.
     await pane.locator('.insp-note-upgrades button:has-text("Show again")').click();
     await expect(budgetCard).toHaveCount(1);
   });
@@ -238,22 +256,25 @@ test.describe("Insights persistence", () => {
   // into the shared apply handler dropped that.
   test("applying an upgrade stops the cut card being re-suggested", async ({ page }) => {
     await loadSharedDeck(page, DECK, "Atraxa, Praetors' Voice");
-    await openChanges(page, { deep: true });
+    await openChanges(page);
     const pane = improve(page).locator(".insp-body");
 
     // Smothering Tithe is both a budget-swap target and a standing suggestion.
     const suggestion = pane.locator('.opt-card:has(.opt-cat:text-is("High synergy")):has-text("Smothering Tithe")');
     const budgetCard = pane.locator('.opt-card:has(.opt-cat:text-is("Budget"))');
+    await expect(suggestion).toHaveCount(1, { timeout: 10000 });
+    await openChangeList(page, "Cheaper swaps");
     await expect(budgetCard).toHaveCount(1, { timeout: 10000 });
-    await expect(suggestion).toHaveCount(1);
 
     await budgetCard.locator('button:has-text("Apply")').click();
+    // It's a skip, not a swap decline — the user accepted this swap.
+    await expect(budgetCard).toHaveCount(0);
+    await expect(pane.locator(".insp-note-upgrades")).toHaveCount(0);
 
     // Swapped out, so it must not come straight back as "add this".
-    await expect(suggestion).toHaveCount(0);
+    await openChangeList(page, "For this commander");
     await expect(pane.locator(".insp-note-skipped")).toContainText("1 skipped");
-    // It's a skip, not an upgrade decline — the user accepted this upgrade.
-    await expect(pane.locator(".insp-note-upgrades")).toHaveCount(0);
+    await expect(suggestion).toHaveCount(0);
   });
 
   // Regression: applied proposals used to stay on screen, and Apply had no
@@ -270,7 +291,7 @@ test.describe("Insights persistence", () => {
     const twoCopies = page.locator('.card-grid-container [aria-label="2x Lightning Bolt"]');
 
     await expect(bolt).toHaveCount(1, { timeout: 10000 });
-    await bolt.locator('button:has-text("Apply")').click();
+    await bolt.getByRole("button", { name: "Add Lightning Bolt", exact: true }).click();
 
     // Gone from the queue, one log entry, one copy in the deck.
     await expect(bolt).toHaveCount(0);
@@ -351,7 +372,8 @@ test.describe("Insights persistence", () => {
     const thumb = (label) => page.locator(`.card-grid-container [aria-label="${label}"]`);
     await expect(thumb("1x Arcane Signet")).toHaveCount(1);
 
-    await openChanges(page, { deep: true });
+    await openChanges(page);
+    await openChangeList(page, "Cheaper swaps");
     const budgetCard = improve(page).locator('.insp-body .opt-card:has(.opt-cat:text-is("Budget"))');
     await expect(budgetCard).toHaveCount(1, { timeout: 10000 });
     await budgetCard.locator('button:has-text("Apply")').click();

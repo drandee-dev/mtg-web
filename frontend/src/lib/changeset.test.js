@@ -14,7 +14,6 @@ test("an empty suggestion list falls back to the first list with cards", () => {
 });
 
 const swapsOf = (alternative) => buildChanges({
-  upgradeMode: "budget",
   budgetSwaps: { v: 2, swaps: [{ card: "Charismatic Conqueror", price: 23.79, alternative }] },
 });
 
@@ -51,6 +50,22 @@ test("a suggestion shows no share under 100 decks, the floor budget swaps use", 
   const reason = (n) => out.find((c) => c.add === n).reason;
   assert.equal(reason("Small Sample"), "Commonly played alongside this commander.");
   assert.equal(reason("Just Enough"), "Played in 50% of this commander's decks.");
+});
+
+test("every loaded source is built, whichever list is showing, and a suggestion carries its theme tag", () => {
+  const out = buildChanges({
+    recCat: "creatures",
+    recs: { categories: { creatures: [
+      { name: "Sliver Legion", theme_tag: "Sliver" }, { name: "Regal Sliver", theme_tag: "Sliver" }, { name: "Sol Ring", theme_tag: null },
+    ] } },
+    optimize: { changes: [{ id: "opt:1", action: "cut", cut: "Cultivate" }] },
+    budgetSwaps: { swaps: [{ card: "Rhystic Study", price: 25, alternative: { name: "Mystic Remora", price: 4 } }] },
+    pinned: new Set(["Sliver Legion"]),
+  });
+  assert.deepEqual(out.map((c) => c.source), ["rec", "rec", "rec", "optimize", "upgrade"]);
+  // A pinned row and an ordinary one take different paths to the tag.
+  assert.deepEqual(out.filter((c) => c.source === "rec").map((c) => [c.add, c.themeTag, Boolean(c.isPinned)]),
+    [["Sliver Legion", "Sliver", true], ["Regal Sliver", "Sliver", false], ["Sol Ring", null, false]]);
 });
 
 test("without commander data the reason has no percentage", () => {

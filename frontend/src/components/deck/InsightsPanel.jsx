@@ -52,7 +52,7 @@ export default function InsightsPanel({
   dismissedCuts, onClearDismissedCuts,
   declinedUpgrades, onClearDeclinedUpgrades, onLoadDeepChanges,
   combos, onGoldfish,
-  optimize, budgetSwaps, upgradeMode, setUpgradeMode,
+  optimize, budgetSwaps, upgradeMode, setUpgradeMode, sourceCounts, optimizing,
   onApplyChange, onSkipChange,
   commander, format, tools, analyzing,
 }) {
@@ -125,6 +125,7 @@ export default function InsightsPanel({
               <ChangesPane changes={changes} loaded={loadedChanges}
                 recs={recs} recCat={recCat} setRecCat={setRecCat}
                 upgradeMode={upgradeMode} setUpgradeMode={setUpgradeMode}
+                sourceCounts={sourceCounts} optimizing={optimizing}
                 pinned={pinned} onTogglePin={onTogglePin}
                 skipped={skipped} onClearSkipped={onClearSkipped}
                 dismissedCuts={dismissedCuts} onClearDismissedCuts={onClearDismissedCuts}
@@ -452,60 +453,97 @@ const PinIcon = ({ filled }) => (
   </svg>
 );
 
+// The three lists of Suggested changes, in the switch's order (audit job 6.3).
+const SOURCES = [["recs", "For this commander"], ["budget", "Cheaper swaps"], ["power", "AI review"]];
+
+// Why a list is empty, and what to do about it. `null` while the AI review has
+// not been run: its button is the state then.
+function emptyText({ mode, hasRecs, budgetSwaps, optimize }) {
+  if (mode === "recs") {
+    return hasRecs
+      ? "Nothing left in this list. Every suggestion is added or skipped."
+      : "EDHREC has no suggestions for this commander.";
+  }
+  if (mode === "budget") {
+    return budgetSwaps?.swaps?.length
+      ? "Nothing left in this list. Every swap is applied or declined."
+      : "No cheaper swaps found for this deck.";
+  }
+  if (!optimize) return null;
+  // A failed run is not an empty answer. The error itself is above the list.
+  if (optimize.error) return "The AI review did not finish. Press Look again to run it once more; that uses an AI call.";
+  if (optimize.changes?.length) return "Nothing left in this list. Every change is applied or skipped.";
+  // Every change the AI proposed was held back by the deck's own rules (the note
+  // above this line says which): say what the person can do next.
+  if (optimize.held_back_note) {
+    return "Nothing else stood out. For a different kind of suggestion, change your Goals, "
+      + "then press Look again. Look again runs the AI review once more and uses an AI call.";
+  }
+  return "The AI review found nothing to change.";
+}
+
 function ChangesPane({
-  changes, loaded, recs, recCat, setRecCat, upgradeMode, setUpgradeMode,
+  changes, loaded, recs, recCat, setRecCat, upgradeMode, setUpgradeMode, sourceCounts, optimizing,
   onTogglePin, skipped, onClearSkipped, dismissedCuts, onClearDismissedCuts,
   declinedUpgrades, onClearDeclinedUpgrades,
   optimize, budgetSwaps, onLoadDeepChanges,
   onApplyChange, onSkipChange,
 }) {
   // Hooks first: the pane returns early below until proposals have loaded.
-  // Matches lib/changeset.js: the AI's changes show in both modes; budget mode adds
-  // the swaps on top. ChangeCard colours a saving green and a cost amber (.opt-delta).
-  const modeTip = useInfoTip("budget swaps and power upgrades",
-    "Both show the AI's changes toward your goals, each with a cheaper card for the same job "
-    + "under it when there is one. Budget swaps also adds cheaper cards that "
-    + "do the same job, led by what this commander's decks play; Power upgrades shows the AI's "
-    + "changes alone. The amount on a change is how it moves the deck's price: green saves, amber costs more.");
+  // ChangeCard colours a saving green and a cost amber (.opt-delta).
+  const listsTip = useInfoTip("the three lists",
+    "For this commander: cards that EDHREC's decks with this commander play. Free. "
+    + "Cheaper swaps: cheaper cards that do the same job as cards in your deck, led by what this "
+    + "commander's decks play. Free. "
+    + "AI review: cuts, adds and swaps toward your Goals, each with a cheaper card for the same job "
+    + "under it when there is one. It uses an AI call each time it runs. "
+    + "The amount on a change is how it moves the deck's price: green saves, amber costs more.");
   const sourceTip = useInfoTip("suggestions",
     "Cards that EDHREC's decks with this commander play, one list at a time. "
-    + "\"Played in N%\" is the share of those decks that run the card, shown once at least "
+    + "“Played in N%” is the share of those decks that run the card, shown once at least "
     + "100 decks have this commander.");
   if (!loaded) return <p className="muted small insp-empty">No change proposals loaded yet.</p>;
   // Every category key can come back present but empty (no EDHREC page for
   // this pairing), so count cards, not keys, or the dropdown renders blank.
   const hasRecs = REC_CATEGORIES.some(([k]) => recs?.categories?.[k]?.length);
-  // Opening this tab only buys the free EDHREC suggestions. The AI changeset
-  // (optimize) and budget swaps cost model calls, so they stay behind one
-  // labelled button. Optimize isn't mode-gated (it covers cuts/adds/swaps
-  // regardless of budget vs. power); only budgetSwaps still is.
-  const haveUpgrades = Boolean(budgetSwaps || optimize);
-  const deepPending = !optimize || (upgradeMode === "budget" && !budgetSwaps);
+  const mode = upgradeMode;
+  const empty = changes.length === 0 ? emptyText({ mode, hasRecs, budgetSwaps, optimize }) : null;
   return (
     <>
-      {deepPending && onLoadDeepChanges && (
-        <button className="insp-deep" onClick={onLoadDeepChanges}>
-          <span>Also find cuts and upgrades</span>
-          <span className="insp-deep-badge">Uses AI</span>
-        </button>
-      )}
-
-      {haveUpgrades && (
-        <div className="insp-tip-row info-tip-host">
-          <div className="ai-panel-toggle insp-mode-toggle">
-            <button className={upgradeMode === "budget" ? "active" : ""} onClick={() => setUpgradeMode("budget")}>
-              Budget swaps
+      <div className="insp-tip-row info-tip-host">
+        <div className="ai-panel-toggle insp-sources" role="group" aria-label="Suggestion list">
+          {SOURCES.map(([id, label]) => (
+            <button key={id} type="button" className={mode === id ? "active" : ""}
+              aria-pressed={mode === id} onClick={() => setUpgradeMode(id)}>
+              {label}
+              {sourceCounts?.[id] > 0 && (
+                <span className="insp-source-count">
+                  {sourceCounts[id]}<span className="visually-hidden"> to look at</span>
+                </span>
+              )}
             </button>
-            <button className={upgradeMode === "power" ? "active" : ""} onClick={() => setUpgradeMode("power")}>
-              Power upgrades
-            </button>
-          </div>
-          {modeTip.button}
-          {modeTip.panel}
+          ))}
         </div>
+        {listsTip.button}
+        {listsTip.panel}
+      </div>
+
+      {/* The only thing here that spends an AI call, and only when pressed. */}
+      {mode === "power" && !optimize && !optimizing && onLoadDeepChanges && (
+        <>
+          <p className="improve-sub insp-source-intro">Cuts, adds and swaps toward your Goals. Nothing runs until you ask.</p>
+          <button type="button" className="insp-deep" onClick={onLoadDeepChanges}>
+            <span>Run the AI review</span>
+            <span className="insp-deep-badge">Uses AI</span>
+          </button>
+        </>
+      )}
+      {/* The server's guards, as a count and a reason (audit job 3.4). */}
+      {mode === "power" && optimize?.held_back_note && !optimizing && (
+        <p className="insp-held" role="status">{optimize.held_back_note}</p>
       )}
 
-      {hasRecs && (
+      {mode === "recs" && hasRecs && (
         <div className="insp-tip-row info-tip-host">
           <select className="insp-select" value={recCat} onChange={(e) => setRecCat(e.target.value)}
             aria-label="Suggestion category">
@@ -518,9 +556,7 @@ function ChangesPane({
         </div>
       )}
 
-      {changes.length === 0 && (
-        <p className="muted small insp-empty">Nothing left here — every proposal is applied, skipped, or kept.</p>
-      )}
+      {empty && <p className="muted small insp-empty">{empty}</p>}
 
       {changes.map((ch) => (
         <ChangeCard
@@ -539,19 +575,20 @@ function ChangesPane({
         />
       ))}
 
-      {skipped?.size > 0 && (
+      {/* Each list's own "put them back", under the list it belongs to. */}
+      {mode === "recs" && skipped?.size > 0 && (
         <p className="insp-hidden-note insp-note-skipped">
           {skipped.size} skipped
           <button className="insp-act insp-linklike" onClick={onClearSkipped}>Show again</button>
         </p>
       )}
-      {declinedUpgrades?.size > 0 && (
+      {mode === "budget" && declinedUpgrades?.size > 0 && (
         <p className="insp-hidden-note insp-note-upgrades">
-          {declinedUpgrades.size} upgrades declined
+          {declinedUpgrades.size} swap{declinedUpgrades.size === 1 ? "" : "s"} declined
           <button className="insp-act insp-linklike" onClick={onClearDeclinedUpgrades}>Show again</button>
         </p>
       )}
-      {dismissedCuts?.size > 0 && (
+      {mode === "power" && dismissedCuts?.size > 0 && (
         <p className="insp-hidden-note insp-note-cuts">
           {dismissedCuts.size} cuts kept
           <button className="insp-act insp-linklike" onClick={onClearDismissedCuts}>Show again</button>

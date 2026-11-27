@@ -51,24 +51,32 @@ function recReason(share) {
     : "Commonly played alongside this commander.";
 }
 
+/** Which change `source` each list of the Suggested changes switch shows (audit job
+ *  6.3). The switch's value is still called `upgradeMode` where it is stored. */
+export const SOURCE_OF_MODE = { recs: "rec", budget: "upgrade", power: "optimize" };
+
+/** Every proposal from every loaded source. The pane shows one source at a time
+ *  (`SOURCE_OF_MODE`); the Improve tab's count is all of them. */
 export function buildChanges({
-  recs, recCat, optimize, budgetSwaps, upgradeMode,
+  recs, recCat, optimize, budgetSwaps,
   skipped, declinedUpgrades, pinned, decided,
 }) {
   const out = [];
-  const shareOf = (name) => {
+  const rowOf = (name) => {
     for (const list of Object.values(recs?.categories || {})) {
-      const share = deckShare(list.find((c) => c.name === name));
-      if (share != null) return share;
+      const row = list.find((c) => c.name === name);
+      if (row) return row;
     }
     return null;
   };
 
   // Pinned suggestions stay at the top and survive refreshes and deck edits.
   for (const name of pinned || []) {
+    const row = rowOf(name);
     out.push({
       id: `rec:${name}`, source: "rec", isPinned: true, action: "add", add: name,
-      category: "Pinned", impact: "high", reason: recReason(shareOf(name)),
+      category: "Pinned", impact: "high", reason: recReason(deckShare(row)),
+      themeTag: row?.theme_tag || null,
     });
   }
   for (const c of recs?.categories?.[recCat] || []) {
@@ -78,17 +86,15 @@ export function buildChanges({
       category: REC_LABEL[recCat] || recCat,
       impact: (c.synergy ?? 0) >= 0.7 ? "high" : "medium",
       reason: recReason(deckShare(c)),
+      themeTag: c.theme_tag || null, // the server's theme reading (audit job 6.1)
     });
   }
   // AI-sourced changeset — cuts, adds and swaps in one pass, goal-aware.
-  // Unconditional (not upgradeMode-gated): it stands in for both the old
-  // cuts and power-upgrades sources, and budget mode adds budgetSwaps on
-  // top of it rather than replacing it.
   for (const ch of optimize?.changes || []) {
     out.push({ ...ch, source: "optimize" });
   }
-  if (upgradeMode === "budget") {
-    for (const sw of budgetSwaps?.swaps || []) {
+  if (budgetSwaps) {
+    for (const sw of budgetSwaps.swaps || []) {
       if (!sw?.alternative?.name || declinedUpgrades?.has(sw.card)) continue;
       const from = Number(sw.price);
       const to = Number(sw.alternative.price);

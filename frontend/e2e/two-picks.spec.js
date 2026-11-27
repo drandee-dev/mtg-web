@@ -5,7 +5,7 @@
 // the Goals budget. The shared mock has no cheaper picks, so this spec answers the AI
 // pass itself.
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, openDeckSection } from "./fixtures/helpers.js";
+import { loadSharedDeck, openDeckSection, runAiReview } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
 const SWAP = {
@@ -28,7 +28,7 @@ async function openWith(page, changes, sent = []) {
   });
   await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
   await openDeckSection(page, "Improve");
-  await page.locator(".insp-deep").click();
+  await runAiReview(page);
   const cards = page.locator('.opt-card[data-source="optimize"]');
   await expect(cards).toHaveCount(changes.length);
   return cards;
@@ -89,7 +89,8 @@ test("Apply cheaper swaps in the cheaper card, logs it, and declines the stronge
 
 test("a skip records both picks for the AI's session memory", async ({ page }) => {
   const cards = await openWith(page, [SWAP, CUT]);
-  await cards.first().getByRole("button", { name: "Skip", exact: true }).click();
+  // The button's name now says which change it skips (audit job 6.3).
+  await cards.first().getByRole("button", { name: /^Skip: cut Cultivate, add / }).click();
   await expect(cards).toHaveCount(1);
   expect((await skipsIn(page)).sort()).toEqual(["Cultivate > Lightning Bolt", "Cultivate > Malakir Rebirth"]);
 });
@@ -112,7 +113,7 @@ test("Goals: Over budget is Strongest first until the user picks Savings first",
   await expect(page.locator('.dg-opts[aria-label="Pilot complexity"] [aria-pressed]')).not.toHaveCount(0);
   await expect(row.getByRole("button", { name: "Strongest first", exact: true })).toHaveAttribute("aria-pressed", "true");
   expect(sent.at(-1)?.goals?.over_budget).toBeUndefined(); // the first pass: no budget yet
-  const lookAgain = page.getByRole("button", { name: "Look again", exact: true });
+  const lookAgain = page.getByRole("button", { name: /^Look again/ });
   await lookAgain.click();
   await expect.poll(() => sent.at(-1)?.goals?.budget_ceiling).toBe(50);
   expect(sent.at(-1).goals.over_budget).toBeUndefined(); // the default sends nothing

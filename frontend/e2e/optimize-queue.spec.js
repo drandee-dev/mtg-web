@@ -3,13 +3,13 @@
 // swap and a cut against the shared Atraxa test deck).
 
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, openDeckSection, deckMenuAction } from "./fixtures/helpers.js";
+import { loadSharedDeck, openDeckSection, deckMenuAction, runAiReview } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
 // The AI changes are in the deck's Improve section, on desktop and phone alike,
-// in the one Suggested changes list beside the EDHREC suggestions.
+// in Suggested changes' AI review list (audit job 6.3).
 const aiCards = (page) => page.locator('.opt-card[data-source="optimize"]');
-const findCutsAndUpgrades = (page) => page.locator(".insp-deep").click();
+const findCutsAndUpgrades = runAiReview;
 
 test.describe("Suggested changes: the AI pass", () => {
   test("the AI button shows the change cards with a price delta", async ({ page }) => {

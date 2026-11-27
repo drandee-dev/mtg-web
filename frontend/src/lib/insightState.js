@@ -18,9 +18,9 @@ export const BUDGET_SWAPS_VERSION = 3;
 const currentSwaps = (d) => (d && d.v === BUDGET_SWAPS_VERSION ? d : null);
 
 /** A cache from `loadInsights` (or null for a deck with none) → the values the
- * state starts from, or is reset to on a deck switch. `upgradeMode` is null
- * when the cache has none: a first load then defaults to "budget", and a deck
- * switch leaves the mode where it is. */
+ * state starts from, or is reset to on a deck switch. `upgradeMode` is still
+ * stored and returned here, but since audit job 6.3 nothing reads it back: the
+ * Suggested changes switch always opens on "recs" (see useInsightCache). */
 export function stateFromCache(c) {
   const data = (k) => c?.panels?.[k]?.data ?? null;
   const panelSigs = {};

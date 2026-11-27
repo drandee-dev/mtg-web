@@ -27,7 +27,11 @@ export function useInsightCache(deckId) {
   // explanations already paid for with an AI call.
   const [ratings, setRatings] = useState(initial.ratings);
   const [strategy, setStrategy] = useState(initial.strategy);
-  const [upgradeMode, setUpgradeMode] = useState(initial.upgradeMode || "budget");
+  // Which list Suggested changes shows: "recs" (this commander's EDHREC cards),
+  // "budget" (cheaper swaps) or "power" (the AI review). Audit job 6.3. It always
+  // opens on "recs", the free list: the cache still stores the value but it is
+  // not read back, because every deck saved before 6.3 holds the old default.
+  const [upgradeMode, setUpgradeMode] = useState("recs");
   const [panelSigs, setPanelSigs] = useState(initial.panelSigs);
   const [activePanel, setActivePanel] = useState(initial.activePanel);
   // Per-suggestion user verdicts — persisted with the insight cache and, unlike
@@ -58,7 +62,7 @@ export function useInsightCache(deckId) {
     setCombos(s.combos); setBudgetSwaps(s.budgetSwaps); setStrategy(s.strategy);
     setRatings(s.ratings);
     setActivePanel(s.activePanel);
-    if (s.upgradeMode) setUpgradeMode(s.upgradeMode);
+    setUpgradeMode("recs");
     setSkipped(s.skipped);
     setPinned(s.pinned);
     setDismissedCuts(s.dismissedCuts);
