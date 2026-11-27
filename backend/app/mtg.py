@@ -13,6 +13,7 @@ import logging
 import math
 import os
 import re
+import unicodedata
 from collections import Counter
 from typing import Any
 
@@ -1558,11 +1559,12 @@ def _deck_context(
             if card.get("power") is not None:
                 pt = f" ({card['power']}/{card['toughness']})"
             oracle_short = oracle.replace("\n", " | ") if oracle else ""
-            lines.append(f"{qty} {name} [{tl}] {mc}{pt} — {oracle_short}")
+            shown = _card_name_for_prompt(name, card)
+            lines.append(f"{qty} {shown} [{tl}] {mc}{pt} — {oracle_short}")
         else:
             # Not a known card: the line is the user's own text, so it is wrapped
             # like any other (found in 5.11's review; one cache miss per deck).
-            lines.append(f"{qty} {_wrap_user(name)}")
+            lines.append(f"{qty} {_card_name_for_prompt(name, None)}")
 
     # The theme reading (app/theme.py): tribe, commander mechanics, the cards that
     # fill each. One pure function; later guards read ctx["theme"].on_theme().
@@ -1695,12 +1697,28 @@ def _wrap_user(text: str) -> str:
     return f"<user_input>{safe}</user_input>"
 
 
+def _card_name_for_prompt(typed: str, rec: dict | None) -> str:
+    """How a decklist name is written into a prompt (audit job 6.9).
+
+    Not a known card: it is the user's own text, so it is wrapped. A known card typed
+    in plain characters (accents allowed) is left exactly as typed, which keeps every
+    ordinary deck's cached text unchanged. Anything else gets the card's own name:
+    the index drops every non-ASCII character before it looks a name up, so "Sol
+    Ring" with zero-width characters or other text attached still resolves, and what
+    was attached must not reach the model as if it were a card name."""
+    if not rec:
+        return _wrap_user(typed)
+    plain = all(
+        ord(ch) < 128 or unicodedata.combining(ch)
+        for ch in unicodedata.normalize("NFKD", typed)
+    )
+    return typed if plain else (rec.get("name") or _wrap_user(typed))
+
+
 def _names_for_prompt(names: list[str]) -> str:
-    """Card names from a decklist, joined for a prompt. A name that is a known card
-    is left as it is; one that is not is the user's own text and is wrapped
-    (audit job 6.9: an unknown commander reached the cached block raw)."""
+    """Card names from a decklist, joined for a prompt (the commander lines)."""
     idx = _bulk_index()
-    return ", ".join(n if idx.get(n) else _wrap_user(n) for n in names)
+    return ", ".join(_card_name_for_prompt(n, idx.get(n)) for n in names)
 
 
 def _cached_deck_messages(
