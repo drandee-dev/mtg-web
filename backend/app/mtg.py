@@ -1560,7 +1560,9 @@ def _deck_context(
             oracle_short = oracle.replace("\n", " | ") if oracle else ""
             lines.append(f"{qty} {name} [{tl}] {mc}{pt} — {oracle_short}")
         else:
-            lines.append(f"{qty} {name}")
+            # Not a known card: the line is the user's own text, so it is wrapped
+            # like any other (found in 5.11's review; one cache miss per deck).
+            lines.append(f"{qty} {_wrap_user(name)}")
 
     # The theme reading (app/theme.py): tribe, commander mechanics, the cards that
     # fill each. One pure function; later guards read ctx["theme"].on_theme().
