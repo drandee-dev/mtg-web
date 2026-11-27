@@ -17,7 +17,7 @@ from collections import Counter
 from typing import Any
 
 from app import config
-from app.theme import read_theme
+from app.theme import Theme, read_theme
 
 config.bootstrap_mtg_utils()
 
@@ -646,11 +646,24 @@ def deck_recommendations(text: str, *, fmt: str = "commander") -> dict[str, Any]
             "note": f"EDHREC has no recommendations for this {which}.",
         }
 
-    hd = HydratedDeck.from_parsed(deck, _bulk_index())
+    idx = _bulk_index()
+    hd = HydratedDeck.from_parsed(deck, idx)
+    theme = _theme_of(deck, hd)
     for cards in categories.values():
         for cv in cards:
             cv["in_deck"] = cv.get("name", "") in hd.by_name
+            # Audit job 6.1: the row's theme pill ("Sliver", "On theme" or none).
+            cv["theme_tag"] = theme.tag(idx.get(cv.get("name", "")))
     return {"commanders": commanders, "categories": categories}
+
+
+def _theme_of(deck: dict, hd: HydratedDeck) -> Theme:
+    """The deck's theme reading from its parsed list (no AI, no network)."""
+    idx = _bulk_index()
+    return read_theme(
+        [r for r in (idx.get(e["name"]) for e in deck.get("commanders", [])) if r],
+        [c for _, c in hd.entries(zones=("commanders", "cards")) if c],
+    )
 
 
 def deck_combos(text: str, *, fmt: str = "commander") -> dict[str, Any]:
@@ -1025,7 +1038,13 @@ def deck_composition(text: str, *, fmt: str = "commander") -> dict[str, Any]:
                 "spare": spare,
             }
         )
-    return {"format": fmt, "is_commander": is_commander_fmt, "categories": categories}
+    return {
+        "format": fmt,
+        "is_commander": is_commander_fmt,
+        "categories": categories,
+        # Audit job 6.1: what the deck is built around, for Improve's rail.
+        "theme": _theme_of(deck, hd).summary() if is_commander_fmt else [],
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -2658,10 +2677,7 @@ def budget_swaps(
     }
     # Audit job 3.3: an on-theme card is only swapped for one that keeps its theme
     # (Synapse Sliver went to Solemn Simulacrum, Apex Altisaur to Terastodon).
-    theme = read_theme(
-        [r for r in (idx.get(e["name"]) for e in deck.get("commanders", [])) if r],
-        [c for _, c in hd.entries(zones=("commanders", "cards")) if c],
-    )
+    theme = _theme_of(deck, hd)
     # Optimize's bracket check (audit job 3.6): a cheaper card must not lift the
     # deck past the bracket it is in now.
     has_brackets = bool((FORMAT_CONFIGS.get(fmt) or {}).get("has_commander"))

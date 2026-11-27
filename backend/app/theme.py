@@ -266,6 +266,9 @@ def _type_word(t: str) -> str:
 class Theme:
     tribe: str | None = None
     tribe_named: bool = False  # True when a commander's text names it
+    # Cards of the tribe's type (changelings and Kindred spells included); the
+    # tribe role also holds the cards that make or support them.
+    tribe_creatures: int = 0
     mechanics: list[Mechanic] = field(default_factory=list)
     roles: dict[str, list[str]] = field(default_factory=dict)
     _pats: dict[str, re.Pattern] = field(default_factory=dict, repr=False)
@@ -311,6 +314,27 @@ class Theme:
         if "tribe" in why:
             return "tribe" in self.reasons(new)
         return bool(why & self.reasons(new))
+
+    def summary(self) -> list[dict]:
+        """For the page (audit job 6.1): one group per theme role, the tribe first.
+        `count` is every card in the group; the tribe's `creatures` is how many of
+        those are creatures of the type (the rest make or support them)."""
+        tribe_key = f"{self.tribe.title()} tribe" if self.tribe else None
+        return [
+            {
+                "label": self.tribe_plural() if k == tribe_key else k,
+                "count": len(v),
+                "creatures": self.tribe_creatures if k == tribe_key else None,
+            }
+            for k, v in self.roles.items()
+        ]
+
+    def tag(self, rec: dict | None) -> str | None:
+        """A suggestion row's theme label: the tribe's name, "On theme", or None."""
+        why = self.reasons(rec) - {"commander"}
+        if "tribe" in why and self.tribe:
+            return self.tribe.title()
+        return "On theme" if why else None
 
     def prompt_text(self) -> str:
         out = ["\n## Theme reading (from card data)"]
@@ -375,6 +399,9 @@ def read_theme(commanders: list[dict], cards: list[dict]) -> Theme:
         roles[f"{tribe.title()} tribe"] = [
             r["name"] for r in cards if theme.on_tribe(r)
         ]
+        theme.tribe_creatures = sum(
+            1 for r in cards if tribe in creature_types(r) or _changeling(r)
+        )
     low_power = any(m.key in ("low_power", "reanimator") for m in mechanics)
     for rec in cards:
         target = f"{(rec.get('type_line') or '').lower()}\n{card_text(rec)}"
