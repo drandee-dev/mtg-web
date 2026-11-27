@@ -8,7 +8,7 @@
   width: 18px; height: 18px; min-height: 18px; padding: 0; margin-left: 4px;
   display: inline-grid; place-items: center; vertical-align: middle;
   border-radius: 50%; border: 1px solid var(--border-strong); background: transparent;
-  color: var(--muted); font-size: 11px; font-weight: 700; line-height: 1; cursor: pointer;
+  color: var(--muted); font-size: var(--fs-xs); font-weight: 700; line-height: 1; cursor: pointer;
 }
 /* A 30px target that takes no layout room, on touch too: the usual 44px extender
    would reach 13px out and take taps from the select, the toggle and the first chip

@@ -33,11 +33,11 @@
 .cdm-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .55rem; padding-right: 1.5rem; overflow-y: auto; overscroll-behavior: contain; }
 .cdm-head { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
 .cdm-name { font-size: 1.15rem; font-weight: 700; margin: 0; letter-spacing: -.01em; }
-.cdm-cmdr-tag { font-size: var(--fs-2xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.cdm-cmdr-tag { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
 .cdm-type { margin: 0; }
 .cdm-meta { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; min-height: 1.2rem; }
 .cdm-row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .4rem 0; border-top: 1px solid var(--border); }
-.cdm-row-label { font-size: var(--fs-2xs); font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .06em; }
+.cdm-row-label { font-size: var(--fs-xs); font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .06em; }
 .cdm-stepper { display: flex; align-items: center; gap: .25rem; }
 .cdm-stepper button {
   width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border); min-height: auto;

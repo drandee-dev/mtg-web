@@ -51,6 +51,7 @@ function auditPage() {
   };
 
   const failures = [];
+  const tiny = []; // text set under 12px (audit job 6.5): measured before any contrast skip
   const skippedSel = new Set();
   let checked = 0, skipped = 0;
   for (const el of document.body.querySelectorAll("*")) {
@@ -61,6 +62,12 @@ function auditPage() {
     const cs = getComputedStyle(el);
     if (r.width <= 2 || r.height <= 2 || cs.visibility === "hidden" || cs.display === "none") continue;
     if (el.closest(":disabled, [aria-disabled='true'], [hidden], .visually-hidden")) continue;
+    if (parseFloat(cs.fontSize) < 12) {
+      tiny.push({
+        sel: el.tagName.toLowerCase() + [...el.classList].map((c) => "." + c).join(""),
+        text: text.slice(0, 32), px: Math.round(parseFloat(cs.fontSize) * 100) / 100,
+      });
+    }
     if (cs.webkitTextFillColor && cs.backgroundClip === "text") continue;
     const bg = backdrop(el);
     const fgRaw = parse(cs.color);
@@ -85,7 +92,7 @@ function auditPage() {
       });
     }
   }
-  return { failures, checked, skipped, skippedSel: [...skippedSel] };
+  return { failures, tiny, checked, skipped, skippedSel: [...skippedSel] };
 }
 
 for (const theme of THEMES) {
@@ -98,6 +105,7 @@ for (const theme of THEMES) {
         await page.addInitScript((t) => localStorage.setItem("mtgweb:theme", t), theme);
 
         const seen = new Map();
+        const small = new Map(); // selector and size -> the screens it was seen on
         const skippedAll = [];
         let measured = 0;
         // `ready`: something that only exists once the screen has its content, so a
@@ -107,8 +115,13 @@ for (const theme of THEMES) {
         const audit = async (screen, ready) => {
           if (ready) await ready.first().waitFor({ state: "visible", timeout: 15000 });
           await page.waitForTimeout(350);
-          const { failures, checked, skippedSel } = await page.evaluate(auditPage);
+          const { failures, tiny, checked, skippedSel } = await page.evaluate(auditPage);
           measured += checked;
+          for (const t of tiny) {
+            const key = `${t.sel} "${t.text}" is ${t.px}px`;
+            if (!small.has(key)) small.set(key, []);
+            if (!small.get(key).includes(screen)) small.get(key).push(screen);
+          }
           skippedAll.push(...skippedSel.map((s) => `${s} (${screen})`));
           expect(checked, `${screen}: nothing was measured`).toBeGreaterThan(0);
           for (const f of failures) {
@@ -161,6 +174,10 @@ for (const theme of THEMES) {
              <span class="stack-card-synergy" style="position:fixed;top:120px;left:40px">★ 3 synergies</span>`);
         });
         await audit("the return and offline banners, a synergy badge", page.locator(".pwa-return-banner"));
+
+        // No text under 12px anywhere on the walk (audit job 6.5). Soft, so the contrast
+        // list below is still reported when this one fails.
+        expect.soft([...small].map(([what, screens]) => `${what} in ${screens.join(", ")}`), "text under 12px").toEqual([]);
 
         const rows = [...seen.values()].sort((a, b) => a.ratio - b.ratio);
         if (process.env.CONTRAST_REPORT) {

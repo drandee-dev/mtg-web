@@ -18,6 +18,32 @@ test.describe("Card modal questions", () => {
   // A touch screen needs two taps on a stacked card; the other modal specs skip it too.
   test.skip(({ isMobile }) => isMobile, "desktop flow");
 
+  // The answer is set at 12px, and its chips, code and small headings were sized in em
+  // under that: down to 9.6px (Holiday, audit job 6.5). Nothing in it is under 12px.
+  test("nothing in a rules answer is under 12px", async ({ page }) => {
+    const answer = "### Combat\nPair it with [[Lightning Bolt]], then check `702.19c`.";
+    await page.route("**/api/rules/ask/stream", (route) => route.fulfill({
+      status: 200, contentType: "text/event-stream",
+      body: `data: ${JSON.stringify({ status: "streaming", text: answer })}\n\n`
+        + `data: ${JSON.stringify({ status: "done", text: answer })}\n\n`
+        + `data: ${JSON.stringify({ status: "citations", citations: [], cards: [] })}\n\n`,
+    }));
+    await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+    const modal = await openCard(page, "Sol Ring");
+    await modal.getByRole("button", { name: /^Rules with Atraxa/ }).click();
+    const reply = modal.locator(".cdm-answer");
+    // Here a card name is plain text (.pw-cardname), not a chip; the small heading and
+    // the code span are the parts that were sized in em.
+    await expect(reply.locator(".pw-cardname", { hasText: "Lightning Bolt" })).toBeVisible();
+    await expect(reply.locator(".pw-h3")).toHaveText("Combat");
+    await expect(reply.locator("code")).toBeVisible();
+    const small = await reply.evaluate((root) => [...root.querySelectorAll("*")]
+      .filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
+      .map((el) => [el.className || el.tagName, parseFloat(getComputedStyle(el).fontSize)])
+      .filter(([, px]) => px < 12));
+    expect(small).toEqual([]);
+  });
+
   test("Rules with my commander streams in place and names both cards", async ({ page }) => {
     const asked = [];
     await page.route("**/api/rules/ask/stream", (route) => {

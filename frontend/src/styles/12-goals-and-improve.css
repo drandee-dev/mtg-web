@@ -61,7 +61,7 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .dg-prot { gap: .3rem; padding-right: .3rem; }
 .dg-prot-x {
   background: none; border: none; color: var(--accent); cursor: pointer;
-  font-size: var(--fs-2xs); padding: .1rem .2rem; min-height: auto; line-height: 1; opacity: .75;
+  font-size: var(--fs-xs); padding: .1rem .2rem; min-height: auto; line-height: 1; opacity: .75;
 }
 .dg-prot-x:hover { opacity: 1; }
 .dg-prot-input { width: 100%; border-radius: var(--radius); }
@@ -82,7 +82,7 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .opt-error { font-size: var(--fs-xs); color: var(--bad); margin: .4rem 0 0; }
 /* The action pill in the Planeswalker chat's session changes. */
 .opt-badge {
-  font-size: var(--fs-2xs); font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
   border-radius: 3px; padding: 1px 5px;
 }
 .opt-act-swap { background: rgba(94,158,255,.15); color: var(--accent-2); }
@@ -103,15 +103,15 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .opt-names { font-weight: 700; }
 .opt-reason { font-size: var(--fs-sm); color: var(--text-secondary); line-height: 1.5; }
 .chg-meta { display: flex; gap: .6rem; align-items: baseline; }
-.opt-cat { font-size: var(--fs-2xs); color: var(--muted); }
-.opt-delta { font-size: var(--fs-2xs); font-weight: 600; font-variant-numeric: tabular-nums; }
+.opt-cat { font-size: var(--fs-xs); color: var(--muted); }
+.opt-delta { font-size: var(--fs-xs); font-weight: 600; font-variant-numeric: tabular-nums; }
 .opt-delta.up { color: var(--warn); }
 .opt-delta.down { color: var(--good); }
 .opt-arrow { color: var(--muted); }
 .opt-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
 .opt-actions button { min-height: 44px; padding: 0 16px; border-radius: var(--radius-md); font-weight: 500; }
 .chg-apply { border: 1px solid var(--border-strong); }
-.opt-over { font-size: var(--fs-2xs); font-weight: 600; color: var(--warn); }
+.opt-over { font-size: var(--fs-xs); font-weight: 600; color: var(--warn); }
 /* A two-pick AI change (suggestions job 4): the cheaper card under the reason. */
 .chg-alt {
   display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px;
@@ -154,14 +154,14 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
   font-size: var(--fs-sm); color: var(--text); line-height: 1.5;
 }
 .opt-log { margin-top: .55rem; border-top: 1px solid var(--border); padding-top: .4rem; }
-.opt-log-summary { font-size: var(--fs-2xs); color: var(--muted); cursor: pointer; font-weight: 600; }
+.opt-log-summary { font-size: var(--fs-xs); color: var(--muted); cursor: pointer; font-weight: 600; }
 .opt-log-body { margin-top: .3rem; }
 .opt-log-row {
   display: flex; align-items: center; justify-content: space-between; gap: .4rem;
   padding: .25rem 0; border-bottom: 1px solid rgba(255,255,255,.05); font-size: var(--fs-xs);
 }
 .opt-log-desc { min-width: 0; overflow-wrap: anywhere; }
-.opt-undo, .opt-clear { padding: .1rem .4rem; min-height: auto; font-size: var(--fs-2xs); flex: none; }
+.opt-undo, .opt-clear { padding: .1rem .4rem; min-height: auto; font-size: var(--fs-xs); flex: none; }
 .opt-clear { margin-top: .35rem; color: var(--muted); }
 
 /* Improve (job 3.5): Goals, the theme and Health in a column, Suggested changes
