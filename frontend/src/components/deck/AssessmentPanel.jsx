@@ -1,26 +1,17 @@
 import { useInfoTip } from "../InfoTip";
 import { statusParts } from "../../lib/deckStatus";
 
-function joinNames(list) {
-  const names = list.map((c) => c.label.toLowerCase());
-  if (names.length < 3) return names.join(" and ");
-  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-}
-
 const cards = (n) => `${n} card${n === 1 ? "" : "s"}`;
 const capital = (s) => s.replace(/^./, (m) => m.toUpperCase());
 
-// Two plain sentences from numbers the page already has, so the summary never
-// goes stale the way a written strategy can. The AI pass's own read of the
-// deck replaces it when that pass has run for the cards on screen (`aiNote`).
-function verdictText({ thin, hasCats, detected, target }) {
-  const out = [];
-  if (thin.length) out.push(`${capital(joinNames(thin))} ${thin.length === 1 ? "is" : "are"} under target.`);
-  else if (hasCats) out.push("Every role is at its target.");
-  if (detected != null && target != null && detected !== target) {
-    out.push(`The deck reads as bracket ${detected}; your goal is ${target}.`);
-  }
-  return out.join(" ");
+// One plain sentence from numbers the page already has, for the one thing the
+// lines below it do not say: the bracket against the goal. The AI pass's own
+// read of the deck replaces it when that pass has run for the cards on screen
+// (`aiNote`). The roles need no sentence: each has its own line.
+function verdictText({ detected, target }) {
+  return detected != null && target != null && detected !== target
+    ? `The deck reads as bracket ${detected}; your goal is ${target}.`
+    : "";
 }
 
 const roleCount = (c) => `${c.count}${c.target ? ` of ${c.target}` : ""}${c.light > 0 ? ` (${c.light} light)` : ""}`;
@@ -37,7 +28,6 @@ export default function AssessmentPanel({
   const detected = result?.bracket?.bracket ?? null;
   const target = goals?.bracketTarget ?? null;
   const roles = comp?.categories?.filter((c) => c.target) || [];
-  const thin = roles.filter((c) => c.status === "thin");
   const theme = comp?.theme || [];
   const tribe = theme.find((g) => g.creatures != null);
   // Over budget vs the user's declared ceiling → one-tap route to Budget swaps.
@@ -47,7 +37,7 @@ export default function AssessmentPanel({
   // The role rows below already say how many lands and which roles are short.
   const status = statusParts(result, comp)
     ?.filter((p) => !roles.length || (p.key !== "lands" && p.key !== "roles"));
-  const text = aiNote || verdictText({ thin, hasCats: Boolean(comp?.categories?.length), detected, target });
+  const text = aiNote || verdictText({ detected, target });
   // Hooks before the early return.
   const healthTip = useInfoTip("health",
     "The deck's own checks, in order: legality, then the card count when the deck is short, "

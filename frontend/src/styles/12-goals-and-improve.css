@@ -139,7 +139,7 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .opt-undo, .opt-clear { padding: .1rem .4rem; min-height: auto; font-size: var(--fs-2xs); flex: none; }
 .opt-clear { margin-top: .35rem; color: var(--muted); }
 
-/* Improve (job 3.5): Goals, Verdict and Gaps in a column, Suggested changes
+/* Improve (job 3.5): Goals, the theme and Health in a column, Suggested changes
    beside it; stacked on phones. */
 .improve { display: grid; gap: 28px; }
 .improve-solo { display: block; }

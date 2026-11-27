@@ -168,12 +168,5 @@ test("the button is small, reaches past its edge, and leaves its neighbours thei
   for (const group of ["Target bracket", "Budget ceiling", "Pilot complexity"]) {
     expect(await owns(page.locator(`[aria-label="${group}"] .dg-chip`).first(), "left"), group).toBe(true);
   }
-  // The first Gaps chip sits under the Gaps heading's button: its top strip is its own.
-  const firstGap = page.locator(".asmt-gaps .asmt-chip").first();
-  await firstGap.scrollIntoViewIfNeeded();
-  const topOwn = await firstGap.evaluate((el) => {
-    const r = el.getBoundingClientRect();
-    return [0.1, 0.5, 0.9].every((f) => el.contains(document.elementFromPoint(r.x + r.width * f, r.top + 2)));
-  });
-  expect(topOwn, "first gap chip's top edge").toBe(true);
+  // Health's button has the checks under it, which are text: no control's taps to take.
 });

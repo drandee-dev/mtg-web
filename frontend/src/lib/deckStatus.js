@@ -1,4 +1,4 @@
-// The Verdict's status line (audit job 4.3, replacing the 0–100 score): one
+// Health's checks (audit job 4.3, replacing the 0–100 score): one
 // short phrase per check, from the deterministic audits, each saying in words
 // what is wrong so the colour is only a second cue. Legality, mana and roles
 // always show; the card count and colour fixing only when they fall short.

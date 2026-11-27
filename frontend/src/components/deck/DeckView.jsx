@@ -664,7 +664,7 @@ export default function DeckView({
     loadChanges({ deep: true }); // opens Improve itself
   }
 
-  // One props object for Improve and Stats (Goals, Verdict and both
+  // One props object for Improve and Stats (Goals, Health and both
   // DeckTools renders) — keep wiring in one place.
   // The first analysis starts 2s after the deck loads (the debounce above), so for
   // that long a deck with cards has no result and is not yet "analyzing".
@@ -724,7 +724,7 @@ export default function DeckView({
     goalsOpen,
     onToggleGoals: toggleGoalsOpen,
     changes,
-    // The AI pass's own read of the deck, as the Verdict's sentence, while it
+    // The AI pass's own read of the deck, as Health's sentence, while it
     // still matches the cards on screen.
     verdictNote: optimize?.assessment && panelSigs.optimize === currentSig ? optimize.assessment : null,
     optimize,
@@ -1059,7 +1059,7 @@ export default function DeckView({
           />
         </div>
 
-        {/* Improve (`Improve`): Goals, the Verdict and the Gaps in a column
+        {/* Improve (`Improve`): Goals, the theme and Health in a column
             beside the Suggested changes. */}
         <div role="tabpanel" id="deck-panel-improve" aria-labelledby="deck-tab-improve"
           className="deck-section-panel" hidden={section !== "improve"}>
