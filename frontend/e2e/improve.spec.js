@@ -3,7 +3,7 @@
 // Swarm's real ones (composition and the mana check, 2026-11-26), so the rail
 // is seen with a tribe, a land shortfall and both kinds of role line.
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, openDeckSection } from "./fixtures/helpers.js";
+import { loadSharedDeck, openDeckSection, runAiReview } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
 const SLIVER = {
@@ -80,6 +80,63 @@ test("a deck with no theme reading shows Health alone", async ({ page }) => {
   await openImprove(page);
   await expect(page.getByRole("heading", { name: "This deck is", exact: true })).toHaveCount(0);
   await expect(page.locator(".asmt-gaps > *")).toHaveCount(5);
+});
+
+// The suggestions column (audit job 6.3): one switch for its three lists, rows
+// that carry the deck's theme, and an AI review that explains an empty answer.
+const stubRecs = (page) => page.route("**/api/deck/recommend", (route) => route.fulfill({
+  json: {
+    commanders: [TEST_COMMANDER],
+    categories: {
+      high_synergy: [
+        { name: "Lightning Bolt", synergy: 0.9, num_decks: 570, potential_decks: 1000, in_deck: false, theme_tag: "Sliver" },
+        { name: "Rhystic Study", synergy: 0.8, num_decks: 380, potential_decks: 1000, in_deck: false, theme_tag: null },
+      ],
+    },
+  },
+}));
+
+test("a suggestion on the deck's theme carries its tag, and its buttons name the card", async ({ page }) => {
+  await stubRecs(page);
+  await stub(page);
+  await openImprove(page);
+  const rows = page.locator('.opt-card[data-source="rec"]');
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0).locator(".chg-theme")).toHaveText("Sliver");
+  await expect(rows.nth(1).locator(".chg-theme")).toHaveCount(0);
+  // "Skip" and "Apply" on every row told a screen reader nothing.
+  await expect(rows.nth(0).getByRole("button", { name: "Add Lightning Bolt", exact: true })).toBeVisible();
+  await expect(rows.nth(0).getByRole("button", { name: "Skip Lightning Bolt", exact: true })).toBeVisible();
+  // One list at a time, with its count on the switch.
+  await expect(page.locator(".insp-sources button").first()).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".insp-sources button").first()).toContainText("2");
+});
+
+test("when every AI change was held back, the list says why and what to do next", async ({ page }) => {
+  const note = "4 changes held back: they would cut your Slivers.";
+  await page.route("**/api/deck/optimize", (route) => route.fulfill({
+    json: { error: false, assessment: "Tribal aggro, and the list is tight.", changes: [], held_back_note: note, model: "mock" },
+  }));
+  await stubRecs(page);
+  await stub(page);
+  await openImprove(page);
+  await runAiReview(page);
+  const pane = page.locator(".insp-body");
+  await expect(pane.locator(".insp-held")).toHaveText(note);
+  await expect(pane.locator(".insp-empty")).toContainText("change your Goals, then press Look again");
+  await expect(pane.locator(".opt-card")).toHaveCount(0);
+  // The suggestions are a tap away, not mixed into an empty list.
+  await expect(page.locator(".insp-sources button").first()).toContainText("For this commander");
+  await expect(page.locator(".insp-deep")).toHaveCount(0);
+});
+
+test("visual: the lists' switch and a suggestion row", async ({ page }) => {
+  await stubRecs(page);
+  await stub(page);
+  await openImprove(page);
+  await expect(page.locator(".toast")).toHaveCount(0, { timeout: 10000 });
+  await expect(page.locator(".insp-sources")).toHaveScreenshot("improve-switch.png");
+  await expect(page.locator('.opt-card[data-source="rec"]').first()).toHaveScreenshot("improve-row.png");
 });
 
 test("visual: Improve's rail", async ({ page }) => {

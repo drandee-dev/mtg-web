@@ -53,6 +53,19 @@ test("a suggestion shows no share under 100 decks, the floor budget swaps use", 
   assert.equal(reason("Just Enough"), "Played in 50% of this commander's decks.");
 });
 
+test("every loaded source is built, whichever list is showing, and a suggestion carries its theme tag", () => {
+  const out = buildChanges({
+    recCat: "creatures",
+    recs: { categories: { creatures: [{ name: "Sliver Legion", theme_tag: "Sliver" }, { name: "Sol Ring", theme_tag: null }] } },
+    optimize: { changes: [{ id: "opt:1", action: "cut", cut: "Cultivate" }] },
+    budgetSwaps: { swaps: [{ card: "Rhystic Study", price: 25, alternative: { name: "Mystic Remora", price: 4 } }] },
+    pinned: new Set(["Sliver Legion"]),
+  });
+  assert.deepEqual(out.map((c) => c.source), ["rec", "rec", "optimize", "upgrade"]);
+  assert.deepEqual(out.filter((c) => c.source === "rec").map((c) => [c.add, c.themeTag, Boolean(c.isPinned)]),
+    [["Sliver Legion", "Sliver", true], ["Sol Ring", null, false]]);
+});
+
 test("without commander data the reason has no percentage", () => {
   for (const pct of [null, undefined, 0]) {
     const [ch] = swapsOf({ name: "Blood Artist", price: 2.68, commander_pct: pct });

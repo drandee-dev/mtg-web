@@ -147,6 +147,18 @@ export async function deckMenuAction(page, itemText) {
   await page.locator(`.more-menu-item:has-text("${itemText}")`).click();
 }
 
+// Suggested changes shows one list at a time (audit job 6.3): "For this
+// commander", "Cheaper swaps" or "AI review". Opens the named one.
+export async function openChangeList(page, name) {
+  await page.locator(".insp-sources").getByRole("button", { name: new RegExp(`^${name}`) }).click();
+}
+
+// The one press that spends an AI call: open the AI review's list and run it.
+export async function runAiReview(page) {
+  await openChangeList(page, "AI review");
+  await page.locator(".insp-deep").click();
+}
+
 export async function seedLocalDecks(page, decks) {
   await page.evaluate((d) => {
     localStorage.setItem("mtgweb:decks", JSON.stringify(d));

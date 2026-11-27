@@ -68,6 +68,12 @@ export default function ChangeCard({ ch, onApply, onSkip, extra = null }) {
   const delta = ch.price_delta;
   const alt = ch.cheaper;
   const tip = useInfoTip(alt ? `the cheaper ${alt.name}` : "the cheaper option", CHEAPER_TIP);
+  // Every row's buttons used to read "Skip" and "Apply" to a screen reader. Each
+  // label starts with the visible word and then says which change it acts on.
+  const verb = ch.cut ? "Apply" : "Add";
+  const what = ch.cut && ch.add ? `cut ${ch.cut}, add ${ch.add}` : ch.cut ? `cut ${ch.cut}` : null;
+  const skipLabel = what ? `Skip: ${what}` : `Skip ${ch.add}`;
+  const applyLabel = what ? `Apply: ${what}` : `Add ${ch.add}`;
   return (
     <div className="opt-card" data-source={ch.source} data-action={ch.action}>
       <div className="chg-swap" aria-hidden="true">
@@ -83,6 +89,8 @@ export default function ChangeCard({ ch, onApply, onSkip, extra = null }) {
           {ch.cut && <>Cut <CardPreview name={ch.cut} /></>}
           {ch.cut && ch.add && ", "}
           {ch.add && <>{ch.cut ? "add" : "Add"} <CardPreview name={ch.add} /></>}
+          {/* The deck's theme, from the server's reading (a suggestion only). */}
+          {ch.themeTag && <span className="chg-theme">{ch.themeTag}</span>}
         </b>
         {ch.reason && <span className="opt-reason">{ch.reason}</span>}
         {(ch.category || (delta != null && delta !== 0) || ch.over_budget) && (
@@ -120,8 +128,8 @@ export default function ChangeCard({ ch, onApply, onSkip, extra = null }) {
       </div>
       <div className="opt-actions">
         {extra}
-        <button type="button" className="ghost" onClick={() => onSkip(ch)}>Skip</button>
-        <button type="button" className="ghost chg-apply" onClick={() => onApply(ch)}>Apply</button>
+        <button type="button" className="ghost" aria-label={skipLabel} onClick={() => onSkip(ch)}>Skip</button>
+        <button type="button" className="ghost chg-apply" aria-label={applyLabel} onClick={() => onApply(ch)}>{verb}</button>
       </div>
     </div>
   );

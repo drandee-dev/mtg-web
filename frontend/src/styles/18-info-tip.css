@@ -39,7 +39,7 @@
 /* The change list's control rows: the control, then its help button. The row keeps
    the bottom margins the control had on its own. */
 .insp-tip-row { display: flex; align-items: center; gap: 6px; margin-bottom: .45rem; }
-.insp-tip-row .insp-mode-toggle, .insp-tip-row .insp-select { margin-bottom: 0; }
+.insp-tip-row .insp-select { margin-bottom: 0; }
 .insp-tip-row .insp-select { flex: 1; width: auto; min-width: 0; }
 .insp-tip-row .info-tip-btn { margin-left: 2px; }
 

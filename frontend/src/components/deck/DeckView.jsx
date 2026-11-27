@@ -633,7 +633,7 @@ export default function DeckView({
   const {
     optimize, optimizing, optLog, runOptimize, undoOptChange, clearOptLog,
     stalePanels, loadChanges, changeUpgradeMode, applyInsightChange, skipInsightChange,
-    changes, changeCount,
+    changes, changeCount, sourceCounts,
   } = useAiChanges({
     deckId, decklist, commander, format, isCommanderFmt, currentSig, apiGoals,
     notify, openSection, busy, setBusy, recCat,
@@ -661,7 +661,8 @@ export default function DeckView({
 
   function goToChangesFromReview() {
     closeUpgradeReview();
-    loadChanges({ deep: true }); // opens Improve itself
+    setUpgradeMode("power"); // the AI review's list is where its changes land
+    loadChanges({ mode: "power", deep: true }); // opens Improve itself
   }
 
   // One props object for Improve and Stats (Goals, Health and both
@@ -710,6 +711,7 @@ export default function DeckView({
     budgetSwaps,
     upgradeMode,
     setUpgradeMode: changeUpgradeMode,
+    sourceCounts,
     onApplyInsightChange: applyInsightChange,
     onSkipInsightChange: skipInsightChange,
     commander,
@@ -732,17 +734,16 @@ export default function DeckView({
     optLog: optLog.filter(isVisibleEntry),
     onUndoChange: undoOptChange,
     onClearLog: clearOptLog,
-    onGapChip: runOptimize,
+    // A role under target asks the AI for cards that fill it; show its list.
+    onGapChip: (key) => { setUpgradeMode("power"); runOptimize(key); },
     // "Goldfish this line" from a combo card → open Playtest with the pieces staged.
     onGoldfish,
-    // Over-budget chip → the Changes queue, pre-set to budget swaps. The mode
-    // is passed explicitly: setUpgradeMode won't have landed by the time
-    // loadChanges reads it out of this render's closure.
+    // Over-budget chip → the Cheaper swaps list. The mode is passed explicitly:
+    // setUpgradeMode won't have landed by the time loadChanges reads it out of
+    // this render's closure. Swaps are free, so this buys no AI call.
     onOverBudget: () => {
       setUpgradeMode("budget");
-      // Tapping "you're over budget" IS the request for swaps, so it opts into
-      // the deeper pass rather than landing on an empty queue.
-      loadChanges({ mode: "budget", deep: true });
+      loadChanges({ mode: "budget" });
     },
   };
 

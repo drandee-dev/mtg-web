@@ -3,7 +3,7 @@
 // Changes queue for swaps. Runs against the hermetic mock backend.
 
 import { test, expect } from "./fixtures/test-base.js";
-import { waitForAppReady, dismissColdStart, navigateToTab, pasteNewDeck, importNewDeck, loadSharedDeck, openDeckSection, deckMenuAction } from "./fixtures/helpers.js";
+import { waitForAppReady, dismissColdStart, navigateToTab, pasteNewDeck, importNewDeck, loadSharedDeck, openDeckSection, deckMenuAction, openChangeList } from "./fixtures/helpers.js";
 import { TEST_COMMANDER, TEST_DECK_TEXT } from "./fixtures/test-data.js";
 
 const PASTE_TEXT = `Commander\n1 ${TEST_COMMANDER}\n\nDeck\n${TEST_DECK_TEXT}`;
@@ -132,7 +132,10 @@ test.describe("Upgrade review — guided flow", () => {
     await modal.locator(".icm-foot button", { hasText: "See suggested swaps" }).click();
     await expect(page.locator('.insp-body .opt-card[data-action="cut"]')).toHaveCount(1, { timeout: 10000 });
     expect(optimizeCalls.n).toBe(1);
-    expect(swapCalls.n).toBe(1);
+    // The guide lands on the AI review; the free swaps load with their own list (audit job 6.3).
+    expect(swapCalls.n).toBe(0);
+    await openChangeList(page, "Cheaper swaps");
+    await expect.poll(() => swapCalls.n).toBe(1);
 
     // Empty the same deck and paste an unrelated list B into it — the
     // changeset cached for list A is now stale, not merely absent.
@@ -150,7 +153,8 @@ test.describe("Upgrade review — guided flow", () => {
     await expect(page.locator('.insp-body .opt-card[data-action="cut"]')).toHaveCount(1, { timeout: 10000 });
     // Re-bought for the new decklist, not served stale from list A.
     expect(optimizeCalls.n).toBe(2);
-    expect(swapCalls.n).toBe(2);
+    await openChangeList(page, "Cheaper swaps");
+    await expect.poll(() => swapCalls.n).toBe(2);
   });
 
   test("URL import into an empty deck opens the guide too", async ({ page }) => {

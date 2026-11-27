@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, assembleDecklist } from "./api";
-import { buildChanges } from "./changeset";
+import { buildChanges, SOURCE_OF_MODE } from "./changeset";
 import { loadLog, appendLog, removeLogEntry, clearLog, describeEntry, makeEntry } from "./optimizeLog";
 
 // The AI changes on a deck (UX refactor R3; this was a block of DeckView): the
@@ -153,26 +153,27 @@ export function useAiChanges({
     const check = (k, tab, data) => {
       if (data != null && panelSigs[k] && panelSigs[k] !== currentSig) stalePanels.add(tab);
     };
-    // The Changes tab is stale if any source feeding it is: recs, the AI
-    // changeset (optimize), and — in budget mode — budgetSwaps.
+    // The Changes tab is stale if any loaded source feeding it is: recs, the AI
+    // changeset (optimize) and budgetSwaps.
     check("recs", "Changes", recs);
     check("optimize", "Changes", optimize);
     check("combos", "Combos", combos);
-    if (upgradeMode === "budget") check("budgetSwaps", "Changes", budgetSwaps);
+    check("budgetSwaps", "Changes", budgetSwaps);
   }
 
   // The three sources behind the Changes tab.
   //
-  // Opening the tab loads only `recommend`, which is free EDHREC data. Cuts
-  // and power upgrades are metered AI calls, so they wait for the pane's
-  // explicit "deeper pass" button (`deep`) rather than being spent on anyone
-  // who happens to click the tab. Refresh (`force`) re-runs what is already
-  // loaded and never buys a source the user hasn't asked for.
+  // Opening the tab loads only `recommend`, which is free EDHREC data. Budget
+  // swaps are free too (no model call) and load when their list is the one
+  // showing (`mode` "budget"). The AI review is a metered call, so it waits for
+  // its own labelled button (`deep`) rather than being spent on anyone who
+  // happens to open a list. Refresh (`force`) re-runs what is already loaded
+  // and never buys a source the user hasn't asked for.
   //
-  // `mode` is an explicit override for callers that flip the upgrade mode in
-  // the same handler (the over-budget chip). A setState in this render does
-  // NOT update `upgradeMode` in this closure, so reading the state here would
-  // fetch the mode the user was on before the click.
+  // `mode` is an explicit override for callers that switch the list in the
+  // same handler (the switch itself, the over-budget chip). A setState in this
+  // render does NOT update `upgradeMode` in this closure, so reading the state
+  // here would fetch for the list the user was on before the click.
   async function loadChanges({ force = false, mode, deep = false } = {}) {
     if (!decklist.trim()) return notify?.("Add some cards first.");
     openSection("improve");
@@ -211,7 +212,7 @@ export function useAiChanges({
     if ((deep && (!optimize || stale("optimize"))) || (force && optimize)) {
       jobs.push(runOptimize());
     }
-    if (wantMode === "budget" && ((deep && (!budgetSwaps || stale("budgetSwaps"))) || (force && budgetSwaps))) {
+    if ((wantMode === "budget" && (!budgetSwaps || stale("budgetSwaps"))) || (force && budgetSwaps)) {
       jobs.push(api.budgetSwaps(full, format).then((r) => { setBudgetSwaps(r); markFresh("budgetSwaps", sig); }));
     }
     // Nothing to fetch: leave busy alone, it may belong to another tool's load.
@@ -223,16 +224,13 @@ export function useAiChanges({
     if (failed.length) notify?.(`${failed.length} of ${jobs.length} change sources failed.`);
   }
 
-  // Flipping budget ⇄ power inside Changes pulls in the other source. Routed
-  // through loadChanges so the "reuse what's cached" rule lives in one place;
-  // recs and cuts are already loaded by the time this can be clicked, so it
-  // costs no extra calls. The toggle exists only in Improve's Changes.
+  // Switching the list (audit job 6.3). Routed through loadChanges so the
+  // "reuse what's cached" rule lives in one place: it fetches budget swaps the
+  // first time their list is opened, and never the AI review, which only its
+  // own button buys.
   function changeUpgradeMode(mode) {
     setUpgradeMode(mode);
-    // Having either deep source already means the deeper pass was asked
-    // for, so flipping the toggle is allowed to fetch the other one
-    // (budgetSwaps, the only thing still mode-gated).
-    loadChanges({ mode, deep: Boolean(budgetSwaps || optimize) });
+    loadChanges({ mode });
   }
 
   // Apply/skip for a Changes proposal. Apply routes through the Optimize
@@ -274,15 +272,23 @@ export function useAiChanges({
 
   // The Suggested changes list, from every source. Built here so the Improve
   // tab can carry its count. Nothing is counted until a source has loaded.
-  const changes = buildChanges({
-    recs, recCat, optimize, budgetSwaps, upgradeMode,
+  const allChanges = buildChanges({
+    recs, recCat, optimize, budgetSwaps,
     skipped, declinedUpgrades, pinned, decided: insightDecided,
   });
-  const changeCount = recs || optimize || budgetSwaps ? changes.length : 0;
+  const changeCount = recs || optimize || budgetSwaps ? allChanges.length : 0;
+  // The pane shows one source at a time; the switch carries each one's count.
+  const countOf = (mode) => allChanges.filter((ch) => ch.source === SOURCE_OF_MODE[mode]).length;
+  const sourceCounts = {
+    recs: recs ? countOf("recs") : null,
+    budget: budgetSwaps ? countOf("budget") : null,
+    power: optimize ? countOf("power") : null,
+  };
+  const changes = allChanges.filter((ch) => ch.source === SOURCE_OF_MODE[upgradeMode]);
 
   return {
     optimize, optimizing, optLog, runOptimize, undoOptChange, clearOptLog,
     stalePanels, loadChanges, changeUpgradeMode, applyInsightChange, skipInsightChange,
-    changes, changeCount,
+    changes, changeCount, sourceCounts,
   };
 }

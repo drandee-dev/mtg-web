@@ -16,7 +16,7 @@ export default function DeckTools({
   combos, comp, budgetSwaps,
   dismissedCuts, onClearDismissedCuts,
   declinedUpgrades, onClearDeclinedUpgrades, onLoadDeepChanges,
-  upgradeMode, setUpgradeMode,
+  upgradeMode, setUpgradeMode, sourceCounts,
   onApplyInsightChange, onSkipInsightChange,
   commander, format,
   serverWarmed,
@@ -54,10 +54,6 @@ export default function DeckTools({
           {optimize?.error && !optimizing && (
             <p className="opt-error" role="alert">{optimize.message || "The AI pass failed. Try again."}</p>
           )}
-          {/* Audit job 3.4: the server's guards, as a count (rows wait for job 6). */}
-          {optimize?.held_back_note && !optimizing && (
-            <p className="small muted" role="status">{optimize.held_back_note}</p>
-          )}
         </>
       )}
 
@@ -90,6 +86,8 @@ export default function DeckTools({
         budgetSwaps={budgetSwaps}
         upgradeMode={upgradeMode}
         setUpgradeMode={setUpgradeMode}
+        sourceCounts={sourceCounts}
+        optimizing={optimizing}
         onApplyChange={onApplyInsightChange}
         onSkipChange={onSkipInsightChange}
         commander={commander}

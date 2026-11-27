@@ -2,7 +2,7 @@
 // the tab is first opened and again only on "Write it again". Card edits never
 // fire it. Runs against the hermetic mock backend.
 import { test, expect } from "./fixtures/test-base.js";
-import { loadSharedDeck, openDeckSection, addCardField } from "./fixtures/helpers.js";
+import { loadSharedDeck, openDeckSection, addCardField, runAiReview } from "./fixtures/helpers.js";
 import { TEST_COMMANDER, TEST_DECK_LINES } from "./fixtures/test-data.js";
 
 const EXTRA = [
@@ -37,7 +37,7 @@ test("the AI pass sends the archetype once How to play has been written", async 
   await loadSharedDeck(page, BIG_DECK, TEST_COMMANDER);
   await openDeckSection(page, "Improve");
   let body = optimizeBody();
-  await page.locator(".insp-deep").click();
+  await runAiReview(page);
   expect(await body).not.toHaveProperty("archetype");
 
   await openDeckSection(page, "How to play");

@@ -98,7 +98,6 @@
 .combo-goldfish:hover { background: var(--hover); border-color: var(--border-strong); color: var(--accent); }
 /* When the fold button is absent, the goldfish button owns the right edge. */
 .combo-foot > .combo-goldfish:last-child { margin-left: auto; }
-.insp-mode-toggle { margin-bottom: .45rem; }
 .insp-pane-bar { display: flex; justify-content: flex-end; align-items: center; gap: .45rem; margin-bottom: .35rem; }
 .insp-refresh { display: inline-flex; align-items: center; gap: .3rem; }
 /* Cached results predate the current card list — badge + emphasized Refresh */
