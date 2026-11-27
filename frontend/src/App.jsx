@@ -106,7 +106,7 @@ export default function App() {
   const [playtestStage, setPlaytestStage] = useState(null);
   const [session, setSession] = useState(null);
   const [decks, setDecks] = useState([]);
-  const { toast, notify, dismiss: dismissToast } = useToast();
+  const { toast, notify, dismiss: dismissToast, hold: holdToast, release: releaseToast } = useToast();
   usePrefetchChunks();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
@@ -928,7 +928,8 @@ export default function App() {
       )}
       {showPasswordReset && <PasswordResetModal onDone={() => setShowPasswordReset(false)} notify={notify} />}
       {toast && (
-        <div className="toast" role="status" aria-live="polite">
+        <div className="toast" role="status" aria-live="polite"
+          onMouseEnter={holdToast} onMouseLeave={releaseToast} onFocus={holdToast} onBlur={releaseToast}>
           {toast.text}
           {toast.action && (
             <button

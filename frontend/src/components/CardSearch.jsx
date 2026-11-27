@@ -49,11 +49,12 @@ export default function CardSearch({ addCard, notify, deckName, deckHref, onBack
         )}
         <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}
           onKeyDown={(e) => { if (e.key === "Enter" && !busy) run(); }}>
-          <div><label>Name</label><input value={f.name} onChange={(e) => up("name", e.target.value)} placeholder="bolt" /></div>
-          <div><label>Type</label><input value={f.type} onChange={(e) => up("type", e.target.value)} placeholder="instant" /></div>
-          <div><label>Oracle text (regex)</label><input value={f.oracle} onChange={(e) => up("oracle", e.target.value)} placeholder="draw a card" /></div>
-          <div><label>Color identity</label><input value={f.color_identity} onChange={(e) => up("color_identity", e.target.value)} placeholder="WUG, or C" /></div>
-          <div><label>Max CMC</label><input value={f.cmc_max} onChange={(e) => up("cmc_max", e.target.value)} placeholder="3" inputMode="numeric" /></div>
+          {/* Each label is tied to its field: a tap on it focuses the field, and a screen reader names it. */}
+          <div><label htmlFor="cs-name">Name</label><input id="cs-name" value={f.name} onChange={(e) => up("name", e.target.value)} placeholder="bolt" /></div>
+          <div><label htmlFor="cs-type">Type</label><input id="cs-type" value={f.type} onChange={(e) => up("type", e.target.value)} placeholder="instant" /></div>
+          <div><label htmlFor="cs-oracle">Oracle text (regex)</label><input id="cs-oracle" value={f.oracle} onChange={(e) => up("oracle", e.target.value)} placeholder="draw a card" /></div>
+          <div><label htmlFor="cs-identity">Color identity</label><input id="cs-identity" value={f.color_identity} onChange={(e) => up("color_identity", e.target.value)} placeholder="WUG, or C" /></div>
+          <div><label htmlFor="cs-cmc">Max CMC</label><input id="cs-cmc" value={f.cmc_max} onChange={(e) => up("cmc_max", e.target.value)} placeholder="3" inputMode="numeric" /></div>
         </div>
         <div className="row" style={{ marginTop: ".6rem" }}>
           <button className="primary" onClick={run} disabled={busy}>{busy ? "Searching…" : "Search"}</button>

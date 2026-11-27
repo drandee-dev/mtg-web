@@ -346,6 +346,7 @@ export default function Commanders({ slug, setSlug, onBuild, notify }) {
           value={query}
           onChange={(e) => { setQuery(e.target.value); setVisibleCount(PAGE_SIZE); }}
           placeholder="Search by name…"
+          aria-label="Search commanders by name"
           style={{ marginBottom: ".6rem" }}
         />
         <div className="row" role="group" aria-label="Filter by color identity">

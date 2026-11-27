@@ -75,6 +75,11 @@
 .account-callout-sub { font-size: var(--fs-xs); color: var(--muted); }
 .account-callout-text { font-size: var(--fs-xs); color: var(--muted); line-height: 1.5; }
 .account-magic-hint { font-size: var(--fs-xs); color: var(--muted); text-align: center; margin-top: 8px; }
+/* A problem with the form, beside the form until it is fixed (audit job 6.4). */
+.account-error { margin: 0 0 8px; font-size: var(--fs-sm); color: var(--bad); line-height: 1.4; }
+.account-email-input[aria-invalid="true"] { border-color: var(--bad); }
+/* A file input hidden from sight keeps its place in the Tab order; its label shows the focus. */
+.file-pick:focus-within .badge { outline: 2px solid var(--accent); outline-offset: 2px; }
 .account-auth-tabs {
   display: flex; gap: 0; margin-bottom: 10px;
   background: var(--bg-raised); border: 1px solid var(--border);

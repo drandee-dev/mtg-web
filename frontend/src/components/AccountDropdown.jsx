@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { useEscapeKey, useFocusTrap } from "../lib/hooks";
 import ThemeSwitcher from "./ThemeSwitcher";
 
 const REMEMBER_EMAIL_KEY = "mtgweb:rememberedEmail";
@@ -26,7 +27,27 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
   const [rememberMe, setRememberMe] = useState(() => localStorage.getItem(REMEMBER_ME_KEY) !== "false");
   const [authMode, setAuthMode] = useState("signin"); // "signin" | "signup" | "magic" | "forgot"
   const [busy, setBusy] = useState(false);
-  const ref = useRef(null);
+  // A problem with the form stays beside it until it is fixed (audit job 6.4).
+  // It used to be a toast that left after 3.5 s. `field` is "email", "password"
+  // or "form" (the server's answer, which is about both).
+  const [error, setError] = useState(null);
+  const fail = (field, text) => setError({ field, text });
+  const errorLine = error && <p id="account-error" className="account-error" role="alert">{error.text}</p>;
+  const tied = (field) => (error && (error.field === field || error.field === "form")
+    ? { "aria-invalid": true, "aria-describedby": "account-error" } : {});
+  function switchMode(mode) { setAuthMode(mode); setError(null); }
+  // A dialog: focus moves in, Tab stays in, Escape closes, focus returns to the opener.
+  const ref = useFocusTrap(true);
+  useEscapeKey(true, onClose);
+  // The menu row that opened this panel is gone with its menu, so the trap has
+  // nothing to give focus back to. Hand it to the menu's own button, the next
+  // logical place, instead of dropping it to the top of the page.
+  useEffect(() => () => {
+    requestAnimationFrame(() => {
+      if (document.activeElement !== document.body) return;
+      [...document.querySelectorAll('[aria-label="Account menu"]')].find((b) => b.offsetParent !== null)?.focus();
+    });
+  }, []);
 
   useEffect(() => {
     function handler(e) {
@@ -48,8 +69,9 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
 
   async function handlePasswordAuth(e) {
     e?.preventDefault();
-    if (!email.trim()) return notify("Enter your email.");
-    if (!password) return notify("Enter your password.");
+    if (!email.trim()) return fail("email", "Enter your email.");
+    if (!password) return fail("password", "Enter your password.");
+    setError(null);
     setBusy(true);
     try {
       if (authMode === "signup") {
@@ -71,7 +93,7 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
         notify("Signed in!");
       }
     } catch (e) {
-      notify(`${authMode === "signup" ? "Sign-up" : "Sign-in"} failed: ${e.message}`);
+      fail("form", `${authMode === "signup" ? "Sign-up" : "Sign-in"} failed: ${e.message}`);
     } finally {
       setBusy(false);
     }
@@ -79,7 +101,8 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
 
   async function sendLink(e) {
     e?.preventDefault();
-    if (!email.trim()) return notify("Enter your email.");
+    if (!email.trim()) return fail("email", "Enter your email.");
+    setError(null);
     setBusy(true);
     try {
       const { error } = await supabase.auth.signInWithOtp({
@@ -89,7 +112,7 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
       if (error) throw error;
       notify("Check your email for the sign-in link.");
     } catch (e) {
-      notify(`Sign-in failed: ${e.message}`);
+      fail("email", `Sign-in failed: ${e.message}`);
     } finally {
       setBusy(false);
     }
@@ -97,16 +120,17 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
 
   async function sendPasswordReset(e) {
     e?.preventDefault();
-    if (!email.trim()) return notify("Enter your email first.");
+    if (!email.trim()) return fail("email", "Enter your email first.");
+    setError(null);
     setBusy(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: window.location.origin,
       });
       if (error) throw error;
-      notify("Password reset link sent — check your email.");
+      notify("Password reset link sent. Check your email.");
     } catch (e) {
-      notify(`Reset failed: ${e.message}`);
+      fail("email", `Reset failed: ${e.message}`);
     } finally {
       setBusy(false);
     }
@@ -122,7 +146,8 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
 
   return (
     <div className="account-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div ref={ref} className="account-panel">
+      <div ref={ref} className="account-panel" role="dialog" aria-modal="true"
+        aria-label={supabaseEnabled && session ? "Account" : "Sign in"} tabIndex={-1}>
         {/* Header */}
         <div className="account-header-row">
           {signedIn ? (
@@ -179,13 +204,16 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
                     autoComplete="email"
                     enterKeyHint="send"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                    aria-label="Email"
+                    {...tied("email")}
                   />
+                  {errorLine}
                   <button type="submit" disabled={busy} className="account-magic-link-btn">
                     {busy ? "Sending…" : "Send magic link"}
                   </button>
                   <div className="account-magic-hint">We'll email you a one-tap sign-in link</div>
-                  <button type="button" className="account-auth-toggle" onClick={() => setAuthMode("signin")}>
+                  <button type="button" className="account-auth-toggle" onClick={() => switchMode("signin")}>
                     ← Back to password sign-in
                   </button>
                 </form>
@@ -197,13 +225,16 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
                     autoComplete="email"
                     enterKeyHint="send"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                    aria-label="Email"
+                    {...tied("email")}
                   />
+                  {errorLine}
                   <button type="submit" disabled={busy} className="account-magic-link-btn">
                     {busy ? "Sending…" : "Send reset link"}
                   </button>
                   <div className="account-magic-hint">We'll email you a link to set a new password</div>
-                  <button type="button" className="account-auth-toggle" onClick={() => setAuthMode("signin")}>
+                  <button type="button" className="account-auth-toggle" onClick={() => switchMode("signin")}>
                     ← Back to sign-in
                   </button>
                 </form>
@@ -212,13 +243,15 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
                   <div className="account-auth-tabs">
                     <button
                       type="button"
+                      aria-pressed={authMode === "signin"}
                       className={`account-auth-tab ${authMode === "signin" ? "active" : ""}`}
-                      onClick={() => setAuthMode("signin")}
+                      onClick={() => switchMode("signin")}
                     >Sign In</button>
                     <button
                       type="button"
+                      aria-pressed={authMode === "signup"}
                       className={`account-auth-tab ${authMode === "signup" ? "active" : ""}`}
-                      onClick={() => setAuthMode("signup")}
+                      onClick={() => switchMode("signup")}
                     >Create Account</button>
                   </div>
                   <input
@@ -226,7 +259,9 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
                     autoComplete="username"
                     enterKeyHint="next"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                    aria-label="Email"
+                    {...tied("email")}
                   />
                   <input
                     type="password"
@@ -234,7 +269,9 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
                     autoComplete={authMode === "signup" ? "new-password" : "current-password"}
                     enterKeyHint="go"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => { setPassword(e.target.value); setError(null); }}
+                    aria-label={authMode === "signup" ? "Choose a password" : "Password"}
+                    {...tied("password")}
                     placeholder={authMode === "signup" ? "Choose a password" : "Password"}
                     className="account-email-input"
                   />
@@ -248,16 +285,17 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
                       <span>Remember me</span>
                     </label>
                   )}
+                  {errorLine}
                   <button type="submit" disabled={busy} className="account-magic-link-btn">
                     {busy ? "Working…" : authMode === "signup" ? "Create Account" : "Sign In"}
                   </button>
                   <div className="account-auth-links">
                     {authMode === "signin" && (
-                      <button type="button" className="account-auth-toggle" onClick={() => setAuthMode("forgot")}>
+                      <button type="button" className="account-auth-toggle" onClick={() => switchMode("forgot")}>
                         Forgot password?
                       </button>
                     )}
-                    <button type="button" className="account-auth-toggle" onClick={() => setAuthMode("magic")}>
+                    <button type="button" className="account-auth-toggle" onClick={() => switchMode("magic")}>
                       Use magic link instead
                     </button>
                   </div>
