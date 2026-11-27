@@ -72,9 +72,10 @@
   /* Type scale — fluid rem sizes with hard px readability floors. The rem
      half keeps the whole UI scaling with the root clamp (14–20px); max()
      stops any size dipping below its floor at the phone root. All font-size
-     declarations should use these tokens (raw px/rem sizes are legacy). */
-  --fs-2xs: max(.72rem, 11px);   /* micro labels, badges, source tags */
-  --fs-xs: max(.78rem, 12px);    /* captions, table meta, log rows */
+     declarations should use these tokens (raw px/rem sizes are legacy).
+     --fs-xs is the smallest: nothing is set under 12px (audit job 6.5; the 11px
+     --fs-2xs is gone, and e2e/contrast.spec.js measures the floor on its walk). */
+  --fs-xs: max(.78rem, 12px);    /* captions, table meta, log rows, micro labels, badges */
   --fs-sm: max(.85rem, 13px);    /* secondary text, dense lists */
   --fs-base: max(.95rem, 15px);  /* body, chat, inputs */
   --fs-md: max(1.05rem, 16px);   /* emphasized values, stat numbers */

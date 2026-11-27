@@ -41,7 +41,7 @@
 @media (pointer: fine) {
   .cg-tb-help, .ts-row-btn, .pw-cardchip-btn,
   .stack-card-movemenu .more-menu-btn, .stack-column-header .kb-reveal .more-menu-btn { position: relative; }
-  .cg-tb-help::after { content: ""; position: absolute; inset: -6px; }
+  .cg-tb-help::after { content: ""; position: absolute; inset: -4px; }
   .ts-row-btn::after, .stack-card-movemenu .more-menu-btn::after,
   .stack-column-header .kb-reveal .more-menu-btn::after { content: ""; position: absolute; inset: -3px; }
   .pw-cardchip-btn::after { content: ""; position: absolute; inset: -1px; }

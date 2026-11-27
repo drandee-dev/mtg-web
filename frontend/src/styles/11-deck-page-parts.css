@@ -39,7 +39,7 @@
   border-radius: 5px; padding: 2px; gap: 1px;
 }
 .ai-panel-toggle button {
-  font-size: var(--fs-2xs); font-weight: 500; padding: .2rem .5rem;
+  font-size: var(--fs-xs); font-weight: 500; padding: .2rem .5rem;
   border: none; border-radius: 4px; cursor: pointer; min-height: auto;
   background: transparent; color: var(--muted);
   transition: background .15s, color .15s;
@@ -135,7 +135,7 @@
 .considering-group .group-header { cursor: default; }
 .considering-star { color: var(--warn); font-size: var(--fs-sm); }
 .considering-note {
-  font-size: var(--fs-2xs); font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+  font-size: var(--fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
   color: var(--muted); background: var(--panel-2); border-radius: 3px; padding: 1px 5px;
 }
 .mdfc-hint { color: var(--accent-2); font-size: var(--fs-xs); white-space: nowrap; }
@@ -177,7 +177,7 @@
   font-size: var(--fs-xs); font-weight: 700; color: var(--muted);
 }
 .cdm-print-set {
-  font-size: var(--fs-2xs); font-weight: 600; color: var(--muted); text-align: center;
+  font-size: var(--fs-xs); font-weight: 600; color: var(--muted); text-align: center;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .cdm-print.on .cdm-print-set { color: var(--accent); }

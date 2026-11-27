@@ -159,7 +159,7 @@ export default function Playtest({ decklist, commander, stage, onClose }) {
       {/* Card zones */}
       {zones.map((zone) => (
         <div key={zone.key} style={{ marginTop: ".8rem" }}>
-          <h3 style={{ fontSize: ".9rem" }}>{zone.label} ({zone.cards.length})</h3>
+          <h3 style={{ fontSize: "var(--fs-sm)" }}>{zone.label} ({zone.cards.length})</h3>
           <div style={{ display: "flex", flexWrap: "wrap", gap: ".3rem" }}>
             {zone.cards.length === 0 && <span className="muted small">Empty</span>}
             {zone.cards.map((card) => (

@@ -33,7 +33,7 @@
 .insp-deep-badge {
   flex: none; padding: .1rem .4rem; border-radius: 999px;
   background: var(--accent-soft); color: var(--accent);
-  font-size: var(--fs-2xs); letter-spacing: .08em; text-transform: uppercase;
+  font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase;
 }
 
 /* ===== New deck screen (/new) =====
@@ -148,10 +148,10 @@ a.btn-link:hover { filter: brightness(1.12); text-decoration: none; }
 .gen-progress { flex: 1 1 16rem; display: flex; flex-direction: column; gap: .3rem; }
 .gen-progress-row { display: flex; justify-content: space-between; align-items: baseline; gap: .6rem; }
 .gen-step {
-  font-size: var(--fs-2xs); letter-spacing: .12em; text-transform: uppercase;
+  font-size: var(--fs-xs); letter-spacing: .12em; text-transform: uppercase;
   color: var(--muted); min-width: 0; overflow-wrap: anywhere;
 }
-.gen-pct { font-size: var(--fs-2xs); letter-spacing: .12em; color: var(--muted); font-variant-numeric: tabular-nums; }
+.gen-pct { font-size: var(--fs-xs); letter-spacing: .12em; color: var(--muted); font-variant-numeric: tabular-nums; }
 .gen-track { height: 3px; border-radius: 2px; background: var(--hover-strong); overflow: hidden; }
 .gen-fill { height: 3px; border-radius: 2px; background: var(--accent-fill); transition: width .25s ease; }
 .gen-h2 {
@@ -198,7 +198,7 @@ a.btn-link:hover { filter: brightness(1.12); text-decoration: none; }
 .cdm-answer-q { font-weight: 700; color: var(--text); margin-bottom: .15rem; }
 .cdm-citations { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .4rem; }
 .cdm-citation {
-  font-size: var(--fs-2xs); font-weight: 600; padding: 1px 6px; border-radius: 999px;
+  font-size: var(--fs-xs); font-weight: 600; padding: 1px 6px; border-radius: 999px;
   border: 1px solid var(--border-strong); color: var(--text-secondary); cursor: help;
 }
 

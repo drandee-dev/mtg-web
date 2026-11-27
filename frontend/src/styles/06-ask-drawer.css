@@ -49,13 +49,13 @@
 /* A/A text size: larger chat type for readability */
 .pw-textlg .pw-assistant .pw-text, .pw-textlg .pw-user .pw-text { font-size: var(--fs-base); }
 .pw-asize { display: inline-flex; align-items: baseline; gap: 1px; }
-.pw-asize span { font-size: var(--fs-2xs); line-height: 1; }
+.pw-asize span { font-size: var(--fs-xs); line-height: 1; }
 .pw-asize .pw-asize-big { font-size: var(--fs-xs); }
 .pw-asize.active { color: var(--accent); border-color: var(--accent); }
 /* Topic divider dropped by each quick action */
 .pw-divider {
   display: flex; align-items: center; gap: .5rem; margin: .7rem 0 .5rem;
-  color: var(--muted); font-size: var(--fs-2xs); font-weight: 700;
+  color: var(--muted); font-size: var(--fs-xs); font-weight: 700;
   text-transform: uppercase; letter-spacing: .06em;
 }
 .pw-divider::before, .pw-divider::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
@@ -66,7 +66,7 @@
   margin-bottom: .5rem; box-shadow: var(--shadow-md);
 }
 .pw-sessionlog summary {
-  font-size: var(--fs-2xs); font-weight: 700; color: var(--muted);
+  font-size: var(--fs-xs); font-weight: 700; color: var(--muted);
   padding: .35rem .55rem; cursor: pointer; list-style-position: inside;
 }
 .pw-sessionlog-body { padding: 0 .55rem .45rem; max-height: 140px; overflow-y: auto; }
@@ -76,7 +76,7 @@
 }
 .pw-sessionlog-desc { min-width: 0; overflow-wrap: anywhere; }
 .pw-sessionlog-src {
-  font-size: var(--fs-2xs); color: var(--muted); border: 1px solid var(--border);
+  font-size: var(--fs-xs); color: var(--muted); border: 1px solid var(--border);
   border-radius: 3px; padding: 0 4px; margin-left: auto; flex: none;
 }
 /* Quick-action prompt chips */
@@ -149,7 +149,7 @@
 .pw-label { font-size: var(--fs-xs); color: var(--muted); margin-bottom: .15rem; }
 /* Fallback-model badge (shown only when Haiku answered instead of Sonnet) */
 .pw-model-badge {
-  font-size: var(--fs-2xs); font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
   border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; margin-left: .35rem;
   color: var(--muted); vertical-align: 1px;
 }

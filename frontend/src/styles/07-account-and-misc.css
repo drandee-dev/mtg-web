@@ -53,7 +53,7 @@
   padding: 16px 18px 14px; border-bottom: 1px solid var(--border);
 }
 .account-avatar-active { background: var(--accent-fill); color: #14100a; }
-.account-synced-dot { font-size: var(--fs-2xs); color: var(--good); }
+.account-synced-dot { font-size: var(--fs-xs); color: var(--good); }
 .account-brand-name { font-size: 14px; font-weight: 700; color: var(--text); }
 .account-close {
   margin-left: auto; background: none; border: none; cursor: pointer;
@@ -202,7 +202,7 @@
 .mydecks-filter-group { display: flex; flex-direction: column; gap: 3px; }
 .mydecks-filter-group.mydecks-filter-search { flex: 1; min-width: 150px; }
 .mydecks-filter-label {
-  font-size: var(--fs-2xs); font-weight: 600; color: var(--muted);
+  font-size: var(--fs-xs); font-weight: 600; color: var(--muted);
   text-transform: uppercase; letter-spacing: .06em;
 }
 .mydecks-filter-inputwrap {

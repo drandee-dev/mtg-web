@@ -39,7 +39,7 @@ function RoleBadges({ roles }) {
     <span style={{ marginLeft: ".3rem" }}>
       {roles.map((r) => (
         <span key={r} className="badge" style={{
-          fontSize: ".65rem", padding: "0 .3rem", marginLeft: ".15rem",
+          fontSize: "var(--fs-xs)", padding: "0 .3rem", marginLeft: ".15rem",
           background: (ROLE_COLORS[r] || "#9aa3b2") + "22",
           color: ROLE_COLORS[r] || "#9aa3b2",
           border: `1px solid ${ROLE_COLORS[r] || "#9aa3b2"}44`,
@@ -298,7 +298,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
         <div style={{ display: "flex", flexWrap: "wrap", gap: ".25rem", margin: ".4rem 0" }}>
           {Object.entries(roleCounts).sort((a, b) => b[1] - a[1]).map(([role, count]) => (
             <span key={role} className="badge" style={{
-              fontSize: ".65rem", padding: "0 .3rem",
+              fontSize: "var(--fs-xs)", padding: "0 .3rem",
               background: (ROLE_COLORS[role] || "#9aa3b2") + "22",
               color: ROLE_COLORS[role] || "#9aa3b2",
               border: `1px solid ${ROLE_COLORS[role] || "#9aa3b2"}44`,
@@ -312,7 +312,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
         <div key={type} style={{ marginBottom: ".5rem" }}>
           <strong className="small">{type}</strong> <span className="muted small">({names.length})</span>
           {names.map((n) => (
-            <div key={n} className="spread" style={{ padding: ".2rem 0", fontSize: ".85rem" }}>
+            <div key={n} className="spread" style={{ padding: ".2rem 0", fontSize: "var(--fs-sm)" }}>
               <span>
                 <CardPreview name={n} />
                 <RoleBadges roles={picked[n]?.roles} />
