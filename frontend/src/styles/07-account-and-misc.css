@@ -28,7 +28,7 @@
 }
 .account-email-input {
   width: 100%; padding: 7px 10px; font-size: var(--fs-sm);
-  background: var(--bg-raised); border: 1px solid var(--border);
+  background: var(--bg-raised); border: 1px solid var(--field-edge);
   border-radius: 6px; color: inherit; box-sizing: border-box;
   margin-bottom: 8px;
 }

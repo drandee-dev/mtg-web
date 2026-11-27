@@ -63,8 +63,10 @@ export function useEscapeKey(active, onEscape) {
   }, [active, onEscape]);
 }
 
-const FOCUSABLE =
-  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+// What Tab can reach. An element taken out of the Tab order with tabindex="-1" (the
+// closed tabs of a tab strip, audit job 6.4b) is not one of them, whatever its tag.
+const FOCUSABLE = ["a[href]", "button:not([disabled])", "textarea:not([disabled])", "input:not([disabled])", "select:not([disabled])", "[tabindex]"]
+  .map((sel) => `${sel}:not([tabindex="-1"])`).join(", ");
 
 // Modal focus management: when `active`, moves focus into the returned ref's
 // element, traps Tab/Shift+Tab within it, and restores focus to the previously

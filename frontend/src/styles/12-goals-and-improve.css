@@ -55,7 +55,7 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .dg-chip.dg-suggest { border-style: dashed; font-weight: 500; }
 .dg-custom {
   width: 64px; min-height: 30px; padding: .18rem .45rem; font-size: var(--fs-xs);
-  background: var(--bg-raised); border: 1px solid var(--border); border-radius: 999px;
+  background: var(--bg-raised); border: 1px solid var(--field-edge); border-radius: 999px;
 }
 .dg-protect { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .35rem; position: relative; }
 .dg-prot { gap: .3rem; padding-right: .3rem; }

@@ -25,6 +25,7 @@ import {
 } from "../../lib/decklistEdit";
 import { fmtUsd } from "../../lib/format";
 import { recCategoryOrFirst } from "../../lib/changeset";
+import { onTabListKeyDown, tabStop } from "../../lib/tabKeys";
 import NavLink from "../layout/NavLink";
 import AskButton from "../layout/AskButton";
 
@@ -901,7 +902,8 @@ export default function DeckView({
       <div>
         {/* One strip: the tabs, then in Cards its toolbar (job 3.3). */}
         <div className="deck-strip">
-          <div className="deck-sections" id="deck-sections" role="tablist" aria-label="Deck sections">
+          <div className="deck-sections" id="deck-sections" role="tablist" aria-label="Deck sections"
+            onKeyDown={onTabListKeyDown}>
             {SECTIONS.map(([id, label]) => (
               <button
                 key={id}
@@ -910,6 +912,7 @@ export default function DeckView({
                 id={`deck-tab-${id}`}
                 aria-controls={`deck-panel-${id}`}
                 aria-selected={section === id}
+                tabIndex={tabStop(section === id)}
                 aria-describedby={id === "improve" && changeCount > 0 ? "improve-count-note" : undefined}
                 className="deck-section-tab"
                 // Opening Improve loads its Changes: free EDHREC suggestions,

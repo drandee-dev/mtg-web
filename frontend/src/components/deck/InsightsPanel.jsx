@@ -6,6 +6,7 @@ import LoadingIndicator from "../LoadingIndicator";
 import DrawProbability from "./DrawProbability";
 import ChangeCard, { ChangeCardPlaceholder } from "./ChangeCard";
 import { REC_CATEGORIES } from "../../lib/changeset";
+import { onTabListKeyDown, tabStop } from "../../lib/tabKeys";
 import { ManaIcon } from "./ManaCost";
 import { useInfoTip } from "../InfoTip";
 
@@ -83,7 +84,7 @@ export default function InsightsPanel({
 
   return (
     <div className="sidebar-section insp">
-      {tabs.length > 1 && <div className="insp-tabs" role="tablist" aria-label="Deck stats">
+      {tabs.length > 1 && <div className="insp-tabs" role="tablist" aria-label="Deck stats" onKeyDown={onTabListKeyDown}>
         {tabs.map((t) => {
           const isActive = active === t.id;
           const isBusy = busy === t.id;
@@ -92,6 +93,7 @@ export default function InsightsPanel({
               key={t.id}
               role="tab"
               aria-selected={isActive}
+              tabIndex={tabStop(isActive)}
               aria-controls={paneId}
               className={`insp-tab${isActive ? " active" : ""}`}
               onClick={() => select(t.id)}

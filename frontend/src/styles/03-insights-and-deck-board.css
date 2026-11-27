@@ -257,13 +257,13 @@
 .ct-add { width: 250px; }
 .card-toolbar .card-typeahead.compact .cta-input-wrap input {
   width: 100%; min-height: 44px; padding: 0 1.8rem 0 14px; font-size: 15px;
-  background: var(--panel); border: 1px solid var(--border-strong); border-radius: var(--radius-md);
+  background: var(--panel); border: 1px solid var(--field-edge); border-radius: var(--radius-md);
 }
 .ct-add .deck-input-results { min-width: 380px; margin-top: 4px; border-radius: var(--radius); }
 .ct-filter {
   position: relative; display: flex; align-items: center; gap: 4px; width: 180px;
   padding-right: 8px; background: var(--bg-raised);
-  border: 1px solid var(--border); border-radius: var(--radius-md);
+  border: 1px solid var(--field-edge); border-radius: var(--radius-md);
 }
 .ct-filter .cg-tb-filter-input { min-height: 42px; padding: 0 12px; font-size: 15px; }
 .ct-filter .cg-tb-filter-clear { border-left: none; padding: 0 4px; }

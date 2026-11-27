@@ -48,7 +48,7 @@
   --panel: #16181f;
   --panel-2: #1c1f28;
   --border: rgba(255,255,255,.08);
-  --border-strong: rgba(255,255,255,.14);
+  --border-strong: rgba(255,255,255,.14); --field-edge: rgba(255,255,255,.4);
   --text: #ededf0;
   --text-secondary: #b0b4be;
   --muted: #868b95;   /* 4.8:1 on --panel-2, the lightest dark surface */
@@ -98,7 +98,7 @@
   --panel: #ffffff;
   --panel-2: #eeeef2;
   --border: rgba(0,0,0,.09);
-  --border-strong: rgba(0,0,0,.16);
+  --border-strong: rgba(0,0,0,.16); --field-edge: rgba(0,0,0,.48);
   --text: #1a1a1e;
   --text-secondary: #4a4a52;
   --muted: #64646e;   /* 4.8:1 on --panel-2 (the old #72727c was 4.1) */
@@ -124,7 +124,7 @@
     --panel: #ffffff;
     --panel-2: #eeeef2;
     --border: rgba(0,0,0,.09);
-    --border-strong: rgba(0,0,0,.16);
+    --border-strong: rgba(0,0,0,.16); --field-edge: rgba(0,0,0,.48);
     --text: #1a1a1e;
     --text-secondary: #4a4a52;
     --muted: #64646e;
@@ -223,7 +223,10 @@ input, textarea, select {
   width: 100%;
   background: var(--bg-raised);
   color: var(--text);
-  border: 1px solid var(--border);
+  /* --field-edge, not --border: a field's edge is how you find the field, and
+     --border measured 1.24 to 1 against the panel. 3 to 1 is the least for a
+     control's edge (WCAG 1.4.11; measured by e2e/a11y-keyboard.spec.js). */
+  border: 1px solid var(--field-edge);
   border-radius: var(--radius);
   padding: .55rem .75rem;
   min-height: 40px;
@@ -281,7 +284,7 @@ label { display: block; font-size: var(--fs-xs); color: var(--muted); margin: .6
    The menus that hang off them take the same values. */
 .global-toolbar, .bottom-nav, .mobile-deck-nav, .deck-head {
   --text: #ededf0; --text-secondary: #b0b4be; --muted: #868b95;
-  --border: rgba(255,255,255,.08); --border-strong: rgba(255,255,255,.14);
+  --border: rgba(255,255,255,.08); --border-strong: rgba(255,255,255,.14); --field-edge: rgba(255,255,255,.4);
   --panel: #16181f; --panel-2: #1c1f28;
   --hover: rgba(255,255,255,.05); --accent-soft: rgba(201,138,58,.12);
   --accent: #c98a3a; --accent-2: #7cacf8; --good: #3dce8a; --warn: #e5b84c; --bad: #ef5350; --danger: #ef5350;

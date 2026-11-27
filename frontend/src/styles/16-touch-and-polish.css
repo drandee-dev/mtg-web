@@ -33,6 +33,23 @@
   .cg-tb-help { width: 44px; height: 44px; font-size: var(--fs-md); }
 }
 
+/* On a mouse a few controls are drawn smaller than 24px, the least WCAG 2.5.8 asks for.
+   They keep their drawn size and get an invisible extender to 24px or a little over, as
+   the info button has had. An extender is laid out from the padding box, so a control
+   with a 1px border needs one pixel more. Coarse pointers have the rules above
+   (audit job 6.4b). */
+@media (pointer: fine) {
+  .cg-tb-help, .ts-row-btn, .pw-cardchip-btn,
+  .stack-card-movemenu .more-menu-btn, .stack-column-header .kb-reveal .more-menu-btn { position: relative; }
+  .cg-tb-help::after { content: ""; position: absolute; inset: -6px; }
+  .ts-row-btn::after, .stack-card-movemenu .more-menu-btn::after,
+  .stack-column-header .kb-reveal .more-menu-btn::after { content: ""; position: absolute; inset: -3px; }
+  .pw-cardchip-btn::after { content: ""; position: absolute; inset: -1px; }
+  /* A text row's buttons sat 2px apart, so two 3px extenders overlapped and the
+     neighbour took the tap between them. At 6px they meet and do not overlap. */
+  .ts-row-actions { gap: 6px; }
+}
+
 /* I7: every :hover rule is built into a (hover: hover) and (pointer: fine) block (the
    hover-only plugin in vite.config.js). Two controls rest at opacity 0 and are shown by
    a hover, so without one they show always. */
