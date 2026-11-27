@@ -41,8 +41,8 @@ export default function DeckGoals({
   const set = (patch) => setGoals({ ...goals, ...patch });
   // Enter, or leaving the field: a phone's number pad has no Enter (audit job 6.4).
   const commitCustomBudget = () => {
-    if (!customBudget) return;
-    set({ budgetCeiling: parseInt(customBudget, 10) });
+    const dollars = parseInt(customBudget, 10);
+    if (dollars > 0) set({ budgetCeiling: dollars }); // "" and "0" are not a budget
     setCustomBudget("");
   };
   // What the closed card shows (`Improve`): bracket and budget always, the
@@ -152,7 +152,9 @@ export default function DeckGoals({
                 value={customBudget}
                 onChange={(e) => setCustomBudget(e.target.value.replace(/[^\d]/g, ""))}
                 onKeyDown={(e) => { if (e.key === "Enter") commitCustomBudget(); }}
-                onBlur={commitCustomBudget}
+                // Leaving for one of the preset chips means the chip decides: saving
+                // the typed value first made a matching chip toggle the budget off.
+                onBlur={(e) => (e.relatedTarget?.closest?.(".dg-chip") ? setCustomBudget("") : commitCustomBudget())}
                 aria-label="Custom budget ceiling in dollars"
               />
             </div>

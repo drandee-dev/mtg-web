@@ -86,7 +86,21 @@ test("a custom budget saves when the field is left, with no Enter key", async ({
   await page.locator(".dg-head").click();
   await page.getByLabel("Custom budget ceiling in dollars").fill("75");
   await page.locator(".dg-head").click(); // Done: the field loses focus
-  await expect(page.locator(".dg-line", { hasText: "Budget" })).toContainText("Up to $75");
+  const line = page.locator(".dg-line", { hasText: "Budget" });
+  await expect(line).toContainText("Up to $75");
+
+  // Leaving the field for a preset lets the preset decide, even one equal to what was typed.
+  await page.locator(".dg-head").click();
+  const custom = page.getByLabel("Custom budget ceiling in dollars");
+  const fifty = page.locator('.dg-opts[aria-label="Budget ceiling"]').getByRole("button", { name: "$50", exact: true });
+  await custom.fill("50");
+  await fifty.click();
+  await expect(fifty).toHaveAttribute("aria-pressed", "true");
+  await expect(custom).toHaveValue("");
+  // Zero is not a budget.
+  await custom.fill("0");
+  await page.locator(".dg-head").click();
+  await expect(line).toContainText("Up to $50");
 });
 
 test("the Cards and Commanders search fields have names", async ({ page }) => {
@@ -107,7 +121,8 @@ test("Load file takes keyboard focus", async ({ page }) => {
   await dismissColdStart(page);
   await openNewDeck(page);
   await page.locator(".nd-door", { hasText: "Build from my collection" }).click();
-  const file = page.getByLabel("Load a collection file");
+  // Named by the words on screen, so "click Load file" works for voice control.
+  const file = page.getByLabel("Load file…");
   await file.focus();
   await expect(file).toBeFocused(); // a display:none input cannot be
 });

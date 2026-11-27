@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useEscapeKey, useFocusTrap } from "../lib/hooks";
 import ThemeSwitcher from "./ThemeSwitcher";
@@ -31,7 +31,10 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
   // It used to be a toast that left after 3.5 s. `field` is "email", "password"
   // or "form" (the server's answer, which is about both).
   const [error, setError] = useState(null);
-  const fail = (field, text) => setError({ field, text });
+  // If the panel was closed while the request was out, there is no form left to
+  // show it beside: it goes to the toast, as every problem used to.
+  const gone = useRef(false);
+  const fail = (field, text) => (gone.current ? notify(text) : setError({ field, text }));
   const errorLine = error && <p id="account-error" className="account-error" role="alert">{error.text}</p>;
   const tied = (field) => (error && (error.field === field || error.field === "form")
     ? { "aria-invalid": true, "aria-describedby": "account-error" } : {});
@@ -43,6 +46,7 @@ export default function AccountDropdown({ session, supabaseEnabled, deckCount = 
   // nothing to give focus back to. Hand it to the menu's own button, the next
   // logical place, instead of dropping it to the top of the page.
   useEffect(() => () => {
+    gone.current = true;
     requestAnimationFrame(() => {
       if (document.activeElement !== document.body) return;
       [...document.querySelectorAll('[aria-label="Account menu"]')].find((b) => b.offsetParent !== null)?.focus();

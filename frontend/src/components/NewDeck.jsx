@@ -871,7 +871,7 @@ function NewDeckSteps({ onCreate, notify, seed }) {
             <div className="row" style={{ gap: ".6rem", alignItems: "center", flexWrap: "wrap" }}>
               {/* Hidden from sight, not from the keyboard: display none took it out of the Tab order. */}
               <label className="file-pick" style={{ margin: 0, cursor: "pointer" }}>
-                <input type="file" accept=".csv,.txt" onChange={onCollectionFile} className="visually-hidden" aria-label="Load a collection file" />
+                <input type="file" accept=".csv,.txt" onChange={onCollectionFile} className="visually-hidden" />
                 <span className="badge" style={{ cursor: "pointer" }}>Load file…</span>
               </label>
               {collectionStats && (
