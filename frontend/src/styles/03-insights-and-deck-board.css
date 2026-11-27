@@ -231,10 +231,10 @@
 /* Sort dropdown */
 .sort-select {
   width: auto; min-height: 30px; padding: .25rem .5rem; font-size: var(--fs-xs);
-  background: var(--bg-raised); color: var(--text); border: 1px solid var(--border);
+  background: var(--bg-raised); color: var(--text); border: 1px solid var(--field-edge);
   border-radius: 7px; font-family: inherit; cursor: pointer;
 }
-.sort-select:hover { border-color: var(--border-strong); }
+.sort-select:hover { border-color: var(--text-secondary); }
 
 /* The deck's strip (job 3.3, decision 7): the tabs, then in Cards its
    toolbar on the same line. Filter and the Stacks/Grid/List switch fold into
@@ -257,13 +257,13 @@
 .ct-add { width: 250px; }
 .card-toolbar .card-typeahead.compact .cta-input-wrap input {
   width: 100%; min-height: 44px; padding: 0 1.8rem 0 14px; font-size: 15px;
-  background: var(--panel); border: 1px solid var(--border-strong); border-radius: var(--radius-md);
+  background: var(--panel); border: 1px solid var(--field-edge); border-radius: var(--radius-md);
 }
 .ct-add .deck-input-results { min-width: 380px; margin-top: 4px; border-radius: var(--radius); }
 .ct-filter {
   position: relative; display: flex; align-items: center; gap: 4px; width: 180px;
   padding-right: 8px; background: var(--bg-raised);
-  border: 1px solid var(--border); border-radius: var(--radius-md);
+  border: 1px solid var(--field-edge); border-radius: var(--radius-md);
 }
 .ct-filter .cg-tb-filter-input { min-height: 42px; padding: 0 12px; font-size: 15px; }
 .ct-filter .cg-tb-filter-clear { border-left: none; padding: 0 4px; }

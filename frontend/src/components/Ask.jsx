@@ -465,7 +465,10 @@ export default function Ask({
               }}
               placeholder="Ask a question"
               aria-label="Your question"
-              disabled={busy}
+              // Read-only while it waits, not disabled: a disabled field drops the
+              // keyboard's focus, and the next question had to start with a click.
+              // send() itself does nothing while busy.
+              readOnly={busy}
             />
             <button className="primary" onClick={() => send()} disabled={busy || !input.trim()}>
               Send

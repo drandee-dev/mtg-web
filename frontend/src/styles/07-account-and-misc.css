@@ -28,7 +28,7 @@
 }
 .account-email-input {
   width: 100%; padding: 7px 10px; font-size: var(--fs-sm);
-  background: var(--bg-raised); border: 1px solid var(--border);
+  background: var(--bg-raised); border: 1px solid var(--field-edge);
   border-radius: 6px; color: inherit; box-sizing: border-box;
   margin-bottom: 8px;
 }
@@ -207,7 +207,7 @@
 }
 .mydecks-filter-inputwrap {
   display: flex; align-items: center; gap: 6px;
-  background: var(--bg-raised); border: 1px solid var(--border); border-radius: 7px;
+  background: var(--bg-raised); border: 1px solid var(--field-edge); border-radius: 7px;
   padding: 7px 10px; color: var(--muted);
 }
 .mydecks-filter-input {
@@ -216,7 +216,7 @@
 }
 .mydecks-filter-input::placeholder { color: var(--muted); }
 .mydecks-filter-select {
-  background: var(--bg-raised); border: 1px solid var(--border); border-radius: 7px;
+  background: var(--bg-raised); border: 1px solid var(--field-edge); border-radius: 7px;
   padding: 7px 10px; font-size: var(--fs-xs); color: var(--text-secondary);
   font-family: inherit; min-width: 100px; cursor: pointer;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFocusTrap } from "../../lib/hooks";
 import { useBackClose } from "../../lib/backstack";
+import { onTabListKeyDown, tabStop } from "../../lib/tabKeys";
 
 /** Import-cards modal with two tabs: paste a decklist, or import from a
  * Moxfield/Archidekt URL. `open` is falsy or the initial tab ("paste" | "url").
@@ -62,11 +63,11 @@ function ModalInner({ initialTab, onClose, onImportText, onImportUrl }) {
           <h3>Import cards</h3>
           <button className="icm-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
-        <div className="icm-tabs" role="tablist">
-          <button role="tab" aria-selected={tab === "paste"} className={tab === "paste" ? "on" : ""} onClick={() => setTab("paste")}>
+        <div className="icm-tabs" role="tablist" aria-label="Where the cards come from" onKeyDown={onTabListKeyDown}>
+          <button role="tab" aria-selected={tab === "paste"} tabIndex={tabStop(tab === "paste")} className={tab === "paste" ? "on" : ""} onClick={() => setTab("paste")}>
             Paste decklist
           </button>
-          <button role="tab" aria-selected={tab === "url"} className={tab === "url" ? "on" : ""} onClick={() => setTab("url")}>
+          <button role="tab" aria-selected={tab === "url"} tabIndex={tabStop(tab === "url")} className={tab === "url" ? "on" : ""} onClick={() => setTab("url")}>
             From URL
           </button>
         </div>

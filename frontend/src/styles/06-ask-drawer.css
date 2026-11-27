@@ -10,7 +10,9 @@
   --hover: rgba(255,255,255,.05); --hover-strong: rgba(255,255,255,.09);
   --accent: #c98a3a; --accent-2: #7cacf8; --accent-soft: rgba(201,138,58,.12);
   --good: #3dce8a; --warn: #e5b84c; --bad: #ef5350; --danger: #ef5350;
-  --border: rgba(255,255,255,.08); --border-strong: rgba(255,255,255,.14);
+  /* --field-edge is pinned with the rest: the drawer stays dark in the light theme, and
+     the light theme's black edge on this panel measured about 1.1 to 1 (Holiday, 6.4b). */
+  --border: rgba(255,255,255,.08); --border-strong: rgba(255,255,255,.14); --field-edge: rgba(255,255,255,.4);
   color: var(--text);
   border-left: 1px solid var(--border);
   display: flex; flex-direction: column;

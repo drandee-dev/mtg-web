@@ -129,6 +129,9 @@ for (const w of TOUCH_WIDTHS) {
       // does not hide the ones after it.
       const small = [];
       const measure = async (where) => {
+        // A screen is its own chunk since job 5.10: wait for a field, or a slow load
+        // measures an empty page ("no fields were measured", seen at 744, 768 and 820).
+        await expect(page.locator("input:visible, textarea:visible, select:visible").first()).toBeVisible();
         const { total, under } = await page.evaluate(() => {
           const fields = [...document.querySelectorAll("input:not([type=checkbox]):not([type=radio]):not([type=hidden]), textarea, select")]
             .filter((el) => el.getBoundingClientRect().width > 0 && getComputedStyle(el).visibility !== "hidden");

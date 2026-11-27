@@ -16,8 +16,13 @@ export default function LoadingIndicator({ label = "Thinking", active = true }) 
 
   return (
     <div className="loading-indicator">
-      <span className="loading-dot" />
-      <span>{label}… {elapsed > 0 && <span className="muted">{elapsed}s</span>}</span>
+      <span className="loading-dot" aria-hidden="true" />
+      {/* The label is the announcement, said once. The seconds counter changes twice
+          a second, so it stays out of it (audit job 6.4b). */}
+      <span>
+        <span role="status">{label}…</span>{" "}
+        {elapsed > 0 && <span className="muted" aria-hidden="true">{elapsed}s</span>}
+      </span>
     </div>
   );
 }

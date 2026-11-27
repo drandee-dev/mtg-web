@@ -93,7 +93,7 @@
 .nd-ai, .nd-door i.nd-ai { color: var(--text); font-weight: 700; }
 .nd-search {
   display: flex; align-items: center; gap: 10px; height: 48px; margin: 0; padding: 0 16px;
-  border-radius: var(--radius-md); background: var(--bg); border: 1px solid var(--border-strong); color: var(--text-secondary);
+  border-radius: var(--radius-md); background: var(--bg); border: 1px solid var(--field-edge); color: var(--text-secondary);
 }
 .nd-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .nd-search input {
