@@ -37,7 +37,6 @@
     min-height: 44px !important; border-radius: var(--radius-md) !important;
   }
   .mobile-deck-nav .more-menu-btn { min-height: 44px; min-width: 44px; border-radius: var(--radius-md); }
-  .mobile-deck-ask { padding: 0 12px; }
 }
 
 /* ── Stack view (shared) ── */

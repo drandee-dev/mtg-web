@@ -155,6 +155,10 @@ body:has([aria-modal="true"]) .toast {
 .bn-link[aria-current="page"] { color: var(--accent); font-weight: 700; }
 .bn-link:focus-visible { outline-offset: -3px; }
 .bn-new { color: var(--text); }
+/* Ask is a button among links: drop the global button box so it looks and
+   presses like the links beside it (no fill, no scale, dims like a:active). */
+.bn-ask, .bn-ask:hover { background: none; border: 0; border-radius: 0; padding: 0; }
+.bn-ask:active:not(:disabled) { transform: none; opacity: .7; }
 .bn-new-mark {
   /* Taller than the 20px icons beside it; the margin gives the height back so
      all five labels sit on one line. */

@@ -28,9 +28,16 @@ const PLUS = (
   </svg>
 );
 
-// The phone's bar: the places with "New deck" after the first two. `place` is
-// the place the screen belongs to, so Decks stays lit inside a deck.
-export default function BottomNav({ places, place, setTab, onNewDeck, onNew }) {
+const ASK = (
+  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
+    <path d="M2.5 3h11v8h-6l-3 2.5V11h-2z"/>
+  </svg>
+);
+
+// The phone's bar: the places with "New deck" after the first two, then Ask, so
+// New deck is the centre of five (audit job 6.6). Phones have no other Ask.
+// `place` is the place the screen belongs to, so Decks stays lit inside a deck.
+export default function BottomNav({ places, place, setTab, onNewDeck, onNew, onAsk, askOpen }) {
   const link = ([id, label, href]) => (
     <NavLink key={id} href={href} current={place === id} className="bn-link" onNavigate={() => setTab(id)}>
       {ICONS[id]}
@@ -45,6 +52,10 @@ export default function BottomNav({ places, place, setTab, onNewDeck, onNew }) {
         New deck
       </NavLink>
       {places.slice(2).map(link)}
+      <button type="button" className="bn-link bn-ask" onClick={onAsk} aria-expanded={Boolean(askOpen)}>
+        {ASK}
+        Ask
+      </button>
     </nav>
   );
 }
