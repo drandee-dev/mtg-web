@@ -15,8 +15,9 @@ test("at 320px the top bar's account button is on screen on every main page", as
     await expect(avatar, path).toBeVisible();
     const box = await avatar.boundingBox();
     expect(box.x + box.width, `${path}: the account button ends past the screen`).toBeLessThanOrEqual(320);
-    // Ask kept its name for screen readers when its label went.
-    await expect(page.getByRole("button", { name: "Ask", exact: true }).filter({ visible: true })).toBeVisible();
+    // Ask is in the bottom bar here (audit job 6.6), and is the only Ask on screen.
+    await expect(page.getByRole("button", { name: "Ask", exact: true })).toHaveCount(1);
+    await expect(page.locator(".bottom-nav").getByRole("button", { name: "Ask", exact: true })).toBeVisible();
   }
 });
 

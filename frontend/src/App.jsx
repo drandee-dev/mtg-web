@@ -819,8 +819,6 @@ export default function App() {
             serverWarmed={serverWarmed}
             goals={goals}
             setGoals={setGoals}
-            onAsk={toggleAsk}
-            askOpen={askOpen}
           />
           </Suspense>
         )}
@@ -941,7 +939,7 @@ export default function App() {
           )}
         </div>
       )}
-      <BottomNav places={PLACES} place={place} setTab={setTab} onNewDeck={startNew} onNew={atNew} />
+      <BottomNav places={PLACES} place={place} setTab={setTab} onNewDeck={startNew} onNew={atNew} onAsk={toggleAsk} askOpen={askOpen} />
       <Ask
         open={askOpen}
         onClose={closeAsk}

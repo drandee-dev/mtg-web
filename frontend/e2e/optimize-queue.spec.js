@@ -133,10 +133,10 @@ test.describe("Deck sections", () => {
     await expect(page.locator(".insp-tab", { hasText: "Changes" })).toHaveCount(0);
   });
 
-  test("on a phone, Ask opens as a sheet from the deck bar and has no tabs", async ({ page, isMobile }) => {
-    test.skip(!isMobile, "the deck bar's Ask is phone-only");
+  test("on a phone, Ask opens as a sheet from the bottom bar and has no tabs", async ({ page, isMobile }) => {
+    test.skip(!isMobile, "the bottom bar is phone-only");
     await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
-    await page.locator(".mobile-deck-nav").getByRole("button", { name: "Ask", exact: true }).click();
+    await page.locator(".bottom-nav").getByRole("button", { name: "Ask", exact: true }).click();
     await expect(page.getByRole("textbox", { name: "Your question" })).toBeVisible();
     await expect(page.locator(".ask-panel [role='tab']")).toHaveCount(0);
   });

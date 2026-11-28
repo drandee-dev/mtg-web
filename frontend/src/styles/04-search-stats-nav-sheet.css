@@ -155,6 +155,8 @@ body:has([aria-modal="true"]) .toast {
 .bn-link[aria-current="page"] { color: var(--accent); font-weight: 700; }
 .bn-link:focus-visible { outline-offset: -3px; }
 .bn-new { color: var(--text); }
+.bn-ask { background: none; border: 0; padding: 0; font-family: inherit; cursor: pointer; }
+.bn-ask[aria-expanded="true"] { color: var(--accent); font-weight: 700; }
 .bn-new-mark {
   /* Taller than the 20px icons beside it; the margin gives the height back so
      all five labels sit on one line. */

@@ -27,7 +27,6 @@ import { fmtUsd } from "../../lib/format";
 import { recCategoryOrFirst } from "../../lib/changeset";
 import { onTabListKeyDown, tabStop } from "../../lib/tabKeys";
 import NavLink from "../layout/NavLink";
-import AskButton from "../layout/AskButton";
 
 // The deck's sections, as tabs under its header (UX overhaul job 3.1).
 const SECTIONS = [["cards", "Cards"], ["play", "How to play"], ["improve", "Improve"], ["stats", "Stats"]];
@@ -51,7 +50,7 @@ export default function DeckView({
   maybeboard, setMaybeboard,
   deckName, deckId, onSave, unsaved, onDiscard, onClone, onExport, onPlaytest, onGoldfish, onShare, onRenameDeck,
   arrival, onArrivalDone, onBack, notify, serverWarmed,
-  goals, setGoals, onAsk, askOpen,
+  goals, setGoals,
 }) {
   // Which section is showing. Screen state only, not in the address: a deck
   // always opens on Cards (Andres, 2026-10-15).
@@ -789,7 +788,6 @@ export default function DeckView({
       <div className="mobile-deck-nav">
         <button className="mobile-deck-back" onClick={onBack}>&#8249; Decks</button>
         <div className="mobile-deck-actions">
-          {onAsk && <AskButton className="mobile-deck-ask" onClick={onAsk} pressed={askOpen} />}
           {unsavedBadge}
           <button
             className={`primary small mobile-deck-save${saveState === "saved" ? " btn-saved" : ""}`}

@@ -1,4 +1,4 @@
-// The labelled Ask button, in the top bar and in the phone's deck bar. A toggle:
+// The labelled Ask button in the desktop top bar (phones have it in BottomNav). A toggle:
 // expanded while the drawer is open.
 export default function AskButton({ onClick, pressed, className = "" }) {
   return (
