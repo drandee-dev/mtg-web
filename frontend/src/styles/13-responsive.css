@@ -71,6 +71,16 @@
     overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
   }
 }
+/* Below 360 (a small phone, or 400% zoom of a 1280 window) the phone bar's brand,
+   Ask and account button need about 326px: Ask keeps only its icon here too, and
+   its name stays for screen readers (audit job 6.7). */
+@media (max-width: 359px) {
+  .gt-ask { width: 44px; padding: 0; justify-content: center; }
+  .gt-ask .ask-btn-label {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+}
 /* The deck's strip in the same band. Its tabs and toolbar need about 810px of
    strip to share a row, so from 700 to about 860 the toolbar wrapped under the
    tabs. From 700 the toolbar takes what room is left and the add field gives
