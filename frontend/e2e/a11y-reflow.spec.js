@@ -18,6 +18,11 @@ test("at 320px the top bar's account button is on screen on every main page", as
     // Ask is in the bottom bar here (audit job 6.6), and is the only Ask on screen.
     await expect(page.getByRole("button", { name: "Ask", exact: true })).toHaveCount(1);
     await expect(page.locator(".bottom-nav").getByRole("button", { name: "Ask", exact: true })).toBeVisible();
+    // Five items of 64px: every label fits its own cell, the current one in bold too.
+    const spill = await page.locator(".bottom-nav .bn-link").evaluateAll((els) => els
+      .filter((el) => el.scrollWidth > el.clientWidth + 1)
+      .map((el) => `${el.textContent.trim()}: ${el.scrollWidth} in ${el.clientWidth}`));
+    expect(spill, `${path}: a bottom-bar label is wider than its cell`).toEqual([]);
   }
 });
 

@@ -73,6 +73,12 @@
     overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
   }
 }
+/* Below 360 five equal bottom-bar cells are under 72px and "Commanders" needs
+   about 68 (72 in bold): each item is at least its label's width, the rest share
+   what is left (audit job 6.6). */
+@media (max-width: 359px) {
+  .bn-link { min-width: max-content; padding: 0 3px; }
+}
 /* The deck's strip in the same band. Its tabs and toolbar need about 810px of
    strip to share a row, so from 700 to about 860 the toolbar wrapped under the
    tabs. From 700 the toolbar takes what room is left and the add field gives

@@ -8,9 +8,8 @@ import { test, expect } from "./fixtures/test-base.js";
 import { loadSharedDeck, navigateToTab, waitForDeckPage } from "./fixtures/helpers.js";
 import { TEST_DECK_TEXT, TEST_COMMANDER } from "./fixtures/test-data.js";
 
-// The bar's Ask on a desktop, the deck bar's on a phone: one is showing. Only the
-// visible one: right after a reload the phone's deck bar is not up yet, and the
-// hidden top-bar button would otherwise be waited on for the whole timeout (job 5.9).
+// The top bar's Ask on a desktop, the bottom bar's on a phone (job 6.6): one is
+// showing, and the other is display:none, so take only the visible one (job 5.9).
 const askButton = (page) => page.getByRole("button", { name: "Ask", exact: true }).filter({ visible: true });
 
 async function openChat(page) {
@@ -72,9 +71,8 @@ test.describe("Ask drawer", () => {
   });
 
   // Rules questions go to Ask since the Rules page went (audit job 5.5), so it is
-  // offered on every place in the top bar.
-  test("Ask is offered on every place", async ({ page, isMobile }) => {
-    test.skip(isMobile, "the phone's Ask lives in the deck bar");
+  // offered on every place: in the top bar, or the bottom bar on a phone (job 6.6).
+  test("Ask is offered on every place", async ({ page }) => {
     for (const path of ["/commanders", "/cards"]) {
       await page.goto(path);
       await page.waitForSelector("main#main-content");
@@ -110,7 +108,7 @@ test.describe("Ask drawer", () => {
     await expect(page.locator(".pw-cardchip-name").first()).toBeVisible();
 
     await page.reload();
-    await waitForDeckPage(page); // the deck bar (the phone's Ask) arrives with the deck page
+    await waitForDeckPage(page);
     await openChat(page);
     await expect(page.locator(".pw-divider")).toContainText("Find combos");
   });
@@ -199,7 +197,7 @@ test.describe("Ask drawer", () => {
     await expect(page.locator('.pw-cardchip-btn[aria-label="Add Lightning Bolt to deck"]')).toBeVisible();
 
     await page.reload();
-    await waitForDeckPage(page); // the deck bar (the phone's Ask) arrives with the deck page
+    await waitForDeckPage(page);
     await openChat(page);
     const reply = page.locator(".pw-msg.pw-assistant").last();
     await expect(reply.locator(".pw-cardname", { hasText: "Lightning Bolt" })).toBeVisible();
@@ -239,7 +237,7 @@ test.describe("Ask drawer", () => {
     await expect(page.locator(".ask-panel")).toHaveClass(/pw-textlg/);
 
     await page.reload();
-    await waitForDeckPage(page); // the deck bar (the phone's Ask) arrives with the deck page
+    await waitForDeckPage(page);
     await openChat(page);
     await expect(page.locator(".ask-panel")).toHaveClass(/pw-textlg/);
   });
