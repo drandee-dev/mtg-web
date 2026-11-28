@@ -156,6 +156,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
   if (phase === "setup") {
     return (
       <div className="panel">
+        {/* An h2: the wizard sits under the New deck step screen's h1 (Holiday, 6.5b). */}
         <h2>✨ Deck wizard</h2>
         <p className="muted small">Pick your commander and we'll build a deck skeleton from EDHREC data and format staples, one category at a time.</p>
 

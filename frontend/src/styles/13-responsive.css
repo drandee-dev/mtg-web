@@ -50,7 +50,6 @@
 
 /* Responsive: general desktop (700px+) */
 @media (min-width: 700px) {
-  h1 { font-size: 1.5rem; }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .wizard-split { display: grid; grid-template-columns: 1fr 320px; gap: .8rem; align-items: start; }
   .wizard-left, .wizard-right { display: block !important; }

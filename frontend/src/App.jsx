@@ -770,7 +770,7 @@ export default function App() {
           <div className="panel">
             {deckMissing ? (
               <>
-                <h2>Deck not found</h2>
+                <h1>Deck not found</h1>
                 <p className="muted small">
                   This deck isn&apos;t in {cloud ? "your account" : "this browser"}. It may have been
                   deleted, or saved in another browser or account.
@@ -779,7 +779,7 @@ export default function App() {
               </>
             ) : (
               <>
-                <h2>Couldn&apos;t load your decks</h2>
+                <h1>Couldn&apos;t load your decks</h1>
                 <p className="muted small" role="alert">
                   The deck list didn&apos;t load, so this deck can&apos;t be opened yet.
                 </p>
@@ -828,7 +828,7 @@ export default function App() {
           <div className="panel">
             {shared === "failed" ? (
               <>
-                <h2>This shared deck isn&apos;t saved yet</h2>
+                <h1>This shared deck isn&apos;t saved yet</h1>
                 <p className="muted small">
                   A shared deck is saved to {cloud ? "your account" : "this browser"} before it opens, and
                   that save didn&apos;t go through.

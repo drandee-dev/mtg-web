@@ -1103,7 +1103,8 @@ function GenHeader({ steps, stepIdx, pct, onBack }) {
       {onBack && <button className="ghost small" onClick={onBack}>← Back</button>}
       <div className="gen-progress">
         <div className="gen-progress-row">
-          <span className="gen-step">Step {stepIdx + 1} of {steps.length} — {steps[stepIdx]}</span>
+          {/* The step screens' h1: "Start a new deck" is gone once a door is picked. */}
+          <h1 className="gen-step">Step {stepIdx + 1} of {steps.length} — {steps[stepIdx]}</h1>
           <span className="gen-pct">{pct}%</span>
         </div>
         <div className="gen-track"><div className="gen-fill" style={{ width: `${Math.max(pct, 2)}%` }} /></div>

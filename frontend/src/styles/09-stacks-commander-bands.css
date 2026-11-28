@@ -10,7 +10,6 @@
   .deck-head .dh-rename { display: none; }
   .deck-head { border-radius: 12px; }
   .deck-head-body { min-height: 92px; padding: 14px 16px; }
-  .deck-title { font-size: 22px; }
   .deck-head-facts { gap: 2px 14px; font-size: 14px; }
   /* Deck view owns the top bar on mobile: the fixed GlobalToolbar is hidden
      (BottomNav still handles tab switching) and .mobile-deck-nav takes its

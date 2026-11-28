@@ -21,7 +21,7 @@
   background: var(--bg-raised); border-radius: var(--radius); opacity: 0;
 }
 /* The header is about 24px tall; the menu button's usual 36px would spill onto the first card. */
-.stack-column-header .kb-reveal .more-menu-btn { min-height: 22px; height: 22px; min-width: 28px; padding: 0 .4rem; font-size: 1rem; }
+.stack-column-header .kb-reveal .more-menu-btn { min-height: 22px; height: 22px; min-width: 28px; padding: 0 .4rem; font-size: var(--fs-base); }
 .stack-column-header:hover .kb-reveal, .stack-column-header:focus-within .kb-reveal { opacity: 1; }
 /* The menu is opaque and covers the header's right end, where the price is: "$28.00" read as "$2".
    While it shows, the price steps aside (opacity keeps its room). Fixed columns have no menu. */
@@ -118,7 +118,8 @@
   font-size: var(--fs-xs); color: var(--muted); cursor: pointer; vertical-align: middle;
   opacity: 0; transition: opacity .12s, color .12s;
 }
-.deck-title:hover .dh-rename, .dh-rename:focus-visible { opacity: 1; }
+/* The pencil sits beside the h1, not in it, so the title's name is the deck's name. */
+.deck-head-title:hover .dh-rename, .dh-rename:focus-visible { opacity: 1; }
 .dh-rename:hover { color: var(--accent); background: none; border: none; }
 .dh-title-input {
   font-size: 22px; font-weight: 700; letter-spacing: -.02em; color: var(--text);

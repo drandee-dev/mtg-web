@@ -52,7 +52,7 @@ export const newDeckDoor = (page, name) => page.locator(".nd-door", { hasText: n
 // header or on one of the panels that stand in for it ("Deck not found", a shared
 // deck that didn't save, a deck list that didn't load).
 export async function waitForDeckPage(page) {
-  await page.locator(".dh-format, main .panel > h2").first().waitFor({ timeout: 15000 });
+  await page.locator(".dh-format, main .panel > h1, main .panel > h2").first().waitFor({ timeout: 15000 });
 }
 
 export async function pasteNewDeck(page, text) {

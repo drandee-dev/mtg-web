@@ -34,7 +34,7 @@ export default function CardSearch({ addCard, notify, deckName, deckHref, onBack
   return (
     <div>
       <div className="panel">
-        <h2>Card search</h2>
+        <h1>Card search</h1>
         {/* Which deck Add goes to, and the way back to it. */}
         {deckName && (
           <p className="cards-deck small">

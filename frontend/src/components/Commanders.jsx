@@ -182,7 +182,7 @@ function CommanderDetail({ entry, onBack, onBuild }) {
             />
           ) : !data && <div className="ph commander-detail-art" aria-hidden="true" />}
           <div>
-            <h2 style={{ marginBottom: ".2rem" }}>{entry.name}</h2>
+            <h1 style={{ marginBottom: ".2rem" }}>{entry.name}</h1>
             <div className="row" style={{ marginBottom: ".4rem" }}>
               <ManaCost cost={data?.mana_cost} />
               <span className="muted small">{data?.type_line}</span>
@@ -340,7 +340,7 @@ export default function Commanders({ slug, setSlug, onBuild, notify }) {
   return (
     <div>
       <div className="panel">
-        <h2>Commanders</h2>
+        <h1>Commanders</h1>
         <p className="muted small">Every commander-eligible card, ordered by EDHREC rank.</p>
         <input
           value={query}

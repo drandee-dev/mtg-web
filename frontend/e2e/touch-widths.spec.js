@@ -115,7 +115,7 @@ for (const w of [390, 768]) {
       const direct = page.locator('.dh-actions button:has-text("Playtest")');
       if (await direct.isVisible()) await direct.click();
       else await deckMenuAction(page, "Playtest");
-      await page.locator('h2:has-text("Playtest")').waitFor();
+      await page.locator('h1:has-text("Playtest")').waitFor();
       await expectHitAreas(page, [".pt-life"]);
     });
   });

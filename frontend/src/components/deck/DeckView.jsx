@@ -814,13 +814,18 @@ export default function DeckView({
               <NavLink href="/" onNavigate={onBack} className="deck-head-crumb">Decks</NavLink>
               <span className="deck-head-sep" aria-hidden="true">/</span>
               {titleEdit == null ? (
-                <h1 className="deck-title" onDoubleClick={locked ? undefined : () => setTitleEdit(deckName || "Untitled deck")}>
-                  {deckName || "Untitled deck"}
+                // The h1 holds the name alone, so the page's title reads as the deck's
+                // name; it is inline in one wrapper with the pencil, so the pencil still
+                // follows the last line of a long name.
+                <span className="deck-title-row">
+                  <h1 className="deck-title" onDoubleClick={locked ? undefined : () => setTitleEdit(deckName || "Untitled deck")}>
+                    {deckName || "Untitled deck"}
+                  </h1>
                   {!locked && onRenameDeck && (
                     <button className="dh-rename" aria-label="Rename deck" title="Rename deck"
                       onClick={() => setTitleEdit(deckName || "Untitled deck")}>✎</button>
                   )}
-                </h1>
+                </span>
               ) : (
                 <input
                   className="dh-title-input"

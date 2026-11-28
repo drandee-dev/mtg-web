@@ -49,6 +49,32 @@ test("arrow keys move along the deck's tabs without opening them, and Enter open
   await expect(tool("Analytics")).toHaveAttribute("aria-selected", "true");
 });
 
+// The deck's h1 is its name alone (the rename pencil sat inside it: "Atraxa…✎"), and
+// on a long name the pencil still follows the title's last line (audit job 6.5).
+test("the deck title is the deck's name, and its pencil follows a long name", async ({ page, isMobile }) => {
+  test.skip(isMobile, "the pencil is hidden on phones; rename is in the bar's menu");
+  await page.setViewportSize({ width: 760, height: 900 }); // still the desktop header, narrow enough to wrap
+  await loadSharedDeck(page, TEST_DECK_TEXT, TEST_COMMANDER);
+  const title = page.getByRole("heading", { level: 1 });
+  await expect(title).toHaveAccessibleName(TEST_COMMANDER);
+  await page.locator(".deck-head-title").hover();
+  await page.getByRole("button", { name: "Rename deck" }).click();
+  const field = page.locator(".dh-title-input");
+  await field.fill("A very long deck name that has to wrap onto a second line in the header");
+  await field.press("Enter");
+  await expect(title).toHaveAccessibleName(/^A very long deck name/);
+  await page.locator(".deck-head-title").hover();
+  const { lines, pencilTop, lastLineTop, lastLineBottom } = await page.evaluate(() => {
+    const rects = [...document.querySelector(".deck-title").getClientRects()];
+    const last = rects[rects.length - 1];
+    const p = document.querySelector(".dh-rename").getBoundingClientRect();
+    return { lines: rects.length, pencilTop: p.top, lastLineTop: last.top, lastLineBottom: last.bottom };
+  });
+  expect(lines, "the long name wraps").toBeGreaterThan(1);
+  expect(pencilTop, "the pencil sits on the title's last line").toBeGreaterThanOrEqual(lastLineTop - 4);
+  expect(pencilTop, "the pencil sits on the title's last line").toBeLessThan(lastLineBottom);
+});
+
 test("the Ask field keeps focus while an answer is on its way", async ({ page, isMobile }) => {
   test.skip(isMobile, "keyboard");
   let release;
