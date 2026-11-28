@@ -152,8 +152,9 @@
 .deck-head-crumb { color: var(--text-secondary); font-weight: 500; font-size: 15px; }
 .deck-head-crumb:hover { color: var(--text); }
 .deck-head-sep { color: #8b909a; }
+.deck-title-row { min-width: 0; }
 .deck-title {
-  margin: 0; min-width: 0; overflow-wrap: anywhere;
+  display: inline; margin: 0; min-width: 0; overflow-wrap: anywhere;
   font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
   font-weight: 600; font-size: var(--fs-2xl); line-height: 1.1;
 }

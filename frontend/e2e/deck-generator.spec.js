@@ -234,7 +234,9 @@ test.describe("Building a deck from the New deck screen", () => {
     await openNew(page);
     await door(page, "Guide me step by step").click();
     await expect(page.locator(".gen-step")).toContainText("Step 2 of 3");
-    await expect(page.getByRole("heading", { level: 1, name: /Deck wizard/ })).toBeVisible();
+    // One h1, the step label; the wizard's title is a heading under it (Holiday, 6.5b).
+    await expect(page.getByRole("heading", { level: 2, name: /Deck wizard/ })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
 
     await page.getByPlaceholder("Start typing… e.g. nethroi").fill("atraxa");
     await page.locator(".ac-item", { hasText: "Atraxa" }).click();
