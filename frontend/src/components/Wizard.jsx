@@ -156,7 +156,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
   if (phase === "setup") {
     return (
       <div className="panel">
-        <h2>✨ Deck wizard</h2>
+        <h1 className="wiz-title">✨ Deck wizard</h1>
         <p className="muted small">Pick your commander and we'll build a deck skeleton from EDHREC data and format staples, one category at a time.</p>
 
         <div className="row" style={{ flexWrap: "wrap", marginBottom: ".6rem" }}>
@@ -193,7 +193,7 @@ export default function Wizard({ onFinish, notify, initialCommander }) {
     return (
       <div>
         <div className="panel">
-          <h2>Review: {skeleton?.commander?.name}</h2>
+          <h1 className="wiz-title">Review: {skeleton?.commander?.name}</h1>
           <p className="muted small">
             {pickedCount + cmdCount} cards (including {cmdCount > 1 ? "commanders" : "commander"}).
             {remaining > 0 && ` Need ${remaining} more for 100. You can add more in the deck after creating it.`}

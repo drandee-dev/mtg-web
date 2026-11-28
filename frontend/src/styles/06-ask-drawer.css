@@ -25,7 +25,7 @@
   display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
   padding: 20px 14px 14px 20px;
 }
-.ask-title { margin: 0; font-family: "Clash Display", "Satoshi", system-ui, sans-serif; font-weight: 600; font-size: 20px; }
+.ask-title { margin: 0; font-family: "Clash Display", "Satoshi", system-ui, sans-serif; font-weight: 600; font-size: var(--fs-lg); }
 .ask-sub { margin-top: 2px; font-size: var(--fs-sm); color: var(--text-secondary); overflow-wrap: anywhere; }
 .ask-header-act { display: flex; align-items: center; gap: .3rem; flex: none; }
 .ask-close { width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center; border: 0; }

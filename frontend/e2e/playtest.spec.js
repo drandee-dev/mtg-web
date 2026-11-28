@@ -8,13 +8,13 @@ async function openPlaytest(page) {
   const directBtn = page.locator('.dh-actions button:has-text("Playtest")');
   if (await directBtn.isVisible()) await directBtn.click();
   else await deckMenuAction(page, "Playtest");
-  await page.locator('h2:has-text("Playtest")').waitFor({ timeout: 8000 });
+  await page.locator('h1:has-text("Playtest")').waitFor({ timeout: 8000 });
 }
 
 test.describe("Playtest", () => {
   test("entering playtest shows the UI with an opening hand", async ({ page }) => {
     await openPlaytest(page);
-    await expect(page.locator('h2:has-text("Playtest")')).toBeVisible();
+    await expect(page.locator('h1:has-text("Playtest")')).toBeVisible();
     await expect(page.locator('h3:has-text("Hand (")')).toBeVisible();
     await expect(page.locator(':text("Opening hand")')).toBeVisible();
   });
@@ -28,7 +28,7 @@ test.describe("Playtest", () => {
   test("close returns to the deck view", async ({ page }) => {
     await openPlaytest(page);
     await page.locator('button:has-text("Close")').click();
-    await expect(page.locator('h2:has-text("Playtest")')).toHaveCount(0);
+    await expect(page.locator('h1:has-text("Playtest")')).toHaveCount(0);
     // The completeness badge lives in the desktop-only header, so assert on the
     // card grid (visible at every breakpoint) to confirm we're back on the deck.
     await expect(page.locator(".card-grid-container")).toBeVisible();

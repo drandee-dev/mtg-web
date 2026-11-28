@@ -59,7 +59,7 @@
 .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .4rem; }
 .stat { background: var(--bg-raised); border: 1px solid var(--border); border-radius: var(--radius); padding: .55rem .65rem; }
 .stat .k { font-size: var(--fs-xs); color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
-.stat .v { font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.stat .v { font-size: var(--fs-md); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
 .stat.stat-danger .v { color: var(--bad); }
 
 /* The top progress line (TopProgress, and the page shell in index.html): 3px across

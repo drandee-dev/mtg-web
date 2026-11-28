@@ -147,6 +147,10 @@ a.btn-link:hover { filter: brightness(1.12); text-decoration: none; }
 .gen-head { display: flex; align-items: center; gap: .8rem; padding: .6rem 0; flex-wrap: wrap; }
 .gen-progress { flex: 1 1 16rem; display: flex; flex-direction: column; gap: .3rem; }
 .gen-progress-row { display: flex; justify-content: space-between; align-items: baseline; gap: .6rem; }
+/* An h1 since job 6.5, drawn as the small step label it was: the h1 rule's font,
+   size, weight and margin are put back. */
+.gen-step, .wiz-title { margin: 0; font-family: inherit; font-weight: 400; line-height: inherit; word-spacing: normal; }
+.wiz-title { margin: 0 0 .5rem; font-family: "Clash Display", "Satoshi", system-ui, sans-serif; font-weight: 600; font-size: var(--fs-lg); }
 .gen-step {
   font-size: var(--fs-xs); letter-spacing: .12em; text-transform: uppercase;
   color: var(--muted); min-width: 0; overflow-wrap: anywhere;

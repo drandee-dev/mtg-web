@@ -14,7 +14,7 @@ async function openPlaytest(page) {
   const directBtn = page.locator('.dh-actions button:has-text("Playtest")');
   if (await directBtn.isVisible()) await directBtn.click();
   else await deckMenuAction(page, "Playtest");
-  await page.locator('h2:has-text("Playtest")').waitFor({ timeout: 8000 });
+  await page.locator('h1:has-text("Playtest")').waitFor({ timeout: 8000 });
 }
 
 test.describe("Playtest address", () => {
@@ -25,7 +25,7 @@ test.describe("Playtest address", () => {
     await expect(page).toHaveURL(PLAYTEST_URL);
 
     await page.goBack();
-    await expect(page.locator('h2:has-text("Playtest")')).toHaveCount(0);
+    await expect(page.locator('h1:has-text("Playtest")')).toHaveCount(0);
     await expect(page).toHaveURL(DECK_URL);
     await expect(page.locator(".deck-head")).toBeVisible();
   });
@@ -36,7 +36,7 @@ test.describe("Playtest address", () => {
     await expect(page).toHaveURL(PLAYTEST_URL);
 
     await page.locator('button:has-text("Close")').click();
-    await expect(page.locator('h2:has-text("Playtest")')).toHaveCount(0);
+    await expect(page.locator('h1:has-text("Playtest")')).toHaveCount(0);
     await expect(page).toHaveURL(DECK_URL);
   });
 
@@ -48,7 +48,7 @@ test.describe("Playtest address", () => {
     await page.reload();
     await waitForAppReady(page);
     await expect(page.locator(".deck-head")).toBeVisible();
-    await expect(page.locator('h2:has-text("Playtest")')).toHaveCount(0);
+    await expect(page.locator('h1:has-text("Playtest")')).toHaveCount(0);
     await expect(page).toHaveURL(DECK_URL);
   });
 
@@ -60,7 +60,7 @@ test.describe("Playtest address", () => {
     // Back from the deck must not land on /playtest (the closed layer's entry).
     await page.goBack();
     await expect(page).not.toHaveURL(PLAYTEST_URL);
-    await expect(page.locator('h2:has-text("Playtest")')).toHaveCount(0);
+    await expect(page.locator('h1:has-text("Playtest")')).toHaveCount(0);
   });
 
   // Opened from a tile on the Decks home, the deck and the layer arrive in one
@@ -76,11 +76,11 @@ test.describe("Playtest address", () => {
 
     await page.getByRole("button", { name: `Actions for ${TEST_DECK_STORAGE.name}` }).click();
     await page.locator(".deck-card-menu-item", { hasText: "Playtest" }).click();
-    await page.locator('h2:has-text("Playtest")').waitFor({ timeout: 8000 });
+    await page.locator('h1:has-text("Playtest")').waitFor({ timeout: 8000 });
     await expect(page).toHaveURL(`/decks/${TEST_DECK_STORAGE.id}/playtest`);
 
     await page.goBack();
-    await expect(page.locator('h2:has-text("Playtest")')).toHaveCount(0);
+    await expect(page.locator('h1:has-text("Playtest")')).toHaveCount(0);
     await expect(page).toHaveURL(`/decks/${TEST_DECK_STORAGE.id}`);
     await page.goBack();
     await expect(page).toHaveURL((u) => u.pathname === "/");

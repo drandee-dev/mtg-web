@@ -28,7 +28,7 @@ test.describe("Activation flows", () => {
     const toast = page.locator(".toast");
     await expect(toast).toContainText("Deck complete", { timeout: 5000 });
     await toast.locator(".toast-action").click();
-    await expect(page.locator("h2")).toContainText("Playtest");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Playtest");
   });
 
   test("save toast carries a one-tap Share link action", async ({ page }) => {

@@ -115,7 +115,7 @@ export default function Playtest({ decklist, commander, stage, onClose }) {
   return (
     <div className="panel">
       <div className="spread">
-        <h2>Playtest{commander ? `: ${commanderDisplay(commander)}` : ""}</h2>
+        <h1>Playtest{commander ? `: ${commanderDisplay(commander)}` : ""}</h1>
         <div className="row" style={{ gap: ".3rem" }}>
           <button className="ghost small" onClick={reset}>New game</button>
           <button className="ghost small" onClick={onClose}>Close</button>

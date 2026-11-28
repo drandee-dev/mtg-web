@@ -79,8 +79,9 @@
   --fs-sm: max(.85rem, 13px);    /* secondary text, dense lists */
   --fs-base: max(.95rem, 15px);  /* body, chat, inputs */
   --fs-md: max(1.05rem, 16px);   /* emphasized values, stat numbers */
-  --fs-lg: 1.25rem;              /* section headings */
-  --fs-xl: 1.6rem;               /* page titles */
+  --fs-lg: max(1.25rem, 18px);   /* section headings (18 at the desktop root, not 17.6) */
+  --fs-xl: 1.6rem;               /* large section titles */
+  --fs-2xl: 30px;                /* a page's title, its h1: 22px on a phone (below) */
   --radius: 8px;
   --radius-md: 10px; /* buttons and fields of the newer pages (44px controls) */
   --radius-lg: 12px;
@@ -185,8 +186,10 @@ h1, h2, h3 {
   font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
   word-spacing: .05em;
 }
-h1 { font-size: 1.3rem; }
-h2 { font-size: 1.1rem; }
+/* One h1 per page, at the page-title size; the deck title is the model (audit job 6.5). */
+h1 { font-size: var(--fs-2xl); }
+h2 { font-size: var(--fs-lg); }
+@media (max-width: 699px) { :root { --fs-2xl: 22px; } }
 h3 { font-size: var(--fs-base); }
 p { margin: .25rem 0; }
 

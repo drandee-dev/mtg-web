@@ -155,7 +155,7 @@
 .deck-title {
   margin: 0; min-width: 0; overflow-wrap: anywhere;
   font-family: "Clash Display", "Satoshi", system-ui, sans-serif;
-  font-weight: 600; font-size: 30px; line-height: 1.1;
+  font-weight: 600; font-size: var(--fs-2xl); line-height: 1.1;
 }
 .deck-head .dh-rename { color: var(--text-secondary); font-size: 15px; }
 .deck-head-facts {
@@ -189,7 +189,7 @@
 /* More (⋯) dropdown menu */
 .more-menu { position: relative; }
 .more-menu-btn {
-  min-height: 36px; min-width: 36px; padding: 0 .5rem; font-size: 1.2rem;
+  min-height: 36px; min-width: 36px; padding: 0 .5rem; font-size: var(--fs-md);
   line-height: 1; background: var(--panel-2);
 }
 .more-menu-list {

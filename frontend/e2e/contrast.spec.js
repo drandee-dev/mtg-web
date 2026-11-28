@@ -92,7 +92,19 @@ function auditPage() {
       });
     }
   }
-  return { failures, tiny, checked, skipped, skippedSel: [...skippedSel] };
+  // Every text size on screen, and the visible h1s (audit job 6.5).
+  const sizes = new Set();
+  for (const el of document.body.querySelectorAll("*")) {
+    if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+    const r = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    if (r.width <= 2 || cs.visibility === "hidden" || cs.display === "none" || el.closest(".visually-hidden")) continue;
+    sizes.add(Math.round(parseFloat(cs.fontSize) * 10) / 10);
+  }
+  const h1s = [...document.querySelectorAll("h1")]
+    .filter((h) => h.getBoundingClientRect().width > 0 && getComputedStyle(h).visibility !== "hidden")
+    .map((h) => h.textContent.trim());
+  return { failures, tiny, sizes: [...sizes], h1s, checked, skipped, skippedSel: [...skippedSel] };
 }
 
 for (const theme of THEMES) {
@@ -106,6 +118,8 @@ for (const theme of THEMES) {
 
         const seen = new Map();
         const small = new Map(); // selector and size -> the screens it was seen on
+        const allSizes = new Set();
+        const notOneH1 = [];
         const skippedAll = [];
         let measured = 0;
         // `ready`: something that only exists once the screen has its content, so a
@@ -115,8 +129,13 @@ for (const theme of THEMES) {
         const audit = async (screen, ready) => {
           if (ready) await ready.first().waitFor({ state: "visible", timeout: 15000 });
           await page.waitForTimeout(350);
-          const { failures, tiny, checked, skippedSel } = await page.evaluate(auditPage);
+          const { failures, tiny, sizes, h1s, checked, skippedSel } = await page.evaluate(auditPage);
           measured += checked;
+          // The last screen is the test's own injected banners, not a page of the app.
+          if (!screen.startsWith("the return and offline banners")) {
+            sizes.forEach((s) => allSizes.add(s));
+            if (h1s.length !== 1) notOneH1.push(`${screen}: ${h1s.length} (${h1s.join(" | ")})`);
+          }
           for (const t of tiny) {
             const key = `${t.sel} "${t.text}" is ${t.px}px`;
             if (!small.has(key)) small.set(key, []);
@@ -178,6 +197,9 @@ for (const theme of THEMES) {
         // No text under 12px anywhere on the walk (audit job 6.5). Soft, so the contrast
         // list below is still reported when this one fails.
         expect.soft([...small].map(([what, screens]) => `${what} in ${screens.join(", ")}`), "text under 12px").toEqual([]);
+        // One h1 on every screen, and a short type scale: at most 12 text sizes in all.
+        expect.soft(notOneH1, "screens without exactly one h1").toEqual([]);
+        expect.soft([...allSizes].sort((a, b) => a - b).length, `text sizes: ${[...allSizes].sort((a, b) => a - b).join(", ")}`).toBeLessThanOrEqual(12);
 
         const rows = [...seen.values()].sort((a, b) => a.ratio - b.ratio);
         if (process.env.CONTRAST_REPORT) {
