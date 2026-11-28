@@ -50,6 +50,16 @@
   .ts-row-actions { gap: 6px; }
 }
 
+/* Forced colours (Windows high contrast) drop backgrounds and box-shadows. Two
+   controls drew their state only with those: the Suggested changes switch (a fill
+   behind the chosen list, and no edges at all) and the deck's open tab (an inset
+   shadow underline). They get system-colour edges here (audit job 6.7). */
+@media (forced-colors: active) {
+  .ai-panel-toggle button { border: 1px solid ButtonText; }
+  .ai-panel-toggle button.active, .ai-panel-toggle button[aria-pressed="true"] { border: 2px solid Highlight; }
+  .deck-section-tab[aria-selected="true"] { border-bottom: 3px solid Highlight; }
+}
+
 /* I7: every :hover rule is built into a (hover: hover) and (pointer: fine) block (the
    hover-only plugin in vite.config.js). Two controls rest at opacity 0 and are shown by
    a hover, so without one they show always. */

@@ -138,7 +138,10 @@ span.dg-chip { cursor: default; display: inline-flex; align-items: center; }
 .insp-sources { flex: 1; min-width: 0; padding: 3px; gap: 2px; border-radius: var(--radius-md); }
 .insp-sources button {
   flex: 1 1 0; min-width: 0; min-height: 36px; padding: 6px 8px;
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 2px 6px;
+  /* At 320px "For this commander" filled the button and its count sat over the
+     label: the count wraps to its own line instead (audit job 6.7). */
+  flex-wrap: wrap;
   font-size: var(--fs-sm); line-height: 1.2; text-align: center; color: var(--text-secondary);
 }
 .insp-source-count {
